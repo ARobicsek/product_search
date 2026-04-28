@@ -22,11 +22,9 @@ Build the PWA shell (Next.js App Router, mobile-first Tailwind) and render the d
 ## Next session — start here
 
 1. Read this file.
-2. Ensure you have the user's explicit approval to push the Phase 7 commits to the remote repository.
-3. Test the on-demand trigger via `gh workflow run search-on-demand --field product=ddr5-rdimm-256gb` and verify it runs successfully.
-4. Read [PHASES.md § Phase 8](PHASES.md#phase-8--web-ui-mvp) (installable PWA shell).
-5. Build the `web/` Next.js frontend, PWA manifest, and basic `/` + `/[product]` routes.
-6. Stop at end of Phase 8.
+2. Read [PHASES.md § Phase 8](PHASES.md#phase-8--web-ui-mvp) (installable PWA shell).
+3. Build the `web/` Next.js frontend, PWA manifest, and basic `/` + `/[product]` routes.
+4. Stop at end of Phase 8.
 
 ## Open questions for the user
 
