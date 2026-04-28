@@ -1,0 +1,86 @@
+name: CI
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+    branches: ["main"]
+
+jobs:
+  # ── Python worker ───────────────────────────────────────────────────────────
+  worker:
+    name: Worker — lint / type-check / test
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: worker
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dev dependencies
+        run: pip install -e ".[dev]"
+
+      - name: Lint (ruff)
+        run: python -m ruff check src/
+
+      - name: Type-check (mypy)
+        run: python -m mypy src/
+
+      - name: Tests (pytest)
+        run: python -m pytest tests/ -v
+
+      # Verify secrets are present (no-op echo — values never printed)
+      - name: Check LLM secrets are set
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GLM_API_KEY: ${{ secrets.GLM_API_KEY }}
+        run: |
+          for secret_name in ANTHROPIC_API_KEY OPENAI_API_KEY GEMINI_API_KEY GLM_API_KEY; do
+            val="${!secret_name}"
+            if [ -z "$val" ]; then
+              echo "::warning::Secret $secret_name is not set in this repository."
+            else
+              echo "✓ $secret_name is set (length=${#val})"
+            fi
+          done
+
+  # ── Next.js web app ─────────────────────────────────────────────────────────
+  web:
+    name: Web — lint / type-check / build
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: web
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint (ESLint)
+        run: npm run lint
+
+      - name: Type-check (tsc)
+        run: npx tsc --noEmit
+
+      - name: Build
+        run: npm run build

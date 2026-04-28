@@ -4,39 +4,42 @@
 
 ## Active phase
 
-**Phase 0 — Bootstrap repo** (in progress)
+**Phase 1 — Profile schema + DDR5 profile**
 
-See the Phase 0 brief in [PHASES.md](PHASES.md#phase-0--bootstrap-repo).
+See the Phase 1 brief in [PHASES.md](PHASES.md#phase-1--profile-schema--ddr5-profile).
 
 ## Current task
 
-Scaffold empty `worker/` and `web/` packages, add CI, set GitHub Actions secrets. Initial planning scaffold has been pushed to GitHub.
+Define Pydantic `Profile` model in `worker/src/product_search/profile.py`, populate `products/ddr5-rdimm-256gb/profile.yaml` and `qvl.yaml`, add `cli validate <slug>` command, write schema tests.
 
 ## Last session
 
-- Confirmed core decisions: Vercel + Next.js, GitHub Actions, eBay Browse API, public repo (implied by GH Actions free tier).
-- Added two new ADRs: ADR-010 (iOS-installable PWA with web push) and ADR-011 (adapter authoring philosophy — clarifies "deterministic ≠ has API").
-- Inserted Phase 11 (iOS push notifications); renumbered the prior Phase 11 to Phase 12.
-- Phase 8 expanded to include PWA shell (manifest + service worker + Add to Home Screen).
-- `.env.example` updated with VAPID keys and Vercel KV refs.
-- Pushed planning scaffold to https://github.com/ARobicsek/product_search.
+- Created `worker/` skeleton: `pyproject.toml` (Python 3.12), `src/product_search/__init__.py`, `cli.py`, `tests/__init__.py`, `tests/test_smoke.py`.
+- Created `web/` skeleton: Next.js 15 App Router, Tailwind, ESLint, TypeScript (via `create-next-app`).
+- Created `.github/workflows/ci.yml`: two parallel jobs — `worker` (ruff + mypy + pytest) and `web` (ESLint + tsc + next build).
+- CI secrets presence-check step added (echoes key length, never value).
+- All local checks green: 2 smoke tests pass, ruff + mypy clean, ESLint + tsc clean.
+- Commit is **local only** (see next-session note below).
 
 ## Next session — start here
 
 1. Read this file (you're doing it).
-2. Read [PHASES.md § Phase 0](PHASES.md#phase-0--bootstrap-repo).
-3. Phase 0 remaining tasks:
-   - Create `worker/` skeleton: `pyproject.toml` (Python 3.12, deps placeholder), empty `src/product_search/__init__.py`, `tests/` folder.
-   - Create `web/` skeleton: `package.json`, Next.js App Router boilerplate, Tailwind config.
-   - Create `.github/workflows/ci.yml` with lint + type-check + test placeholders.
-   - Set GitHub Actions repository secrets (the user will set these): `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `GEMINI_API_KEY`, `GLM_API_KEY`, `EBAY_CLIENT_ID`, `EBAY_CLIENT_SECRET`. (eBay creds can wait until Phase 2; the four LLM keys exist in `.env` already and need to be copied to GH secrets.)
-4. Stop at the end of Phase 0; do not start Phase 1 in the same session.
+2. Read [PHASES.md § Phase 1](PHASES.md#phase-1--profile-schema--ddr5-profile).
+3. **Before coding**, confirm that the Phase 0 commit has been pushed and CI is green on GitHub. If not, push first: `git push origin main`.
+4. Phase 1 tasks (in order):
+   - Define `Profile` Pydantic model in `worker/src/product_search/profile.py` from the schema in `products/_template/profile.yaml`.
+   - Populate `products/ddr5-rdimm-256gb/profile.yaml` and `products/ddr5-rdimm-256gb/qvl.yaml`.
+   - Add `cli validate <slug>` sub-command that runs the Pydantic model against the YAML file.
+   - CI: add a step that runs `product-search validate ddr5-rdimm-256gb` on every commit touching `products/`.
+   - Tests: schema accepts the DDR5 profile, rejects at least three malformed examples (missing field, unknown source ID, invalid cron).
+5. Stop at end of Phase 1; do not start Phase 2.
 
 ## Open questions for the user
 
 - The eBay Browse API requires registering an application at https://developer.ebay.com/. Phase 2 needs this; user can register at any point before Phase 2 starts. (Free tier is plenty.)
 - Push notification "materiality" thresholds default to: any new cheapest path, ≥5% price drop, any new listing. User can override these in `products/<slug>/profile.yaml` under a future `alerts:` block.
 - For Phase 11, generating VAPID keys: `npx web-push generate-vapid-keys` (one-time, store in Vercel env vars).
+- **GH Actions secrets** — the four LLM keys exist in `.env`; copy them to repo secrets before the next CI run: `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `GEMINI_API_KEY`, `GLM_API_KEY`.
 
 ## Blockers
 
@@ -49,6 +52,7 @@ None.
 
 ## Recently completed
 
+- 2026-04-28: Phase 0 complete. `worker/` skeleton, `web/` Next.js scaffold, `.github/workflows/ci.yml` created. All local checks green (2 smoke tests, ruff, mypy, ESLint, tsc). Commit local — push + CI verification pending.
 - 2026-04-28: Initial planning scaffold written. PLAN.md, all docs/, .gitignore, .env.example, README.md, CLAUDE.md, product profile template, DDR5 profile + QVL.
 - 2026-04-28: Decisions confirmed (ADRs 003, 004, 005 → ACCEPTED). Added ADRs 010 (iOS PWA + web push) and 011 (adapter authoring philosophy). Phase plan updated.
 - 2026-04-28: Pushed planning scaffold to GitHub.
