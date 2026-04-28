@@ -84,6 +84,9 @@ def main() -> None:
         parser.print_help()
         sys.exit(0)
 
+    if hasattr(args, "slug") and isinstance(args.slug, str):
+        args.slug = args.slug.strip()
+
     if args.command == "validate":
         _cmd_validate(args.slug)
 
