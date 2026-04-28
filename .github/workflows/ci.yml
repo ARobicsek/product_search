@@ -7,6 +7,31 @@ on:
     branches: ["main"]
 
 jobs:
+  # ── Validate product profiles ────────────────────────────────────────────────
+  validate-profiles:
+    name: Worker — validate product profiles
+    runs-on: ubuntu-latest
+    # Run on every push/PR; the validate command is cheap.
+    defaults:
+      run:
+        working-directory: worker
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -e ".[dev]"
+
+      - name: Validate DDR5 profile
+        run: python -m product_search.cli validate ddr5-rdimm-256gb
+
+
   # ── Python worker ───────────────────────────────────────────────────────────
   worker:
     name: Worker — lint / type-check / test
