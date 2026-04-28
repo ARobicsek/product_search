@@ -50,6 +50,11 @@ python_version = "3.12"
 strict = true
 ignore_missing_imports = true
 
+[[tool.mypy.overrides]]
+# google-generativeai has no type stubs; ignore errors in our provider wrapper.
+module = "product_search.llm._gemini"
+warn_unused_ignores = false
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "--tb=short"

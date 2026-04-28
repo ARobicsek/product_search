@@ -1,0 +1,199 @@
+{
+  "_fixture_note": "Synthetic fixture matching eBay Browse API v1 itemSummaries shape. Used when WORKER_USE_FIXTURES=1. Part numbers and prices are representative of real-world DDR5-4800 RDIMM listings as of 2026-04.",
+  "href": "https://api.ebay.com/buy/browse/v1/item_summary/search?q=DDR5+4800+RDIMM+ECC+32GB&limit=3",
+  "total": 1247,
+  "limit": 3,
+  "offset": 0,
+  "itemSummaries": [
+    {
+      "itemId": "v1|123456789|0",
+      "title": "Samsung DDR5 32GB 4800MHz RDIMM ECC M321R4GA0BB0-CQK Server Memory",
+      "itemWebUrl": "https://www.ebay.com/itm/123456789",
+      "condition": "New",
+      "conditionId": "1000",
+      "price": {
+        "value": "119.99",
+        "currency": "USD"
+      },
+      "buyingOptions": ["FIXED_PRICE"],
+      "seller": {
+        "username": "cloudstorageusa",
+        "feedbackScore": 12450,
+        "feedbackPercentage": "99.8"
+      },
+      "shippingOptions": [
+        {
+          "shippingCostType": "FIXED",
+          "shippingCost": {"value": "0.00", "currency": "USD"},
+          "shipToLocationRegion": "WORLDWIDE"
+        }
+      ],
+      "itemLocation": {
+        "country": "US",
+        "postalCode": "90210"
+      },
+      "quantityLimitPerBuyer": null,
+      "estimatedAvailabilities": [
+        {
+          "estimatedAvailabilityStatus": "IN_STOCK",
+          "estimatedAvailableQuantity": 42
+        }
+      ],
+      "mpn": "M321R4GA0BB0-CQK",
+      "brand": "Samsung",
+      "additionalImages": []
+    },
+    {
+      "itemId": "v1|234567890|0",
+      "title": "Micron 32GB DDR5-4800 RDIMM ECC Server RAM MTC20F1045S1RC48BR 2Rx8",
+      "itemWebUrl": "https://www.ebay.com/itm/234567890",
+      "condition": "Used",
+      "conditionId": "3000",
+      "price": {
+        "value": "89.00",
+        "currency": "USD"
+      },
+      "buyingOptions": ["FIXED_PRICE"],
+      "seller": {
+        "username": "memoryking2024",
+        "feedbackScore": 823,
+        "feedbackPercentage": "98.7"
+      },
+      "shippingOptions": [
+        {
+          "shippingCostType": "FIXED",
+          "shippingCost": {"value": "5.99", "currency": "USD"},
+          "shipToLocationRegion": "WORLDWIDE"
+        }
+      ],
+      "itemLocation": {
+        "country": "US",
+        "postalCode": "10001"
+      },
+      "quantityLimitPerBuyer": null,
+      "estimatedAvailabilities": [
+        {
+          "estimatedAvailabilityStatus": "IN_STOCK",
+          "estimatedAvailableQuantity": 8
+        }
+      ],
+      "mpn": "MTC20F1045S1RC48BR",
+      "brand": "Micron",
+      "additionalImages": []
+    },
+    {
+      "itemId": "v1|345678901|0",
+      "title": "8x32GB DDR5 4800 RDIMM ECC Kit 256GB Samsung M321R4GA0BB0-CQK Server",
+      "itemWebUrl": "https://www.ebay.com/itm/345678901",
+      "condition": "New",
+      "conditionId": "1000",
+      "price": {
+        "value": "879.99",
+        "currency": "USD"
+      },
+      "buyingOptions": ["FIXED_PRICE"],
+      "seller": {
+        "username": "nemixram",
+        "feedbackScore": 3102,
+        "feedbackPercentage": "99.9"
+      },
+      "shippingOptions": [
+        {
+          "shippingCostType": "FIXED",
+          "shippingCost": {"value": "0.00", "currency": "USD"},
+          "shipToLocationRegion": "WORLDWIDE"
+        }
+      ],
+      "itemLocation": {
+        "country": "US",
+        "postalCode": "92101"
+      },
+      "quantityLimitPerBuyer": null,
+      "estimatedAvailabilities": [
+        {
+          "estimatedAvailabilityStatus": "IN_STOCK",
+          "estimatedAvailableQuantity": 5
+        }
+      ],
+      "mpn": "M321R4GA0BB0-CQK",
+      "brand": "Samsung",
+      "additionalImages": []
+    },
+    {
+      "itemId": "v1|456789012|0",
+      "title": "SK Hynix 32GB DDR5 4800 RDIMM ECC HMCG88MEBRA Server Memory Module",
+      "itemWebUrl": "https://www.ebay.com/itm/456789012",
+      "condition": "New",
+      "conditionId": "1000",
+      "price": {
+        "value": "109.50",
+        "currency": "USD"
+      },
+      "buyingOptions": ["FIXED_PRICE"],
+      "seller": {
+        "username": "hk_memory_direct",
+        "feedbackScore": 560,
+        "feedbackPercentage": "97.2"
+      },
+      "shippingOptions": [
+        {
+          "shippingCostType": "FIXED",
+          "shippingCost": {"value": "12.00", "currency": "USD"},
+          "shipToLocationRegion": "WORLDWIDE"
+        }
+      ],
+      "itemLocation": {
+        "country": "HK",
+        "postalCode": ""
+      },
+      "quantityLimitPerBuyer": null,
+      "estimatedAvailabilities": [
+        {
+          "estimatedAvailabilityStatus": "IN_STOCK",
+          "estimatedAvailableQuantity": 25
+        }
+      ],
+      "mpn": "HMCG88MEBRA",
+      "brand": "SK Hynix",
+      "additionalImages": []
+    },
+    {
+      "itemId": "v1|567890123|0",
+      "title": "Samsung 64GB DDR5 4800 RDIMM ECC M321R8GA0BB0-CQK 2Rx4 Server RAM",
+      "itemWebUrl": "https://www.ebay.com/itm/567890123",
+      "condition": "New",
+      "conditionId": "1000",
+      "price": {
+        "value": "249.00",
+        "currency": "USD"
+      },
+      "buyingOptions": ["FIXED_PRICE"],
+      "seller": {
+        "username": "cloudstorageusa",
+        "feedbackScore": 12450,
+        "feedbackPercentage": "99.8"
+      },
+      "shippingOptions": [
+        {
+          "shippingCostType": "FIXED",
+          "shippingCost": {"value": "0.00", "currency": "USD"},
+          "shipToLocationRegion": "WORLDWIDE"
+        }
+      ],
+      "itemLocation": {
+        "country": "US",
+        "postalCode": "90210"
+      },
+      "quantityLimitPerBuyer": null,
+      "estimatedAvailabilities": [
+        {
+          "estimatedAvailabilityStatus": "IN_STOCK",
+          "estimatedAvailableQuantity": 17
+        }
+      ],
+      "mpn": "M321R8GA0BB0-CQK",
+      "brand": "Samsung",
+      "additionalImages": []
+    }
+  ]
+}

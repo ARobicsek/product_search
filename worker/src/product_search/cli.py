@@ -2,6 +2,10 @@
 
 Commands are added per-phase. This file is the stable entry point;
 sub-commands live in their respective modules.
+
+Phase 1: validate <slug>
+Phase 2: llm-ping <provider> <model>
+         search <slug>
 """
 
 import argparse
@@ -15,11 +19,42 @@ def main() -> None:
     )
     subparsers = parser.add_subparsers(dest="command", metavar="COMMAND")
 
-    # Phase 1: validate sub-command
+    # Phase 1: validate
     validate_parser = subparsers.add_parser(
         "validate", help="Validate a product profile against the schema"
     )
     validate_parser.add_argument("slug", help="Product slug (e.g. ddr5-rdimm-256gb)")
+
+    # Phase 2: llm-ping
+    ping_parser = subparsers.add_parser(
+        "llm-ping", help="Send a hello-world round-trip to an LLM provider"
+    )
+    ping_parser.add_argument(
+        "provider",
+        choices=["anthropic", "openai", "gemini", "glm"],
+        help="LLM provider name",
+    )
+    ping_parser.add_argument(
+        "model",
+        help='Model identifier (e.g. "claude-haiku-4-5", "gpt-4o-mini")',
+    )
+
+    # Phase 2: search
+    search_parser = subparsers.add_parser(
+        "search",
+        help="Fetch listings for a product slug (stdout JSON)",
+    )
+    search_parser.add_argument("slug", help="Product slug (e.g. ddr5-rdimm-256gb)")
+    search_parser.add_argument(
+        "--no-validate",
+        action="store_true",
+        help="Skip schema validation of the profile before searching",
+    )
+    search_parser.add_argument(
+        "--no-store",
+        action="store_true",
+        help="Do not write results to SQLite (Phase 4 feature; currently a no-op)",
+    )
 
     args = parser.parse_args()
 
@@ -29,6 +64,17 @@ def main() -> None:
 
     if args.command == "validate":
         _cmd_validate(args.slug)
+
+    elif args.command == "llm-ping":
+        _cmd_llm_ping(args.provider, args.model)
+
+    elif args.command == "search":
+        _cmd_search(args.slug, no_validate=args.no_validate)
+
+
+# ---------------------------------------------------------------------------
+# validate
+# ---------------------------------------------------------------------------
 
 
 def _cmd_validate(slug: str) -> None:
@@ -40,7 +86,6 @@ def _cmd_validate(slug: str) -> None:
 
     from product_search.profile import load_profile, load_qvl
 
-    # --- Profile ---
     try:
         profile = load_profile(slug)
     except FileNotFoundError as exc:
@@ -53,7 +98,6 @@ def _cmd_validate(slug: str) -> None:
 
     print(f"[ok] profile.yaml  ({profile.display_name})")
 
-    # --- QVL (optional — warn but don't fail if missing) ---
     try:
         qvl = load_qvl(slug)
         print(f"[ok] qvl.yaml      ({len(qvl.qvl)} entries)")
@@ -65,6 +109,108 @@ def _cmd_validate(slug: str) -> None:
         sys.exit(1)
 
     print(f"\nProfile {slug!r} is valid.")
+    sys.exit(0)
+
+
+# ---------------------------------------------------------------------------
+# llm-ping
+# ---------------------------------------------------------------------------
+
+
+def _cmd_llm_ping(provider: str, model: str) -> None:
+    """Send a hello-world message to the given provider/model.
+
+    Exits 0 on success, 1 on any error.
+    """
+    from product_search.llm import LLMError, Message, call_llm
+
+    print(f"Pinging {provider} / {model} ...")
+    try:
+        resp = call_llm(
+            provider=provider,  # type: ignore[arg-type]
+            model=model,
+            system="You are a terse assistant. Reply in one sentence.",
+            messages=[Message(role="user", content="Say hello and state your model name.")],
+            max_tokens=64,
+        )
+    except (LLMError, ImportError) as exc:
+        print(f"ERROR: {exc}", file=sys.stderr)
+        sys.exit(1)
+
+    print(f"Response: {resp.text.strip()}")
+    if resp.input_tokens is not None:
+        print(f"Tokens:   in={resp.input_tokens}  out={resp.output_tokens}")
+    print("OK")
+    sys.exit(0)
+
+
+# ---------------------------------------------------------------------------
+# search
+# ---------------------------------------------------------------------------
+
+
+def _cmd_search(slug: str, *, no_validate: bool = False) -> None:
+    """Fetch listings for *slug* and print as JSON to stdout.
+
+    Uses WORKER_USE_FIXTURES=1 for fixture-based offline runs.
+    Exits 0 on success, 1 on error.
+    """
+    import json
+    import os
+
+    from product_search.adapters.ebay import EbayAuthError, fetch
+    from product_search.models import AdapterQuery
+    from product_search.profile import load_profile
+
+    # --- Load profile ---------------------------------------------------------
+    if not no_validate:
+        from pydantic import ValidationError
+
+        try:
+            profile = load_profile(slug)
+        except FileNotFoundError as exc:
+            print(f"ERROR: {exc}", file=sys.stderr)
+            sys.exit(1)
+        except ValidationError as exc:
+            print(f"INVALID profile for {slug!r}:", file=sys.stderr)
+            print(exc, file=sys.stderr)
+            sys.exit(1)
+    else:
+        profile = load_profile(slug)
+
+    use_fixtures = os.environ.get("WORKER_USE_FIXTURES", "").strip() in ("1", "true", "yes")
+    mode = "fixture" if use_fixtures else "live"
+    print(f"Searching {slug!r} via eBay [{mode} mode] ...", file=sys.stderr)
+
+    # --- Run adapters ---------------------------------------------------------
+    all_listings = []
+    for source in profile.sources:
+        # Phase 2 implements only ebay_search; others are stubs.
+        if source.id == "ebay_search":
+            query = AdapterQuery.from_profile_source(source.model_dump())
+            try:
+                listings = fetch(query)
+            except EbayAuthError as exc:
+                print(f"ERROR (eBay auth): {exc}", file=sys.stderr)
+                print(
+                    "Tip: set WORKER_USE_FIXTURES=1 to use saved fixtures "
+                    "while waiting for eBay API credentials.",
+                    file=sys.stderr,
+                )
+                sys.exit(1)
+            except Exception as exc:
+                print(f"ERROR (eBay fetch): {exc}", file=sys.stderr)
+                sys.exit(1)
+            all_listings.extend(listings)
+
+    print(
+        f"Fetched {len(all_listings)} listing(s). "
+        "(Validators and storage land in Phase 3/4.)",
+        file=sys.stderr,
+    )
+
+    # --- Output ---------------------------------------------------------------
+    print(json.dumps([lst.to_dict() for lst in all_listings], indent=2))
     sys.exit(0)
 
 
