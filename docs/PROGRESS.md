@@ -4,45 +4,35 @@
 
 ## Active phase
 
-**Phase 2 — Worker skeleton + LLM abstraction + first adapter**
+**Phase 5 — Synthesizer + multi-vendor benchmark**
 
-See the Phase 2 brief in [PHASES.md](PHASES.md#phase-2--worker-skeleton--llm-abstraction--first-adapter).
+See the Phase 5 brief in [PHASES.md](PHASES.md#phase-5--synthesizer--multi-vendor-benchmark).
 
 ## Current task
 
-Build the `Listing` dataclass in `worker/src/product_search/models.py`, add the
-`llm/` abstraction layer with `cli llm-ping <provider> <model>`, and write the
-first eBay Browse API adapter with a saved fixture.
+Build the synthesizer prompt + post-check, run the multi-vendor benchmark across the four cheap-tier LLMs, pick the cheapest passing one, and start writing daily reports to `reports/<slug>/<date>.md`.
 
 ## Last session
 
-- Defined Pydantic `Profile` model in `worker/src/product_search/profile.py`:
-  allow-listed source IDs, filter/flag rules, cron expression validation.
-- Defined `QVL` / `QVLEntry` model and `load_qvl()` helper.
-- Implemented `cli validate <slug>`: loads + validates profile.yaml + qvl.yaml,
-  exits 0 / 1 / 2 appropriately.
-- Added `pydantic>=2.7`, `pyyaml>=6.0` runtime deps; `types-PyYAML>=6.0` dev dep.
-- Wrote `worker/tests/test_profile.py`: 8 tests (2 real-file happy-path, 1
-  minimal fixture, 4 rejection cases, 1 CLI integration).
-- Added `validate-profiles` CI job; runs `validate ddr5-rdimm-256gb` on every push/PR.
-- All local checks green: ruff, mypy (strict), pytest 10/10.
-- Commit is **local only** (see next-session note below).
+- Finished Phase 4 (Storage + diff vs yesterday).
+- Added `worker/src/product_search/storage/` package: `db.py` (SQLite, composite PK on `(url, fetched_at)`), `csv_dump.py` (daily CSV mirror at `worker/data/<slug>/<date>.csv`), `diff.py` (pure-Python diff with default 5% `unit_price_usd` threshold).
+- Wired `cli search` to insert the validated listings into SQLite and write the daily CSV (skipped when `--no-store`).
+- Added `cli diff <slug>` — computes new / dropped / price-changed between the two most recent snapshot dates in the local SQLite store.
+- Test suite up to 41 passing (added 13 in `test_storage.py`); ruff and strict mypy green.
+- Folded in two leftover Phase 3 cleanups that hadn't been committed: `Listing.title` is now populated by the eBay adapter, and PROGRESS.md was already retargeted to Phase 4.
 
 ## Next session — start here
 
-1. Read this file (you're doing it).
-2. Read [PHASES.md § Phase 2](PHASES.md#phase-2--worker-skeleton--llm-abstraction--first-adapter).
-3. **Before coding**, confirm the Phase 1 commit has been pushed and CI is green
-   on GitHub. If not, push first: `git push origin main`.
-4. Phase 2 tasks (in order):
-   - `worker/src/product_search/models.py` — `Listing` dataclass per ARCHITECTURE.md.
-   - `worker/src/product_search/llm/__init__.py` + per-provider modules. Add
-     `cli llm-ping <provider> <model>` (a hello-world round-trip).
-   - `worker/src/product_search/adapters/ebay.py` — eBay Browse API adapter.
-     Save raw response to `worker/tests/fixtures/ebay/<descriptive>.json`.
-   - `cli search ddr5-rdimm-256gb --no-validate --no-store` prints Listing rows
-     as JSON to stdout.
-5. Stop at end of Phase 2; do not start Phase 3.
+1. Read this file.
+2. Read [PHASES.md § Phase 5](PHASES.md#phase-5--synthesizer--multi-vendor-benchmark).
+3. Phase 5 tasks (in order):
+   - Write `worker/src/product_search/synthesizer/prompts/synth_v1.txt` — prompt from [ARCHITECTURE.md](ARCHITECTURE.md).
+   - Implement `synthesizer/synthesizer.py`: render prompt with today's listings + diff + profile hints, call the configured LLM, post-check rejects any number/URL/MPN not in the input.
+   - Build `worker/benchmark/`: ≥10 fixture listing-set JSONs, test bar checks per [LLM_STRATEGY.md](LLM_STRATEGY.md), pricing table, runner.
+   - Run benchmark across all four providers' cheap-tier models. Record the choice in [DECISIONS.md](DECISIONS.md) with cost data.
+   - Wire chosen model via `LLM_SYNTH_PROVIDER` / `LLM_SYNTH_MODEL` env vars.
+   - `cli search <slug>` writes `reports/<slug>/<date>.md` after the diff step.
+4. Stop at end of Phase 5.
 
 ## Open questions for the user
 
@@ -66,9 +56,17 @@ None.
   credentials. Add to env when adopted.
 - The local `.env` file contains real LLM keys. It's gitignored. If those keys have been
   shared anywhere outside this machine, rotate them.
+- Phase 4 used `unit_price_usd` for the 5% diff threshold. `total_for_target_usd` (the
+  "cheapest path to target" cost) is arguably more user-meaningful but is `None` for any
+  listing whose capacity doesn't match a profile configuration. If/when we want target-cost
+  diffs, add a second threshold or fall back gracefully when `total_for_target_usd is None`.
 
 ## Recently completed
 
+- 2026-04-28: Phase 4 complete. SQLite store, CSV dump, pure-Python diff engine, `cli diff`
+  command, 13 new tests (41 passing total). Local commit; push pending.
+- 2026-04-28: Phase 3 complete. Validator pipeline (filters, flags, QVL, total-for-target).
+- 2026-04-28: Phase 2 complete. Listing model, LLM abstraction, eBay adapter (fixture mode).
 - 2026-04-28: Phase 1 complete. Pydantic Profile model, validate CLI, 10 tests (ruff + mypy
   + pytest all green). Commit local — push + CI verification pending.
 - 2026-04-28: Phase 0 complete. `worker/` skeleton, `web/` Next.js scaffold,

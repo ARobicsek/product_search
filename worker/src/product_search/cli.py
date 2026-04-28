@@ -6,6 +6,7 @@ sub-commands live in their respective modules.
 Phase 1: validate <slug>
 Phase 2: llm-ping <provider> <model>
          search <slug>
+Phase 4: diff <slug>
 """
 
 import argparse
@@ -53,8 +54,16 @@ def main() -> None:
     search_parser.add_argument(
         "--no-store",
         action="store_true",
-        help="Do not write results to SQLite (Phase 4 feature; currently a no-op)",
+        help="Do not write results to SQLite or to the daily CSV dump",
     )
+
+    # Phase 4: diff
+    diff_parser = subparsers.add_parser(
+        "diff",
+        help="Show new / dropped / price-changed listings between the two most "
+             "recent daily snapshots",
+    )
+    diff_parser.add_argument("slug", help="Product slug (e.g. ddr5-rdimm-256gb)")
 
     args = parser.parse_args()
 
@@ -69,7 +78,10 @@ def main() -> None:
         _cmd_llm_ping(args.provider, args.model)
 
     elif args.command == "search":
-        _cmd_search(args.slug, no_validate=args.no_validate)
+        _cmd_search(args.slug, no_validate=args.no_validate, no_store=args.no_store)
+
+    elif args.command == "diff":
+        _cmd_diff(args.slug)
 
 
 # ---------------------------------------------------------------------------
@@ -149,7 +161,7 @@ def _cmd_llm_ping(provider: str, model: str) -> None:
 # ---------------------------------------------------------------------------
 
 
-def _cmd_search(slug: str, *, no_validate: bool = False) -> None:
+def _cmd_search(slug: str, *, no_validate: bool = False, no_store: bool = False) -> None:
     """Fetch listings for *slug* and print as JSON to stdout.
 
     Uses WORKER_USE_FIXTURES=1 for fixture-based offline runs.
@@ -157,6 +169,7 @@ def _cmd_search(slug: str, *, no_validate: bool = False) -> None:
     """
     import json
     import os
+    from datetime import UTC, datetime
 
     from product_search.adapters.ebay import EbayAuthError, fetch
     from product_search.models import AdapterQuery
@@ -215,8 +228,92 @@ def _cmd_search(slug: str, *, no_validate: bool = False) -> None:
         file=sys.stderr,
     )
 
+    # --- Persist (Phase 4) ----------------------------------------------------
+    if not no_store and passed_listings:
+        from product_search.storage.csv_dump import default_csv_path, write_snapshot_csv
+        from product_search.storage.db import connect, insert_listings
+
+        conn = connect(slug)
+        try:
+            inserted = insert_listings(conn, passed_listings)
+        finally:
+            conn.close()
+
+        snapshot_date = datetime.now(tz=UTC).date()
+        csv_path = default_csv_path(slug, snapshot_date)
+        write_snapshot_csv(csv_path, passed_listings)
+
+        print(
+            f"Stored {inserted} row(s) to SQLite; CSV: {csv_path}",
+            file=sys.stderr,
+        )
+
     # --- Output ---------------------------------------------------------------
     print(json.dumps([lst.to_dict() for lst in passed_listings], indent=2))
+    sys.exit(0)
+
+
+# ---------------------------------------------------------------------------
+# diff
+# ---------------------------------------------------------------------------
+
+
+def _cmd_diff(slug: str) -> None:
+    """Print the diff between the two most recent daily snapshots in SQLite.
+
+    Exits 0 in all non-error cases (including "not enough history yet").
+    """
+    from product_search.storage.db import (
+        connect,
+        query_snapshot_for_date,
+        snapshot_dates,
+    )
+    from product_search.storage.diff import diff_snapshots
+
+    conn = connect(slug)
+    try:
+        dates = snapshot_dates(conn)
+        if len(dates) < 2:
+            print(
+                f"Not enough history for {slug!r}: found {len(dates)} snapshot date(s); "
+                "need at least 2.",
+                file=sys.stderr,
+            )
+            sys.exit(0)
+
+        # snapshot_dates returns descending; the most recent is index 0.
+        current_date, previous_date = dates[0], dates[1]
+        current = query_snapshot_for_date(conn, current_date)
+        previous = query_snapshot_for_date(conn, previous_date)
+    finally:
+        conn.close()
+
+    result = diff_snapshots(previous, current)
+
+    print(f"Diff for {slug!r}: {previous_date} -> {current_date}")
+    print(f"  new:     {len(result.new)}")
+    print(f"  dropped: {len(result.dropped)}")
+    print(f"  changed: {len(result.changed)} (>=5% unit_price_usd move)")
+
+    if result.new:
+        print("\nNEW:")
+        for lst in result.new:
+            print(f"  + ${lst.unit_price_usd:>9.2f}  {lst.title[:80]}  {lst.url}")
+
+    if result.dropped:
+        print("\nDROPPED:")
+        for lst in result.dropped:
+            print(f"  - ${lst.unit_price_usd:>9.2f}  {lst.title[:80]}  {lst.url}")
+
+    if result.changed:
+        print("\nPRICE-CHANGED:")
+        for ch in result.changed:
+            arrow = "UP  " if ch.pct_change > 0 else "DOWN"
+            print(
+                f"  {arrow} ${ch.old_price_usd:>9.2f} -> ${ch.new_price_usd:>9.2f} "
+                f"({ch.pct_change * 100:+.1f}%)  {ch.title[:60]}  {ch.url}"
+            )
+
     sys.exit(0)
 
 

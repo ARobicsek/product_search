@@ -199,6 +199,7 @@ def _item_to_listing(item: dict[str, Any]) -> Listing:
     return Listing(
         source="ebay_search",
         url=url,
+        title=title,
         fetched_at=datetime.now(tz=UTC),
         brand=brand,
         mpn=mpn,
