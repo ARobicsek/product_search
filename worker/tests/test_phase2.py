@@ -247,6 +247,7 @@ def test_cli_search_fixture_mode_exits_zero() -> None:
             "search",
             "ddr5-rdimm-256gb",
             "--no-store",
+            "--no-report",
         ],
         capture_output=True,
         text=True,

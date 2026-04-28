@@ -1,0 +1,82 @@
+{
+  "snapshot_date": "2026-04-28",
+  "product": {
+    "slug": "ddr5-rdimm-256gb",
+    "display_name": "DDR5 RDIMM ECC \u2014 256 GB",
+    "target": {
+      "unit": "GB",
+      "amount": 256,
+      "configurations": [
+        {
+          "module_count": 8,
+          "module_capacity_gb": 32
+        },
+        {
+          "module_count": 4,
+          "module_capacity_gb": 64
+        }
+      ]
+    },
+    "synthesis_hints": [
+      "The EPYC 9224 has only 4 active CCDs (24 cores \u00f7 6 cores per CCD). Lower-CCD-count Genoa parts are GMI3-fabric-limited to ~110-150 GB/s of realized bandwidth regardless of channel population. So 8-channel (8x32GB) vs 4-channel (4x64GB) is roughly 10-15% bandwidth difference, not 50%. Surface this tradeoff when 4x64GB is meaningfully cheaper.\n",
+      "Watch for Kingston \"E\" suffix \u2014 that's UDIMM, not RDIMM. HPE / Dell / Cisco \"SmartMemory\" branded modules carry custom SPD firmware and may not POST on the H13SSL-NT.\n"
+    ]
+  },
+  "listings": [
+    {
+      "source": "ebay_search",
+      "url": "https://www.ebay.com/itm/600",
+      "title": "48GB DDR5 RDIMM (off-spec capacity)",
+      "fetched_at": "2026-04-28T12:00:00+00:00",
+      "brand": "Samsung",
+      "mpn": "M321R4GA0BB0-CQK",
+      "attrs": {
+        "capacity_gb": 48,
+        "speed_mts": 4800,
+        "form_factor": "RDIMM",
+        "ecc": true
+      },
+      "condition": "new",
+      "is_kit": false,
+      "kit_module_count": 1,
+      "unit_price_usd": 200.0,
+      "kit_price_usd": null,
+      "quantity_available": 10,
+      "seller_name": "techseller",
+      "seller_rating_pct": 99.5,
+      "seller_feedback_count": 5000,
+      "ship_from_country": "US",
+      "qvl_status": "qvl",
+      "flags": [],
+      "total_for_target_usd": null
+    },
+    {
+      "source": "ebay_search",
+      "url": "https://www.ebay.com/itm/601",
+      "title": "96GB DDR5 RDIMM (off-spec capacity)",
+      "fetched_at": "2026-04-28T12:00:00+00:00",
+      "brand": "Samsung",
+      "mpn": "M321R4GA0BB0-CQK",
+      "attrs": {
+        "capacity_gb": 96,
+        "speed_mts": 4800,
+        "form_factor": "RDIMM",
+        "ecc": true
+      },
+      "condition": "new",
+      "is_kit": false,
+      "kit_module_count": 1,
+      "unit_price_usd": 420.0,
+      "kit_price_usd": null,
+      "quantity_available": 10,
+      "seller_name": "techseller",
+      "seller_rating_pct": 99.5,
+      "seller_feedback_count": 5000,
+      "ship_from_country": "US",
+      "qvl_status": "qvl",
+      "flags": [],
+      "total_for_target_usd": null
+    }
+  ],
+  "diff": null
+}

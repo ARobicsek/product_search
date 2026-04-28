@@ -23,7 +23,7 @@ Conversational LLM "research" reliably fabricates prices, stock counts, and quot
 
 ## Status
 
-Phases 0-4 complete: scaffold, profile schema, eBay adapter (fixture mode), validator pipeline, SQLite + CSV storage, and pure-Python diff. Next up is the LLM synthesizer + multi-vendor benchmark (Phase 5). See [docs/PROGRESS.md](docs/PROGRESS.md) for live status.
+Phases 0-5 complete: scaffold, profile schema, eBay adapter (fixture mode), validator pipeline, SQLite + CSV storage, pure-Python diff, and the LLM synthesizer + multi-vendor benchmark. The Phase 5 benchmark picked **GLM 4.5 Flash** as the synth model (10/10 on the bar at $0/run); see [docs/DECISIONS.md](docs/DECISIONS.md) ADR-012. Next up is Tier-A seller adapters (Phase 6), with a brief design discussion first about source discovery for long-tail products. See [docs/PROGRESS.md](docs/PROGRESS.md) for live status.
 
 ## License
 

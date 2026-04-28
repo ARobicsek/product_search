@@ -1,0 +1,35 @@
+# Per-token prices in USD per 1M tokens. Captured 2026-04-28.
+# Update when re-running the benchmark — vendor pricing pages move.
+#
+# Each entry's key matches "provider:model" exactly as called by call_llm().
+
+models:
+  "anthropic:claude-haiku-4-5-20251001":
+    input_per_million: 1.00
+    output_per_million: 5.00
+    notes: "Anthropic Haiku 4.5 — cheap-tier"
+
+  "openai:gpt-4o-mini":
+    input_per_million: 0.15
+    output_per_million: 0.60
+    notes: "OpenAI cheap-tier; replace with current cheapest if pricing changes"
+
+  "gemini:gemini-2.0-flash":
+    input_per_million: 0.10
+    output_per_million: 0.40
+    notes: "Google cheap-tier flash"
+
+  "glm:glm-4.5-flash":
+    input_per_million: 0.00
+    output_per_million: 0.00
+    notes: "GLM 4.5 Flash advertised as free; treat as 0 until billing changes"
+
+  "glm:glm-4.6":
+    input_per_million: 0.60
+    output_per_million: 2.20
+    notes: "GLM 4.6 — mid-tier; pricing approximate, verify before next bench"
+
+  "glm:glm-5.1":
+    input_per_million: 0.60
+    output_per_million: 2.20
+    notes: "GLM 5.1 — pricing placeholder; verify on Z.AI before relying"

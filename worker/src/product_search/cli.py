@@ -7,6 +7,7 @@ Phase 1: validate <slug>
 Phase 2: llm-ping <provider> <model>
          search <slug>
 Phase 4: diff <slug>
+Phase 5: search <slug> writes reports/<slug>/<date>.md via the synthesizer
 """
 
 import argparse
@@ -56,6 +57,11 @@ def main() -> None:
         action="store_true",
         help="Do not write results to SQLite or to the daily CSV dump",
     )
+    search_parser.add_argument(
+        "--no-report",
+        action="store_true",
+        help="Do not run the synthesizer or write reports/<slug>/<date>.md",
+    )
 
     # Phase 4: diff
     diff_parser = subparsers.add_parser(
@@ -78,7 +84,12 @@ def main() -> None:
         _cmd_llm_ping(args.provider, args.model)
 
     elif args.command == "search":
-        _cmd_search(args.slug, no_validate=args.no_validate, no_store=args.no_store)
+        _cmd_search(
+            args.slug,
+            no_validate=args.no_validate,
+            no_store=args.no_store,
+            no_report=args.no_report,
+        )
 
     elif args.command == "diff":
         _cmd_diff(args.slug)
@@ -161,7 +172,13 @@ def _cmd_llm_ping(provider: str, model: str) -> None:
 # ---------------------------------------------------------------------------
 
 
-def _cmd_search(slug: str, *, no_validate: bool = False, no_store: bool = False) -> None:
+def _cmd_search(
+    slug: str,
+    *,
+    no_validate: bool = False,
+    no_store: bool = False,
+    no_report: bool = False,
+) -> None:
     """Fetch listings for *slug* and print as JSON to stdout.
 
     Uses WORKER_USE_FIXTURES=1 for fixture-based offline runs.
@@ -229,22 +246,74 @@ def _cmd_search(slug: str, *, no_validate: bool = False, no_store: bool = False)
     )
 
     # --- Persist (Phase 4) ----------------------------------------------------
+    snapshot_date = datetime.now(tz=UTC).date()
+    diff_result = None
     if not no_store and passed_listings:
         from product_search.storage.csv_dump import default_csv_path, write_snapshot_csv
-        from product_search.storage.db import connect, insert_listings
+        from product_search.storage.db import (
+            connect,
+            insert_listings,
+            query_snapshot_for_date,
+            snapshot_dates,
+        )
+        from product_search.storage.diff import diff_snapshots
 
         conn = connect(slug)
         try:
             inserted = insert_listings(conn, passed_listings)
+            # Compute the diff against the previous distinct snapshot date
+            # (if any) so the synthesizer has context.
+            dates = snapshot_dates(conn)
+            today_str = snapshot_date.isoformat()
+            prior_dates = [d for d in dates if d != today_str]
+            if prior_dates:
+                previous = query_snapshot_for_date(conn, prior_dates[0])
+                current = query_snapshot_for_date(conn, today_str)
+                diff_result = diff_snapshots(previous, current)
         finally:
             conn.close()
 
-        snapshot_date = datetime.now(tz=UTC).date()
         csv_path = default_csv_path(slug, snapshot_date)
         write_snapshot_csv(csv_path, passed_listings)
 
         print(
             f"Stored {inserted} row(s) to SQLite; CSV: {csv_path}",
+            file=sys.stderr,
+        )
+
+    # --- Synthesize report (Phase 5) ------------------------------------------
+    if not no_report and passed_listings:
+        from product_search.config import synth_config
+        from product_search.synthesizer import (
+            PostCheckError,
+            default_report_path,
+            synthesize,
+            write_report,
+        )
+
+        cfg = synth_config()
+        print(
+            f"Synthesizing report via {cfg.provider}/{cfg.model} ...",
+            file=sys.stderr,
+        )
+        try:
+            result = synthesize(
+                passed_listings,
+                diff_result,
+                profile,
+                provider=cfg.provider,
+                model=cfg.model,
+                snapshot_date=snapshot_date,
+            )
+        except PostCheckError as exc:
+            print(f"ERROR (synth post-check): {exc}", file=sys.stderr)
+            sys.exit(1)
+
+        report_path = default_report_path(slug, snapshot_date)
+        write_report(report_path, result.report_md)
+        print(
+            f"Wrote report: {report_path}  "
+            f"(in={result.input_tokens}, out={result.output_tokens})",
             file=sys.stderr,
         )
 

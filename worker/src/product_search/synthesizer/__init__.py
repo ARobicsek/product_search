@@ -1,0 +1,31 @@
+"""Synthesizer — turns verified listings + diff into a markdown report.
+
+Public surface::
+
+    from product_search.synthesizer import synthesize, PostCheckError
+
+The post-check enforces ADR-001: the LLM never produces a price, URL,
+MPN, or stock count that wasn't in its input. If it does, the run fails
+loudly rather than committing fabricated data.
+"""
+
+from product_search.synthesizer.report import default_report_path, write_report
+from product_search.synthesizer.synthesizer import (
+    PostCheckError,
+    SynthesisResult,
+    build_input_payload,
+    post_check,
+    render_prompt,
+    synthesize,
+)
+
+__all__ = [
+    "PostCheckError",
+    "SynthesisResult",
+    "build_input_payload",
+    "default_report_path",
+    "post_check",
+    "render_prompt",
+    "synthesize",
+    "write_report",
+]

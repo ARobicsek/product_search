@@ -9,6 +9,31 @@ Status values:
 
 ---
 
+## ADR-012 — Phase 5 synthesizer model: GLM 4.5 Flash
+
+**Status**: ACCEPTED
+
+**Context**: Phase 5 ran the multi-vendor benchmark from [LLM_STRATEGY.md](LLM_STRATEGY.md) across the four configured providers' cheap-tier candidates, plus two Z.AI mid-tier candidates the user wanted to try. Bar: 100% on fabrication and ≥9/10 fixtures pass criteria (2)-(6). Results from `worker/benchmark/results/2026-04-28.md`:
+
+| Provider:Model | Bar | Overall | Fab | Avg cost | p50 latency |
+|---|---|---|---|---|---|
+| `glm:glm-4.5-flash` | **PASS** | 10/10 | 10/10 | $0.00000 | 31.84s |
+| `anthropic:claude-haiku-4-5-20251001` | fail | 8/10 | 9/10 | $0.00469 | 6.73s |
+| `openai:gpt-4o-mini` | fail | 1/10 | 10/10 | $0.00051 | 7.64s |
+| `gemini:gemini-2.0-flash` | fail | 0/10 | 0/10 | n/a | (rate-limited) |
+| `glm:glm-4.6` | fail | 0/10 | 0/10 | n/a | (no Z.AI balance) |
+| `glm:glm-5.1` | fail | 0/10 | 0/10 | n/a | (no Z.AI balance) |
+
+`gpt-4o-mini` was 100% safe on fabrication but inconsistently dropped the "Context" section header — a model behaviour issue, not a check bug (verified by dumping raw output). Haiku 4.5 generated calculated comparisons in commentary that the post-check correctly rejected. Gemini hit 429 on the first call (free-tier exhaustion). Both `glm-4.6` and `glm-5.1` returned "余额不足或无可用资源包" — Z.AI account has free quota only for `glm-4.5-flash`.
+
+**Decision**: Wire `LLM_SYNTH_PROVIDER=glm` and `LLM_SYNTH_MODEL=glm-4.5-flash` as the Phase 5 default. This confirms (rather than refutes) the user's hypothesis recorded in ADR-008 that GLM would win on cost.
+
+**Consequence**: Synthesizer cost is effectively $0 on the free GLM tier. Tradeoff: ~30s p50 latency makes interactive flows feel slow — acceptable for daily scheduled runs but worth re-benchmarking if/when on-demand "Run now" UX needs to feel snappy. Anthropic Haiku 4.5 is a documented fallback for latency-sensitive paths despite its lower fabrication-pass rate (post-check still gates fabricated output).
+
+The benchmark is re-runnable any time via `python -m benchmark.runner`. Re-run when (a) Z.AI balance is topped up so 4.6/5.1 can be evaluated, (b) Gemini billing is set up, (c) the synth prompt changes meaningfully, or (d) GLM 4.5 Flash starts failing on real reports.
+
+---
+
 ## ADR-011 — Adapter authoring philosophy ("deterministic" ≠ "site has an API")
 
 **Status**: ACCEPTED
