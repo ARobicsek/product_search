@@ -60,6 +60,7 @@ class Listing:
     # --- Provenance -----------------------------------------------------------
     source: str              # "ebay_search", "nemixram_storefront", …
     url: str                 # Direct product URL — never a search-results page
+    title: str               # The raw listing title
     fetched_at: datetime
 
     # --- Product --------------------------------------------------------------
@@ -94,6 +95,7 @@ class Listing:
         d: dict[str, Any] = {
             "source": self.source,
             "url": self.url,
+            "title": self.title,
             "fetched_at": self.fetched_at.isoformat(),
             "brand": self.brand,
             "mpn": self.mpn,

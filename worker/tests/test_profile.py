@@ -14,6 +14,7 @@ from __future__ import annotations
 import subprocess
 import sys
 from pathlib import Path
+from typing import Any
 
 import pytest
 from pydantic import ValidationError
@@ -42,7 +43,7 @@ DDR5_SLUG = "ddr5-rdimm-256gb"
 # Minimal valid profile dict (mirrors _template/profile.yaml structure)
 # ---------------------------------------------------------------------------
 
-VALID_PROFILE: dict = {
+VALID_PROFILE: dict[str, Any] = {
     "slug": "test-product",
     "display_name": "Test Product",
     "description": "A product used only in tests.",

@@ -160,7 +160,7 @@ def _cmd_search(slug: str, *, no_validate: bool = False) -> None:
 
     from product_search.adapters.ebay import EbayAuthError, fetch
     from product_search.models import AdapterQuery
-    from product_search.profile import load_profile
+    from product_search.profile import load_profile, load_qvl
 
     # --- Load profile ---------------------------------------------------------
     if not no_validate:
@@ -168,6 +168,7 @@ def _cmd_search(slug: str, *, no_validate: bool = False) -> None:
 
         try:
             profile = load_profile(slug)
+            qvl = load_qvl(slug)
         except FileNotFoundError as exc:
             print(f"ERROR: {exc}", file=sys.stderr)
             sys.exit(1)
@@ -177,6 +178,7 @@ def _cmd_search(slug: str, *, no_validate: bool = False) -> None:
             sys.exit(1)
     else:
         profile = load_profile(slug)
+        qvl = load_qvl(slug)
 
     use_fixtures = os.environ.get("WORKER_USE_FIXTURES", "").strip() in ("1", "true", "yes")
     mode = "fixture" if use_fixtures else "live"
@@ -203,14 +205,18 @@ def _cmd_search(slug: str, *, no_validate: bool = False) -> None:
                 sys.exit(1)
             all_listings.extend(listings)
 
+    # --- Pipeline -------------------------------------------------------------
+    from product_search.validators.pipeline import run_pipeline
+    passed_listings, rejected_count = run_pipeline(all_listings, profile, qvl)
+
     print(
         f"Fetched {len(all_listings)} listing(s). "
-        "(Validators and storage land in Phase 3/4.)",
+        f"Passed: {len(passed_listings)}, Rejected: {rejected_count}.",
         file=sys.stderr,
     )
 
     # --- Output ---------------------------------------------------------------
-    print(json.dumps([lst.to_dict() for lst in all_listings], indent=2))
+    print(json.dumps([lst.to_dict() for lst in passed_listings], indent=2))
     sys.exit(0)
 
 

@@ -29,6 +29,7 @@ import subprocess
 import sys
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import Any
 
 import pytest
 
@@ -52,9 +53,10 @@ FIXTURE_FILE = REPO_ROOT / "worker" / "tests" / "fixtures" / "ebay" / "ddr5_4800
 
 
 def _make_listing(**overrides: object) -> Listing:
-    defaults: dict = {
+    defaults: dict[str, Any] = {
         "source": "ebay_search",
         "url": "https://www.ebay.com/itm/123",
+        "title": "Samsung 32GB DDR5 4800MHz RDIMM",
         "fetched_at": datetime.now(tz=UTC),
         "brand": "Samsung",
         "mpn": "M321R4GA0BB0-CQK",
@@ -71,7 +73,7 @@ def _make_listing(**overrides: object) -> Listing:
         "ship_from_country": "US",
     }
     defaults.update(overrides)
-    return Listing(**defaults)  # type: ignore[arg-type]
+    return Listing(**defaults)
 
 
 # ---------------------------------------------------------------------------
@@ -207,7 +209,7 @@ def test_llm_anthropic_raises_import_error_without_sdk(monkeypatch: pytest.Monke
 
     real_import = builtins.__import__
 
-    def fake_import(name: str, *args: object, **kwargs: object) -> object:
+    def fake_import(name: str, *args: Any, **kwargs: Any) -> Any:
         if name == "anthropic":
             raise ImportError("No module named 'anthropic'")
         return real_import(name, *args, **kwargs)
