@@ -4,45 +4,32 @@
 
 ## Active phase
 
-**Phase 6 — Tier A adapters** (next session)
+**Phase 7 — Scheduling** (next session)
 
-See the Phase 6 brief in [PHASES.md](PHASES.md#phase-6--tier-a-adapters).
+See the Phase 7 brief in [PHASES.md](PHASES.md#phase-7--scheduling).
 
 ## Current task
 
-Add the three Tier-A seller adapters (`nemixram`, `cloudstoragecorp`, `memstore`) so a live `cli search` produces listings from all four sources. **Before starting Phase 6 work**, take ~10 minutes on the deferred architecture question below — the answer affects how we build the new adapters.
-
-### Pre-Phase-6 architecture question to consider
-
-User concern raised at end of Phase 5: the current "user enumerates `sources:` in the profile" model works for DDR5 RAM (small, well-known seller list) but is too narrow for long-tail product types — handbags, pasta sauce, GPUs from random boutiques, etc. The proposal to consider: an **LLM-aided onboarding step** that uses web search at *onboarding time only* to suggest candidate sources for a new product type, which the user reviews and the system turns into adapter stubs. Runtime stays deterministic per ADR-001 — the LLM never extracts listings, only suggests where humans should look.
-
-Open sub-questions to settle next session:
-- Does this become part of Phase 10 (onboarding) or a new earlier phase?
-- For categories with no parseable sources at all (Etsy artisans, IG DMs), do we accept the coverage gap or design a hybrid where LLM-proposed URLs get *re-fetched deterministically* before being treated as listings? Latter has its own hallucinated-URL failure mode.
-- Should `LLM_STRATEGY.md` add a fourth call site for onboarding-time web search, and which provider has the cleanest tool-use API for it?
-
-Decision should land as a new ADR in [DECISIONS.md](DECISIONS.md) before Phase 6 adapter work begins.
+Implement the `cli scheduler-tick` command and set up GitHub Actions workflows for scheduled and on-demand runs.
 
 ## Last session
 
-- Finished Phase 5 (Synthesizer + multi-vendor benchmark).
-- Added `worker/src/product_search/synthesizer/`: `prompts/synth_v1.txt` (the prompt), `synthesizer.py` (renders prompt, calls LLM, runs post-check that rejects any number/URL not in the input), `report.py` (writes `reports/<slug>/<date>.md`).
-- Built `worker/benchmark/`: 10 fixture payloads, six bar criteria from [LLM_STRATEGY.md](LLM_STRATEGY.md), pricing table, runner that scores `(provider, model)` × fixtures and emits `worker/benchmark/results/<date>.md`.
-- Ran the benchmark. **Winner: GLM 4.5 Flash** — 10/10 on the bar, $0/run (free tier). Recorded as ADR-012 in [DECISIONS.md](DECISIONS.md).
-- Wired `LLM_SYNTH_PROVIDER` / `LLM_SYNTH_MODEL` via new `product_search.config` module. `cli search <slug>` now also runs the synthesizer and writes `reports/<slug>/<date>.md`. Added `--no-report` flag for offline runs.
-- Test suite up to 60 passing (added 13 synthesizer + 6 benchmark-criteria tests). Ruff and strict mypy green across `src/`, `tests/`, and `benchmark/`.
+- Addressed the pre-Phase-6 architecture question regarding source discovery for long-tail products. Added ADR-013 deciding to use a web-search-capable LLM step *during the Phase 10 Onboarding Interview only*, preserving the system's strictly deterministic runtime extraction.
+- Updated `docs/PHASES.md` and `docs/LLM_STRATEGY.md` with the new onboarding web search step.
+- Finished Phase 6 (Tier A adapters).
+- Added `nemixram.py` adapter to parse Shopify API.
+- Added `cloudstoragecorp.py` and `memstore.py` adapters to parse eBay seller stores using `selectolax`.
+- Captured mock fixtures for the new adapters and wrote offline tests in `worker/tests/test_phase6.py`.
+- Wired adapters into the `cli search` runner. Test suite is green.
 
 ## Next session — start here
 
 1. Read this file.
-2. Settle the pre-Phase-6 architecture question above. Land an ADR.
-3. Read [PHASES.md § Phase 6](PHASES.md#phase-6--tier-a-adapters).
-4. Phase 6 tasks (in order):
-   - `adapters/nemixram.py` — Shopify `/products/<handle>.json` endpoints; storefront URL is in the profile.
-   - `adapters/cloudstoragecorp.py` — eBay seller-store scrape with saved fixture HTML.
-   - `adapters/memstore.py` — eBay seller-store scrape with the generic-MB-modules flag explicitly applied.
-   - Tests against fixtures for each.
-5. Stop at end of Phase 6.
+2. Read [PHASES.md § Phase 7](PHASES.md#phase-7--scheduling).
+3. Implement `worker/src/product_search/cli.py` `scheduler-tick` command.
+4. Add GitHub Actions workflows (`.github/workflows/search-scheduled.yml` and `.github/workflows/search-on-demand.yml`).
+5. Test the on-demand trigger using `gh workflow run`.
+6. Stop at end of Phase 7.
 
 ## Open questions for the user
 
@@ -66,12 +53,6 @@ Decision should land as a new ADR in [DECISIONS.md](DECISIONS.md) before Phase 6
 None.
 
 ## Noticed but deferred
-
-- **Generality concern (carry into next session, see "Pre-Phase-6 question" above).** The
-  current source-list-per-profile model works for narrow product types like DDR5 RAM but
-  doesn't generalise to handbags, pasta sauce, or any category where sources are long-tail
-  or unenumerable. Proposed fix: LLM-aided onboarding (web search to *suggest* sources, not
-  extract listings). Decide before Phase 6 adapter work.
 - **Synthesizer post-check is strict by design and rejects calculated comparisons** like
   "X is 7.7% cheaper than Y" and "$80 savings vs Micron." This is per ADR-001 and caught
   real issues across all three working models. After one prompt iteration adding "do NOT

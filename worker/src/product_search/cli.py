@@ -188,7 +188,6 @@ def _cmd_search(
     import os
     from datetime import UTC, datetime
 
-    from product_search.adapters.ebay import EbayAuthError, fetch
     from product_search.models import AdapterQuery
     from product_search.profile import load_profile, load_qvl
 
@@ -217,23 +216,35 @@ def _cmd_search(
     # --- Run adapters ---------------------------------------------------------
     all_listings = []
     for source in profile.sources:
-        # Phase 2 implements only ebay_search; others are stubs.
-        if source.id == "ebay_search":
-            query = AdapterQuery.from_profile_source(source.model_dump())
-            try:
-                listings = fetch(query)
-            except EbayAuthError as exc:
-                print(f"ERROR (eBay auth): {exc}", file=sys.stderr)
-                print(
-                    "Tip: set WORKER_USE_FIXTURES=1 to use saved fixtures "
-                    "while waiting for eBay API credentials.",
-                    file=sys.stderr,
-                )
-                sys.exit(1)
-            except Exception as exc:
-                print(f"ERROR (eBay fetch): {exc}", file=sys.stderr)
-                sys.exit(1)
+        query = AdapterQuery.from_profile_source(source.model_dump())
+        try:
+            if source.id == "ebay_search":
+                from product_search.adapters.ebay import fetch as fetch_ebay, EbayAuthError
+                try:
+                    listings = fetch_ebay(query)
+                except EbayAuthError as exc:
+                    print(f"ERROR (eBay auth): {exc}", file=sys.stderr)
+                    print(
+                        "Tip: set WORKER_USE_FIXTURES=1 to use saved fixtures "
+                        "while waiting for eBay API credentials.",
+                        file=sys.stderr,
+                    )
+                    sys.exit(1)
+            elif source.id == "nemixram_storefront":
+                from product_search.adapters.nemixram import fetch as fetch_nemixram
+                listings = fetch_nemixram(query)
+            elif source.id == "cloudstoragecorp_ebay":
+                from product_search.adapters.cloudstoragecorp import fetch as fetch_cloud
+                listings = fetch_cloud(query)
+            elif source.id == "memstore_ebay":
+                from product_search.adapters.memstore import fetch as fetch_memstore
+                listings = fetch_memstore(query)
+            else:
+                continue
             all_listings.extend(listings)
+        except Exception as exc:
+            print(f"ERROR ({source.id} fetch): {exc}", file=sys.stderr)
+            sys.exit(1)
 
     # --- Pipeline -------------------------------------------------------------
     from product_search.validators.pipeline import run_pipeline

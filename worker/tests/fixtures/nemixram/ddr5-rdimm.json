@@ -1,0 +1,30 @@
+{
+  "products": [
+    {
+      "title": "NEMIX RAM 64GB DDR5-4800 PC5-38400 2Rx4 RDIMM ECC",
+      "handle": "nemix-ram-64gb-ddr5-4800-pc5-38400-2rx4-rdimm-ecc",
+      "vendor": "NEMIX RAM",
+      "variants": [
+        {
+          "price": "145.00",
+          "available": true,
+          "sku": "NEM-64G-4800",
+          "inventory_quantity": 50
+        }
+      ]
+    },
+    {
+      "title": "NEMIX RAM 32GB DDR5-4800 PC5-38400 1Rx4 RDIMM ECC",
+      "handle": "nemix-ram-32gb-ddr5-4800",
+      "vendor": "NEMIX RAM",
+      "variants": [
+        {
+          "price": "85.00",
+          "available": true,
+          "sku": "NEM-32G-4800",
+          "inventory_quantity": 100
+        }
+      ]
+    }
+  ]
+}

@@ -9,6 +9,18 @@ Status values:
 
 ---
 
+## ADR-013 — LLM-Aided Onboarding & Web Search for Source Discovery
+
+**Status**: ACCEPTED
+
+**Context**: The "user enumerates sources in profile" model works well for known domains (e.g., DDR5 RAM) but doesn't generalise to long-tail products (e.g., specific handbags, rare GPUs) where sources aren't known upfront.
+
+**Decision**: Introduce a web-search-capable LLM step *during the Phase 10 Onboarding Interview only*. The LLM will use web search to discover and suggest candidate sources/adapters to the human user. The user reviews these suggestions and, if accepted, creates deterministic adapter stubs.
+
+**Consequence**: We adhere strictly to ADR-011: LLMs are never used for runtime data extraction. We accept the coverage gap for sites that cannot be deterministically scraped. This requires adding a 4th call site to the LLM strategy for "Onboarding source discovery (Web Search)" using a model with strong tool-use capabilities.
+
+---
+
 ## ADR-012 — Phase 5 synthesizer model: GLM 4.5 Flash
 
 **Status**: ACCEPTED

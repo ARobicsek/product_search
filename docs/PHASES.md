@@ -188,7 +188,8 @@ Each phase is sized to fit one focused dev session (~30-90 min with an AI co-pil
 1. `worker/src/product_search/onboarding/prompts/onboard_v1.txt` — system prompt per [PRODUCT_ONBOARDING.md](PRODUCT_ONBOARDING.md).
 2. `web/api/onboard/chat` — proxy to the configured onboarding LLM, streaming.
 3. `/onboard` route — chat UI with a transcript pane and a "draft profile" pane that fills in as the conversation progresses.
-4. `web/api/onboard/save` — validate proposed YAML against the profile schema (call out to the worker's validator), then commit `products/<slug>/profile.yaml` via the GitHub Contents API.
+4. Add a web-search tool to the onboarding LLM so it can suggest potential Tier B/C sources for long-tail products.
+5. `web/api/onboard/save` — validate proposed YAML against the profile schema (call out to the worker's validator), then commit `products/<slug>/profile.yaml` via the GitHub Contents API.
 5. End-to-end test: onboard a fake "test-product-foo" type, verify it commits and validates.
 
 **Done when**:

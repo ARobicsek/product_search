@@ -2,15 +2,16 @@
 
 Goal: cheapest model that passes a fixed test bar at each call site.
 
-## Three call sites, three requirement profiles
+## Four call sites, four requirement profiles
 
 | Call site | Volume | Capability needed | Cost sensitivity |
 |---|---|---|---|
 | **Synthesizer** | 1 call per product per scheduled run + per on-demand. ~30/day across products. | Follow instructions, format JSON into markdown, no fabrication. | High. Cheapest tier preferred. |
 | **Onboarding interview** | A handful per week. ~10 turns per onboarding. | Multi-turn conversation, structured YAML output, asks vs. assumes. | Low. Mid tier acceptable. |
+| **Onboarding source discovery (Web Search)** | A handful per week during onboarding. | Strong tool-use (web search) capabilities to suggest candidate sources. | Low. Mid/high tier acceptable (e.g., `gpt-4o`, `claude-3-5-sonnet`). |
 | **Adapter assist** (optional, sparingly) | Adapter authoring time only — not at runtime. | Vision and structured extraction for sites that don't parse cleanly. | Low. Used during dev, not prod. |
 
-**The synthesizer is where cost matters.** The other two are rare events.
+**The synthesizer is where cost matters.** The others are rare events.
 
 ## Provider abstraction
 
