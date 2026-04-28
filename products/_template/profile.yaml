@@ -1,0 +1,97 @@
+# Product profile template.
+# Copy this folder to products/<your-slug>/ and fill in.
+#
+# The schema is enforced by worker/src/product_search/profile.py (Phase 1).
+# `cli validate <slug>` checks a profile against the schema.
+
+# --- Identity ----------------------------------------------------------------
+
+slug: "example-product"           # lowercase, hyphenated. Filesystem name.
+display_name: "Example Product"   # used in reports and the web UI
+description: >                    # one-line, plain English
+  What this profile tracks and why.
+
+# --- Target ------------------------------------------------------------------
+
+target:
+  unit: "GB"                      # GB, count, watts, anything; just a label
+  amount: 256
+  configurations:                 # valid ways to reach the target
+    - { module_count: 8, module_capacity_gb: 32 }
+    - { module_count: 4, module_capacity_gb: 64 }
+  # `total_for_target_usd` in the report is min cost to satisfy any one
+  # configuration from a single seller.
+
+# --- Spec attributes ---------------------------------------------------------
+# These are the keys that adapters populate into Listing.attrs for this product.
+# The validator's hard-reject filters and soft-warning flags reference these.
+
+spec_attrs:
+  capacity_gb:    { type: int,   required: true }
+  speed_mts:      { type: int,   required: true }
+  form_factor:    { type: str,   required: true,  enum: ["RDIMM", "3DS-RDIMM", "UDIMM", "SODIMM", "LRDIMM"] }
+  ecc:            { type: bool,  required: true }
+  voltage_v:      { type: float, required: false }
+  rank:           { type: str,   required: false }   # e.g. "2Rx4"
+
+# --- Hard rejecters (drop the listing) --------------------------------------
+# Each rule is a function name in worker/src/product_search/validators/filters.py
+# plus its parameters. The function library is product-agnostic; rules here
+# are product-specific.
+
+spec_filters:
+  - { rule: "form_factor_in",   values: ["RDIMM", "3DS-RDIMM"] }
+  - { rule: "speed_mts_min",    value: 4800 }
+  - { rule: "ecc_required" }
+  - { rule: "min_quantity_for_target" }   # uses target.configurations
+  - { rule: "in_stock" }
+  - { rule: "single_sku_url" }            # rejects search-page URLs
+
+# --- Soft flags (keep the listing, annotate it) -----------------------------
+
+spec_flags:
+  - { rule: "ship_from_country_in", values: ["CN", "HK"], flag: "china_shipping" }
+  - { rule: "brand_in",             values: ["HPE", "Dell", "Cisco"], flag: "smart_memory" }
+  - { rule: "brand_in",             values: ["MB", "A-Tech (generic)"], flag: "generic_brand" }
+  - { rule: "low_seller_feedback",  rating_pct_below: 99.0, count_below: 500, flag: "low_seller_feedback" }
+
+# --- Sources -----------------------------------------------------------------
+# Adapters that exist and how to invoke them.
+
+sources:
+  - id: "ebay_search"
+    queries:
+      - "DDR5 4800 RDIMM ECC 32GB"
+      - "DDR5 4800 RDIMM ECC 64GB"
+    max_results_per_query: 50
+  - id: "nemixram_storefront"
+    storefront_url: "https://nemixram.com/collections/ddr5-rdimm"
+  - id: "cloudstoragecorp_ebay"
+    seller_id: "cloudstoragecorp"
+  - id: "memstore_ebay"
+    seller_id: "mem-store"
+
+# Sources we want but don't have an adapter for yet. Listed but not invoked.
+sources_pending: []
+
+# --- Reference data ----------------------------------------------------------
+
+qvl_file: "products/example-product/qvl.yaml"   # known-compatible part numbers
+
+# --- Synthesis hints ---------------------------------------------------------
+# These get passed to the LLM synthesizer. ≤2 sentences each. Only include if
+# the hint materially changes the buying decision.
+
+synthesis_hints:
+  - >
+    The EPYC 9224 has only 4 active CCDs. Realized memory bandwidth is GMI3-
+    fabric-limited regardless of channel population, so the cost gap between
+    8x32GB (8 channels) and 4x64GB (4 channels) is much larger than the
+    bandwidth gap. Surface this when 4x64GB and 8x32GB configs are close in
+    cost.
+
+# --- Schedule ----------------------------------------------------------------
+
+schedule:
+  cron: "0 8 * * *"   # daily at 08:00 UTC
+  timezone: "UTC"     # only UTC supported in MVP

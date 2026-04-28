@@ -1,0 +1,332 @@
+# Handoff: Memory Sourcing Agent
+
+## Project goal
+
+Build an agent that finds the cheapest currently-available DDR5 RDIMM ECC memory to populate 256 GB on a specific AMD EPYC 9224 / Supermicro H13SSL-NT workstation build. Run it daily. Produce a single ranked table of real listings with verified prices and verified stock.
+
+The user has been trying to get Gemini and Gemini Deep Research to do this conversationally. It doesn't work. Across four iterations of progressively stricter prompts, the same failure mode recurs: the LLM fabricates prices, fabricates stock counts, fabricates verbatim quotes from product pages it never opened, and dresses the fabrications in confident technical prose. Deep Research's headline "$1,050 for 4×64 GB" recommendation pointed to an eBay listing that was actually $2,620 per single module from a Shenzhen seller.
+
+The conclusion of the conversation: **stop asking the LLM to find listings. Move discovery to deterministic tools, use the LLM only for synthesis.**
+
+---
+
+## The build (context — don't research these other parts)
+
+- **CPU:** AMD EPYC 9224 (Genoa, SP5, 12 DDR5 channels, max DDR5-4800)
+- **Motherboard:** Supermicro MBD-H13SSL-NT (12 DIMM slots, 1 DPC)
+- **GPU:** NVIDIA RTX Pro 6000
+- **PSU:** Prime PX-1600
+- **Workload:** local AI inference
+- **Target:** 256 GB system RAM
+
+---
+
+## What we learned about the memory market (worth preserving)
+
+**Compatibility filters that matter:**
+- DDR5 RDIMM or 3DS RDIMM, ECC, 1.1V, 288-pin
+- Speed: DDR5-4800 preferred; 5600/6400 acceptable only at price parity (will downclock on the 9224)
+- Reject UDIMM, SODIMM, LRDIMM (LRDIMM unless explicitly QVL'd, which it won't be)
+- Tier-1 silicon: Micron, Samsung, SK Hynix
+- Tier-1 OEM partners: Kingston Server Premier, Crucial Pro, Supermicro-branded
+- Tier-2 acceptable with caveats: NEMIX, V-Color Server, A-Tech, OWC
+- Watch for Kingston "E" suffix → that's UDIMM, not RDIMM. Watch for HPE/Dell SmartMemory → custom SPD firmware, may not POST on Supermicro.
+- Watch for "Compatible with [Tyan / HPE / Dell server X]" — those are generic third-party modules, not validated for the H13SSL-NT.
+
+**Population options for 256 GB on a 12-slot, 12-channel board:**
+- 8 × 32 GB → 8 of 12 channels populated → ~307 GB/s theoretical
+- 4 × 64 GB → 4 of 12 channels populated → ~154 GB/s theoretical
+- 16 × 16 GB is invalid (only 12 slots)
+- 12 × 24 GB → 288 GB total, fully populated, but 24 GB DIMMs carry a massive per-GB premium and the EPYC 9224 can't use the bandwidth anyway
+
+**Key architectural finding from the Deep Research pass (technically sound):** The EPYC 9224 has only 4 active CCDs (24 cores ÷ 6 cores per CCD). Lower-CCD-count Genoa parts are GMI3-fabric-limited to roughly 110-150 GB/s of realized memory bandwidth regardless of how many channels are populated. This means the gap between 8-channel and 4-channel population for AI inference is much smaller than the channel math implies — likely 10-15%, not 50%. **This changes the buying calculus**: if 4 × 64 GB modules are easier to source and meaningfully cheaper, the bandwidth penalty on this specific CPU is mostly theoretical. Worth the agent surfacing this tradeoff per-config.
+
+**Verified real listings encountered across runs** (treat as a known-good seed list):
+- **CloudStorageCorp** (eBay): Micron MTC20F2085S1RC48BA1 32 GB DDR5-4800 RDIMM, used, $849/module, 10+ available. Repeatedly verified across runs. **8 of these = $6,792 total** — the cheapest verified path to 256 GB across all four conversations.
+- **NEMIX RAM** (direct): 4×64 GB DDR5-4800 RDIMM 2Rx4 kit, $7,596.99, in stock, lifetime warranty.
+- **Mem-Store** (eBay): legitimate seller (29k+ ratings, 99.8%) but their cheap modules are unbranded "MB" generics often labeled compatible with non-H13SSL-NT boards (Tyan, H13DSH, etc.). Compatibility risk.
+- **TM Galaxy** (eBay): had Supermicro-certified Micron MEM-DR532MD-ER48 at $307 — but went out of stock between runs. Worth monitoring.
+- **HS Tech PC, hkebl-002, ServerSupply, Memory.net, The Server Store**: all real sellers but specific listings we encountered were either out of stock, "last one," or stale/overpriced.
+
+**Sellers/listings to flag or avoid:**
+- Anything shipping from China (Guangdong, Shenzhen) at suspiciously low prices — multiple instances of fabricated kit pricing on what turned out to be single-module Chinese listings
+- HPE/Dell/Cisco "SmartMemory" branded modules — custom SPD firmware risk
+- "ES" / "Engineering Sample" listings from overseas brokers — pre-release silicon, PMIC handshake failures
+- Any seller with <500 feedback or <99% rating for used purchases at this price point
+
+**QVL grounding URL** (to fetch and parse): `https://www.supermicro.com/en/products/motherboard/H13SSL-NT` and the manual at `https://www.supermicro.com/manuals/motherboard/H13/MNL-2545.pdf`. The actual QVL is typically a separate downloadable document from Supermicro's support resource center. Real QVL'd part numbers we've seen referenced: Samsung M321R4GA0BB0-CQK (32 GB), Samsung M321R8GA0BB0-CQK (64 GB), SK Hynix HMCG88MEBRA (32 GB) and HMCG94MEBRA (64 GB), Micron MTC20F1045S1RC48BR (32 GB) and MTC40F2046S1RC48BR (64 GB). These should be the gold-standard part numbers the agent searches for explicitly.
+
+---
+
+## What we learned about LLM-based scraping (anti-patterns)
+
+These are the failure modes that recurred across four iterations. Mitigations belong in the architecture, not the prompt.
+
+1. **Fabricated prices and stock counts.** "20 available" on a page literally saying "Sold out." "1,728 available" from a niche distributor. Headline kit prices that are actually single-module prices off by 10×.
+2. **Fabricated verbatim quotes.** Even when explicitly required to paste a verbatim quote from the product page proving stock status, the model invented quotes that don't exist in the page text. The verbatim-quote requirement does not work as an anti-fabrication mechanism.
+3. **Search-results URLs and Google redirects passed off as product pages.** Even when the prompt explicitly bans them.
+4. **Discarded-candidates list quietly omitted** when the prompt didn't make it the most prominent requirement. Deep Research did include it; chat mode didn't.
+5. **Compatibility false positives.** Modules sold for Tyan / HPE / Dell systems passed through with no flag because spec sheet matched on form factor.
+6. **Vendor reputation conflated with brand reputation.** "99.8% positive seller" gets the same "High" reputation column as "Tier-1 silicon" — but the seller is selling unbranded "MB" modules.
+7. **Prose padding scales with data thinness.** When there are only 2-3 real listings, the model writes 3,000 words of architectural context to make the report feel substantive.
+
+The verification work in the conversation history is mostly Claude opening eBay/Newegg pages and reading the actual stock + price + ship-from fields — which is exactly what the agent needs to do deterministically.
+
+---
+
+## Proposed architecture
+
+The split: **deterministic tool for facts, LLM for interpretation.** The LLM should never claim a price or stock number it didn't read from a real fetched page. Ideally the LLM never produces price/stock data at all — it only formats and synthesizes data the scraper produced.
+
+```
+┌──────────────────┐    ┌──────────────────┐    ┌──────────────────┐
+│  Source adapters │───▶│  Validator/      │───▶│  Storage         │
+│  (per-site)      │    │  filter pipeline │    │  (CSV or SQLite) │
+└──────────────────┘    └──────────────────┘    └──────────────────┘
+                                                        │
+                                                        ▼
+                                              ┌──────────────────┐
+                                              │  LLM synthesizer │
+                                              │  (report + diff) │
+                                              └──────────────────┘
+                                                        │
+                                                        ▼
+                                              ┌──────────────────┐
+                                              │  Output: daily   │
+                                              │  ranked table +  │
+                                              │  diff vs y'day   │
+                                              └──────────────────┘
+```
+
+### Module 1: Source adapters
+
+One adapter per source. Each takes a query (or watches a known URL) and returns a list of `Listing` records with the same shape regardless of source. Heterogeneous sites, homogeneous output.
+
+Sources, in priority order:
+
+**Tier A — known-good seller pages (start here, smallest scope, highest signal):**
+- CloudStorageCorp eBay store
+- NEMIX RAM direct (`nemixram.com`)
+- Mem-Store eBay store
+- TM Galaxy eBay store
+- ServerSupply (Lenovo/Dell/Samsung/Hynix OEM SKUs)
+- Memory.net
+- The Server Store
+- Newegg (Samsung, Micron, Kingston Server Premier, NEMIX direct-from-manufacturer listings)
+
+**Tier B — broader marketplace search:**
+- eBay search API (DDR5-4800 RDIMM ECC 32GB / 64GB queries with price/feedback filters)
+- Newegg search
+
+**Tier C — defer until A and B are working:**
+- Reddit r/homelabsales (private sale, tag accordingly)
+- B&H, CDW, Provantage (tend to require quotes — low yield)
+
+Use eBay's actual API where possible (it has one, and it's reliable). For everything else, HTTP + parsing. Many of these sites render on the server and parse cleanly with `selectolax` or `BeautifulSoup`. The Shopify-based ones (NEMIX, The Server Store) expose product JSON at `/products/[handle].json` — easy. Newegg is harder but tractable.
+
+### Module 2: `Listing` data model
+
+Single shape for every source. Suggest something like:
+
+```python
+@dataclass
+class Listing:
+    source: str                  # "ebay", "newegg", "nemixram", ...
+    url: str                     # direct product URL — never a search page
+    fetched_at: datetime
+    
+    # Product
+    brand: str | None            # "Micron", "Samsung", "MB" (generic), ...
+    mpn: str | None              # manufacturer part number
+    capacity_gb: int             # 32 or 64
+    speed_mts: int               # 4800, 5600, 6400
+    rank: str | None             # "2Rx8", "2Rx4", "1Rx4"
+    voltage_v: float             # should be 1.1
+    form_factor: str             # "RDIMM", "UDIMM", "SODIMM", ...
+    ecc: bool
+    
+    # Listing
+    condition: str               # "new", "used", "refurbished"
+    is_kit: bool
+    kit_module_count: int        # 1 if single module, N if a kit SKU
+    unit_price_usd: float
+    kit_price_usd: float | None  # if kit SKU
+    quantity_available: int | None  # None means "we don't know"
+    
+    # Seller
+    seller_name: str
+    seller_rating_pct: float | None
+    seller_feedback_count: int | None
+    ship_from_country: str | None
+    
+    # Computed downstream
+    qvl_status: str | None       # "QVL", "inferred-compatible", "unknown", "incompatible"
+    flags: list[str]             # ["china_shipping", "low_seller_feedback", "smart_memory", ...]
+```
+
+The `quantity_available` field deserves special care. For eBay it's directly visible on the page. For Newegg it's "in stock" / "out of stock" without a count. For Shopify-based sites the JSON usually exposes `inventory_quantity`. The agent should never fabricate this — when unknown, it stays None and the downstream consumer is told "stock unverified."
+
+### Module 3: Validator / filter pipeline
+
+A series of pure functions, each takes a `Listing` and returns it (possibly with flags added) or drops it. Run as a chain. Each one is testable in isolation:
+
+- `reject_wrong_form_factor` (UDIMM, SODIMM, LRDIMM unless QVL'd)
+- `reject_wrong_speed` (must be ≥ DDR5-4800)
+- `reject_non_ecc`
+- `reject_insufficient_quantity` (needs ≥ 8 for 32 GB config or ≥ 4 for 64 GB config from a single seller)
+- `reject_out_of_stock`
+- `reject_search_page_url` (URL must be a single-SKU page — heuristic: no `?d=`, `q=`, `search`, `category` in path)
+- `flag_china_shipping`
+- `flag_low_seller_feedback` (< 99% positive or < 500 feedback for used purchases)
+- `flag_smart_memory` (HPE/Dell/Cisco branded with custom SPD)
+- `flag_generic_brand` ("MB", "A-Tech", etc.)
+- `compute_total_for_256gb` (this is what the master ranking sorts on)
+- `annotate_qvl_status` (cross-reference MPN against a small static list of known-QVL parts; mark others "inferred-compatible" or "unknown")
+
+The QVL list is small enough to maintain manually as a YAML/JSON file in the repo. Bootstrap it from the part numbers above; expand as the agent encounters new MPNs that get verified.
+
+### Module 4: Storage
+
+SQLite is more than enough. Schema: one row per (listing_url, fetched_at). This gives a price/stock history per listing for free, which enables the "diff vs yesterday" feature and lets you spot suddenly-cheap items as well as listings drying up.
+
+A flat CSV per day in `data/YYYY-MM-DD.csv` would also work and is easier to inspect. Both — SQLite as canonical store, daily CSV as exportable snapshot.
+
+### Module 5: LLM synthesizer
+
+This is the only place the LLM enters the loop. Input: today's filtered Listing rows (as data, not prose). Output: the daily report.
+
+The synthesizer prompt is short and bounded because the data is already verified:
+
+```
+Here is today's verified listing data as JSON. Produce a markdown report
+with these sections:
+
+1. One-line bottom line: best path to 256 GB, total cost, why.
+2. A single ranked table sorted by total_for_256gb ascending. Columns
+   exactly as in the data. Do not add columns. Do not omit rows.
+3. Diff vs yesterday: which listings are new, which dropped off, which
+   changed price by >5%.
+4. Flags and red flags: surface the `flags` field in plain English.
+5. ≤200 words of context. No padding. No architectural digressions.
+
+Do NOT invent any field not present in the data. Do NOT modify any number.
+If a field is null, write "unknown" — not a guess.
+```
+
+Because the LLM is downstream of verified data, the failure mode that's plagued every conversational attempt — fabricating prices and stock — is structurally impossible: there are no listings in its context that the agent didn't actually fetch.
+
+### Module 6: Daily run
+
+Cron job or GitHub Actions schedule. Steps:
+
+1. Run all source adapters in parallel
+2. Run validator pipeline
+3. Write to SQLite + dump daily CSV
+4. Run synthesizer
+5. Save report as `reports/YYYY-MM-DD.md`
+6. (optional) Email/Slack the bottom line + table
+
+---
+
+## Suggested phasing
+
+**Phase 1 — Single source, prove the loop (1 evening):**
+- eBay adapter only, hardcoded query: "DDR5 4800 RDIMM ECC 32GB"
+- Validator pipeline (form factor + speed + qty + URL shape)
+- Print to stdout — no storage, no LLM yet
+- Goal: get 5-10 real verified listings out the bottom
+
+**Phase 2 — Multi-source + storage (1-2 evenings):**
+- Add NEMIX, CloudStorageCorp, Mem-Store seller-page adapters (these are the highest-signal known-good sources)
+- Add SQLite storage with the dual-write CSV
+- Add the full validator chain including QVL annotation
+- Goal: a daily CSV of 20-50 verified listings
+
+**Phase 3 — Synthesizer + diff (1 evening):**
+- Wire up Claude or Gemini API for the synthesis step
+- Implement the diff-vs-yesterday logic in pure Python (don't ask the LLM to do it)
+- Goal: daily markdown report
+
+**Phase 4 — Schedule + polish:**
+- GitHub Actions cron, output to a `reports/` folder in the repo
+- Optional notification channel
+- Add Newegg, ServerSupply, eBay broad search as Tier B sources
+
+**Phase 5 (optional) — Extend:**
+- Generalize past memory to other parts (CPUs, GPUs, PSUs)
+- Add price-drop alerting
+- Add a small web UI (Streamlit) showing time series per listing
+
+---
+
+## Repo layout suggestion
+
+```
+memory-sourcing-agent/
+├── README.md
+├── pyproject.toml
+├── config/
+│   ├── build.yaml              # the EPYC 9224 / H13SSL-NT spec
+│   ├── qvl.yaml                # known-QVL part numbers
+│   └── sellers.yaml            # known-good seller URLs
+├── src/
+│   ├── models.py               # Listing dataclass
+│   ├── adapters/
+│   │   ├── ebay.py
+│   │   ├── nemix.py
+│   │   ├── cloudstoragecorp.py
+│   │   ├── memstore.py
+│   │   ├── newegg.py
+│   │   └── serversupply.py
+│   ├── validators/
+│   │   ├── filters.py          # the reject_* functions
+│   │   ├── flags.py            # the flag_* functions
+│   │   ├── qvl.py
+│   │   └── pipeline.py
+│   ├── storage/
+│   │   ├── db.py               # SQLite
+│   │   └── export.py           # daily CSV
+│   ├── synthesizer/
+│   │   ├── prompt.py
+│   │   └── report.py
+│   └── cli.py                  # entry point
+├── tests/
+│   └── fixtures/               # saved HTML responses for each source
+├── data/                       # SQLite + daily CSVs (gitignored)
+├── reports/                    # daily markdown reports (committed)
+└── .github/workflows/daily.yml
+```
+
+---
+
+## Things to decide on first day
+
+- **Language/runtime:** Python is the obvious choice — best HTTP/parsing/LLM-API ecosystem. Suggest 3.11+ for `dataclasses` and `tomllib`.
+- **HTTP client:** `httpx` (async-capable, good defaults). Use a pinned User-Agent and respectful rate limits per host.
+- **Parsing:** `selectolax` for HTML (faster than BeautifulSoup, CSS selectors), `pydantic` for JSON shape validation.
+- **eBay:** decide whether to use the official Browse API (requires app registration, ~5000 calls/day free tier — plenty) vs scraping. API is more stable; scraping needs no registration. Recommend API.
+- **LLM provider:** Anthropic API for synthesis. Cheap given the small payload — pennies per run.
+- **Scheduling:** GitHub Actions cron is free, gives you commit history of reports for free, no infra. Recommended.
+
+---
+
+## What success looks like
+
+Day 1: agent runs, returns 5+ real listings, no fabrications.
+
+Week 1: daily report lands every morning, shows the 8 × 32 GB CloudStorageCorp option as the persistent leader (assuming it stays in stock) plus 5-10 alternatives. Diffs flag any new entrants.
+
+Month 1: enough price history to know whether the market is moving, what "cheap" actually means today vs last week, and whether to pull the trigger now or wait. The original goal — buy this RAM at the best available price — is achieved with confidence.
+
+The bigger payoff: this same architecture (adapters → filters → storage → synthesizer) generalizes to any "find the best price for X across many sources" problem. The user has more parts to buy. After this works, GPU and CPU sourcing are a config change, not a rewrite.
+
+---
+
+## What's in the conversation history that's worth re-reading once
+
+- The four progressive prompt iterations and their failure modes — useful as a what-not-to-do reference and as a source of test cases (every fabricated listing is a regression test waiting to happen)
+- The CloudStorageCorp listing details (item 175929506209) — the first verified-real anchor point
+- The NEMIX product page structure — illustrates that Shopify-based stores expose clean structured data
+- The Deep Research §2.5 architectural analysis of the EPYC 9224 CCD bottleneck — technically sound and informs the bandwidth-vs-cost tradeoff the agent should surface
+
+Good luck. The hard part of this problem is already solved — we know the market, we know the failure modes, and we know which sellers actually have inventory. The build itself is mostly plumbing.

@@ -1,0 +1,48 @@
+# Known-compatible part numbers for the Supermicro H13SSL-NT.
+# Source: Supermicro QVL references and the four prior conversation iterations.
+# These are the gold-standard MPNs the agent searches for explicitly and
+# annotates as `qvl_status: qvl` when found.
+#
+# Manual-maintenance is intentional: a small list of trusted MPNs catches the
+# common cases. Other MPNs get `qvl_status: inferred-compatible` if they pass
+# all spec filters, or `unknown` otherwise.
+
+qvl:
+  # 32 GB DDR5-4800 RDIMM
+  - mpn: "M321R4GA0BB0-CQK"
+    brand: "Samsung"
+    capacity_gb: 32
+    speed_mts: 4800
+    rank: "2Rx8"
+  - mpn: "HMCG88MEBRA"
+    brand: "SK Hynix"
+    capacity_gb: 32
+    speed_mts: 4800
+  - mpn: "MTC20F1045S1RC48BR"
+    brand: "Micron"
+    capacity_gb: 32
+    speed_mts: 4800
+  - mpn: "MEM-DR532MD-ER48"
+    brand: "Supermicro (Micron)"
+    capacity_gb: 32
+    speed_mts: 4800
+  - mpn: "MTC20F2085S1RC48BA1"
+    brand: "Micron"
+    capacity_gb: 32
+    speed_mts: 4800
+    note: "Used inventory verified at CloudStorageCorp (eBay) across multiple runs."
+
+  # 64 GB DDR5-4800 RDIMM
+  - mpn: "M321R8GA0BB0-CQK"
+    brand: "Samsung"
+    capacity_gb: 64
+    speed_mts: 4800
+    rank: "2Rx4"
+  - mpn: "HMCG94MEBRA"
+    brand: "SK Hynix"
+    capacity_gb: 64
+    speed_mts: 4800
+  - mpn: "MTC40F2046S1RC48BR"
+    brand: "Micron"
+    capacity_gb: 64
+    speed_mts: 4800

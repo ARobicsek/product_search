@@ -1,0 +1,82 @@
+slug: "ddr5-rdimm-256gb"
+display_name: "DDR5 RDIMM ECC — 256 GB"
+description: >
+  Cheapest currently-available DDR5 RDIMM ECC memory to populate 256 GB on an
+  AMD EPYC 9224 / Supermicro H13SSL-NT workstation. DDR5-4800 preferred; the
+  9224 will downclock 5600/6400 to 4800.
+
+target:
+  unit: "GB"
+  amount: 256
+  configurations:
+    - { module_count: 8, module_capacity_gb: 32 }
+    - { module_count: 4, module_capacity_gb: 64 }
+  # 16x16 is invalid (board has 12 slots). 12x24 is fully populated but per-GB
+  # premium for 24GB DIMMs is large and the 9224 can't use the bandwidth.
+
+spec_attrs:
+  capacity_gb:    { type: int,   required: true }
+  speed_mts:      { type: int,   required: true }
+  form_factor:    { type: str,   required: true,  enum: ["RDIMM", "3DS-RDIMM", "UDIMM", "SODIMM", "LRDIMM"] }
+  ecc:            { type: bool,  required: true }
+  voltage_v:      { type: float, required: false }
+  rank:           { type: str,   required: false }
+
+spec_filters:
+  - { rule: "form_factor_in",     values: ["RDIMM", "3DS-RDIMM"] }
+  - { rule: "speed_mts_min",      value: 4800 }
+  - { rule: "ecc_required" }
+  - { rule: "voltage_eq",         value: 1.1 }
+  - { rule: "min_quantity_for_target" }
+  - { rule: "in_stock" }
+  - { rule: "single_sku_url" }
+
+spec_flags:
+  - { rule: "ship_from_country_in", values: ["CN", "HK"], flag: "china_shipping" }
+  - { rule: "brand_in",             values: ["HPE", "Dell", "Cisco"], flag: "smart_memory" }
+  - { rule: "kingston_e_suffix",    flag: "kingston_e_is_udimm" }
+  - { rule: "title_mentions_other_server", values: ["Tyan", "H13DSH"], flag: "compatible_with_other_server" }
+  - { rule: "brand_in",             values: ["MB", "A-Tech"], flag: "generic_brand" }
+  - { rule: "low_seller_feedback",  rating_pct_below: 99.0, count_below: 500, flag: "low_seller_feedback" }
+  - { rule: "title_mentions",       values: ["Engineering Sample", " ES "], flag: "engineering_sample" }
+
+sources:
+  - id: "ebay_search"
+    queries:
+      - "DDR5 4800 RDIMM ECC 32GB"
+      - "DDR5 4800 RDIMM ECC 64GB"
+      - "DDR5 PC5-38400R 32GB"
+      - "DDR5 PC5-38400R 64GB"
+    max_results_per_query: 50
+
+  # Tier-A known-good seller adapters land in Phase 6.
+  - id: "nemixram_storefront"
+    storefront_url: "https://nemixram.com/collections/ddr5-rdimm"
+  - id: "cloudstoragecorp_ebay"
+    seller_id: "cloudstoragecorp"
+  - id: "memstore_ebay"
+    seller_id: "mem-store"
+
+sources_pending:
+  - { id: "newegg_search",      note: "Tier B" }
+  - { id: "serversupply_search", note: "Tier B" }
+  - { id: "memorynet_search",   note: "Tier B" }
+  - { id: "theserverstore_storefront", note: "Tier B" }
+
+qvl_file: "products/ddr5-rdimm-256gb/qvl.yaml"
+
+synthesis_hints:
+  - >
+    The EPYC 9224 has only 4 active CCDs (24 cores ÷ 6 cores per CCD).
+    Lower-CCD-count Genoa parts are GMI3-fabric-limited to ~110-150 GB/s of
+    realized bandwidth regardless of channel population. So 8-channel
+    (8x32GB) vs 4-channel (4x64GB) is roughly 10-15% bandwidth difference,
+    not 50%. Surface this tradeoff when 4x64GB is meaningfully cheaper.
+  - >
+    Watch for Kingston "E" suffix — that's UDIMM, not RDIMM. HPE / Dell /
+    Cisco "SmartMemory" branded modules carry custom SPD firmware and may
+    not POST on the H13SSL-NT.
+
+schedule:
+  cron: "0 8 * * *"   # daily at 08:00 UTC
+  timezone: "UTC"
