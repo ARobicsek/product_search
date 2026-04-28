@@ -8,6 +8,7 @@ Phase 2: llm-ping <provider> <model>
          search <slug>
 Phase 4: diff <slug>
 Phase 5: search <slug> writes reports/<slug>/<date>.md via the synthesizer
+Phase 7: scheduler-tick
 """
 
 import argparse
@@ -71,6 +72,12 @@ def main() -> None:
     )
     diff_parser.add_argument("slug", help="Product slug (e.g. ddr5-rdimm-256gb)")
 
+    # Phase 7: scheduler-tick
+    tick_parser = subparsers.add_parser(
+        "scheduler-tick",
+        help="Run search for all profiles whose cron matches the current UTC hour",
+    )
+
     args = parser.parse_args()
 
     if args.command is None:
@@ -93,6 +100,9 @@ def main() -> None:
 
     elif args.command == "diff":
         _cmd_diff(args.slug)
+
+    elif args.command == "scheduler-tick":
+        _cmd_scheduler_tick()
 
 
 # ---------------------------------------------------------------------------
@@ -394,6 +404,97 @@ def _cmd_diff(slug: str) -> None:
                 f"({ch.pct_change * 100:+.1f}%)  {ch.title[:60]}  {ch.url}"
             )
 
+    sys.exit(0)
+
+
+# ---------------------------------------------------------------------------
+# scheduler-tick
+# ---------------------------------------------------------------------------
+
+
+def _cron_matches_hour(cron_expr: str, hour: int) -> bool:
+    """Check if the hour field of a 5-field cron matches the given hour."""
+    hour_field = cron_expr.split()[1]
+    if hour_field == "*":
+        return True
+
+    for part in hour_field.split(","):
+        if part.startswith("*/"):
+            try:
+                step = int(part[2:])
+                if hour % step == 0:
+                    return True
+            except ValueError:
+                pass
+        elif "-" in part:
+            try:
+                start, end = map(int, part.split("-"))
+                if start <= hour <= end:
+                    return True
+            except ValueError:
+                pass
+        else:
+            try:
+                if int(part) == hour:
+                    return True
+            except ValueError:
+                pass
+    return False
+
+
+def _cmd_scheduler_tick() -> None:
+    """Walk products/, check cron against current UTC hour, and run search for matches."""
+    import subprocess
+    from datetime import UTC, datetime
+
+    from product_search.profile import _repo_root, load_profile
+
+    now = datetime.now(tz=UTC)
+    current_hour = now.hour
+
+    repo_root = _repo_root()
+    products_dir = repo_root / "products"
+    if not products_dir.is_dir():
+        from pathlib import Path
+        products_dir = Path.cwd().parent / "products"
+
+    if not products_dir.exists() or not products_dir.is_dir():
+        print(f"ERROR: {products_dir} not found.", file=sys.stderr)
+        sys.exit(1)
+
+    print(f"[{now.isoformat()}] scheduler-tick running (hour={current_hour})", file=sys.stderr)
+
+    failures = 0
+    for path in products_dir.iterdir():
+        if not path.is_dir() or path.name.startswith("_"):
+            continue
+
+        slug = path.name
+        try:
+            profile = load_profile(slug)
+        except Exception as exc:
+            print(f"Skipping {slug} (invalid profile): {exc}", file=sys.stderr)
+            continue
+
+        cron = profile.schedule.cron
+        if _cron_matches_hour(cron, current_hour):
+            print(f"[{now.isoformat()}] => Running search for {slug} (cron: {cron})", file=sys.stderr)
+            cmd = [sys.executable, "-m", "product_search.cli", "search", slug]
+            
+            # Note: We run this in a subprocess to isolate it. _cmd_search calls sys.exit
+            # and could leak state if called sequentially in process.
+            result = subprocess.run(cmd)
+            if result.returncode != 0:
+                print(f"ERROR: run for {slug} failed with code {result.returncode}", file=sys.stderr)
+                failures += 1
+        else:
+            print(f"[{now.isoformat()}] Skipping {slug} (cron: {cron} does not match hour {current_hour})", file=sys.stderr)
+
+    if failures > 0:
+        print(f"[{now.isoformat()}] scheduler-tick completed with {failures} failure(s).", file=sys.stderr)
+        sys.exit(1)
+    
+    print(f"[{now.isoformat()}] scheduler-tick completed successfully.", file=sys.stderr)
     sys.exit(0)
 
 

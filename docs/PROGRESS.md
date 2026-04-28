@@ -4,32 +4,29 @@
 
 ## Active phase
 
-**Phase 7 — Scheduling** (next session)
+**Phase 8 — Web UI MVP** (next session)
 
-See the Phase 7 brief in [PHASES.md](PHASES.md#phase-7--scheduling).
+See the Phase 8 brief in [PHASES.md](PHASES.md#phase-8--web-ui-mvp).
 
 ## Current task
 
-Implement the `cli scheduler-tick` command and set up GitHub Actions workflows for scheduled and on-demand runs.
+Build the PWA shell (Next.js App Router, mobile-first Tailwind) and render the daily reports fetched from GitHub.
 
 ## Last session
 
-- Addressed the pre-Phase-6 architecture question regarding source discovery for long-tail products. Added ADR-013 deciding to use a web-search-capable LLM step *during the Phase 10 Onboarding Interview only*, preserving the system's strictly deterministic runtime extraction.
-- Updated `docs/PHASES.md` and `docs/LLM_STRATEGY.md` with the new onboarding web search step.
-- Finished Phase 6 (Tier A adapters).
-- Added `nemixram.py` adapter to parse Shopify API.
-- Added `cloudstoragecorp.py` and `memstore.py` adapters to parse eBay seller stores using `selectolax`.
-- Captured mock fixtures for the new adapters and wrote offline tests in `worker/tests/test_phase6.py`.
-- Wired adapters into the `cli search` runner. Test suite is green.
+- Finished Phase 7 (Scheduling).
+- Added `_cron_matches_hour` and `_cmd_scheduler_tick` to `cli.py` to run `search` in isolated subprocesses for profiles whose cron expressions match the current UTC hour.
+- Created GitHub Actions workflows: `.github/workflows/search-scheduled.yml` (runs hourly) and `.github/workflows/search-on-demand.yml` (runs via `workflow_dispatch`).
+- The workflows and CLI updates are committed locally. Pushing is deferred per session protocol.
 
 ## Next session — start here
 
 1. Read this file.
-2. Read [PHASES.md § Phase 7](PHASES.md#phase-7--scheduling).
-3. Implement `worker/src/product_search/cli.py` `scheduler-tick` command.
-4. Add GitHub Actions workflows (`.github/workflows/search-scheduled.yml` and `.github/workflows/search-on-demand.yml`).
-5. Test the on-demand trigger using `gh workflow run`.
-6. Stop at end of Phase 7.
+2. Ensure you have the user's explicit approval to push the Phase 7 commits to the remote repository.
+3. Test the on-demand trigger via `gh workflow run search-on-demand --field product=ddr5-rdimm-256gb` and verify it runs successfully.
+4. Read [PHASES.md § Phase 8](PHASES.md#phase-8--web-ui-mvp) (installable PWA shell).
+5. Build the `web/` Next.js frontend, PWA manifest, and basic `/` + `/[product]` routes.
+6. Stop at end of Phase 8.
 
 ## Open questions for the user
 
@@ -73,6 +70,8 @@ None.
 
 ## Recently completed
 
+- 2026-04-28: Phase 7 complete. Implement `scheduler-tick` CLI command to orchestrate runs across profiles matching the current UTC hour. Created GitHub Actions workflows for hourly crons and on-demand workflow_dispatch runs. Local commit; push pending.
+- 2026-04-28: Phase 6 complete. Tier A adapters (Shopify API + selectolax eBay stores).
 - 2026-04-28: Phase 5 complete. Synthesizer (prompt + post-check), 10-fixture benchmark with
   six bar criteria, runner across five `(provider, model)` combos. Winner: GLM 4.5 Flash
   (10/10, $0/run). `cli search` now writes `reports/<slug>/<date>.md`. 19 new tests (60
