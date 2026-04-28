@@ -23,7 +23,7 @@ Conversational LLM "research" reliably fabricates prices, stock counts, and quot
 
 ## Status
 
-Phase 0 (planning). See [docs/PROGRESS.md](docs/PROGRESS.md) for live status.
+Phases 0-4 complete: scaffold, profile schema, eBay adapter (fixture mode), validator pipeline, SQLite + CSV storage, and pure-Python diff. Next up is the LLM synthesizer + multi-vendor benchmark (Phase 5). See [docs/PROGRESS.md](docs/PROGRESS.md) for live status.
 
 ## License
 
