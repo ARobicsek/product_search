@@ -294,6 +294,26 @@ def _cmd_search(
                 previous = query_snapshot_for_date(conn, prior_dates[0])
                 current = query_snapshot_for_date(conn, today_str)
                 diff_result = diff_snapshots(previous, current)
+
+                material = False
+                headline = ""
+                
+                if len(diff_result.new) > 0:
+                    material = True
+                    headline = f"{len(diff_result.new)} new listings found"
+                elif any(ch.pct_change <= -0.05 for ch in diff_result.changed):
+                    material = True
+                    headline = "Price dropped by >=5%"
+                elif previous and current:
+                    prev_min = min((lst.unit_price_usd for lst in previous), default=float('inf'))
+                    curr_min = min((lst.unit_price_usd for lst in current), default=float('inf'))
+                    if curr_min < prev_min:
+                        material = True
+                        headline = f"New cheapest path: ${curr_min:.2f}"
+                
+                if material:
+                    from product_search.notify import notify_material_change
+                    notify_material_change(slug, headline)
         finally:
             conn.close()
 

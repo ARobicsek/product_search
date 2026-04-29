@@ -4,58 +4,34 @@
 
 ## Active phase
 
-**Phase 11 — iOS push notifications for alerts** (next session)
+**Phase 12 — Polish & second product proof** (next session)
 
-See the Phase 11 brief in [PHASES.md](PHASES.md#phase-11--ios-push-notifications-for-alerts).
+See the Phase 12 brief in [PHASES.md](PHASES.md#phase-12--polish--second-product-proof).
 
 ## Current task
 
-Wire up Web Push: VAPID keys, an "Enable alerts" subscription flow on the
-installed PWA, a service-worker `push` handler with deep-link routing, an
-authenticated `/api/push/notify` fan-out endpoint, and worker-side detection
-of "material" diffs that triggers the notify call.
+Pick a second product (suggestion: GPUs for AI inference, or PSUs ≥1600W Platinum).
+Use the onboarding flow to add the profile. Add missing adapters. Verify daily report.
 
 ## Last session
 
-- Phase 10 complete and verified end-to-end on production
-  (https://ari-product-search.vercel.app). Onboarding interview wired:
-  chat UI at `/onboard`, streaming proxy at `/api/onboard/chat` (Anthropic
-  Sonnet 4.6 + hosted `web_search_20260209` tool, SSE stream),
-  validate-and-commit endpoint at `/api/onboard/save` (TS-side schema
-  validator mirrors `worker/src/product_search/profile.py`, then GitHub
-  Contents API PUT).
-- Live verification: ran a real onboarding interview for
-  `supermicro-mbd-h13ssl-nt-o`. The flow produced two commits authored by
-  the API (`fb9ec5a`, `b979ca1`). The committed profile passes both the
-  TS-side validator AND `python -m product_search.cli validate` (canonical
-  Pydantic). Web search fired correctly during the source-discovery turn.
-- Canonical onboarding prompt at
-  `worker/src/product_search/onboarding/prompts/onboard_v1.txt` (per
-  LLM_STRATEGY hard rule #3), with `next.config.ts` `outputFileTracingIncludes`
-  pointing Vercel's tracer at it so the prompt is bundled in the deployment.
-- ADR-015 records the model choice (`anthropic:claude-sonnet-4-6`).
-- New env vars in `.env.example`: `LLM_ONBOARD_PROVIDER`, `LLM_ONBOARD_MODEL`,
-  `GITHUB_CONTENTS_TOKEN` (with `GITHUB_DISPATCH_TOKEN` as fallback).
-- Follow-up fix `e894e8e`: post-save redirect to `/<slug>` was 404'ing
-  because `getProductReports(slug)` returns `[]` until the first run lands
-  a report. Fixed by (a) `getProducts()` now returns the union of slugs
-  with reports + slugs with profiles, and (b) `[product]/page.tsx` renders
-  a "Profile saved — Run now" empty state instead of `notFound()` when the
-  profile exists but no reports do.
-- All checks green: `tsc --noEmit`, `eslint`, `next build`, `pytest -q`
-  (63 passed). Pushed to `origin/main` (`bd05fd5`, `e894e8e`).
+- Phase 11 complete. Web push notifications implemented via `web-push` and `@upstash/redis`. Added `SubscribeButton` component on the `/[product]` page. Worker-side logic extended to hit the authenticated `/api/push/notify` web endpoint when a material change (new listings, >=5% price drop, new cheapest path) is detected.
+- Build passed successfully and tests remain green.
 
 ## Next session — start here
 
 1. Read this file.
-2. Read [PHASES.md § Phase 11](PHASES.md#phase-11--ios-push-notifications-for-alerts).
-3. The user has already generated VAPID keys, provisioned Upstash Redis (replacing Vercel KV), and set the env vars (including `PUSH_NOTIFY_SECRET`). The Phase 11 implementation plan is approved.
-4. Implement the subscribe/notify flow per the phase brief and the `implementation_plan.md` artifact.
-5. Stop at end of Phase 11.
+2. Read [PHASES.md § Phase 12](PHASES.md#phase-12--polish--second-product-proof).
+3. Decide on a second product to onboard and proceed with Phase 12.
+4. Stop at end of Phase 12.
 
-## Manual verification still needed for Phase 10
+## Manual verification still needed for Phase 11
 
-None — all verified on production with the Supermicro motherboard onboarding.
+- Install PWA to iOS Home Screen on a real device, enable alerts, and trigger an on-demand run that produces a material diff to ensure iOS successfully receives the push.
+
+
+
+
 
 ## Open questions for the user
 
@@ -119,6 +95,7 @@ None.
 
 ## Recently completed
 
+- 2026-04-29: Phase 11 complete. Implemented iOS push notifications for alerts via PWA subscription flow, Upstash Redis storage, and `web-push`. Material diff detection integrated into worker `cli.py`.
 - 2026-04-29: Unblocked live eBay adapter by securing Production API keys and successfully fetching live DDR5 listings. Set up VAPID keys, Upstash Redis, and environment variables for Phase 11. Implementation plan approved and ready for next session.
 - 2026-04-28: Phase 10 complete locally. `/onboard` chat UI + streaming
   `/api/onboard/chat` (Anthropic Sonnet 4.6 with hosted web_search) +

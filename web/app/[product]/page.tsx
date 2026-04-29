@@ -5,6 +5,7 @@ import remarkGfm from 'remark-gfm';
 import { ChevronLeft, History, Sparkles } from 'lucide-react';
 import { notFound } from 'next/navigation';
 import { RunNowButton } from './RunNowButton';
+import SubscribeButton from './SubscribeButton';
 
 export default async function ProductPage({
   params,
@@ -39,7 +40,8 @@ export default async function ProductPage({
           <span className="w-12" aria-hidden />
         </header>
 
-        <div className="px-4 pt-4 max-w-2xl mx-auto w-full flex justify-end">
+        <div className="px-4 pt-4 max-w-2xl mx-auto w-full flex items-center justify-end gap-3">
+          <SubscribeButton productSlug={product} />
           <RunNowButton product={product} />
         </div>
 
@@ -109,8 +111,9 @@ export default async function ProductPage({
         </details>
       </header>
 
-      {/* Run Now toolbar */}
-      <div className="px-4 pt-4 max-w-2xl mx-auto w-full flex justify-end">
+      {/* Action toolbar */}
+      <div className="px-4 pt-4 max-w-2xl mx-auto w-full flex items-center justify-end gap-3">
+        <SubscribeButton productSlug={product} />
         <RunNowButton product={product} />
       </div>
 
