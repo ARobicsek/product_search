@@ -82,6 +82,29 @@ def call(
 
     choice = resp.choices[0]
     text = choice.message.content or ""
+    # Some OpenAI-compatible providers (notably Z.AI / GLM) sometimes route
+    # the assistant text into `reasoning_content` instead of `content` —
+    # especially under finish_reason="length" or for reasoning-style
+    # models. Fall back so we don't silently lose the response.
+    if not text:
+        text = (
+            getattr(choice.message, "reasoning_content", None)
+            or getattr(choice.message, "reasoning", None)
+            or ""
+        )
+    if not text:
+        import sys
+        finish_reason = getattr(choice, "finish_reason", "?")
+        try:
+            raw = choice.message.model_dump()
+        except Exception:
+            raw = {"_repr": repr(choice.message)[:500]}
+        print(
+            f"[llm:{provider}/{model}] empty response  "
+            f"finish_reason={finish_reason}  raw_message_keys={sorted(raw.keys())}",
+            file=sys.stderr,
+        )
+
     usage = resp.usage
     return LLMResponse(
         provider=provider,
