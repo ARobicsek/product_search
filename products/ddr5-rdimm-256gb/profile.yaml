@@ -10,7 +10,6 @@ target:
   amount: 256
   configurations:
     - { module_count: 8, module_capacity_gb: 32 }
-    - { module_count: 4, module_capacity_gb: 64 }
   # 16x16 is invalid (board has 12 slots). 12x24 is fully populated but per-GB
   # premium for 24GB DIMMs is large and the 9224 can't use the bandwidth.
 
@@ -30,6 +29,7 @@ spec_filters:
   - { rule: "min_quantity_for_target" }
   - { rule: "in_stock" }
   - { rule: "single_sku_url" }
+  - { rule: "title_excludes",     values: ["Non-Working", "For parts or not working", " ES ", "Engineering Sample"] }
 
 spec_flags:
   - { rule: "ship_from_country_in", values: ["CN", "HK"], flag: "china_shipping" }
@@ -38,15 +38,12 @@ spec_flags:
   - { rule: "title_mentions_other_server", values: ["Tyan", "H13DSH"], flag: "compatible_with_other_server" }
   - { rule: "brand_in",             values: ["MB", "A-Tech"], flag: "generic_brand" }
   - { rule: "low_seller_feedback",  rating_pct_below: 99.0, count_below: 500, flag: "low_seller_feedback" }
-  - { rule: "title_mentions",       values: ["Engineering Sample", " ES "], flag: "engineering_sample" }
 
 sources:
   - id: "ebay_search"
     queries:
       - "DDR5 4800 RDIMM ECC 32GB"
-      - "DDR5 4800 RDIMM ECC 64GB"
       - "DDR5 PC5-38400R 32GB"
-      - "DDR5 PC5-38400R 64GB"
     max_results_per_query: 50
 
   # Tier-A known-good seller adapters land in Phase 6.
@@ -69,9 +66,8 @@ synthesis_hints:
   - >
     The EPYC 9224 has only 4 active CCDs (24 cores ÷ 6 cores per CCD).
     Lower-CCD-count Genoa parts are GMI3-fabric-limited to ~110-150 GB/s of
-    realized bandwidth regardless of channel population. So 8-channel
-    (8x32GB) vs 4-channel (4x64GB) is roughly 10-15% bandwidth difference,
-    not 50%. Surface this tradeoff when 4x64GB is meaningfully cheaper.
+    realized bandwidth regardless of channel population. 8-channel (8x32GB)
+    is requested by the user.
   - >
     Watch for Kingston "E" suffix — that's UDIMM, not RDIMM. HPE / Dell /
     Cisco "SmartMemory" branded modules carry custom SPD firmware and may

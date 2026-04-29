@@ -96,6 +96,15 @@ def reject_single_sku_url(listing: Listing, rule: FilterRule) -> str | None:
     return None
 
 
+def reject_title_excludes(listing: Listing, rule: FilterRule) -> str | None:
+    excludes: list[str] = (rule.model_extra or {}).get("values", [])
+    title_lower = listing.title.lower()
+    for exclude in excludes:
+        if exclude.lower() in title_lower:
+            return f"title contains excluded phrase '{exclude}'"
+    return None
+
+
 # ---------------------------------------------------------------------------
 # Dispatcher
 # ---------------------------------------------------------------------------
@@ -107,6 +116,7 @@ _FILTER_FUNCS: dict[str, Callable[[Listing, FilterRule], str | None]] = {
     "voltage_eq": reject_voltage_eq,
     "in_stock": reject_in_stock,
     "single_sku_url": reject_single_sku_url,
+    "title_excludes": reject_title_excludes,
 }
 
 
