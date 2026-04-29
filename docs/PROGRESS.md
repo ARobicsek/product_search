@@ -4,60 +4,69 @@
 
 ## Active phase
 
-**Phase 12 — Polish & second product proof** (in progress)
+**Phase 12 — Polish & second product proof** (live prod path proven; sub-phases queued)
 
 See the Phase 12 brief in [PHASES.md](PHASES.md#phase-12--polish--second-product-proof).
 
-## Current task
+## Status as of end of 2026-04-29 session
 
-Three follow-ups from the 2026-04-29 prod-test session, each best taken as
-its own session:
+The full prod pipeline is now working end-to-end on live data for the
+DDR5 profile. Run-now → live eBay Browse API → 161 passing listings →
+truncated to top-30 → Anthropic Haiku 4.5 synthesis → canonical URL
+post-check → committed report rendered on Vercel. Verified on the page:
+bottom-line analysis, 21-row ranked listings table with real prices
+($625–$1,250 range), real eBay URLs, sources-searched panel.
 
-- **Phase 12a** — Wire up at least one Tier-B source adapter
-  (newegg, serversupply, memorynet, or theserverstore). Pattern follows
-  the existing Phase 6 storefront adapters; capture a fixture and add tests.
-- **Phase 12b** — Schedule editor UI on `/[product]` that writes
-  `schedule.cron` back to the profile YAML via the GitHub Contents API
-  (same pattern as `/api/onboard/save`).
-- **Phase 12c** — Manage-sources UI: list current `sources[]` from the
-  profile, allow toggling on/off, and re-invoke the Sonnet web search
-  (existing `/api/onboard/chat`) to suggest more sources for the
-  already-onboarded product.
+This was a 5-wave debug arc — see "Recently completed" below for the
+sequence and what each fix did. All 65 worker tests pass; web tsc
+clean; pushed through `b2b23d3`.
 
-After 12a–c, return to the original Phase 12 task: onboard a second product
-end-to-end (suggestion: GPUs for AI inference, or PSUs ≥1600W Platinum).
+## Current task — pick one of these for next session
 
-## Last session
+- **Phase 12a** — **Storefront silent-fail diagnostic.** ebay_search
+  returned 161 passing; `nemixram_storefront`, `cloudstoragecorp_ebay`,
+  and `memstore_ebay` all returned `fetched: 0` with `status: ok`.
+  Each has a silent-fail path (e.g. nemixram returns `[]` on any
+  non-200 from `/products.json`). Make those failures visible in
+  the sources panel (status: "error: ConnectionError…" instead of "ok"),
+  then fix whichever real bug they expose. Likely an HTTPS/UA or
+  rate-limit issue — these worked locally in fixture mode.
+- **Phase 12b** — **Wire up a Tier-B source adapter** (newegg,
+  serversupply, memorynet, or theserverstore). Pattern follows the
+  existing Phase 6 storefront adapters; capture a committed fixture
+  and add tests. Broadens coverage beyond eBay.
+- **Phase 12c** — **Schedule editor UI** on `/[product]` that writes
+  `schedule.cron` back to the profile YAML via the GitHub Contents
+  API (same pattern as `/api/onboard/save`).
+- **Phase 12d** — **Manage-sources UI**: list current `sources[]`
+  from the profile, allow toggling on/off, and re-invoke the Sonnet
+  web search (existing `/api/onboard/chat`) to suggest more sources
+  for the already-onboarded product.
+- **Phase 12 original** — Onboard a second product end-to-end
+  (suggestion: GPUs for AI inference, or PSUs ≥1600W Platinum).
 
-- Live prod-test of the DDR5 profile surfaced 9 issues. Knocked out the
-  first wave of Phase 12 polish:
-  - **Removed `WORKER_USE_FIXTURES: 1` from both prod workflows** so
-    `/[product]` Run-now and the hourly scheduled tick now hit the live
-    eBay Browse API and storefront URLs (ADR-017).
-  - **Added a deterministic "Sources searched" panel** to the daily
-    report so adapters that return 0 or error are still visible
-    (ADR-018). Even when no listings pass the validator pipeline, a
-    sources-only report is now written so the day isn't a blank entry.
-  - **Improved Run-now UX** with a live elapsed-time counter and a
-    tighter 2s poll interval for the first 30s after dispatch; full
-    GH Actions run still takes 1–2 min for real reasons (queue + pip
-    install + commit/push), but the user sees progress.
-  - **Wired the custom favicon** via Next.js `app/icon.png` /
-    `app/apple-icon.png` conventions, replacing the Next.js boilerplate
-    `favicon.ico`.
-- All 63 worker tests pass; `tsc --noEmit` clean; web ESLint regressions
-  introduced this session were fixed back to the pre-existing baseline.
-- Local commit only — push pending.
+Recommended order: 12a (closes the obvious silent-fail), then either
+12b (more coverage) or 12c (schedule UI is small and high-value),
+then the original Phase 12 second-product onboard.
+
+## Open follow-ups (deferred during this session)
+
+- **CI on `main` is chronically red** on lint steps (worker ruff +
+  web ESLint). Predates Phase 12; PROGRESS already tracked this as
+  deferred. Worth a small cleanup pass — this session noted it
+  again but didn't fix.
+- **Phase 5 benchmark fixtures should be re-run against
+  `anthropic / claude-haiku-4-5`** to formally re-confirm the synth
+  picks 10/10 there too (per ADR-019). Not blocking; live data is
+  proving Haiku works.
 
 ## Next session — start here
 
 1. Read this file.
 2. Read [PHASES.md § Phase 12](PHASES.md#phase-12--polish--second-product-proof).
-3. Push the local commit, then **manually re-run the DDR5 search via
-   "Run now" on the prod site** to verify the live eBay path actually
-   works. Expect either a real report or surface-level breakage in the
-   validator pipeline; capture findings before starting 12a/b/c.
-4. Pick one of Phase 12a / 12b / 12c per the user's priority.
+3. Skim ADRs 017, 018, 019, 020 from this session to understand
+   the synth pipeline's current invariants.
+4. Pick one of Phase 12a / 12b / 12c / 12d per the user's priority.
 5. Stop at end of the chosen sub-phase.
 
 ## Manual verification still needed for Phase 11
