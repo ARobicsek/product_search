@@ -49,11 +49,8 @@ of "material" diffs that triggers the notify call.
 
 1. Read this file.
 2. Read [PHASES.md § Phase 11](PHASES.md#phase-11--ios-push-notifications-for-alerts).
-3. Confirm with the user: VAPID keys (generate via `npx web-push generate-vapid-keys`)
-   and Vercel KV provisioning before coding.
-4. Implement the subscribe/notify flow per the phase brief. Use a distinct
-   `PUSH_NOTIFY_SECRET` env var, NOT the same `WEB_SHARED_SECRET` exposed to
-   the browser (per ADR-014's consequence).
+3. The user has already generated VAPID keys, provisioned Upstash Redis (replacing Vercel KV), and set the env vars (including `PUSH_NOTIFY_SECRET`). The Phase 11 implementation plan is approved.
+4. Implement the subscribe/notify flow per the phase brief and the `implementation_plan.md` artifact.
 5. Stop at end of Phase 11.
 
 ## Manual verification still needed for Phase 10
@@ -62,13 +59,9 @@ None — all verified on production with the Supermicro motherboard onboarding.
 
 ## Open questions for the user
 
-- The eBay Browse API requires registering an application at https://developer.ebay.com/.
-  Phase 2 needs this; user can register at any point before Phase 2 starts. (Free tier is plenty.)
 - Push notification "materiality" thresholds default to: any new cheapest path, ≥5% price
   drop, any new listing. User can override these in `products/<slug>/profile.yaml` under a
   future `alerts:` block.
-- For Phase 11, generating VAPID keys: `npx web-push generate-vapid-keys` (one-time, store in
-  Vercel env vars).
 - **GH Actions secrets** — the four LLM keys exist in `.env`; copy them to repo secrets before
   the next CI run: `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `GEMINI_API_KEY`, `GLM_API_KEY`.
 - **Z.AI account balance** — As of Phase 10, the Z.AI wallet is topped up so
@@ -126,6 +119,7 @@ None.
 
 ## Recently completed
 
+- 2026-04-29: Unblocked live eBay adapter by securing Production API keys and successfully fetching live DDR5 listings. Set up VAPID keys, Upstash Redis, and environment variables for Phase 11. Implementation plan approved and ready for next session.
 - 2026-04-28: Phase 10 complete locally. `/onboard` chat UI + streaming
   `/api/onboard/chat` (Anthropic Sonnet 4.6 with hosted web_search) +
   `/api/onboard/save` (TS-side Pydantic-mirror validator + GitHub Contents

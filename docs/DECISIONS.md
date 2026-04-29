@@ -9,6 +9,18 @@ Status values:
 
 ---
 
+## ADR-016 — Replace Vercel KV with Upstash Redis
+
+**Status**: ACCEPTED
+
+**Context**: Phase 11 requires key-value storage for web push subscriptions. ADR-010 specified Vercel KV. However, Vercel has deprecated their first-party "Vercel KV" offering in favor of pointing developers directly to Upstash Redis via the Vercel Marketplace.
+
+**Decision**: Provision Upstash Redis through the Vercel Marketplace and use the `@upstash/redis` client instead of `@vercel/kv`. 
+
+**Consequence**: The environment variables injected by Vercel are prefixed with `UPSTASH_REDIS_` instead of `KV_`. The implementation plan for Phase 11 is updated to reflect the package and environment variable changes. The architecture remains functionally identical since Vercel KV was just white-labeled Upstash Redis.
+
+---
+
 ## ADR-015 — Phase 10 onboarding model: Anthropic Claude Sonnet 4.6
 
 **Status**: ACCEPTED
