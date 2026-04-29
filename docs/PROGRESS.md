@@ -17,10 +17,10 @@ Contents API.
 
 ## Last session
 
-- Phase 9 complete (web on-demand trigger).
+- Phase 9 complete and verified end-to-end on Vercel (https://ari-product-search.vercel.app).
 - Added `web/lib/dispatch.ts` with `dispatchOnDemandRun` (POST workflow_dispatch) and `getLatestOnDemandRun` (poll runs filtered by `created>=since`).
 - Added three route handlers: `POST /api/dispatch` (gated by `WEB_SHARED_SECRET` header), `GET /api/run-status?product=&since=`, `POST /api/revalidate` (calls `revalidatePath('/<product>')`).
-- Added `RunNowButton` client component on `/[product]` with state machine `idle → dispatching → polling → done|error`, 5 s poll, 15 min timeout, `router.refresh()` on completion.
+- Added `RunNowButton` client component on `/[product]` with state machine `idle → dispatching → polling → done|error`, 5 s poll, 15 min timeout. `router.refresh()` is wrapped in `useTransition`; the toolbar resets to idle once the RSC refetch completes so the "Done. Loading new report…" message disappears on its own.
 - Updated `.env.example` to add `NEXT_PUBLIC_WEB_SHARED_SECRET` so the browser can authenticate to `/api/dispatch`.
 - `npx tsc --noEmit`, `eslint`, and `next build` all green.
 
@@ -34,13 +34,6 @@ Contents API.
 
 ## Open questions for the user
 
-- **Phase 9 verification on Vercel**: To exercise the live "Run now" button, set
-  these Vercel env vars (production + preview): `GITHUB_DISPATCH_TOKEN` (a
-  fine-grained PAT scoped to `actions:write` on this repo), `GITHUB_REPO`
-  (`ARobicsek/product_search`), `WEB_SHARED_SECRET` (random hex),
-  `NEXT_PUBLIC_WEB_SHARED_SECRET` (same value as above for now). Then deploy and
-  click "Run now" on `/[product]` — the workflow run should appear under
-  GitHub Actions and a fresh report should render after the run completes.
 - The eBay Browse API requires registering an application at https://developer.ebay.com/.
   Phase 2 needs this; user can register at any point before Phase 2 starts. (Free tier is plenty.)
 - Push notification "materiality" thresholds default to: any new cheapest path, ≥5% price
@@ -81,7 +74,7 @@ None.
 
 ## Recently completed
 
-- 2026-04-28: Phase 9 complete. Added `/api/dispatch`, `/api/run-status`, `/api/revalidate` handlers in the web app, a `RunNowButton` client component with a polling state machine, and `web/lib/dispatch.ts` GitHub helpers. Local compile + lint + `next build` all green. End-to-end Vercel verification pending env-var setup (see open questions).
+- 2026-04-28: Phase 9 complete and verified end-to-end on Vercel (https://ari-product-search.vercel.app). "Run now" on `/[product]` triggers a real GH Actions workflow_dispatch, polls run status, and refreshes the report when complete. Toolbar resets to idle once the RSC refetch lands.
 - 2026-04-28: Phase 8 complete. Built the PWA shell in Next.js, added Tailwind typography, configured github fetch helpers, and established the list and product detail routes.
 - 2026-04-28: Phase 7 complete. Implement `scheduler-tick` CLI command to orchestrate runs across profiles matching the current UTC hour. Created GitHub Actions workflows for hourly crons and on-demand workflow_dispatch runs. Local commit; push pending.
 - 2026-04-28: Phase 6 complete. Tier A adapters (Shopify API + selectolax eBay stores).

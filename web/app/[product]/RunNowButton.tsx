@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { Loader2, Play, RefreshCw } from 'lucide-react';
 
@@ -23,6 +23,7 @@ export function RunNowButton({ product }: { product: string }) {
   const [state, setState] = useState<RunState>('idle');
   const [message, setMessage] = useState<string>('');
   const [conclusion, setConclusion] = useState<string | null>(null);
+  const [isRefreshing, startRefresh] = useTransition();
   const router = useRouter();
   const cancelled = useRef(false);
 
@@ -31,6 +32,18 @@ export function RunNowButton({ product }: { product: string }) {
       cancelled.current = true;
     };
   }, []);
+
+  // Once router.refresh() finishes streaming the new RSC payload, clear the
+  // toolbar back to idle so the "Done. Loading new report…" message goes away.
+  useEffect(() => {
+    if (state !== 'done' || isRefreshing) return;
+    const id = setTimeout(() => {
+      setState('idle');
+      setMessage('');
+      setConclusion(null);
+    }, 0);
+    return () => clearTimeout(id);
+  }, [state, isRefreshing]);
 
   async function pollUntilComplete(since: string) {
     const deadline = Date.now() + POLL_TIMEOUT_MS;
@@ -60,7 +73,9 @@ export function RunNowButton({ product }: { product: string }) {
             }).catch(() => {});
             setState('done');
             setMessage('Done. Loading new report…');
-            router.refresh();
+            startRefresh(() => {
+              router.refresh();
+            });
           } else {
             setState('error');
             setMessage(`Run finished with conclusion: ${data.conclusion ?? 'unknown'}`);
