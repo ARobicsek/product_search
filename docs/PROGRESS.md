@@ -4,33 +4,43 @@
 
 ## Active phase
 
-**Phase 9 — On-demand trigger from web** (next session)
+**Phase 10 — Onboarding interview** (next session)
 
-See the Phase 9 brief in [PHASES.md](PHASES.md#phase-9--on-demand-trigger-from-web).
+See the Phase 10 brief in [PHASES.md](PHASES.md#phase-10--onboarding-interview).
 
 ## Current task
 
-Add a "Run now" button on the UI that calls the `/api/dispatch` route to trigger GitHub Actions `workflow_dispatch`, and poll for completion to show the new report.
+Build the web onboarding flow: a `/onboard` chat route, an LLM-backed
+`/api/onboard/chat` proxy, and a `/api/onboard/save` endpoint that validates
+proposed YAML against the profile schema and commits it via the GitHub
+Contents API.
 
 ## Last session
 
-- Finished Phase 8 (Web UI MVP).
-- Configured a Next.js App Router project as a mobile-first PWA with a custom manifest and service worker.
-- Added `lib/github.ts` to fetch markdown reports via the GitHub REST API.
-- Implemented `/` list route and `/[product]` detailed report route using Tailwind Typography and `react-markdown`.
-- Local compilation and validation verified. PWA icon generation remains for the user. Vercel deployment pending user setup.
+- Phase 9 complete (web on-demand trigger).
+- Added `web/lib/dispatch.ts` with `dispatchOnDemandRun` (POST workflow_dispatch) and `getLatestOnDemandRun` (poll runs filtered by `created>=since`).
+- Added three route handlers: `POST /api/dispatch` (gated by `WEB_SHARED_SECRET` header), `GET /api/run-status?product=&since=`, `POST /api/revalidate` (calls `revalidatePath('/<product>')`).
+- Added `RunNowButton` client component on `/[product]` with state machine `idle → dispatching → polling → done|error`, 5 s poll, 15 min timeout, `router.refresh()` on completion.
+- Updated `.env.example` to add `NEXT_PUBLIC_WEB_SHARED_SECRET` so the browser can authenticate to `/api/dispatch`.
+- `npx tsc --noEmit`, `eslint`, and `next build` all green.
 
 ## Next session — start here
 
 1. Read this file.
-2. Read [PHASES.md § Phase 9](PHASES.md#phase-9--on-demand-trigger-from-web) (on-demand trigger).
-3. Create `/api/dispatch` API route.
-4. Implement "Run now" button with polling state machine on `/[product]`.
-5. Test the loop end-to-end on Vercel.
-6. Stop at end of Phase 9.
+2. Read [PHASES.md § Phase 10](PHASES.md#phase-10--onboarding-interview).
+3. Confirm with the user before implementation: which onboarding LLM model + provider? (Per ADR-013, needs strong tool-use for web search.)
+4. Implement the `/onboard` chat UI, `/api/onboard/chat` streaming proxy, and `/api/onboard/save` validate-and-commit endpoint.
+5. Stop at end of Phase 10.
 
 ## Open questions for the user
 
+- **Phase 9 verification on Vercel**: To exercise the live "Run now" button, set
+  these Vercel env vars (production + preview): `GITHUB_DISPATCH_TOKEN` (a
+  fine-grained PAT scoped to `actions:write` on this repo), `GITHUB_REPO`
+  (`ARobicsek/product_search`), `WEB_SHARED_SECRET` (random hex),
+  `NEXT_PUBLIC_WEB_SHARED_SECRET` (same value as above for now). Then deploy and
+  click "Run now" on `/[product]` — the workflow run should appear under
+  GitHub Actions and a fresh report should render after the run completes.
 - The eBay Browse API requires registering an application at https://developer.ebay.com/.
   Phase 2 needs this; user can register at any point before Phase 2 starts. (Free tier is plenty.)
 - Push notification "materiality" thresholds default to: any new cheapest path, ≥5% price
@@ -71,6 +81,7 @@ None.
 
 ## Recently completed
 
+- 2026-04-28: Phase 9 complete. Added `/api/dispatch`, `/api/run-status`, `/api/revalidate` handlers in the web app, a `RunNowButton` client component with a polling state machine, and `web/lib/dispatch.ts` GitHub helpers. Local compile + lint + `next build` all green. End-to-end Vercel verification pending env-var setup (see open questions).
 - 2026-04-28: Phase 8 complete. Built the PWA shell in Next.js, added Tailwind typography, configured github fetch helpers, and established the list and product detail routes.
 - 2026-04-28: Phase 7 complete. Implement `scheduler-tick` CLI command to orchestrate runs across profiles matching the current UTC hour. Created GitHub Actions workflows for hourly crons and on-demand workflow_dispatch runs. Local commit; push pending.
 - 2026-04-28: Phase 6 complete. Tier A adapters (Shopify API + selectolax eBay stores).

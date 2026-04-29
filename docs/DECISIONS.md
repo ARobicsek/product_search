@@ -9,6 +9,36 @@ Status values:
 
 ---
 
+## ADR-014 — `/api/dispatch` is gated by a browser-exposed secret
+
+**Status**: ACCEPTED
+
+**Context**: Phase 9 added `POST /api/dispatch`, which the "Run now" button on
+`/[product]` calls to trigger an on-demand GitHub Actions run. The phase brief
+says "Auth via `WEB_SHARED_SECRET` header." The same `WEB_SHARED_SECRET` is also
+intended for Phase 11's `/api/push/notify`, where the worker (with the secret in
+GitHub Actions secrets) calls the web app to fan out push notifications.
+
+A browser-side caller can't keep a secret. The two natural choices were:
+(a) leave `/api/dispatch` open and rely on same-origin/rate limiting, or
+(b) gate it with a "shared" value that the browser also has — which exposes
+the same value used by `/api/push/notify` to anyone who views the bundle.
+
+**Decision**: Adopt (b) for now. The web app reads `WEB_SHARED_SECRET`
+server-side and the browser sends `NEXT_PUBLIC_WEB_SHARED_SECRET` in the
+`x-web-secret` header. In Vercel, both env vars hold the same value for now.
+This matches the phase brief and keeps drive-by abuse out without inventing a
+second auth scheme.
+
+**Consequence**: When Phase 11 lands `/api/push/notify`, that endpoint MUST
+NOT trust the same secret — instead it should rely on a distinct
+`PUSH_NOTIFY_SECRET` (server-only, kept in Vercel + GH Actions) so that
+exposing the dispatch secret in the browser bundle doesn't let an attacker
+forge push notifications. Phase 11 should split the env vars at that time and
+update this ADR.
+
+---
+
 ## ADR-013 — LLM-Aided Onboarding & Web Search for Source Discovery
 
 **Status**: ACCEPTED

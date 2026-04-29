@@ -4,6 +4,7 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { ChevronLeft, History } from 'lucide-react';
 import { notFound } from 'next/navigation';
+import { RunNowButton } from './RunNowButton';
 
 export default async function ProductPage({
   params,
@@ -70,8 +71,13 @@ export default async function ProductPage({
         </details>
       </header>
 
+      {/* Run Now toolbar */}
+      <div className="px-4 pt-4 max-w-2xl mx-auto w-full flex justify-end">
+        <RunNowButton product={product} />
+      </div>
+
       {/* Report Content */}
-      <article className="p-4 max-w-2xl mx-auto w-full mt-4">
+      <article className="p-4 max-w-2xl mx-auto w-full mt-2">
         <div className="prose prose-sm sm:prose-base dark:prose-invert max-w-none 
           prose-headings:font-semibold 
           prose-a:text-blue-600 dark:prose-a:text-blue-400
