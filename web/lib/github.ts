@@ -75,9 +75,12 @@ export async function getProductProfileExists(slug: string): Promise<boolean> {
 
 export async function getProductReports(product: string): Promise<string[]> {
   try {
+    // No-store: a Run-now click commits a new report and the user expects to
+    // see it on the next page render. The 1-hour data cache silently masked
+    // the first prod-data success in Phase 12 wave 4.
     const res = await fetch(`https://api.github.com/repos/${REPO}/contents/reports/${product}?ref=${BRANCH}`, {
       headers: getHeaders(),
-      next: { revalidate: 3600 }
+      cache: 'no-store',
     });
     
     if (!res.ok) {
@@ -109,7 +112,7 @@ export async function getReportContent(product: string, date: string): Promise<s
 
     const res = await fetch(url, {
       headers,
-      next: { revalidate: 3600 }
+      cache: 'no-store',
     });
     
     if (!res.ok) {

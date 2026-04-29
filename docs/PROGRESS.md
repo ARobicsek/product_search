@@ -130,6 +130,19 @@ None.
 
 ## Recently completed
 
+- 2026-04-29: Phase 12 wave 5 (stale-cache hotfix on the web side).
+  - Wave 4 actually fixed the synth — the 2026-04-29 report on disk has
+    a full bottom-line, 21-row ranked listings table, and sources
+    panel. The Vercel page kept showing the empty-output diagnostic
+    because `getReportContent` and `getProductReports` in
+    `web/lib/github.ts` used `next: { revalidate: 3600 }`. The 1-hour
+    data cache silently masked the first prod-data success.
+    `revalidatePath('/[product]')` from `/api/revalidate` invalidates
+    the route-segment render cache but not necessarily underlying
+    data fetches without a tag. Switched both reads to
+    `cache: 'no-store'` — a 10KB markdown report fetched from GitHub
+    raw on every page load is fine for this app's volume.
+
 - 2026-04-29: Phase 12 wave 4 (synth post-check canonicalisation).
   - **Smoking-gun finding**: even Claude Haiku 4.5 — well-documented for
     verbatim copy on tabular tasks — failed the post-check on a live
