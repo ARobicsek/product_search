@@ -1,0 +1,51 @@
+slug: "supermicro-mbd-h13ssl-nt-o"
+display_name: "Supermicro MBD-H13SSL-NT-O ATX Motherboard"
+description: >
+  Track the cheapest available listings for the Supermicro MBD-H13SSL-NT-O ATX server motherboard, new or used.
+
+target:
+  unit: "count"
+  amount: 1
+  configurations:
+    - { module_count: 1, module_capacity_gb: 1 }
+
+spec_attrs:
+  form_factor: { type: str, required: true, enum: ["ATX"] }
+  condition: { type: str, required: false, enum: ["new", "used", "refurbished"] }
+  in_stock: { type: bool, required: true }
+
+spec_filters:
+  - { rule: "in_stock" }
+  - { rule: "min_quantity_for_target" }
+  - { rule: "single_sku_url" }
+
+spec_flags:
+  - { rule: "low_seller_feedback", flag: "low_seller_feedback", rating_pct_below: 98.0, count_below: 50 }
+  - { rule: "ship_from_country_in", flag: "ships_from_cn_hk", values: ["CN", "HK"] }
+  - { rule: "title_mentions", flag: "engineering_sample", values: ["Engineering Sample"] }
+
+sources:
+  - id: "ebay_search"
+    queries:
+      - "Supermicro MBD-H13SSL-NT-O"
+      - "Supermicro H13SSL-NT-O motherboard"
+    max_results_per_query: 25
+
+sources_pending:
+  - id: "serversupply_search"
+    note: "No adapter yet. Supermicro dealer at serversupply.com — add adapter in a future dev session."
+  - id: "theserverstore_storefront"
+    note: "No adapter yet. Supermicro dealer at theserverstore.com — add adapter in a future dev session."
+
+qvl_file: "products/supermicro-mbd-h13ssl-nt-o/qvl.yaml"
+
+synthesis_hints:
+  - >
+    Official Supermicro parts list (validated memory and CPUs) available at
+    https://www.supermicro.com/en/products/motherboard/h13ssl-nt — populate qvl.yaml from this page.
+  - >
+    Verify listing revision number if applicable; check that the I/O shield and accessories are included for used listings.
+
+schedule:
+  cron: "0 8 * * *"
+  timezone: "UTC"
