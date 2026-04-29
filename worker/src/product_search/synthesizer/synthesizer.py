@@ -120,7 +120,10 @@ def render_prompt() -> str:
 
 # Numbers like 1234, 1234.56, .5
 _NUMBER_RE = re.compile(r"\d+(?:\.\d+)?|\.\d+")
-# URLs (http/https). Stop at whitespace or common closing punctuation.
+# URLs (http/https). Stop at whitespace or common closing punctuation. The
+# pipe `|` is *included* in the match because eBay/Shopify URLs occasionally
+# contain it; markdown-table pipes always have surrounding whitespace, which
+# already terminates the match.
 _URL_RE = re.compile(r"https?://[^\s)\]>'\"]+")
 # Trailing punctuation that often follows a URL in markdown
 _URL_TRAIL = ".,;:)]}>'\""
@@ -137,8 +140,27 @@ def _extract_numbers(text: str) -> set[str]:
     return {_normalize_number(n) for n in _NUMBER_RE.findall(text)}
 
 
+def _canonicalize_url(url: str) -> str:
+    """Return scheme + host + path, lowercased host, no trailing slash.
+
+    Per ADR-020: URL identity for the post-check is the destination
+    (scheme/host/path), not the query string. Tracking params like
+    eBay's `?_skw=...&hash=item...&amdata=enc%3A...` are noise added
+    by the source and don't change which item the URL resolves to.
+    """
+    from urllib.parse import urlsplit
+
+    parts = urlsplit(url)
+    path = parts.path.rstrip("/") or "/"
+    return f"{parts.scheme}://{parts.netloc.lower()}{path}"
+
+
 def _extract_urls(text: str) -> set[str]:
     return {raw.rstrip(_URL_TRAIL) for raw in _URL_RE.findall(text)}
+
+
+def _extract_canonical_urls(text: str) -> set[str]:
+    return {_canonicalize_url(u) for u in _extract_urls(text)}
 
 
 def post_check(report_md: str, payload: dict[str, Any]) -> None:
@@ -180,9 +202,11 @@ def post_check(report_md: str, payload: dict[str, Any]) -> None:
         and not any(n in pn for pn in payload_numbers)
     )
 
-    payload_urls = _extract_urls(payload_text)
-    report_urls = _extract_urls(report_md)
-    bad_urls = sorted(u for u in report_urls if u not in payload_urls)
+    payload_urls = _extract_canonical_urls(payload_text)
+    report_urls_raw = _extract_urls(report_md)
+    bad_urls = sorted(
+        raw for raw in report_urls_raw if _canonicalize_url(raw) not in payload_urls
+    )
 
     problems: list[str] = []
     if bad_numbers:
@@ -191,6 +215,22 @@ def post_check(report_md: str, payload: dict[str, Any]) -> None:
         problems.append(f"fabricated URLs: {bad_urls}")
 
     if problems:
+        # Dump both URL sets to stderr so the next failure is debuggable
+        # without a code change. Goes only to logs, never to the report.
+        if bad_urls:
+            import sys
+
+            print(
+                f"[post_check] {len(bad_urls)} bad URL(s); "
+                f"payload had {len(payload_urls)} canonical URLs.",
+                file=sys.stderr,
+            )
+            for bu in bad_urls[:5]:
+                print(f"[post_check]   bad: {bu!r}", file=sys.stderr)
+                print(
+                    f"[post_check]   canonical: {_canonicalize_url(bu)!r}",
+                    file=sys.stderr,
+                )
         raise PostCheckError(
             "Synthesizer post-check failed: " + "; ".join(problems)
         )

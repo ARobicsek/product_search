@@ -182,6 +182,48 @@ def test_post_check_rejects_fabricated_url() -> None:
         post_check(report, payload)
 
 
+def test_post_check_accepts_url_with_extra_query_params() -> None:
+    """Real eBay URLs come with tracking query params; post-check uses
+    canonical (scheme+host+path) match per ADR-020 so the same item with
+    different tracking strings still passes."""
+    payload = build_input_payload(
+        [
+            _listing(
+                "https://www.ebay.com/itm/267646680423",
+                unit_price_usd=120.0,
+                total_for_target_usd=960.0,
+            )
+        ],
+        diff=None,
+        profile=load_profile("ddr5-rdimm-256gb"),
+    )
+    # Same item, but the LLM emits the URL with eBay's full tracking string.
+    report = (
+        "**Bottom line.** $120.0 each = $960.0.\n\n"
+        "| 1 | ebay_search | https://www.ebay.com/itm/267646680423?_skw=DDR5"
+        "+4800&hash=item3e50fc3d67:g:abc&amdata=enc%3AAQAL... | 960.0 |"
+    )
+    post_check(report, payload)
+
+
+def test_post_check_rejects_url_with_different_path() -> None:
+    """Same host but different item id is still a fabrication."""
+    payload = build_input_payload(
+        [
+            _listing(
+                "https://www.ebay.com/itm/111",
+                unit_price_usd=120.0,
+                total_for_target_usd=960.0,
+            )
+        ],
+        diff=None,
+        profile=load_profile("ddr5-rdimm-256gb"),
+    )
+    report = "See https://www.ebay.com/itm/222 for details."
+    with pytest.raises(PostCheckError, match="fabricated URLs"):
+        post_check(report, payload)
+
+
 def test_post_check_rejects_fabricated_quantity() -> None:
     payload = _payload_one()
     # 47 is neither in payload nor a rank/constant.

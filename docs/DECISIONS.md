@@ -9,6 +9,64 @@ Status values:
 
 ---
 
+## ADR-020 — Synthesizer URL post-check uses canonical (scheme+host+path) match
+
+**Status**: ACCEPTED (refines, does not supersede, ADR-001)
+
+**Context**: ADR-001 commits to "the LLM never produces a price, URL, MPN,
+quantity, seller, or any other field not present verbatim in the input
+JSON." The Phase 5 post-check enforced this for URLs by exact string-set
+membership: every URL in the report must appear character-for-character
+in the JSON-serialised input payload.
+
+The Phase 12 prod-test on 2026-04-29 broke this twice in a row:
+
+1. With GLM 4.5 Flash: model emitted live eBay URLs with mangled
+   `?_skw=...&hash=item...&amdata=enc%3A...` query strings. ADR-019
+   addressed the worst of this by switching to Anthropic Haiku 4.5.
+2. With Haiku 4.5 immediately after: same failure mode — a "fabricated
+   URL" rejection on a long live eBay URL. The path component matched
+   an item we'd actually fetched; only the tracking-parameter string
+   differed.
+
+The destination of an eBay URL is determined by `scheme + host + path`
+(e.g. `https://www.ebay.com/itm/267646680423`). Everything after the
+`?` is eBay's analytics/tracking — it changes per click, per session,
+per A/B bucket. Requiring the LLM to reproduce a 200-character tracking
+string byte-for-byte is asking for a guarantee the model has no way to
+make, since the truncation/encoding behavior of long URLs varies across
+markdown renderers, the model's tokenizer, and the model's safety
+shaping. The strict check was producing false-positive fabrication
+errors on URLs whose *destinations* matched the payload exactly.
+
+**Decision**: Compare URLs in the post-check by their **canonical form**
+— scheme + lowercased host + path (no query, no fragment, trailing
+slash stripped). A URL in the report passes if any URL in the payload
+has the same canonical form. The strict guarantee that the LLM cannot
+invent a destination it didn't see remains intact: a URL pointing to
+`/itm/999` cannot pass unless the payload contained an item with path
+`/itm/999`.
+
+When the post-check fails, the worker now also dumps the offending
+report URL and its canonical form to stderr, so future failures are
+debuggable from the GH Actions log without a code change.
+
+**Consequence**: The strict guarantee remains intact for everything
+that determines the destination — host and path. False-positive
+rejections from differing tracking strings disappear. The check
+remains strict for prices, quantities, MPNs, and other numeric fields.
+For URLs that intentionally encode product variants in the query
+string (none in the current adapter slate, but possible for future
+sources), this would need revisiting; that's deferred until it
+actually comes up.
+
+Tests added: `test_post_check_accepts_url_with_extra_query_params`
+(real eBay URL with tracking string passes when canonical matches)
+and `test_post_check_rejects_url_with_different_path` (same host but
+different item ID still fails).
+
+---
+
 ## ADR-019 — Switch synth model from GLM 4.5 Flash to Claude Haiku 4.5
 
 **Status**: ACCEPTED (supersedes the model choice in ADR-012, Phase 5)

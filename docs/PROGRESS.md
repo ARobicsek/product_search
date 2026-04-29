@@ -130,6 +130,23 @@ None.
 
 ## Recently completed
 
+- 2026-04-29: Phase 12 wave 4 (synth post-check canonicalisation).
+  - **Smoking-gun finding**: even Claude Haiku 4.5 — well-documented for
+    verbatim copy on tabular tasks — failed the post-check on a live
+    eBay URL. The "fabricated URL" was identical to a payload URL on
+    `scheme + host + path`; only the tracking query string
+    (`?_skw=...&hash=item...&amdata=enc%3A...`) differed. The post-check,
+    not the model, was wrong.
+  - **Fix**: post-check now uses canonical URL comparison — scheme +
+    lowercased host + path, with trailing slash stripped. Tracking
+    params no longer cause false-positive "fabrication" errors. The
+    strict guarantee on prices/quantities/MPNs is unchanged. ADR-020
+    documents the refinement (does not supersede ADR-001).
+  - **Diagnostic**: when the post-check now fails, the worker dumps the
+    offending URL and its canonical form to stderr so the next failure
+    is debuggable from the GH Actions log without code edits.
+  - 2 new tests added; all 65 worker tests pass.
+
 - 2026-04-29: Phase 12 wave 3 (synth provider swap).
   - **Confirmed root cause** of empty/garbage prod synth output via
     fresh GH Actions log: post-`bd4d005`, GLM 4.5 Flash *was*
