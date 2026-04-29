@@ -130,6 +130,23 @@ None.
 
 ## Recently completed
 
+- 2026-04-29: Phase 12 wave 3 (synth provider swap).
+  - **Confirmed root cause** of empty/garbage prod synth output via
+    fresh GH Actions log: post-`bd4d005`, GLM 4.5 Flash *was*
+    producing output (recovered via the new `reasoning_content`
+    fallback) but its output included **hallucinated eBay URLs** with
+    munged tracking parameters. ADR-001's strict post-check correctly
+    rejected the output. Live eBay URLs have long
+    `?_skw=...&hash=item...&amdata=enc%3A...` query strings; GLM
+    isn't reproducing them verbatim.
+  - **Switched synth default to `anthropic / claude-haiku-4-5`**
+    (ADR-019, supersedes the model choice in ADR-012). Cost is
+    ~$0.001/run; ANTHROPIC_API_KEY is already wired through both
+    workflows. GLM remains supported as a provider for future
+    benchmarking. The synth model is env-overridable
+    (`LLM_SYNTH_PROVIDER` / `LLM_SYNTH_MODEL`) so reverting is one
+    workflow edit.
+
 - 2026-04-29: Phase 12 wave 2.
   - **Confirmed eBay live path works in prod**: 186 fetched, 160 passed
     after EBAY_CLIENT_ID/SECRET were added to GH Actions repo secrets.

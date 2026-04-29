@@ -9,6 +9,56 @@ Status values:
 
 ---
 
+## ADR-019 — Switch synth model from GLM 4.5 Flash to Claude Haiku 4.5
+
+**Status**: ACCEPTED (supersedes the model choice in ADR-012, Phase 5)
+
+**Context**: ADR-012 picked GLM 4.5 Flash via Z.AI as the synth model based
+on a 10-fixture benchmark scoring 10/10 with $0/run cost. Those fixtures
+held 5–10 listings each with simple URLs. The Phase 12 prod-test on
+2026-04-29 surfaced two related failures at live-data scale (160+
+passing eBay listings):
+
+1. The Z.AI OpenAI-compatible endpoint sometimes routes assistant text
+   into `choice.message.reasoning_content` rather than `.content`. The
+   provider wrapper read only `.content`, silently coalescing to `""`.
+   `bd4d005` added a fallback to `reasoning_content` and stderr logging
+   when both are empty. After that fix, the actual GLM output reached
+   the post-check.
+
+2. The recovered GLM output was rejected by the ADR-001 post-check for
+   fabricated URLs. Live eBay item URLs include long tracking
+   parameters (`?_skw=...&hash=item...&amdata=enc%3A...`), and GLM
+   4.5 Flash was emitting versions with subtly modified or dropped
+   query params — i.e. failing the verbatim-copy guarantee that
+   ADR-001 commits to. This isn't a prompt-engineering issue; it's a
+   model-quality regime gap between the benchmark fixtures and live
+   data.
+
+**Decision**: Change `DEFAULT_SYNTH_PROVIDER` from `glm` →
+`anthropic` and `DEFAULT_SYNTH_MODEL` from `glm-4.5-flash` →
+`claude-haiku-4-5` in `worker/src/product_search/config.py`. The
+provider/model are still env-overridable (`LLM_SYNTH_PROVIDER`,
+`LLM_SYNTH_MODEL`) for benchmarking and per-product overrides.
+`ANTHROPIC_API_KEY` is already wired through both workflows from
+Phase 10.
+
+**Consequence**: Each daily synth run costs ~$0.001 (was $0). Across two
+products with 24 scheduled ticks per day per product, that's <$0.05/month
+— immaterial vs. the cost of running blind on hallucinated URLs. Haiku 4.5
+has well-documented strong instruction-following on tabular verbatim
+tasks; the 30-listing payload (post-truncation, ADR-pending) fits well
+within its context budget. The Phase 5 benchmark fixtures should be
+re-run against `anthropic / claude-haiku-4-5` as a follow-up to
+formally re-confirm 10/10 there too. GLM remains supported as a provider
+in case a future model version closes the verbatim-copy gap; revisit
+on a benchmark when GLM 5.x lands.
+
+**Reversibility**: Trivial. Set `LLM_SYNTH_PROVIDER=glm` and
+`LLM_SYNTH_MODEL=glm-4.5-flash` in the workflow env block to roll back.
+
+---
+
 ## ADR-018 — Sources-searched panel is deterministic, not LLM-synthesized
 
 **Status**: ACCEPTED
