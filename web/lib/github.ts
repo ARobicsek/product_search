@@ -26,23 +26,50 @@ function getHeaders() {
   return headers;
 }
 
-export async function getProducts(): Promise<string[]> {
+async function listDirSlugs(dirPath: string): Promise<string[]> {
   try {
-    const res = await fetch(`https://api.github.com/repos/${REPO}/contents/reports?ref=${BRANCH}`, {
+    const res = await fetch(`https://api.github.com/repos/${REPO}/contents/${dirPath}?ref=${BRANCH}`, {
       headers: getHeaders(),
-      next: { revalidate: 3600 } // Cache for 1 hour
+      next: { revalidate: 3600 },
     });
-    
+
     if (!res.ok) {
       if (res.status === 404) return [];
       throw new Error(`GitHub API error: ${res.status} ${res.statusText}`);
     }
-    
+
     const data: GitHubFile[] = await res.json();
     return data.filter(item => item.type === 'dir').map(item => item.name);
   } catch (err) {
-    console.error('Failed to fetch products:', err);
+    console.error(`Failed to list ${dirPath}:`, err);
     return [];
+  }
+}
+
+export async function getProducts(): Promise<string[]> {
+  // Union of slugs that have a report committed and slugs that have a profile
+  // committed. The latter covers the gap right after onboarding, before the
+  // first scheduled or on-demand run lands a report.
+  const [withReports, onboarded] = await Promise.all([
+    listDirSlugs('reports'),
+    listDirSlugs('products'),
+  ]);
+  const merged = new Set<string>([...withReports, ...onboarded.filter((s) => s !== '_template')]);
+  return [...merged].sort();
+}
+
+export async function getProductProfileExists(slug: string): Promise<boolean> {
+  try {
+    const res = await fetch(
+      `https://api.github.com/repos/${REPO}/contents/products/${slug}/profile.yaml?ref=${BRANCH}`,
+      { headers: getHeaders(), next: { revalidate: 3600 } },
+    );
+    if (res.status === 200) return true;
+    if (res.status === 404) return false;
+    throw new Error(`GitHub API error: ${res.status} ${res.statusText}`);
+  } catch (err) {
+    console.error(`Failed to probe profile for ${slug}:`, err);
+    return false;
   }
 }
 

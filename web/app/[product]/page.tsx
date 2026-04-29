@@ -1,8 +1,8 @@
 import Link from 'next/link';
-import { getProductReports, getReportContent } from '@/lib/github';
+import { getProductProfileExists, getProductReports, getReportContent } from '@/lib/github';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { ChevronLeft, History } from 'lucide-react';
+import { ChevronLeft, History, Sparkles } from 'lucide-react';
 import { notFound } from 'next/navigation';
 import { RunNowButton } from './RunNowButton';
 
@@ -15,11 +15,49 @@ export default async function ProductPage({
 }) {
   const { product } = await params;
   const { date } = await searchParams;
-  
+
   const reports = await getProductReports(product);
-  
+
   if (reports.length === 0) {
-    return notFound();
+    // Fresh onboard: profile exists but no report has been generated yet.
+    // Render an empty state with a Run Now button instead of 404'ing.
+    const onboarded = await getProductProfileExists(product);
+    if (!onboarded) return notFound();
+    return (
+      <main className="min-h-screen bg-gray-50 dark:bg-[#0a0a0a] pb-12">
+        <header className="sticky top-0 z-10 bg-white/80 dark:bg-[#0a0a0a]/80 backdrop-blur-md border-b border-gray-200 dark:border-gray-800 p-4 flex items-center justify-between">
+          <Link
+            href="/"
+            className="flex items-center text-blue-600 dark:text-blue-400 hover:text-blue-800 text-sm font-medium"
+          >
+            <ChevronLeft className="w-5 h-5 mr-1" />
+            Back
+          </Link>
+          <h1 className="font-semibold capitalize truncate max-w-[50%]">
+            {product.replace(/-/g, ' ')}
+          </h1>
+          <span className="w-12" aria-hidden />
+        </header>
+
+        <div className="px-4 pt-4 max-w-2xl mx-auto w-full flex justify-end">
+          <RunNowButton product={product} />
+        </div>
+
+        <section className="p-6 max-w-2xl mx-auto w-full mt-2">
+          <div className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-950 p-8 text-center space-y-3">
+            <div className="mx-auto w-10 h-10 rounded-full bg-blue-50 dark:bg-blue-900/30 flex items-center justify-center">
+              <Sparkles className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+            </div>
+            <h2 className="text-lg font-semibold">Profile saved</h2>
+            <p className="text-sm text-gray-600 dark:text-gray-400">
+              No report yet for <span className="font-mono">{product}</span>.
+              The first scheduled run will generate one, or click <strong>Run now</strong> above
+              to trigger an on-demand run immediately.
+            </p>
+          </div>
+        </section>
+      </main>
+    );
   }
 
   // Use requested date or the latest one
