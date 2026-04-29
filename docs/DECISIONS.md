@@ -9,6 +9,44 @@ Status values:
 
 ---
 
+## ADR-015 — Phase 10 onboarding model: Anthropic Claude Sonnet 4.6
+
+**Status**: ACCEPTED
+
+**Context**: Phase 10 needs an LLM to drive the onboarding interview, with a
+strong tool-use loop for `web_search` so the model can suggest Tier B/C
+sources for long-tail products (per ADR-013). Two realistic candidates were
+on the table:
+
+| Provider:Model | Tool-use quality | Web search wired? | Account ready? |
+|---|---|---|---|
+| `anthropic:claude-sonnet-4-6` | first-class, native | hosted server-side via Anthropic's `web_search_20260209` tool — no extra integration | yes (`ANTHROPIC_API_KEY` already in the slate) |
+| `glm:glm-5.1` | unknown for tool-use loops | needs an external search backend (Tavily/Serper) wired up + a function tool | Z.AI wallet is now topped up, but never benchmarked for this call site |
+
+The synthesizer benchmark (ADR-012) does NOT generalise to onboarding
+behavior because synthesis is single-shot text formatting; onboarding is
+multi-turn with tool use. Picking GLM here would mean debuting an unproven
+model on the most tool-use-heavy call site, plus integrating an external
+search backend before the feature works once.
+
+**Decision**: Wire `LLM_ONBOARD_PROVIDER=anthropic` and `LLM_ONBOARD_MODEL=claude-sonnet-4-6`.
+Use Anthropic's hosted `web_search_20260209` tool with `max_uses: 5` per turn
+to bound cost. The `/api/onboard/chat` route reads the system prompt from the
+canonical `worker/src/product_search/onboarding/prompts/onboard_v1.txt` (per
+LLM_STRATEGY hard rule #3) and streams text deltas + tool-use signals as SSE
+to the browser.
+
+**Consequence**: Each onboarding session uses ~10 turns × ~2K tokens + up to
+5 web searches; expected cost is in the cents per onboarding. The web app
+gains a new env var (`GITHUB_CONTENTS_TOKEN`, with `contents: write` only)
+for the `/api/onboard/save` endpoint that commits the new
+`products/<slug>/profile.yaml`. `GITHUB_DISPATCH_TOKEN` (`actions: write`
+only) is reused as a fallback. GLM 5.1 remains a re-benchmark candidate
+once we have onboarding fixtures to evaluate against; revisit if Anthropic
+costs become a concern or quality drifts.
+
+---
+
 ## ADR-014 — `/api/dispatch` is gated by a browser-exposed secret
 
 **Status**: ACCEPTED

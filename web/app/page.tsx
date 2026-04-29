@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { Plus } from 'lucide-react';
 import { getProducts, getProductReports, getReportContent } from '@/lib/github';
 
 // Helper to extract a summary from markdown (e.g., first non-heading line)
@@ -39,9 +40,18 @@ export default async function Home() {
 
   return (
     <main className="p-4 max-w-2xl mx-auto w-full">
-      <header className="mb-8 mt-4">
-        <h1 className="text-3xl font-bold tracking-tight">Product Search</h1>
-        <p className="text-gray-500 dark:text-gray-400 mt-2">Daily price tracking reports</p>
+      <header className="mb-8 mt-4 flex items-start justify-between gap-3">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Product Search</h1>
+          <p className="text-gray-500 dark:text-gray-400 mt-2">Daily price tracking reports</p>
+        </div>
+        <Link
+          href="/onboard"
+          className="shrink-0 mt-1 flex items-center text-sm font-medium px-3 py-1.5 rounded-full bg-blue-600 text-white hover:bg-blue-700 transition focus:outline-none focus:ring-2 focus:ring-blue-500"
+        >
+          <Plus className="w-4 h-4 mr-1" />
+          New
+        </Link>
       </header>
 
       {productData.length === 0 ? (

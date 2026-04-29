@@ -4,33 +4,60 @@
 
 ## Active phase
 
-**Phase 10 — Onboarding interview** (next session)
+**Phase 11 — iOS push notifications for alerts** (next session)
 
-See the Phase 10 brief in [PHASES.md](PHASES.md#phase-10--onboarding-interview).
+See the Phase 11 brief in [PHASES.md](PHASES.md#phase-11--ios-push-notifications-for-alerts).
 
 ## Current task
 
-Build the web onboarding flow: a `/onboard` chat route, an LLM-backed
-`/api/onboard/chat` proxy, and a `/api/onboard/save` endpoint that validates
-proposed YAML against the profile schema and commits it via the GitHub
-Contents API.
+Wire up Web Push: VAPID keys, an "Enable alerts" subscription flow on the
+installed PWA, a service-worker `push` handler with deep-link routing, an
+authenticated `/api/push/notify` fan-out endpoint, and worker-side detection
+of "material" diffs that triggers the notify call.
 
 ## Last session
 
-- Phase 9 complete and verified end-to-end on Vercel (https://ari-product-search.vercel.app).
-- Added `web/lib/dispatch.ts` with `dispatchOnDemandRun` (POST workflow_dispatch) and `getLatestOnDemandRun` (poll runs filtered by `created>=since`).
-- Added three route handlers: `POST /api/dispatch` (gated by `WEB_SHARED_SECRET` header), `GET /api/run-status?product=&since=`, `POST /api/revalidate` (calls `revalidatePath('/<product>')`).
-- Added `RunNowButton` client component on `/[product]` with state machine `idle → dispatching → polling → done|error`, 5 s poll, 15 min timeout. `router.refresh()` is wrapped in `useTransition`; the toolbar resets to idle once the RSC refetch completes so the "Done. Loading new report…" message disappears on its own.
-- Updated `.env.example` to add `NEXT_PUBLIC_WEB_SHARED_SECRET` so the browser can authenticate to `/api/dispatch`.
-- `npx tsc --noEmit`, `eslint`, and `next build` all green.
+- Phase 10 complete locally. Onboarding interview wired end-to-end: chat UI
+  at `/onboard`, streaming proxy at `/api/onboard/chat` (Anthropic Sonnet 4.6
+  + hosted `web_search_20260209` tool, SSE stream), validate-and-commit
+  endpoint at `/api/onboard/save` (TS-side schema validator mirrors
+  `worker/src/product_search/profile.py`, then GitHub Contents API PUT).
+- Added canonical onboarding prompt at
+  `worker/src/product_search/onboarding/prompts/onboard_v1.txt` (per
+  LLM_STRATEGY hard rule #3), with `next.config.ts` `outputFileTracingIncludes`
+  pointing Vercel's tracer at it so the prompt is bundled in the deployment.
+- ADR-015 records the model choice (`anthropic:claude-sonnet-4-6`).
+- New env vars in `.env.example`: `LLM_ONBOARD_PROVIDER`, `LLM_ONBOARD_MODEL`,
+  `GITHUB_CONTENTS_TOKEN` (with `GITHUB_DISPATCH_TOKEN` as fallback).
+- Smoke-tested the schema validator against the existing DDR5 profile
+  (passes) plus three negative cases (missing fields / unknown source ID /
+  bad cron — all correctly rejected with detailed error lists). Smoke-tested
+  the running routes with `next start` — page renders the kickoff turn,
+  `/api/onboard/chat` is auth-gated, `/api/onboard/save` returns the
+  per-field validation errors as JSON.
+- `npx tsc --noEmit`, `eslint`, `next build`, and `pytest -q` (63 passed)
+  all green. Local commit; push pending.
 
 ## Next session — start here
 
 1. Read this file.
-2. Read [PHASES.md § Phase 10](PHASES.md#phase-10--onboarding-interview).
-3. Confirm with the user before implementation: which onboarding LLM model + provider? (Per ADR-013, needs strong tool-use for web search.)
-4. Implement the `/onboard` chat UI, `/api/onboard/chat` streaming proxy, and `/api/onboard/save` validate-and-commit endpoint.
-5. Stop at end of Phase 10.
+2. Read [PHASES.md § Phase 11](PHASES.md#phase-11--ios-push-notifications-for-alerts).
+3. Confirm with the user: VAPID keys (generate via `npx web-push generate-vapid-keys`)
+   and Vercel KV provisioning before coding.
+4. Implement the subscribe/notify flow per the phase brief. Use a distinct
+   `PUSH_NOTIFY_SECRET` env var, NOT the same `WEB_SHARED_SECRET` exposed to
+   the browser (per ADR-014's consequence).
+5. Stop at end of Phase 11.
+
+## Manual verification still needed for Phase 10
+
+- Set `ANTHROPIC_API_KEY`, `GITHUB_CONTENTS_TOKEN`, and the `WEB_SHARED_SECRET`
+  pair in Vercel before merging — the local commit doesn't exercise the live
+  Anthropic call.
+- End-to-end smoke per the phase brief: visit `/onboard`, run a fake
+  `test-product-foo` interview to completion, verify the commit lands and
+  the home page lists the new product after the next CI cycle. Worth doing
+  before declaring Phase 10 fully shipped.
 
 ## Open questions for the user
 
@@ -43,9 +70,12 @@ Contents API.
   Vercel env vars).
 - **GH Actions secrets** — the four LLM keys exist in `.env`; copy them to repo secrets before
   the next CI run: `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `GEMINI_API_KEY`, `GLM_API_KEY`.
-- **Z.AI account balance** — Phase 5 benchmark surfaced that `glm-4.6` and `glm-5.1` both
-  return "余额不足或无可用资源包" (insufficient balance) on this account. Only `glm-4.5-flash`
-  has free quota. Top up the Z.AI wallet if a smarter GLM is wanted as an upgrade path.
+- **Z.AI account balance** — As of Phase 10, the Z.AI wallet is topped up so
+  `glm-4.6` and `glm-5.1` are now callable. Re-running the Phase 5 benchmark
+  with these two models is on the deferred list. Onboarding (Phase 10) still
+  picked Anthropic Sonnet 4.6 over GLM 5.1 (see ADR-015) because GLM has no
+  hosted web-search tool — switching to GLM there would mean wiring an
+  external search backend.
 - **Gemini free-tier rate limit** — the benchmark hit 429 on the very first Gemini call.
   Either set up Vertex AI billing or drop Gemini from the slate for now.
 
@@ -54,6 +84,18 @@ Contents API.
 None.
 
 ## Noticed but deferred
+- **Pre-existing worker lint/type errors.** `worker` mypy still reports
+  2 errors in `adapters/memstore.py` and `adapters/cloudstoragecorp.py`
+  (Phase 6 files, `url: str | None` passed to `Listing.url: str`), and
+  ruff reports ~11 issues across worker tests (mostly unused `pytest`
+  imports). These predate Phase 10. Consider a small clean-up pass in a
+  future session — they don't block CI today but would block a stricter
+  pre-commit hook later.
+- **No TS unit-test framework in `web/`.** The Phase 10 schema validator
+  was sanity-tested ad-hoc via a one-off node script; it lives in
+  `web/lib/onboard/schema.ts` and would be a natural first TS unit-test
+  if/when we add Vitest. Not urgent because CI re-runs `cli validate`
+  on every commit that touches `products/`.
 - **Synthesizer post-check is strict by design and rejects calculated comparisons** like
   "X is 7.7% cheaper than Y" and "$80 savings vs Micron." This is per ADR-001 and caught
   real issues across all three working models. After one prompt iteration adding "do NOT
@@ -74,6 +116,11 @@ None.
 
 ## Recently completed
 
+- 2026-04-28: Phase 10 complete locally. `/onboard` chat UI + streaming
+  `/api/onboard/chat` (Anthropic Sonnet 4.6 with hosted web_search) +
+  `/api/onboard/save` (TS-side Pydantic-mirror validator + GitHub Contents
+  API commit). New env vars: `LLM_ONBOARD_*`, `GITHUB_CONTENTS_TOKEN`. Local
+  commit; push + Vercel env var setup + live E2E test pending.
 - 2026-04-28: Phase 9 complete and verified end-to-end on Vercel (https://ari-product-search.vercel.app). "Run now" on `/[product]` triggers a real GH Actions workflow_dispatch, polls run status, and refreshes the report when complete. Toolbar resets to idle once the RSC refetch lands.
 - 2026-04-28: Phase 8 complete. Built the PWA shell in Next.js, added Tailwind typography, configured github fetch helpers, and established the list and product detail routes.
 - 2026-04-28: Phase 7 complete. Implement `scheduler-tick` CLI command to orchestrate runs across profiles matching the current UTC hour. Created GitHub Actions workflows for hourly crons and on-demand workflow_dispatch runs. Local commit; push pending.
