@@ -4,27 +4,30 @@
 
 ## Active phase
 
-**Phase 8 — Web UI MVP** (next session)
+**Phase 9 — On-demand trigger from web** (next session)
 
-See the Phase 8 brief in [PHASES.md](PHASES.md#phase-8--web-ui-mvp).
+See the Phase 9 brief in [PHASES.md](PHASES.md#phase-9--on-demand-trigger-from-web).
 
 ## Current task
 
-Build the PWA shell (Next.js App Router, mobile-first Tailwind) and render the daily reports fetched from GitHub.
+Add a "Run now" button on the UI that calls the `/api/dispatch` route to trigger GitHub Actions `workflow_dispatch`, and poll for completion to show the new report.
 
 ## Last session
 
-- Finished Phase 7 (Scheduling).
-- Added `_cron_matches_hour` and `_cmd_scheduler_tick` to `cli.py` to run `search` in isolated subprocesses for profiles whose cron expressions match the current UTC hour.
-- Created GitHub Actions workflows: `.github/workflows/search-scheduled.yml` (runs hourly) and `.github/workflows/search-on-demand.yml` (runs via `workflow_dispatch`).
-- The workflows and CLI updates are committed locally. Pushing is deferred per session protocol.
+- Finished Phase 8 (Web UI MVP).
+- Configured a Next.js App Router project as a mobile-first PWA with a custom manifest and service worker.
+- Added `lib/github.ts` to fetch markdown reports via the GitHub REST API.
+- Implemented `/` list route and `/[product]` detailed report route using Tailwind Typography and `react-markdown`.
+- Local compilation and validation verified. PWA icon generation remains for the user. Vercel deployment pending user setup.
 
 ## Next session — start here
 
 1. Read this file.
-2. Read [PHASES.md § Phase 8](PHASES.md#phase-8--web-ui-mvp) (installable PWA shell).
-3. Build the `web/` Next.js frontend, PWA manifest, and basic `/` + `/[product]` routes.
-4. Stop at end of Phase 8.
+2. Read [PHASES.md § Phase 9](PHASES.md#phase-9--on-demand-trigger-from-web) (on-demand trigger).
+3. Create `/api/dispatch` API route.
+4. Implement "Run now" button with polling state machine on `/[product]`.
+5. Test the loop end-to-end on Vercel.
+6. Stop at end of Phase 9.
 
 ## Open questions for the user
 
@@ -68,6 +71,7 @@ None.
 
 ## Recently completed
 
+- 2026-04-28: Phase 8 complete. Built the PWA shell in Next.js, added Tailwind typography, configured github fetch helpers, and established the list and product detail routes.
 - 2026-04-28: Phase 7 complete. Implement `scheduler-tick` CLI command to orchestrate runs across profiles matching the current UTC hour. Created GitHub Actions workflows for hourly crons and on-demand workflow_dispatch runs. Local commit; push pending.
 - 2026-04-28: Phase 6 complete. Tier A adapters (Shopify API + selectolax eBay stores).
 - 2026-04-28: Phase 5 complete. Synthesizer (prompt + post-check), 10-fixture benchmark with

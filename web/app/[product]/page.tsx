@@ -1,0 +1,90 @@
+import Link from 'next/link';
+import { getProductReports, getReportContent } from '@/lib/github';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
+import { ChevronLeft, History } from 'lucide-react';
+import { notFound } from 'next/navigation';
+
+export default async function ProductPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ product: string }>;
+  searchParams: Promise<{ date?: string }>;
+}) {
+  const { product } = await params;
+  const { date } = await searchParams;
+  
+  const reports = await getProductReports(product);
+  
+  if (reports.length === 0) {
+    return notFound();
+  }
+
+  // Use requested date or the latest one
+  const selectedDate = date && reports.includes(date) ? date : reports[0];
+  const content = await getReportContent(product, selectedDate);
+
+  if (!content) {
+    return notFound();
+  }
+
+  return (
+    <main className="min-h-screen bg-gray-50 dark:bg-[#0a0a0a] pb-12">
+      {/* Mobile-friendly Sticky Header */}
+      <header className="sticky top-0 z-10 bg-white/80 dark:bg-[#0a0a0a]/80 backdrop-blur-md border-b border-gray-200 dark:border-gray-800 p-4 flex items-center justify-between">
+        <Link 
+          href="/" 
+          className="flex items-center text-blue-600 dark:text-blue-400 hover:text-blue-800 text-sm font-medium"
+        >
+          <ChevronLeft className="w-5 h-5 mr-1" />
+          Back
+        </Link>
+        <h1 className="font-semibold capitalize truncate max-w-[50%]">
+          {product.replace(/-/g, ' ')}
+        </h1>
+        
+        {/* Simple History Dropdown (Using pure CSS/HTML details element for simplicity) */}
+        <details className="relative group">
+          <summary className="list-none flex items-center cursor-pointer text-sm font-medium text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-gray-800 px-3 py-1.5 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 transition">
+            <History className="w-4 h-4 mr-1.5" />
+            {selectedDate}
+          </summary>
+          <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl shadow-lg overflow-hidden z-20">
+            <div className="max-h-60 overflow-y-auto p-1">
+              {reports.map((r) => (
+                <Link
+                  key={r}
+                  href={`/${product}?date=${r}`}
+                  className={`block px-4 py-2 text-sm rounded-lg ${
+                    r === selectedDate 
+                      ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 font-medium' 
+                      : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'
+                  }`}
+                >
+                  {r}
+                </Link>
+              ))}
+            </div>
+          </div>
+        </details>
+      </header>
+
+      {/* Report Content */}
+      <article className="p-4 max-w-2xl mx-auto w-full mt-4">
+        <div className="prose prose-sm sm:prose-base dark:prose-invert max-w-none 
+          prose-headings:font-semibold 
+          prose-a:text-blue-600 dark:prose-a:text-blue-400
+          prose-table:w-full prose-table:border-collapse
+          prose-th:border prose-th:border-gray-200 dark:prose-th:border-gray-800 prose-th:p-2 prose-th:bg-gray-50 dark:prose-th:bg-gray-900
+          prose-td:border prose-td:border-gray-200 dark:prose-td:border-gray-800 prose-td:p-2
+          prose-tr:border-b prose-tr:border-gray-200 dark:prose-tr:border-gray-800"
+        >
+          <ReactMarkdown remarkPlugins={[remarkGfm]}>
+            {content}
+          </ReactMarkdown>
+        </div>
+      </article>
+    </main>
+  );
+}
