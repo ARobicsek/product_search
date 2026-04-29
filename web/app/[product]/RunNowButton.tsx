@@ -16,22 +16,44 @@ interface RunStatusResponse {
   error?: string;
 }
 
-const POLL_INTERVAL_MS = 5_000;
+const POLL_INTERVAL_FAST_MS = 2_000;
+const POLL_INTERVAL_SLOW_MS = 5_000;
+const POLL_FAST_WINDOW_MS = 30_000;
 const POLL_TIMEOUT_MS = 15 * 60_000;
+
+function formatElapsed(ms: number): string {
+  const s = Math.floor(ms / 1000);
+  if (s < 60) return `${s}s`;
+  const m = Math.floor(s / 60);
+  const rem = s % 60;
+  return `${m}m ${rem.toString().padStart(2, '0')}s`;
+}
 
 export function RunNowButton({ product }: { product: string }) {
   const [state, setState] = useState<RunState>('idle');
   const [message, setMessage] = useState<string>('');
-  const [conclusion, setConclusion] = useState<string | null>(null);
+  const [elapsed, setElapsed] = useState<string>('');
   const [isRefreshing, startRefresh] = useTransition();
   const router = useRouter();
   const cancelled = useRef(false);
+  const startedAtRef = useRef<number>(0);
 
   useEffect(() => {
     return () => {
       cancelled.current = true;
     };
   }, []);
+
+  useEffect(() => {
+    if (state !== 'dispatching' && state !== 'polling') return;
+    const tick = () => setElapsed(formatElapsed(Date.now() - startedAtRef.current));
+    tick();
+    const id = setInterval(tick, 1000);
+    return () => {
+      clearInterval(id);
+      setElapsed('');
+    };
+  }, [state]);
 
   // Once router.refresh() finishes streaming the new RSC payload, clear the
   // toolbar back to idle so the "Done. Loading new report…" message goes away.
@@ -40,16 +62,20 @@ export function RunNowButton({ product }: { product: string }) {
     const id = setTimeout(() => {
       setState('idle');
       setMessage('');
-      setConclusion(null);
     }, 0);
     return () => clearTimeout(id);
   }, [state, isRefreshing]);
 
   async function pollUntilComplete(since: string) {
     const deadline = Date.now() + POLL_TIMEOUT_MS;
+    const pollStart = Date.now();
     while (Date.now() < deadline) {
       if (cancelled.current) return;
-      await new Promise((r) => setTimeout(r, POLL_INTERVAL_MS));
+      const interval =
+        Date.now() - pollStart < POLL_FAST_WINDOW_MS
+          ? POLL_INTERVAL_FAST_MS
+          : POLL_INTERVAL_SLOW_MS;
+      await new Promise((r) => setTimeout(r, interval));
       if (cancelled.current) return;
 
       try {
@@ -63,7 +89,6 @@ export function RunNowButton({ product }: { product: string }) {
           continue;
         }
         if (data.state === 'completed') {
-          setConclusion(data.conclusion ?? null);
           if (data.conclusion === 'success') {
             setMessage('Refreshing report…');
             await fetch('/api/revalidate', {
@@ -99,9 +124,9 @@ export function RunNowButton({ product }: { product: string }) {
 
   async function onClick() {
     if (state === 'dispatching' || state === 'polling') return;
+    startedAtRef.current = Date.now();
     setState('dispatching');
     setMessage('Triggering run…');
-    setConclusion(null);
 
     const secret = process.env.NEXT_PUBLIC_WEB_SHARED_SECRET ?? '';
     try {
@@ -152,14 +177,14 @@ export function RunNowButton({ product }: { product: string }) {
       </button>
       {message && (
         <span
-          className={`text-[11px] max-w-[12rem] text-right truncate ${
+          className={`text-[11px] max-w-56 text-right truncate ${
             state === 'error'
               ? 'text-red-600 dark:text-red-400'
               : 'text-gray-500 dark:text-gray-400'
           }`}
           title={message}
         >
-          {conclusion && state !== 'done' ? `${message}` : message}
+          {elapsed ? `${message} (${elapsed})` : message}
         </span>
       )}
     </div>

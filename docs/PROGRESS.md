@@ -4,26 +4,61 @@
 
 ## Active phase
 
-**Phase 12 — Polish & second product proof** (next session)
+**Phase 12 — Polish & second product proof** (in progress)
 
 See the Phase 12 brief in [PHASES.md](PHASES.md#phase-12--polish--second-product-proof).
 
 ## Current task
 
-Pick a second product (suggestion: GPUs for AI inference, or PSUs ≥1600W Platinum).
-Use the onboarding flow to add the profile. Add missing adapters. Verify daily report.
+Three follow-ups from the 2026-04-29 prod-test session, each best taken as
+its own session:
+
+- **Phase 12a** — Wire up at least one Tier-B source adapter
+  (newegg, serversupply, memorynet, or theserverstore). Pattern follows
+  the existing Phase 6 storefront adapters; capture a fixture and add tests.
+- **Phase 12b** — Schedule editor UI on `/[product]` that writes
+  `schedule.cron` back to the profile YAML via the GitHub Contents API
+  (same pattern as `/api/onboard/save`).
+- **Phase 12c** — Manage-sources UI: list current `sources[]` from the
+  profile, allow toggling on/off, and re-invoke the Sonnet web search
+  (existing `/api/onboard/chat`) to suggest more sources for the
+  already-onboarded product.
+
+After 12a–c, return to the original Phase 12 task: onboard a second product
+end-to-end (suggestion: GPUs for AI inference, or PSUs ≥1600W Platinum).
 
 ## Last session
 
-- Phase 11 complete. Web push notifications implemented via `web-push` and `@upstash/redis`. Added `SubscribeButton` component on the `/[product]` page. Worker-side logic extended to hit the authenticated `/api/push/notify` web endpoint when a material change (new listings, >=5% price drop, new cheapest path) is detected.
-- Build passed successfully and tests remain green.
+- Live prod-test of the DDR5 profile surfaced 9 issues. Knocked out the
+  first wave of Phase 12 polish:
+  - **Removed `WORKER_USE_FIXTURES: 1` from both prod workflows** so
+    `/[product]` Run-now and the hourly scheduled tick now hit the live
+    eBay Browse API and storefront URLs (ADR-017).
+  - **Added a deterministic "Sources searched" panel** to the daily
+    report so adapters that return 0 or error are still visible
+    (ADR-018). Even when no listings pass the validator pipeline, a
+    sources-only report is now written so the day isn't a blank entry.
+  - **Improved Run-now UX** with a live elapsed-time counter and a
+    tighter 2s poll interval for the first 30s after dispatch; full
+    GH Actions run still takes 1–2 min for real reasons (queue + pip
+    install + commit/push), but the user sees progress.
+  - **Wired the custom favicon** via Next.js `app/icon.png` /
+    `app/apple-icon.png` conventions, replacing the Next.js boilerplate
+    `favicon.ico`.
+- All 63 worker tests pass; `tsc --noEmit` clean; web ESLint regressions
+  introduced this session were fixed back to the pre-existing baseline.
+- Local commit only — push pending.
 
 ## Next session — start here
 
 1. Read this file.
 2. Read [PHASES.md § Phase 12](PHASES.md#phase-12--polish--second-product-proof).
-3. Decide on a second product to onboard and proceed with Phase 12.
-4. Stop at end of Phase 12.
+3. Push the local commit, then **manually re-run the DDR5 search via
+   "Run now" on the prod site** to verify the live eBay path actually
+   works. Expect either a real report or surface-level breakage in the
+   validator pipeline; capture findings before starting 12a/b/c.
+4. Pick one of Phase 12a / 12b / 12c per the user's priority.
+5. Stop at end of the chosen sub-phase.
 
 ## Manual verification still needed for Phase 11
 
@@ -95,6 +130,12 @@ None.
 
 ## Recently completed
 
+- 2026-04-29: Phase 12 polish wave 1. Removed `WORKER_USE_FIXTURES: 1` from
+  prod workflows (ADR-017); added deterministic "Sources searched" panel
+  to reports (ADR-018); added elapsed-time + tighter polling to the
+  Run-now UX; replaced Next.js boilerplate favicon with the custom PWA
+  icon. Tier-B adapter, schedule editor UI, and manage-sources UI deferred
+  to Phase 12a/b/c. Local commit; push pending.
 - 2026-04-29: Phase 11 complete. Implemented iOS push notifications for alerts via PWA subscription flow, Upstash Redis storage, and `web-push`. Material diff detection integrated into worker `cli.py`.
 - 2026-04-29: Unblocked live eBay adapter by securing Production API keys and successfully fetching live DDR5 listings. Set up VAPID keys, Upstash Redis, and environment variables for Phase 11. Implementation plan approved and ready for next session.
 - 2026-04-28: Phase 10 complete locally. `/onboard` chat UI + streaming

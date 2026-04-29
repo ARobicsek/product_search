@@ -200,6 +200,7 @@ def _cmd_search(
     import json
     import os
     from datetime import UTC, datetime
+    from typing import Any
 
     from product_search.models import AdapterQuery
     from product_search.profile import load_profile, load_qvl
@@ -227,9 +228,14 @@ def _cmd_search(
     print(f"Searching {slug!r} via eBay [{mode} mode] ...", file=sys.stderr)
 
     # --- Run adapters ---------------------------------------------------------
-    all_listings = []
+    from product_search.models import Listing
+
+    all_listings: list[Listing] = []
+    source_stats: list[dict[str, Any]] = []
     for source in profile.sources:
         query = AdapterQuery.from_profile_source(source.model_dump())
+        listings: list[Listing] = []
+        error_msg: str | None = None
         try:
             if source.id == "ebay_search":
                 from product_search.adapters.ebay import fetch as fetch_ebay, EbayAuthError
@@ -253,15 +259,25 @@ def _cmd_search(
                 from product_search.adapters.memstore import fetch as fetch_memstore
                 listings = fetch_memstore(query)
             else:
-                continue
+                error_msg = "no adapter wired"
             all_listings.extend(listings)
         except Exception as exc:
+            error_msg = f"{type(exc).__name__}: {exc}"
             print(f"ERROR ({source.id} fetch): {exc}", file=sys.stderr)
-            sys.exit(1)
+        source_stats.append({
+            "source": source.id,
+            "fetched": len(listings),
+            "error": error_msg,
+        })
 
     # --- Pipeline -------------------------------------------------------------
     from product_search.validators.pipeline import run_pipeline
     passed_listings, rejected_count = run_pipeline(all_listings, profile, qvl)
+    passed_by_source: dict[str, int] = {}
+    for lst in passed_listings:
+        passed_by_source[lst.source] = passed_by_source.get(lst.source, 0) + 1
+    for s in source_stats:
+        s["passed"] = passed_by_source.get(s["source"], 0)
 
     print(
         f"Fetched {len(all_listings)} listing(s). "
@@ -326,6 +342,7 @@ def _cmd_search(
         )
 
     # --- Synthesize report (Phase 5) ------------------------------------------
+    sources_md = _build_sources_searched_md(source_stats, profile)
     if not no_report and passed_listings:
         from product_search.config import synth_config
         from product_search.synthesizer import (
@@ -354,16 +371,58 @@ def _cmd_search(
             sys.exit(1)
 
         report_path = default_report_path(slug, snapshot_date)
-        write_report(report_path, result.report_md)
+        write_report(report_path, result.report_md + "\n\n" + sources_md)
         print(
             f"Wrote report: {report_path}  "
             f"(in={result.input_tokens}, out={result.output_tokens})",
             file=sys.stderr,
         )
+    elif not no_report:
+        # No listings passed the validator pipeline, so there's nothing for
+        # the synthesizer to summarise — but the user still wants to see
+        # which sites were tried. Write a minimal report with just the
+        # sources panel so the day isn't a blank entry.
+        from product_search.synthesizer import default_report_path, write_report
+
+        body = (
+            f"_No listings passed the validator pipeline for "
+            f"{snapshot_date.isoformat()}._\n\n{sources_md}"
+        )
+        report_path = default_report_path(slug, snapshot_date)
+        write_report(report_path, body)
+        print(f"Wrote sources-only report: {report_path}", file=sys.stderr)
 
     # --- Output ---------------------------------------------------------------
     print(json.dumps([lst.to_dict() for lst in passed_listings], indent=2))
     sys.exit(0)
+
+
+def _build_sources_searched_md(
+    source_stats: list[dict[str, object]],
+    profile: object,
+) -> str:
+    """Render the deterministic 'Sources searched' panel for the daily report.
+
+    Independent of the LLM — purely tabulated counts so the synthesizer's
+    post-check (which forbids fabricated numbers) sees only data we control.
+    """
+    lines = ["**Sources searched.**", ""]
+    lines.append("| Source | Status | Fetched | Passed |")
+    lines.append("|--------|--------|---------|--------|")
+    for s in source_stats:
+        err = s.get("error")
+        status = "ok" if err is None else f"error: {err}"
+        status = status.replace("|", "\\|")
+        lines.append(
+            f"| {s['source']} | {status} | {s.get('fetched', 0)} | {s.get('passed', 0)} |"
+        )
+
+    pending = getattr(profile, "sources_pending", []) or []
+    if pending:
+        names = ", ".join(getattr(p, "id", "?") for p in pending)
+        lines.append("")
+        lines.append(f"_Pending (not yet wired): {names}._")
+    return "\n".join(lines)
 
 
 # ---------------------------------------------------------------------------

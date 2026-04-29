@@ -9,6 +9,64 @@ Status values:
 
 ---
 
+## ADR-018 — Sources-searched panel is deterministic, not LLM-synthesized
+
+**Status**: ACCEPTED
+
+**Context**: Phase 12 polish surfaced the need to show which adapters were tried
+on every run (including ones that returned zero or errored), not just the
+adapters whose listings survived the validator pipeline. There were two ways
+to render this: (a) feed the per-source counts into the synthesizer payload
+and let the LLM produce the table, or (b) build the table deterministically
+in the worker and append it to the synthesized markdown.
+
+ADR-001's post-check rejects any number in the LLM's output that doesn't
+appear in the input payload. Per-source counts include numbers like 0
+(error rows) which would pass the post-check, but the LLM has historically
+been creative with table formatting and could re-order or mis-attribute
+counts in subtle ways the post-check can't catch.
+
+**Decision**: Build the "Sources searched" markdown table deterministically
+in `worker/src/product_search/cli.py` and append it to `result.report_md`
+*after* the synthesizer post-check has run on the LLM's output. The LLM
+never sees per-source count data.
+
+**Consequence**: The panel is always accurate — it's just `f"| {source.id} |
+{status} | ..."` from a Python dict. The synthesizer prompt stays focused
+on its narrow job (rank + bottom-line). When new adapters land, only the
+worker needs to know about them; the prompt is unchanged. Trade-off: the
+panel can't be reflowed by the LLM into the prose narrative — it sits as
+a separate section at the bottom of the report.
+
+---
+
+## ADR-017 — Production runs hit live sources, not fixtures
+
+**Status**: ACCEPTED
+
+**Context**: Phases 0–11 baked `WORKER_USE_FIXTURES: 1` into both
+`.github/workflows/search-on-demand.yml` and `.github/workflows/search-scheduled.yml`
+to keep prod safe while live adapters were being stabilised. The production
+report at `reports/ddr5-rdimm-256gb/2026-04-29.md` was therefore a fixture
+replay (eBay item IDs `44444444`, `11111111`, etc.), not real listings.
+This was a useful guard during Phases 6–9 but blocks any meaningful
+prod-side validation in Phase 12.
+
+**Decision**: Remove `WORKER_USE_FIXTURES: 1` from both prod workflows.
+The env var stays supported in `_cmd_search` for local dev (`WORKER_USE_FIXTURES=1
+python -m product_search.cli search ...`) and for tests, but it is not
+set in CI. eBay credentials (`EBAY_CLIENT_ID`/`SECRET`) and LLM keys
+remain wired through.
+
+**Consequence**: Every scheduled hourly tick and every "Run now" click
+hits the live eBay Browse API and the live storefront URLs. The eBay
+Browse API has no per-call cost (5,000 calls/day free quota) and the
+storefronts are public web pages. The first prod run after this change
+is a real-world test of the validator pipeline against unscripted data;
+breakage there is expected and a useful Phase 12 finding.
+
+---
+
 ## ADR-016 — Replace Vercel KV with Upstash Redis
 
 **Status**: ACCEPTED

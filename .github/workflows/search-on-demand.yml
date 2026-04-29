@@ -42,7 +42,6 @@ jobs:
           GLM_API_KEY: ${{ secrets.GLM_API_KEY }}
           EBAY_CLIENT_ID: ${{ secrets.EBAY_CLIENT_ID }}
           EBAY_CLIENT_SECRET: ${{ secrets.EBAY_CLIENT_SECRET }}
-          WORKER_USE_FIXTURES: 1
         run: |
           python -m product_search.cli search "${{ inputs.product }}"
 
