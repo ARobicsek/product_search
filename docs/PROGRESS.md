@@ -17,26 +17,33 @@ of "material" diffs that triggers the notify call.
 
 ## Last session
 
-- Phase 10 complete locally. Onboarding interview wired end-to-end: chat UI
-  at `/onboard`, streaming proxy at `/api/onboard/chat` (Anthropic Sonnet 4.6
-  + hosted `web_search_20260209` tool, SSE stream), validate-and-commit
-  endpoint at `/api/onboard/save` (TS-side schema validator mirrors
-  `worker/src/product_search/profile.py`, then GitHub Contents API PUT).
-- Added canonical onboarding prompt at
+- Phase 10 complete and verified end-to-end on production
+  (https://ari-product-search.vercel.app). Onboarding interview wired:
+  chat UI at `/onboard`, streaming proxy at `/api/onboard/chat` (Anthropic
+  Sonnet 4.6 + hosted `web_search_20260209` tool, SSE stream),
+  validate-and-commit endpoint at `/api/onboard/save` (TS-side schema
+  validator mirrors `worker/src/product_search/profile.py`, then GitHub
+  Contents API PUT).
+- Live verification: ran a real onboarding interview for
+  `supermicro-mbd-h13ssl-nt-o`. The flow produced two commits authored by
+  the API (`fb9ec5a`, `b979ca1`). The committed profile passes both the
+  TS-side validator AND `python -m product_search.cli validate` (canonical
+  Pydantic). Web search fired correctly during the source-discovery turn.
+- Canonical onboarding prompt at
   `worker/src/product_search/onboarding/prompts/onboard_v1.txt` (per
   LLM_STRATEGY hard rule #3), with `next.config.ts` `outputFileTracingIncludes`
   pointing Vercel's tracer at it so the prompt is bundled in the deployment.
 - ADR-015 records the model choice (`anthropic:claude-sonnet-4-6`).
 - New env vars in `.env.example`: `LLM_ONBOARD_PROVIDER`, `LLM_ONBOARD_MODEL`,
   `GITHUB_CONTENTS_TOKEN` (with `GITHUB_DISPATCH_TOKEN` as fallback).
-- Smoke-tested the schema validator against the existing DDR5 profile
-  (passes) plus three negative cases (missing fields / unknown source ID /
-  bad cron — all correctly rejected with detailed error lists). Smoke-tested
-  the running routes with `next start` — page renders the kickoff turn,
-  `/api/onboard/chat` is auth-gated, `/api/onboard/save` returns the
-  per-field validation errors as JSON.
-- `npx tsc --noEmit`, `eslint`, `next build`, and `pytest -q` (63 passed)
-  all green. Local commit; push pending.
+- Follow-up fix `e894e8e`: post-save redirect to `/<slug>` was 404'ing
+  because `getProductReports(slug)` returns `[]` until the first run lands
+  a report. Fixed by (a) `getProducts()` now returns the union of slugs
+  with reports + slugs with profiles, and (b) `[product]/page.tsx` renders
+  a "Profile saved — Run now" empty state instead of `notFound()` when the
+  profile exists but no reports do.
+- All checks green: `tsc --noEmit`, `eslint`, `next build`, `pytest -q`
+  (63 passed). Pushed to `origin/main` (`bd05fd5`, `e894e8e`).
 
 ## Next session — start here
 
@@ -51,13 +58,7 @@ of "material" diffs that triggers the notify call.
 
 ## Manual verification still needed for Phase 10
 
-- Set `ANTHROPIC_API_KEY`, `GITHUB_CONTENTS_TOKEN`, and the `WEB_SHARED_SECRET`
-  pair in Vercel before merging — the local commit doesn't exercise the live
-  Anthropic call.
-- End-to-end smoke per the phase brief: visit `/onboard`, run a fake
-  `test-product-foo` interview to completion, verify the commit lands and
-  the home page lists the new product after the next CI cycle. Worth doing
-  before declaring Phase 10 fully shipped.
+None — all verified on production with the Supermicro motherboard onboarding.
 
 ## Open questions for the user
 
@@ -96,6 +97,15 @@ None.
   `web/lib/onboard/schema.ts` and would be a natural first TS unit-test
   if/when we add Vitest. Not urgent because CI re-runs `cli validate`
   on every commit that touches `products/`.
+- **`target.configurations` schema is RAM-shaped.** The required keys
+  (`module_count`, `module_capacity_gb`) make sense for DDR5 but are
+  awkward for non-RAM products. The Supermicro motherboard onboarding
+  filled them as `{module_count: 1, module_capacity_gb: 1}` — validates
+  cleanly but is semantically meaningless. Worth a generalisation pass
+  in a future session: rename to `unit_count`/`unit_size`, make the
+  shape opaque, or add a `target_kind` discriminator. Update the
+  Pydantic model, the TS validator, the onboarding prompt, AND the
+  existing DDR5 profile in one go.
 - **Synthesizer post-check is strict by design and rejects calculated comparisons** like
   "X is 7.7% cheaper than Y" and "$80 savings vs Micron." This is per ADR-001 and caught
   real issues across all three working models. After one prompt iteration adding "do NOT
