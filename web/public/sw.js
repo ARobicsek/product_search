@@ -32,12 +32,21 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // For static assets, use Stale-While-Revalidate
+  // For static assets, use Stale-While-Revalidate.
+  // Only cache GETs to same-origin static URLs. /api/* requests pass through
+  // so server-set Set-Cookie / streaming responses aren't broken.
+  if (request.method !== 'GET' || new URL(request.url).pathname.startsWith('/api/')) {
+    return;
+  }
+
   event.respondWith(
     caches.match(request).then((cachedResponse) => {
       const fetchPromise = fetch(request).then((networkResponse) => {
+        // Clone synchronously before any await — once the page consumes the
+        // body, .clone() throws "Response body is already used".
+        const responseClone = networkResponse.clone();
         caches.open(CACHE_NAME).then((cache) => {
-          cache.put(request, networkResponse.clone());
+          cache.put(request, responseClone);
         });
         return networkResponse;
       }).catch(() => {
