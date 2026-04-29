@@ -43,18 +43,28 @@ class SynthesisResult:
 # ---------------------------------------------------------------------------
 
 
+# Cap on listings sent to the LLM. Phase 5 fixtures had ~5–10 listings;
+# the live eBay path returns 100+. Above this cap, the synth model produces
+# an empty response (max_tokens hit) or refuses. The full set is still in
+# SQLite and the daily CSV; the worker appends a deterministic full-table
+# section after the synthesized markdown so nothing is lost.
+SYNTH_MAX_LISTINGS = 30
+
+
 def build_input_payload(
     listings: list[Listing],
     diff: DiffResult | None,
     profile: Profile,
     *,
     snapshot_date: _date | None = None,
+    max_listings: int = SYNTH_MAX_LISTINGS,
 ) -> dict[str, Any]:
     """Shape the JSON payload the LLM sees.
 
     Listings are sorted by ``total_for_target_usd`` ascending (nulls last)
     so a model that just iterates the input also produces a correctly
-    ordered table.
+    ordered table. Capped at ``max_listings`` rows — the worker writes the
+    full table separately as a deterministic appendix.
     """
 
     def _key(lst: Listing) -> tuple[int, float]:
@@ -63,7 +73,8 @@ def build_input_payload(
         return (0, lst.total_for_target_usd)
 
     sorted_listings = sorted(listings, key=_key)
-    listings_json = [lst.to_dict() for lst in sorted_listings]
+    truncated = sorted_listings[:max_listings]
+    listings_json = [lst.to_dict() for lst in truncated]
 
     diff_json: dict[str, Any] | None
     if diff is None:
@@ -198,7 +209,7 @@ def synthesize(
     provider: str,
     model: str,
     snapshot_date: _date | None = None,
-    max_tokens: int = 2048,
+    max_tokens: int = 4096,
 ) -> SynthesisResult:
     """Build the payload, call the LLM, post-check, return the report."""
     payload = build_input_payload(listings, diff, profile, snapshot_date=snapshot_date)

@@ -346,6 +346,7 @@ def _cmd_search(
     if not no_report and passed_listings:
         from product_search.config import synth_config
         from product_search.synthesizer import (
+            SYNTH_MAX_LISTINGS,
             PostCheckError,
             default_report_path,
             synthesize,
@@ -370,8 +371,24 @@ def _cmd_search(
             print(f"ERROR (synth post-check): {exc}", file=sys.stderr)
             sys.exit(1)
 
+        body = result.report_md
+        if not body.strip():
+            body = (
+                "_The synthesizer returned an empty response — "
+                "the listing payload may be too large or the LLM may have "
+                "refused. Raw listings are available in the daily CSV._"
+            )
+
+        n_passed = len(passed_listings)
+        if n_passed > SYNTH_MAX_LISTINGS:
+            body += (
+                f"\n\n_Showing the top {SYNTH_MAX_LISTINGS} of {n_passed} "
+                f"passing listings in the ranking above. The full set is "
+                f"persisted to SQLite and the daily CSV._"
+            )
+
         report_path = default_report_path(slug, snapshot_date)
-        write_report(report_path, result.report_md + "\n\n" + sources_md)
+        write_report(report_path, body + "\n\n" + sources_md)
         print(
             f"Wrote report: {report_path}  "
             f"(in={result.input_tokens}, out={result.output_tokens})",

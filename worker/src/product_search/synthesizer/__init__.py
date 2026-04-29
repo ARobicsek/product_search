@@ -11,6 +11,7 @@ loudly rather than committing fabricated data.
 
 from product_search.synthesizer.report import default_report_path, write_report
 from product_search.synthesizer.synthesizer import (
+    SYNTH_MAX_LISTINGS,
     PostCheckError,
     SynthesisResult,
     build_input_payload,
@@ -20,6 +21,7 @@ from product_search.synthesizer.synthesizer import (
 )
 
 __all__ = [
+    "SYNTH_MAX_LISTINGS",
     "PostCheckError",
     "SynthesisResult",
     "build_input_payload",

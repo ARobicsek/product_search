@@ -130,6 +130,36 @@ None.
 
 ## Recently completed
 
+- 2026-04-29: Phase 12 wave 2.
+  - **Confirmed eBay live path works in prod**: 186 fetched, 160 passed
+    after EBAY_CLIENT_ID/SECRET were added to GH Actions repo secrets.
+  - **Fixed synthesizer choke on 100+ listings**: cap synth input to top
+    SYNTH_MAX_LISTINGS=30 (sorted by total_for_target_usd) and bumped
+    `max_tokens` from 2048 → 4096. The Phase 5 prompt was tuned against
+    fixtures of ~5–10 listings; with 160 the LLM produced empty output,
+    which passed the post-check (no fabricated numbers in nothing) and
+    wrote a near-blank report. The full set remains in SQLite and the
+    daily CSV; the report now appends a note when truncation applies.
+    Empty-synth output is now caught explicitly (italicised note in
+    place of the bottom line) instead of silently producing a blank
+    report.
+  - **Fixed sw.js Response.clone() bug**: SWR branch was cloning
+    inside an async caches.open().then() callback after the page had
+    already consumed the body. Cloned synchronously and excluded
+    /api/* + non-GET requests from the SW cache.
+
+  Open follow-ups from this session:
+  - **Storefront adapters returning 0 in prod live mode**:
+    nemixram_storefront, cloudstoragecorp_ebay, memstore_ebay all
+    reported `fetched: 0` with no error. Each has a silent-fail path
+    (e.g. nemixram returns `[]` on any non-200 from
+    `/products.json`). Needs targeted diagnostic — possibly add error
+    logging that surfaces to the sources panel, or capture a fresh
+    fixture to compare against.
+  - **CI on `main` is chronically red** on lint steps (worker ruff +
+    web ESLint). Predates Phase 12; PROGRESS already tracked this as
+    deferred. Worth a small cleanup pass.
+
 - 2026-04-29: Phase 12 polish wave 1. Removed `WORKER_USE_FIXTURES: 1` from
   prod workflows (ADR-017); added deterministic "Sources searched" panel
   to reports (ADR-018); added elapsed-time + tighter polling to the
