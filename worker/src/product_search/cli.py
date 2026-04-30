@@ -432,7 +432,7 @@ def _build_sources_searched_md(
     for s in source_stats:
         err = s.get("error")
         status = "ok" if err is None else f"error: {err}"
-        status = status.replace("|", "\\|")
+        status = status.replace("|", "\\|").replace("\n", " ").replace("\r", "")
         lines.append(
             f"| {s['source']} | {status} | {s.get('fetched', 0)} | {s.get('passed', 0)} |"
         )

@@ -1,0 +1,5 @@
+1. **Bottom line.** Eight Samsung M32 modules at 100.0 USD each totals 800.0 USD for 256 GB, the only current viable path to the target configuration.
+
+2. **Flags.** (no flags)
+
+3. **Context.** The search has surfaced a single RDIMM option: Samsung DDR5 32GB 4800MHz modules (MPN M32) at 100.0 USD per unit. Eight units meet the target of 256 GB in the requested 8×32GB configuration. The seller holds a 100.0% rating with 100 feedback entries and ships from the US. No QVL status is recorded. A prior eBay listing dropped to 100.0 USD (down from 120.0 USD), suggesting recent price normalization in this segment. The synthesis hints flag Kingston "E" suffix (UDIMM, not RDIMM) and vendor-specific firmware risks; Samsung generics typically avoid those compatibility pitfalls on the H13SSL-NT platform. At 4800 MT/s, these modules sit in the standard DDR5 RDIMM speed tier for EPYC Genoa builds.

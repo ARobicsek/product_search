@@ -135,6 +135,11 @@ None.
   - Fixed a race condition in `search-on-demand.yml` and `search-scheduled.yml` where pushing the generated report would fail with `[rejected] main -> main (fetch first)` if the repository was updated during execution. Added `git pull --rebase origin main` before `git push`.
   - Identified and fixed silent failures in `nemixram`, `cloudstoragecorp`, and `memstore` adapters. They previously returned an empty list `[]` on non-200 HTTP statuses. Changed to explicitly raise `RuntimeError`, allowing `cli.py` to correctly surface the error in the "Sources searched" report panel.
   - Fixed unit tests broken by Phase 12's introduction of `ai_filter`. Bypassed the LLM call in `ai_filter.py` when `WORKER_USE_FIXTURES=1` to keep tests deterministic and pass without requiring LLM credentials.
+- 2026-04-30: Synthesizer Refactor (Deterministic Table Generation).
+  - Eliminated the possibility of hallucinated links or malformed table formatting by shifting the responsibility of generating the "Ranked listings" and "Diff vs yesterday" sections from the LLM to deterministic Python code.
+  - Simplified the `synth_v1.txt` prompt to only request the qualitative sections (Bottom line, Flags, Context).
+  - Re-wrote `synthesizer.py` to extract those sections via regex and inject mathematically perfect Markdown tables built directly from the `Listing` objects.
+  - Deleted complex URL verification regex from `post_check` since URLs are no longer processed by the LLM.
 - 2026-04-30: Phase 12 (Universal AI Extraction and Filtering).
   - Designed and deployed a "best of both worlds" pipeline (ADR-021).
   - Replaced explicit CSS scraping with `universal_ai_search`, using GLM-5.1 to extract JSON from raw HTML.

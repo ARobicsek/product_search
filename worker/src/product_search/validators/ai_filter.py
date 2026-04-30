@@ -45,9 +45,9 @@ Strict Rules to Apply:
 {json.dumps(rules, indent=2)}
 
 You will receive a JSON list of products.
-Output a JSON array of INTEGER INDICES of the products that STRICTLY PASS all rules.
-Do not include products that fail the rules. If none pass, output [].
-IMPORTANT: Do NOT output any chain-of-thought or reasoning text. ONLY output the JSON array.
+Output a JSON object with a single key "indices" containing a JSON array of INTEGER INDICES of the products that STRICTLY PASS all rules.
+Do not include products that fail the rules. If none pass, output {{"indices": []}}.
+IMPORTANT: Do NOT output any chain-of-thought or reasoning text. ONLY output the JSON object.
 """
 
     logger.info("Calling GLM-5.1 for filtering...")
@@ -70,13 +70,21 @@ IMPORTANT: Do NOT output any chain-of-thought or reasoning text. ONLY output the
         raw_text = raw_text.removeprefix("json").strip()
         
         try:
-            passed_indices = json.loads(raw_text)
+            parsed = json.loads(raw_text)
         except json.JSONDecodeError:
             logger.error(f"Failed to parse JSON. Raw LLM output:\n{resp.text}")
             return []
             
+        if isinstance(parsed, dict) and "indices" in parsed:
+            passed_indices = parsed["indices"]
+        elif isinstance(parsed, list):
+            passed_indices = parsed
+        else:
+            logger.error(f"LLM returned unexpected JSON structure: {parsed}")
+            return []
+            
         if not isinstance(passed_indices, list):
-            logger.error("LLM did not return a list")
+            logger.error("LLM indices is not a list")
             return []
             
     except Exception as e:

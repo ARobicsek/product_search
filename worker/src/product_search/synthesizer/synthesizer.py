@@ -2,8 +2,8 @@
 
 Public entry point is :func:`synthesize`. It calls the configured LLM
 with the prompt at ``prompts/synth_v1.txt`` and runs :func:`post_check`
-on the output. Per ADR-001 the run fails loud if any price, URL, MPN,
-or quantity in the report does not appear in the input — we'd rather
+on the output. Per ADR-001 the run fails loud if any price, or quantity
+in the report commentary does not appear in the input — we'd rather
 miss a daily report than commit fabricated data.
 """
 
@@ -25,7 +25,7 @@ PROMPT_NAME = "synth_v1.txt"
 
 
 class PostCheckError(RuntimeError):
-    """Raised when the synth output contains numbers/URLs not in the input."""
+    """Raised when the synth output contains numbers not in the input."""
 
 
 @dataclass
@@ -42,12 +42,6 @@ class SynthesisResult:
 # Input shaping
 # ---------------------------------------------------------------------------
 
-
-# Cap on listings sent to the LLM. Phase 5 fixtures had ~5–10 listings;
-# the live eBay path returns 100+. Above this cap, the synth model produces
-# an empty response (max_tokens hit) or refuses. The full set is still in
-# SQLite and the daily CSV; the worker appends a deterministic full-table
-# section after the synthesized markdown so nothing is lost.
 SYNTH_MAX_LISTINGS = 30
 
 
@@ -59,13 +53,7 @@ def build_input_payload(
     snapshot_date: _date | None = None,
     max_listings: int = SYNTH_MAX_LISTINGS,
 ) -> dict[str, Any]:
-    """Shape the JSON payload the LLM sees.
-
-    Listings are sorted by ``total_for_target_usd`` ascending (nulls last)
-    so a model that just iterates the input also produces a correctly
-    ordered table. Capped at ``max_listings`` rows — the worker writes the
-    full table separately as a deterministic appendix.
-    """
+    """Shape the JSON payload the LLM sees."""
 
     def _key(lst: Listing) -> tuple[int, float]:
         if lst.total_for_target_usd is None:
@@ -115,22 +103,75 @@ def render_prompt() -> str:
 
 
 # ---------------------------------------------------------------------------
+# Python Tabular Markdown Generators
+# ---------------------------------------------------------------------------
+
+def build_listings_table_md(listings: list[Listing]) -> str:
+    lines = ["**Ranked listings.**\n"]
+    lines.append("| Rank | Source | Title | Price (unit) | Total for target | Qty | Seller | Flags |")
+    lines.append("|---|---|---|---|---|---|---|---|")
+    
+    def _key(lst: Listing) -> tuple[int, float]:
+        if lst.total_for_target_usd is None:
+            return (1, 0.0)
+        return (0, lst.total_for_target_usd)
+        
+    sorted_listings = sorted(listings, key=_key)[:SYNTH_MAX_LISTINGS]
+    
+    for i, lst in enumerate(sorted_listings, 1):
+        source_link = f"[{lst.source}]({lst.url})"
+        title = lst.title.replace("|", "\\|")
+        price = f"${lst.unit_price_usd:.2f}" if lst.unit_price_usd is not None else "unknown"
+        total = f"${lst.total_for_target_usd:.2f}" if lst.total_for_target_usd is not None else "unknown"
+        qty = str(lst.quantity_available) if lst.quantity_available is not None else "unknown"
+        seller = lst.seller_name.replace("|", "\\|") if lst.seller_name else "unknown"
+        flags = ", ".join(lst.flags) if lst.flags else "(no flags)"
+        lines.append(f"| {i} | {source_link} | {title} | {price} | {total} | {qty} | {seller} | {flags} |")
+        
+    return "\n".join(lines)
+
+
+def build_diff_md(diff: DiffResult | None) -> str:
+    lines = ["**Diff vs yesterday.**\n"]
+    if diff is None:
+        lines.append("(no prior snapshot)")
+        return "\n".join(lines)
+        
+    # New
+    lines.append("- **New:**")
+    if not diff.new:
+        lines.append("  - (none)")
+    else:
+        for lst in diff.new:
+            lines.append(f"  - [{lst.source}]({lst.url}) - ${lst.unit_price_usd:.2f}: {lst.title}")
+            
+    # Dropped
+    lines.append("- **Dropped:**")
+    if not diff.dropped:
+        lines.append("  - (none)")
+    else:
+        for lst in diff.dropped:
+            lines.append(f"  - [{lst.source}]({lst.url}) - ${lst.unit_price_usd:.2f}: {lst.title}")
+            
+    # Changed
+    lines.append("- **Price-changed (>=5%):**")
+    if not diff.changed:
+        lines.append("  - (none)")
+    else:
+        for ch in diff.changed:
+            lines.append(f"  - [{ch.new_listing.source}]({ch.url}) - ${ch.old_price_usd:.2f} -> ${ch.new_price_usd:.2f} ({ch.pct_change*100:+.1f}%): {ch.title}")
+            
+    return "\n".join(lines)
+
+
+# ---------------------------------------------------------------------------
 # Post-check
 # ---------------------------------------------------------------------------
 
-# Numbers like 1234, 1234.56, .5
 _NUMBER_RE = re.compile(r"\d+(?:\.\d+)?|\.\d+")
-# URLs (http/https). Stop at whitespace or common closing punctuation. The
-# pipe `|` is *included* in the match because eBay/Shopify URLs occasionally
-# contain it; markdown-table pipes always have surrounding whitespace, which
-# already terminates the match.
-_URL_RE = re.compile(r"https?://[^\s)\]>'\"]+")
-# Trailing punctuation that often follows a URL in markdown
-_URL_TRAIL = ".,;:)]}>'\""
 
 
 def _normalize_number(n: str) -> str:
-    """Canonicalise so 100, 100.0, 100.00 all compare equal."""
     if "." in n:
         n = n.rstrip("0").rstrip(".")
     return n if n != "" else "0"
@@ -140,36 +181,9 @@ def _extract_numbers(text: str) -> set[str]:
     return {_normalize_number(n) for n in _NUMBER_RE.findall(text)}
 
 
-def _canonicalize_url(url: str) -> str:
-    """Return scheme + host + path, lowercased host, no trailing slash.
-
-    Per ADR-020: URL identity for the post-check is the destination
-    (scheme/host/path), not the query string. Tracking params like
-    eBay's `?_skw=...&hash=item...&amdata=enc%3A...` are noise added
-    by the source and don't change which item the URL resolves to.
-    """
-    from urllib.parse import urlsplit
-
-    parts = urlsplit(url)
-    path = parts.path.rstrip("/") or "/"
-    return f"{parts.scheme}://{parts.netloc.lower()}{path}"
-
-
-def _extract_urls(text: str) -> set[str]:
-    return {raw.rstrip(_URL_TRAIL) for raw in _URL_RE.findall(text)}
-
-
-def _extract_canonical_urls(text: str) -> set[str]:
-    return {_canonicalize_url(u) for u in _extract_urls(text)}
-
-
 def post_check(report_md: str, payload: dict[str, Any]) -> None:
-    """Raise :class:`PostCheckError` if the report fabricates data.
-
-    The check tokenises numbers and URLs out of the markdown and verifies
-    each one appears in (or is a substring of) the input payload. Rank
-    numbers (1..N) and a small allowlist for prompt-mentioned constants
-    ("5", "100", "200") are always permitted.
+    """Raise :class:`PostCheckError` if the report fabricates numeric data.
+    URLs are now generated programmatically by python, so we only check numbers.
     """
     payload_text = json.dumps(payload, sort_keys=True, default=str)
     payload_numbers = _extract_numbers(payload_text)
@@ -177,14 +191,10 @@ def post_check(report_md: str, payload: dict[str, Any]) -> None:
     n_listings = len(payload.get("listings") or [])
     rank_max = max(20, n_listings + 5)
     allowed_numbers = {str(i) for i in range(rank_max + 1)}
-    # Constants the prompt itself mentions: 5% threshold, 100% rating,
-    # 200-word cap.
     allowed_numbers |= {"5", "100", "200"}
 
     report_numbers = _extract_numbers(report_md)
 
-    # Allow fraction→percent conversion (e.g. pct_change 0.056 → "5.6%").
-    # If N is in the report and N/100 is in the payload, accept it.
     pct_allowed: set[str] = set()
     for pn in payload_numbers:
         try:
@@ -202,38 +212,8 @@ def post_check(report_md: str, payload: dict[str, Any]) -> None:
         and not any(n in pn for pn in payload_numbers)
     )
 
-    payload_urls = _extract_canonical_urls(payload_text)
-    report_urls_raw = _extract_urls(report_md)
-    bad_urls = sorted(
-        raw for raw in report_urls_raw if _canonicalize_url(raw) not in payload_urls
-    )
-
-    problems: list[str] = []
     if bad_numbers:
-        problems.append(f"fabricated numbers: {bad_numbers}")
-    if bad_urls:
-        problems.append(f"fabricated URLs: {bad_urls}")
-
-    if problems:
-        # Dump both URL sets to stderr so the next failure is debuggable
-        # without a code change. Goes only to logs, never to the report.
-        if bad_urls:
-            import sys
-
-            print(
-                f"[post_check] {len(bad_urls)} bad URL(s); "
-                f"payload had {len(payload_urls)} canonical URLs.",
-                file=sys.stderr,
-            )
-            for bu in bad_urls[:5]:
-                print(f"[post_check]   bad: {bu!r}", file=sys.stderr)
-                print(
-                    f"[post_check]   canonical: {_canonicalize_url(bu)!r}",
-                    file=sys.stderr,
-                )
-        raise PostCheckError(
-            "Synthesizer post-check failed: " + "; ".join(problems)
-        )
+        raise PostCheckError(f"Synthesizer post-check failed: fabricated numbers: {bad_numbers}")
 
 
 # ---------------------------------------------------------------------------
@@ -264,11 +244,35 @@ def synthesize(
         max_tokens=max_tokens,
     )
 
-    report_md = resp.text.strip()
-    post_check(report_md, payload)
+    llm_report_md = resp.text.strip()
+    post_check(llm_report_md, payload)
+    
+    # Extract sections using regex
+    import re
+    bl_match = re.search(r'1\.\s*\*\*Bottom line\.\*\*(.*?)(?=2\.\s*\*\*Flags\.\*\*|$)', llm_report_md, re.DOTALL)
+    flags_match = re.search(r'2\.\s*\*\*Flags\.\*\*(.*?)(?=3\.\s*\*\*Context\.\*\*|$)', llm_report_md, re.DOTALL)
+    context_match = re.search(r'3\.\s*\*\*Context\.\*\*(.*)', llm_report_md, re.DOTALL)
+    
+    bl_text = bl_match.group(1).strip() if bl_match else "(extraction failed)"
+    flags_text = flags_match.group(1).strip() if flags_match else "(extraction failed)"
+    ctx_text = context_match.group(1).strip() if context_match else "(extraction failed)"
+    
+    # Inject deterministic Python tables and re-number
+    listings_md = build_listings_table_md(listings)
+    diff_md = build_diff_md(diff)
+    
+    final_report_md = f"""1. **Bottom line.** {bl_text}
+
+{listings_md}
+
+{diff_md}
+
+4. **Flags.** {flags_text}
+
+5. **Context.** {ctx_text}"""
 
     return SynthesisResult(
-        report_md=report_md,
+        report_md=final_report_md,
         provider=provider,
         model=model,
         input_tokens=resp.input_tokens,
