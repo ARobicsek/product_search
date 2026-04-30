@@ -9,6 +9,65 @@ Status values:
 
 ---
 
+## ADR-022 — `ai_filter` prompt sends full rule definitions; per-product filter log committed alongside report
+
+**Status**: ACCEPTED (refines, does not supersede, ADR-021)
+
+**Context**: From the 2026-04-30 session, prod ai_filter consistently
+returned `ebay_search ok 95 / 0` despite five debug commits switching
+models, parser shapes, prompt wording, and adding artifact uploads. The
+diagnostic artifact required GH Actions auth to download, so the
+operator had no way to see what GLM was actually returning per listing
+without manually pulling it.
+
+Root cause was simpler than any of the model/prompt theories: the
+filter prompt rendered rules via `[r.rule for r in profile.spec_filters]`,
+which extracted only the rule *type name* and dropped every value. The
+LLM saw `["form_factor_in", "speed_mts_min", "voltage_eq",
+"title_excludes", ...]` with no idea which form factors were allowed,
+what the speed minimum was, or which substrings to exclude. The LLM's
+honest, conservative response was to fail nearly every listing on
+"insufficient information." That was indistinguishable in the report
+from a working filter applied to genuinely bad listings.
+
+**Decision**:
+
+1. **Send full rule definitions**: ai_filter dumps `r.model_dump()` per
+   rule, so the LLM receives `{"rule": "form_factor_in", "values":
+   ["RDIMM", "3DS-RDIMM"]}` instead of just `"form_factor_in"`. The
+   prompt also now contains an explainer per rule type (form_factor_in,
+   speed_mts_min, ecc_required, voltage_eq, min_quantity_for_target,
+   in_stock, single_sku_url, title_excludes), telling the LLM how to
+   interpret each rule against `attrs`/`title`/`url`/`quantity_available`
+   with a consistent "unknown ≠ failed" semantic.
+
+2. **Per-product filter log committed alongside the report**: each
+   ai_filter run also writes to `reports/<slug>/<date>.filter.jsonl`
+   (truncating per call), one row per evaluated listing with `index`,
+   `pass`, `reason`, `title`, `price`, `url`, `source`. The workflow's
+   existing `git add -A` step commits it, so any future 0-pass run is
+   debuggable from the public repo without GH Actions auth. The daily
+   `worker/data/filter_logs/<date>.jsonl` and the workflow artifact
+   upload are unchanged — they remain the authenticated path.
+
+3. **Inline diagnostic block in the markdown report**: when
+   `passed_listings == 0` and `all_listings > 0`, the report appends an
+   "AI filter diagnostic" section with the first 10 rejection reasons in
+   a markdown table (or, on hard call-level failure — JSON parse error,
+   unexpected shape, exception — the first 600 chars of the raw LLM
+   response, fenced). The user sees the failure mode at a glance on the
+   web UI, no log diving required.
+
+**Consequence**: Future ai_filter regressions surface in the committed
+report instead of appearing as silent "0 passed" rows. The prompt is
+self-describing and no longer relies on the LLM guessing rule
+semantics from rule names. Trade-off: the prompt is longer (~1200 more
+tokens of rule explanations), but ai_filter is already on
+glm-4.5-flash (cheap and non-reasoning), so the marginal cost is
+negligible.
+
+---
+
 ## ADR-021 — Universal AI Extraction and AI-Aided Filtering
 
 **Status**: ACCEPTED (supersedes the strict "deterministic extraction only" rule from ADR-011)

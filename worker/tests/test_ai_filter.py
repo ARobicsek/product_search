@@ -31,13 +31,18 @@ def _isolated_env(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     """Force the LLM code path AND redirect filter-log writes to a temp dir.
 
     Other test files set ``WORKER_USE_FIXTURES=1`` at module import, which
-    short-circuits ai_filter; we need it off here. We also redirect the
-    filter-log file so pytest runs don't pollute ``worker/data/filter_logs/``
-    on the developer's machine.
+    short-circuits ai_filter; we need it off here. We also redirect both the
+    daily filter log and the per-product diagnostic log so pytest runs don't
+    pollute ``worker/data/filter_logs/`` or ``reports/<slug>/`` on the
+    developer's machine (and don't accidentally commit test sentinel rows).
     """
     monkeypatch.delenv("WORKER_USE_FIXTURES", raising=False)
     log_path = tmp_path / "filter_log.jsonl"
+    per_product_path = tmp_path / "per_product_filter_log.jsonl"
     monkeypatch.setattr(ai_filter_mod, "_filter_log_path", lambda: log_path)
+    monkeypatch.setattr(
+        ai_filter_mod, "_per_product_filter_log_path", lambda _slug: per_product_path
+    )
 
 
 def _stub_response(text: str) -> Any:

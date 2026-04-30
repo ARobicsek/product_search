@@ -32,15 +32,62 @@ def _filter_log_path() -> Path:
     return log_dir / f"{datetime.now(tz=UTC).date().isoformat()}.jsonl"
 
 
+def _repo_reports_dir() -> Path | None:
+    """Return ``<repo>/reports`` if discoverable from this file's location.
+
+    Used to drop a per-run filter log alongside the committed daily report so
+    the diagnostic survives even when GH Actions artifact downloads require
+    auth that the operator may not have. Returns None when the repo layout
+    can't be located (tests / unusual CWDs).
+    """
+    # worker/src/product_search/validators/ai_filter.py -> repo root
+    here = Path(__file__).resolve()
+    for parent in [here.parent.parent.parent.parent.parent, *here.parents]:
+        if (parent / "reports").is_dir() and (parent / "products").is_dir():
+            return parent / "reports"
+    return None
+
+
+def _per_product_filter_log_path(slug: str) -> Path | None:
+    reports = _repo_reports_dir()
+    if reports is None:
+        return None
+    out_dir = reports / slug
+    out_dir.mkdir(parents=True, exist_ok=True)
+    return out_dir / f"{datetime.now(tz=UTC).date().isoformat()}.filter.jsonl"
+
+
+# Module-level capture of the most-recent ai_filter run's per-listing verdicts.
+# cli.py reads this when building the report so a 0-pass run can include
+# the first-N rejection reasons inline. Reset at the top of every ai_filter call.
+LAST_RUN_LOG: list[dict] = []
+LAST_RUN_RAW_RESPONSE: str = ""
+
+
 def _write_filter_log(slug: str, entries: list[dict]) -> None:
+    """Append entries to the daily filter log AND truncate-write a per-product
+    sibling under ``reports/<slug>/<date>.filter.jsonl`` so the diagnostic is
+    captured in the committed repo (no auth required to inspect)."""
+    timestamp = datetime.now(tz=UTC).isoformat()
+    rows = [
+        json.dumps({"timestamp": timestamp, "product": slug, **entry})
+        for entry in entries
+    ]
     try:
-        path = _filter_log_path()
-        timestamp = datetime.now(tz=UTC).isoformat()
-        with path.open("a", encoding="utf-8") as f:
-            for entry in entries:
-                f.write(json.dumps({"timestamp": timestamp, "product": slug, **entry}) + "\n")
+        with _filter_log_path().open("a", encoding="utf-8") as f:
+            f.write("\n".join(rows) + ("\n" if rows else ""))
     except Exception as e:
-        logger.warning(f"Failed to write filter log: {e}")
+        logger.warning(f"Failed to write daily filter log: {e}")
+
+    try:
+        per_product = _per_product_filter_log_path(slug)
+        if per_product is not None:
+            # Truncate per-run so the file reflects only the most recent
+            # ai_filter call for this product on this date.
+            with per_product.open("w", encoding="utf-8") as f:
+                f.write("\n".join(rows) + ("\n" if rows else ""))
+    except Exception as e:
+        logger.warning(f"Failed to write per-product filter log: {e}")
 
 
 def ai_filter(listings: list[Listing], profile: Profile) -> list[Listing]:
@@ -50,13 +97,22 @@ def ai_filter(listings: list[Listing], profile: Profile) -> list[Listing]:
     listing, persists those verdicts to ``worker/data/filter_logs/<date>.jsonl``
     for inspection, and returns the subset that passed.
     """
+    global LAST_RUN_LOG, LAST_RUN_RAW_RESPONSE
+    LAST_RUN_LOG = []
+    LAST_RUN_RAW_RESPONSE = ""
+
     if not listings:
         return []
 
     if os.environ.get("WORKER_USE_FIXTURES", "").strip() in ("1", "true", "yes"):
         return listings
 
-    rules = [r.rule for r in profile.spec_filters]
+    # Dump FULL rule definitions (rule type + values/value/etc.) — not just the
+    # rule names. Earlier revisions stripped extras and sent only `r.rule`, which
+    # left the LLM guessing what `form_factor_in` allowed, what `voltage_eq`
+    # required, and which substrings `title_excludes` named. That guess
+    # collapsed to "reject everything" in prod.
+    rules_full = [r.model_dump() for r in profile.spec_filters]
     target_desc = f"Target: {profile.target.amount} {profile.target.unit}"
     if profile.target.configurations:
         target_desc += f" (Need exactly one of these configs: {[c.model_dump() for c in profile.target.configurations]})"
@@ -66,10 +122,12 @@ def ai_filter(listings: list[Listing], profile: Profile) -> list[Listing]:
         payload_for_llm.append({
             "index": i,
             "title": lst.title,
+            "url": lst.url,
             "price": lst.unit_price_usd,
             "condition": lst.condition,
             "is_kit": lst.is_kit,
             "kit_module_count": lst.kit_module_count,
+            "quantity_available": lst.quantity_available,
             "attrs": lst.attrs,
         })
 
@@ -78,20 +136,45 @@ The user wants: {profile.display_name}
 Description: {profile.description}
 {target_desc}
 
-Rules to apply:
-{json.dumps(rules, indent=2)}
+Rules to apply (each rule is a dict with a "rule" type and its parameters):
+{json.dumps(rules_full, indent=2)}
 
-How to decide each listing's verdict:
-- For every rule, look at BOTH the listing's `attrs` dict AND its `title`. The title
-  typically encodes attributes that aren't in attrs (e.g. "RDIMM ECC DDR5-4800 32GB"
-  implies form_factor=RDIMM, ecc=true, speed_mts=4800, capacity_gb=32).
-- "pass": true means NO rule is clearly violated.
-- Unknown is NOT the same as "failed". If a rule references an attribute that is
-  missing from attrs AND not contradicted by the title, treat the rule as passed.
-  Only reject when an attribute is PRESENT and clearly violates the rule, or the
-  TITLE clearly contradicts it (e.g. "UDIMM" in the title for a form_factor: RDIMM rule).
-- title_excludes rules: fail only if one of the excluded substrings appears in the
-  title (case-insensitive). Otherwise pass.
+How each rule type works (only the ones present above apply):
+- form_factor_in {{values:[...]}}: pass if attrs.form_factor is in values, OR if neither
+  attrs.form_factor nor the title indicates a specific form factor. Reject only when
+  attrs.form_factor is set to something not in values, OR the title clearly contains a
+  different form factor (e.g. "UDIMM" / "SODIMM" / "LRDIMM" in the title when the values
+  list does not include that form factor).
+- speed_mts_min {{value:N}}: pass if attrs.speed_mts >= N, or if speed is unknown.
+  Reject only if attrs.speed_mts is set and below N, OR the title clearly states a
+  lower speed (e.g. "DDR5-4400" or "PC5-32000" when min is 4800).
+- ecc_required: pass if attrs.ecc is true OR ecc is unknown. Reject only if attrs.ecc
+  is explicitly false, OR the title clearly says "non-ECC".
+- voltage_eq {{value:V}}: pass if attrs.voltage_v equals V, OR voltage is unknown
+  (which it almost always is — voltage is rarely in titles). Only reject when
+  attrs.voltage_v is set and clearly != V.
+- min_quantity_for_target: pass unless the listing definitely cannot hit the target.
+  Compare attrs.capacity_gb against the target configurations above. If
+  attrs.capacity_gb does not match any config's module_capacity_gb, reject. If
+  capacity is unknown, pass. If quantity_available is known and (quantity_available *
+  kit_module_count) is less than the required module_count, reject.
+- in_stock: pass unless quantity_available is explicitly 0 or negative. Pass when
+  quantity_available is null/unknown.
+- single_sku_url: reject only if the URL clearly points at a search results page
+  (e.g. contains "/sch/", "search?", or "?_nkw="). Otherwise pass.
+- title_excludes {{values:[...]}}: reject if any string in values appears in the
+  title (case-insensitive substring match). Otherwise pass.
+
+Decision rules:
+- "pass": true means NO rule above is clearly violated.
+- Unknown is NOT the same as failed. Apply each rule to the data you actually have
+  (attrs, title, url, quantity_available). If a rule depends on an attribute that
+  isn't present and isn't implied by the title, treat that rule as passed.
+- The title is informative: "RDIMM ECC DDR5-4800 32GB" implies form_factor=RDIMM,
+  ecc=true, speed_mts=4800, capacity_gb=32. Use those implications when applying
+  rules.
+- For each failure, name the specific rule and quote the offending substring from
+  attrs/title/url so the human reviewer can verify.
 
 You will receive a JSON list of products. Output a JSON object with a single key
 "evaluations" containing an array with one entry PER PRODUCT, in input order. Each
@@ -99,7 +182,7 @@ entry must have these exact keys:
   - "index": integer, matching the input index
   - "pass": boolean
   - "reason": short string (1 sentence) — for failures, name the specific rule that
-    failed and quote the offending word from attrs or title.
+    failed and quote the offending word from attrs/title/url.
 
 Every input product must appear exactly once in "evaluations". Do not omit any.
 IMPORTANT: Do NOT output any chain-of-thought or reasoning text outside the JSON.
@@ -121,6 +204,7 @@ ONLY output the JSON object.
             max_tokens=8192,
             response_format="json",
         )
+        LAST_RUN_RAW_RESPONSE = resp.text or ""
 
         raw_text = resp.text.strip()
         if raw_text.startswith("```"):
@@ -133,11 +217,13 @@ ONLY output the JSON object.
             parsed = json.loads(raw_text)
         except json.JSONDecodeError:
             _loud(f"JSON parse failed. Raw response (first 1000 chars):\n{resp.text[:1000]}")
-            _write_filter_log(profile.slug, [{
+            sentinel = [{
                 "index": -1, "pass": False,
                 "reason": f"ai_filter parse failure: {resp.text[:200]!r}",
                 "title": "(filter call failed)", "price": None, "url": None, "source": None,
-            }])
+            }]
+            _write_filter_log(profile.slug, sentinel)
+            LAST_RUN_LOG = sentinel
             return []
 
         # GLM-5.1 (and GLM 4.5 Flash before it) often emit a bare list even when the
@@ -159,11 +245,13 @@ ONLY output the JSON object.
             bare_indices = [int(i) for i in parsed if str(i).lstrip("-").isdigit()]
         else:
             _loud(f"Unexpected JSON structure: {str(parsed)[:500]}")
-            _write_filter_log(profile.slug, [{
+            sentinel = [{
                 "index": -1, "pass": False,
                 "reason": f"ai_filter unexpected JSON structure: {str(parsed)[:200]!r}",
                 "title": "(filter call failed)", "price": None, "url": None, "source": None,
-            }])
+            }]
+            _write_filter_log(profile.slug, sentinel)
+            LAST_RUN_LOG = sentinel
             return []
 
         if bare_indices is not None:
@@ -175,10 +263,12 @@ ONLY output the JSON object.
 
     except Exception as e:
         _loud(f"Filtering LLM call failed: {e!r}")
-        _write_filter_log(profile.slug, [{
+        sentinel = [{
             "index": -1, "pass": False, "reason": f"ai_filter exception: {e!r}",
             "title": "(filter call failed)", "price": None, "url": None, "source": None,
-        }])
+        }]
+        _write_filter_log(profile.slug, sentinel)
+        LAST_RUN_LOG = sentinel
         return []
 
     # Build log entries (one per listing the model evaluated) and pick the survivors.
@@ -229,6 +319,7 @@ ONLY output the JSON object.
         })
 
     _write_filter_log(profile.slug, log_entries)
+    LAST_RUN_LOG = list(log_entries)
     logger.info(f"LLM kept {len(passed_listings)} out of {len(listings)} listings.")
 
     return passed_listings

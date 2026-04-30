@@ -404,10 +404,15 @@ def _cmd_search(
         # sources panel so the day isn't a blank entry.
         from product_search.synthesizer import default_report_path, write_report
 
+        diagnostic_md = _build_filter_diagnostic_md(len(all_listings))
+
         body = (
             f"_No listings passed the validator pipeline for "
             f"{snapshot_date.isoformat()}._\n\n{sources_md}"
         )
+        if diagnostic_md:
+            body += "\n\n" + diagnostic_md
+
         report_path = default_report_path(slug, snapshot_date)
         write_report(report_path, body)
         print(f"Wrote sources-only report: {report_path}", file=sys.stderr)
@@ -415,6 +420,70 @@ def _cmd_search(
     # --- Output ---------------------------------------------------------------
     print(json.dumps([lst.to_dict() for lst in passed_listings], indent=2))
     sys.exit(0)
+
+
+def _build_filter_diagnostic_md(total_fetched: int) -> str:
+    """Render a 'why did the filter reject everything' diagnostic block.
+
+    Reads :data:`product_search.validators.ai_filter.LAST_RUN_LOG`, which the
+    most recent ``ai_filter`` call populated with one row per evaluated
+    listing (or a single sentinel row when the LLM call failed entirely).
+    Returns "" when there is nothing to show — caller decides whether to
+    append it.
+
+    The point of this block is to make a 0-pass run debuggable from the
+    committed report alone (which is publicly readable on GitHub raw),
+    without needing GitHub Actions auth to download artifacts.
+    """
+    from product_search.validators import ai_filter as ai_filter_mod
+
+    log_entries = list(ai_filter_mod.LAST_RUN_LOG)
+    if not log_entries:
+        return ""
+
+    fail_entries = [e for e in log_entries if not e.get("pass")]
+    if not fail_entries:
+        return ""
+
+    # Sentinel rows have index=-1 — treat those as a hard call-level failure
+    # rather than per-listing rejections.
+    hard_fail = next((e for e in fail_entries if e.get("index") == -1), None)
+
+    lines = [
+        "**AI filter diagnostic.**",
+        "",
+        f"`ai_filter` evaluated {len(log_entries)} of {total_fetched} fetched "
+        f"listing(s) and kept 0. First {min(10, len(fail_entries))} rejection "
+        f"reason(s) below; full per-listing log at "
+        f"`reports/<slug>/<date>.filter.jsonl` (committed alongside this report).",
+        "",
+    ]
+
+    if hard_fail is not None:
+        lines.append(
+            f"_Hard failure_: `{hard_fail.get('reason', '(no reason)')}`"
+        )
+        raw_excerpt = (ai_filter_mod.LAST_RUN_RAW_RESPONSE or "")[:600]
+        if raw_excerpt:
+            lines.append("")
+            lines.append("Raw LLM response (first 600 chars):")
+            lines.append("")
+            lines.append("```")
+            lines.append(raw_excerpt)
+            lines.append("```")
+        return "\n".join(lines)
+
+    lines.append("| # | Reason | Title |")
+    lines.append("|---|--------|-------|")
+    def _cell(value: object, limit: int) -> str:
+        return str(value).replace("|", "\\|").replace("\n", " ")[:limit]
+
+    for entry in fail_entries[:10]:
+        idx = entry.get("index", "?")
+        reason = _cell(entry.get("reason", "(no reason)"), 200)
+        title = _cell(entry.get("title", ""), 80)
+        lines.append(f"| {idx} | {reason} | {title} |")
+    return "\n".join(lines)
 
 
 def _build_sources_searched_md(

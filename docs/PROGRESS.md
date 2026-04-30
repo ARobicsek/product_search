@@ -8,12 +8,49 @@
 
 See the Phase 12 brief in [PHASES.md](PHASES.md#phase-12--polish--second-product-proof).
 
-## Status as of end of 2026-04-30 session
+## Status as of end of 2026-04-30 session (continuation)
 
-**Open mystery: prod ai_filter still rejects all 95 eBay listings even after
-four targeted fixes. Next session must investigate from the artifact upload.**
+**Root cause found and fixed: ai_filter was sending only rule *names* to the
+LLM, with values stripped. GLM had no way to apply rules without that data
+and rejected nearly everything. See ADR-022.**
 
-### What shipped this session (all on origin/main)
+### What shipped this continuation (uncommitted at handoff start; this commit captures it)
+
+1. **ai_filter sends full rule definitions** —
+   `worker/src/product_search/validators/ai_filter.py` was building the
+   "Rules to apply" prompt block from `[r.rule for r in
+   profile.spec_filters]`, which dropped every `values:` / `value:`
+   field. Now uses `[r.model_dump() for r in profile.spec_filters]` so
+   the LLM receives e.g. `{"rule":"form_factor_in", "values":["RDIMM",
+   "3DS-RDIMM"]}` instead of bare strings. The prompt also now has an
+   explainer per rule type so the LLM applies each rule against
+   `attrs`/`title`/`url`/`quantity_available` with a consistent
+   "unknown ≠ failed" semantic. The LLM payload now also includes
+   `url` and `quantity_available` per listing (needed by the
+   `single_sku_url` and `in_stock` rules respectively). See ADR-022.
+2. **Per-product filter log committed alongside the report** —
+   ai_filter now also writes `reports/<slug>/<date>.filter.jsonl`
+   (truncating per call), one row per evaluated listing. This file is
+   committed by the existing workflow `git add -A` step, so the next
+   regression is debuggable from the public repo with no GH Actions
+   auth needed. (Anonymous artifact downloads return 401 — that's why
+   the previous session couldn't pull diagnostics directly.)
+3. **Inline AI-filter diagnostic block in the report** — when
+   `passed_listings == 0` and `all_listings > 0`, `cli.py` now appends
+   a markdown table of the first 10 rejection reasons (or, on hard
+   call-level failure, the first 600 chars of the raw LLM response).
+   `ai_filter` exposes `LAST_RUN_LOG` and `LAST_RUN_RAW_RESPONSE` as
+   module-level capture so cli.py can render this without re-reading
+   the JSONL file.
+4. **Test fixture extended** — `tests/test_ai_filter.py` autouse
+   fixture now also monkeypatches `_per_product_filter_log_path` so
+   pytest doesn't write to the real `reports/` directory.
+
+74/74 worker tests pass. mypy delta on changed files is a single new
+`list[dict]` type-arg notice that matches the existing pre-Phase-12
+style (already tracked under "Noticed but deferred").
+
+### What shipped earlier this session (all on origin/main)
 
 1. **Web UI polling edge-cache fix** — `getReportContent` in
    `web/lib/github.ts` appends `?_cb=${Date.now()}` to the
@@ -60,20 +97,24 @@ four targeted fixes. Next session must investigate from the artifact upload.**
 
 ### Open issues for next session
 
-1. **Prod ai_filter still produces 0 passed.** The most recent run
-   after the glm-4.5-flash swap STILL showed `ebay_search ok 95 / 0`.
-   Either glm-4.5-flash also fails this prompt (different mode), or
-   it's now correctly returning per-listing verdicts and ALL 95
-   listings legitimately fail. The filter_logs/<date>.jsonl in the run
-   artifact will say which.
-2. **UI polling still times out.** Latest run showed "Timed out
-   waiting for run to complete" in red on the page even though the
-   report committed. The cache-buster (`?_cb=`) targeted
-   `getReportContent`, but the polling state machine likely also
-   reads `getProductReports` (api.github.com — not raw CDN), or the
-   action genuinely took longer than the polling timeout. Investigate
-   `web/components/RunNowButton.tsx` polling timeout vs typical action
-   duration (~3-4 minutes per the Actions UI history).
+1. **Verify ai_filter fix on a live run.** The fix in this commit is
+   logically sound — the previous code stripped rule values before
+   building the prompt, leaving the LLM no values to apply rules
+   against. Trigger a run via
+   <https://ari-product-search.vercel.app/ddr5-rdimm-256gb> "Run now"
+   after this commit pushes. Expect: passing listings > 0, and the
+   committed `reports/ddr5-rdimm-256gb/<date>.filter.jsonl` will show
+   per-listing verdicts. If 0 listings still pass, the new diagnostic
+   block in the report itself will surface the actual reason without
+   needing to download artifacts.
+2. **UI polling still times out.** Latest run before the prompt fix
+   showed "Timed out waiting for run to complete" in red on the page
+   even though the report committed. The cache-buster (`?_cb=`)
+   targeted `getReportContent`, but the polling state machine likely
+   also reads `getProductReports` (api.github.com — not raw CDN), or
+   the action genuinely took longer than the polling timeout.
+   Investigate `web/components/RunNowButton.tsx` polling timeout vs
+   typical action duration (~3-4 minutes per the Actions UI history).
 
 ## Open follow-ups (deferred during this session)
 
@@ -88,32 +129,26 @@ four targeted fixes. Next session must investigate from the artifact upload.**
 
 ## Next session — start here
 
-The chain of fixes built ai_filter observability, but the prod failure
-isn't yet diagnosed. Pull the data first, then theorise.
+The ai_filter root cause is fixed in this commit (ADR-022). The
+diagnostic surface is now sufficient to debug any future regression
+from the public repo alone. Verify the fix, then move on.
 
 1. **Read this file.**
-2. **Pull the run-diagnostics artifact from the most recent GH Actions
-   run.** Open <https://github.com/ARobicsek/product_search/actions/workflows/search-on-demand.yml>,
-   click the most recent successful run, scroll to the bottom of the
-   summary page → "Artifacts" panel → download
-   `run-diagnostics-ddr5-rdimm-256gb-<run_id>.zip`. Inspect:
-   - `filter_logs/<date>.jsonl` — last N entries (one per listing for
-     the latest run). What did GLM 4.5 Flash actually return per
-     listing? Are reasons sane? Does any listing have `pass=true`?
-   - `llm_traces/<date>.jsonl` — find the entry where `model =
-     "glm-4.5-flash"` (most recent). Inspect `response`. Is it valid
-     JSON? `{"evaluations":[…]}`? An empty string? Truncated?
-3. **If GLM 4.5 Flash also failed silently,** the next move is to try
-   a different provider for ai_filter (e.g. `anthropic /
-   claude-haiku-4-5`, which is already wired and working for synth).
-   Search `worker/src/product_search/validators/ai_filter.py` line 88
-   for the `provider="glm", model="glm-4.5-flash"` call and swap.
-4. **If GLM 4.5 Flash succeeded but returned `pass=false` for all
-   listings,** read the reasons in `filter_logs`. The prompt may
-   still be too strict, or the eBay adapter is producing data the
-   prompt can't reconcile. Iterate on the prompt or the adapter
-   (consider populating form_factor/ecc/voltage from the title in
-   `worker/src/product_search/adapters/ebay.py`).
+2. **Trigger a live run** via
+   <https://ari-product-search.vercel.app/ddr5-rdimm-256gb> "Run now"
+   (or the GH Actions on-demand workflow with `ddr5-rdimm-256gb`).
+3. **Verify the fix worked.** Two checks:
+   - The committed report `reports/ddr5-rdimm-256gb/<today>.md` should
+     have a non-empty ranked-listings table and `ebay_search ok N / M`
+     with M > 0.
+   - The new committed `reports/ddr5-rdimm-256gb/<today>.filter.jsonl`
+     should have one line per evaluated listing with sane `pass` and
+     `reason` fields. Spot-check a few rejections and a few passes.
+4. **If 0 listings still pass**: the report itself now contains an
+   "AI filter diagnostic" section with the first 10 rejection reasons
+   (or raw LLM response on hard failure). No artifact download needed
+   — the failure mode is in the public report. Then iterate on the
+   prompt or fall back to deterministic `apply_filters`.
 5. **Investigate the UI polling timeout.** Check
    `web/components/RunNowButton.tsx` for the polling timeout constant.
    Recent on-demand runs took 3-4 minutes per the Actions list; if
@@ -121,12 +156,11 @@ isn't yet diagnosed. Pull the data first, then theorise.
    `getProductReports` (lists dates) isn't being edge-cached by
    GitHub's `api.github.com` — it already uses `cache: 'no-store'`
    but may benefit from the same `?_cb=` buster pattern.
-6. **Cost tracking (option A from this session) is still queued.**
-   Once prod returns listings, build the worker-side per-run cost
-   helper (read today's traces, multiply by a hand-maintained
+6. **Cost tracking (option A from earlier this session) is still
+   queued.** Once prod returns listings, build the worker-side per-run
+   cost helper (read today's traces, multiply by a hand-maintained
    pricing table, append to the report's "Sources searched" panel)
-   and the onboarding-chat session-cost SSE event. Design notes
-   already in this conversation; one-day work for both.
+   and the onboarding-chat session-cost SSE event. One-day work.
 7. **Then** pick Phase 12b (Tier-B adapter) or 12c (schedule editor).
 
 Useful housekeeping before the next run:
@@ -203,6 +237,13 @@ None.
   diffs, add a second threshold or fall back gracefully when `total_for_target_usd is None`.
 
 ## Recently completed
+
+- 2026-04-30 (continuation): Root cause for the ai_filter 0-pass
+  mystery — prompt was sending only rule type names, never the values.
+  See ADR-022 and the new "Status as of end of 2026-04-30 session
+  (continuation)" block at the top. Filter log now committed alongside
+  the report (`reports/<slug>/<date>.filter.jsonl`) so future failures
+  are debuggable without GH Actions auth.
 
 - 2026-04-30 (late session): Five-commit ai_filter debug arc — STILL
   RETURNS 0 PASSED IN PROD. See "Open issues" at top.
