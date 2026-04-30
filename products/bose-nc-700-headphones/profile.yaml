@@ -48,8 +48,8 @@ synthesis_hints:
     In the final report table, display a column for listing condition, distinguishing clearly between New and Used listings so prices across conditions can be compared at a glance.
 
 report_columns:
-  - flags
   - rank
+  - flags
   - source
   - title
   - price_unit
