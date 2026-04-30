@@ -53,6 +53,8 @@ report_columns:
   - title
   - price_unit
   - total_for_target
+  - brand
+  - mpn
   - condition
   - seller
   - seller_rating
