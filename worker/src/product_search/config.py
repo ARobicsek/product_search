@@ -10,8 +10,8 @@ from __future__ import annotations
 import os
 from dataclasses import dataclass
 
-DEFAULT_SYNTH_PROVIDER = "glm"
-DEFAULT_SYNTH_MODEL = "glm-5.1"
+DEFAULT_SYNTH_PROVIDER = "anthropic"
+DEFAULT_SYNTH_MODEL = "claude-haiku-4-5"
 
 
 @dataclass(frozen=True)
