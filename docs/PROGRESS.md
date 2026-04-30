@@ -23,23 +23,12 @@ clean; pushed through `b2b23d3`.
 
 ## Current task — pick one of these for next session
 
-- **Review test results for Universal AI Extraction**: The AI pipeline was deployed. Next session will review its output on test queries to ensure it extracts and filters correctly.
-- **Phase 12b** — **Wire up a Tier-B source adapter** (newegg,
-  serversupply, memorynet, or theserverstore). Pattern follows the
-  existing Phase 6 storefront adapters; capture a committed fixture
-  and add tests. Broadens coverage beyond eBay.
-- **Phase 12c** — **Schedule editor UI** on `/[product]` that writes
-  `schedule.cron` back to the profile YAML via the GitHub Contents
-  API (same pattern as `/api/onboard/save`).
-- **Phase 12d** — **Manage-sources UI**: list current `sources[]`
-  from the profile, allow toggling on/off, and re-invoke the Sonnet
-  web search (existing `/api/onboard/chat`) to suggest more sources
-  for the already-onboarded product.
-- **Phase 12 original** — Onboard a second product end-to-end
-  (suggestion: GPUs for AI inference, or PSUs ≥1600W Platinum).
+- **Fix Web UI Polling Cache Bug**: GitHub's raw edge cache causes `getReportContent` in `web/lib/github.ts` to return the old report even after `revalidatePath`. Needs a `?_cb=${Date.now()}` cache-buster appended to the fetch URL.
+- **Detailed AI Filtering Logs**: The `ai_filter.py` GLM-5.1 prompt needs to be upgraded to return explicit `pass` status and `reason` for every evaluated listing instead of just indices. This detailed reasoning should be written out to a dedicated log file (e.g. `worker/data/filter_logs/2026-04-30.jsonl`) so the user can inspect exactly why 94 listings were rejected.
+- **Phase 12b** — **Wire up a Tier-B source adapter** (newegg, serversupply, memorynet, or theserverstore).
+- **Phase 12c** — **Schedule editor UI** on `/[product]` that writes `schedule.cron` back to the profile YAML via the GitHub Contents API.
 
-Recommended order: 12b (more coverage) or 12c (schedule UI is small and high-value),
-then the original Phase 12 second-product onboard.
+Recommended order: Fix the UI polling and AI filtering logs first, then proceed to Phase 12b.
 
 ## Open follow-ups (deferred during this session)
 
@@ -55,11 +44,9 @@ then the original Phase 12 second-product onboard.
 ## Next session — start here
 
 1. Read this file.
-2. Read [PHASES.md § Phase 12](PHASES.md#phase-12--polish--second-product-proof).
-3. Skim ADRs 017, 018, 019, 020 from this session to understand
-   the synth pipeline's current invariants.
-4. Pick one of Phase 12a / 12b / 12c / 12d per the user's priority.
-5. Stop at end of the chosen sub-phase.
+2. Read the `implementation_plan.md` artifact from the previous session (it details the exact fixes for the Next.js cache bug and the GLM-5.1 filtering logs).
+3. Execute the implementation plan to fix the UI polling and add detailed reasoning logs.
+4. Continue to Phase 12b or 12c.
 
 ## Manual verification still needed for Phase 11
 
