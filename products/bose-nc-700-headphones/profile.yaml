@@ -49,17 +49,15 @@ synthesis_hints:
 
 report_columns:
   - rank
+  - flags
   - source
   - title
   - price_unit
-  - total_for_target
   - brand
-  - mpn
   - condition
   - seller
   - seller_rating
   - ship_from
-  - flags
 
 schedule:
   cron: "0 8 * * *"

@@ -69,6 +69,17 @@ synthesis_hints:
     Cisco "SmartMemory" branded modules carry custom SPD firmware and may
     not POST on the H13SSL-NT.
 
+report_columns:
+  - rank
+  - flags
+  - source
+  - title
+  - price_unit
+  - total_for_target
+  - qty
+  - seller
+  - condition
+
 schedule:
   cron: "0 8 * * *"
   timezone: "UTC"
