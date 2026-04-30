@@ -10,8 +10,6 @@ target:
   amount: 256
   configurations:
     - { module_count: 8, module_capacity_gb: 32 }
-  # 16x16 is invalid (board has 12 slots). 12x24 is fully populated but per-GB
-  # premium for 24GB DIMMs is large and the 9224 can't use the bandwidth.
 
 spec_attrs:
   capacity_gb:    { type: int,   required: true }
@@ -29,7 +27,7 @@ spec_filters:
   - { rule: "min_quantity_for_target" }
   - { rule: "in_stock" }
   - { rule: "single_sku_url" }
-  - { rule: "title_excludes",     values: ["Non-Working", "For parts or not working", " ES ", "Engineering Sample", "16GB", "16 GB", "Error", "Defective"] }
+  - { rule: "title_excludes",     values: ["Non-Working", "For parts or not working", " ES ", "Engineering Sample", "16GB", "16 GB", "2x16GB", "2x 16GB", "2 x 16GB", "(2x16GB)", "Error", "Defective"] }
 
 spec_flags:
   - { rule: "ship_from_country_in", values: ["CN", "HK"], flag: "china_shipping" }
@@ -45,8 +43,6 @@ sources:
       - "DDR5 4800 RDIMM ECC 32GB"
       - "DDR5 PC5-38400R 32GB"
     max_results_per_query: 50
-
-  # Tier-A known-good seller adapters land in Phase 6.
   - id: "nemixram_storefront"
     storefront_url: "https://nemixram.com/collections/ddr5-rdimm"
   - id: "cloudstoragecorp_ebay"
@@ -55,9 +51,9 @@ sources:
     seller_id: "mem-store"
 
 sources_pending:
-  - { id: "newegg_search",      note: "Tier B" }
-  - { id: "serversupply_search", note: "Tier B" }
-  - { id: "memorynet_search",   note: "Tier B" }
+  - { id: "newegg_search",           note: "Tier B" }
+  - { id: "serversupply_search",     note: "Tier B" }
+  - { id: "memorynet_search",        note: "Tier B" }
   - { id: "theserverstore_storefront", note: "Tier B" }
 
 qvl_file: "products/ddr5-rdimm-256gb/qvl.yaml"
@@ -74,5 +70,5 @@ synthesis_hints:
     not POST on the H13SSL-NT.
 
 schedule:
-  cron: "0 8 * * *"   # daily at 08:00 UTC
+  cron: "0 8 * * *"
   timezone: "UTC"
