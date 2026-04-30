@@ -51,8 +51,6 @@ report_columns:
   - price_unit
   - total_for_target
   - condition
-  - brand
-  - mpn
   - seller
   - seller_rating
   - ship_from
