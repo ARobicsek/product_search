@@ -9,6 +9,51 @@ Status values:
 
 ---
 
+## ADR-023 — `ai_filter` swaps to Anthropic Claude Haiku 4.5; parser tolerates prose preambles
+
+**Status**: ACCEPTED (supersedes the GLM-4.5-Flash choice in ADR-022)
+
+**Context**: The first run after committing ADR-022's full-rule-defs
+fix and the new diagnostic block produced an "AI filter diagnostic"
+section in the committed report
+(`reports/ddr5-rdimm-256gb/2026-04-30.md`) that showed exactly what
+GLM-4.5-Flash was doing: emitting chain-of-thought prose like
+"Let me analyze the products one by one according to the rules
+provided. First, let's review the rules: 1. form_factor_in
+{values:..." despite `response_format=json_object` being set. The
+JSON parse failed on the first character. This is the same failure
+class we previously attributed to GLM-5.1 being a reasoning model —
+turns out GLM-4.5-Flash also dumps prose into `content` for prompts
+of this complexity, even though it's nominally non-reasoning.
+
+The 2026-04-30 PROGRESS handoff explicitly anticipated this:
+"If GLM 4.5 Flash also failed silently, the next move is to try a
+different provider for ai_filter (e.g. anthropic / claude-haiku-4-5)."
+
+**Decision**:
+
+1. **Switch ai_filter to `anthropic / claude-haiku-4-5`**. Haiku 4.5
+   has been the synth model since ADR-019 and reliably honors
+   "JSON only" prompting. Cost is roughly $0.005/run for ~100
+   listings vs near-zero for GLM, but correctness > cost.
+
+2. **Tolerate prose preambles in the JSON parser**. Replace the
+   strict `json.loads(raw_text)` with `_extract_json(raw_text)`,
+   which first tries the whole string, then walks from the first
+   `{` or `[` and uses `JSONDecoder.raw_decode` to extract the
+   longest valid JSON value at that position. This is defense in
+   depth: even if Haiku occasionally tacks on a prose sentence,
+   the run won't zero out. Pinned by a new test
+   (`test_tolerates_prose_preamble_before_json`).
+
+**Consequence**: ai_filter has a known-good model behind it.
+Future provider/model swaps don't need to also iterate on a
+strict-parse-only contract. The strictness/correctness boundary
+stays at the synthesizer (where ADR-001's post-check still
+forbids fabricated numbers).
+
+---
+
 ## ADR-022 — `ai_filter` prompt sends full rule definitions; per-product filter log committed alongside report
 
 **Status**: ACCEPTED (refines, does not supersede, ADR-021)

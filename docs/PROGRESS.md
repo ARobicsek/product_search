@@ -8,11 +8,14 @@
 
 See the Phase 12 brief in [PHASES.md](PHASES.md#phase-12--polish--second-product-proof).
 
-## Status as of end of 2026-04-30 session (continuation)
+## Status as of end of 2026-04-30 session (continuation 2)
 
-**Root cause found and fixed: ai_filter was sending only rule *names* to the
-LLM, with values stripped. GLM had no way to apply rules without that data
-and rejected nearly everything. See ADR-022.**
+**Two-part fix shipped. (1) ai_filter prompt now sends full rule
+defs (ADR-022). (2) ai_filter swapped to Anthropic Haiku 4.5 because
+the first run after (1) showed GLM-4.5-Flash emitting chain-of-thought
+prose despite json_object mode (ADR-023). Parser also now tolerates
+prose preambles before JSON. The new diagnostic block worked exactly
+as designed — caught the GLM behaviour on the first run.**
 
 ### What shipped this continuation (uncommitted at handoff start; this commit captures it)
 
@@ -97,16 +100,14 @@ style (already tracked under "Noticed but deferred").
 
 ### Open issues for next session
 
-1. **Verify ai_filter fix on a live run.** The fix in this commit is
-   logically sound — the previous code stripped rule values before
-   building the prompt, leaving the LLM no values to apply rules
-   against. Trigger a run via
-   <https://ari-product-search.vercel.app/ddr5-rdimm-256gb> "Run now"
-   after this commit pushes. Expect: passing listings > 0, and the
-   committed `reports/ddr5-rdimm-256gb/<date>.filter.jsonl` will show
-   per-listing verdicts. If 0 listings still pass, the new diagnostic
-   block in the report itself will surface the actual reason without
-   needing to download artifacts.
+1. **Verify the Haiku-based ai_filter on a live run.** The
+   GLM-4.5-Flash → Haiku 4.5 swap is in this commit. Trigger a run
+   via <https://ari-product-search.vercel.app/ddr5-rdimm-256gb>
+   "Run now". Expect: passing listings > 0; the committed
+   `reports/ddr5-rdimm-256gb/<date>.filter.jsonl` will show
+   per-listing verdicts; the report won't include the "AI filter
+   diagnostic" block. If 0 listings still pass, the diagnostic block
+   in the report will surface why.
 2. **UI polling still times out.** Latest run before the prompt fix
    showed "Timed out waiting for run to complete" in red on the page
    even though the report committed. The cache-buster (`?_cb=`)
@@ -238,12 +239,18 @@ None.
 
 ## Recently completed
 
+- 2026-04-30 (continuation 2): The diagnostic block from the previous
+  commit caught GLM-4.5-Flash emitting prose preamble before JSON.
+  Swapped ai_filter to `anthropic / claude-haiku-4-5` (already wired
+  for synth) and made the parser walk from the first `{`/`[` so a
+  stray sentence can't zero out a run. New test
+  `test_tolerates_prose_preamble_before_json` pins it. See ADR-023.
+
 - 2026-04-30 (continuation): Root cause for the ai_filter 0-pass
   mystery — prompt was sending only rule type names, never the values.
-  See ADR-022 and the new "Status as of end of 2026-04-30 session
-  (continuation)" block at the top. Filter log now committed alongside
-  the report (`reports/<slug>/<date>.filter.jsonl`) so future failures
-  are debuggable without GH Actions auth.
+  See ADR-022. Filter log now committed alongside the report
+  (`reports/<slug>/<date>.filter.jsonl`) so future failures are
+  debuggable without GH Actions auth.
 
 - 2026-04-30 (late session): Five-commit ai_filter debug arc — STILL
   RETURNS 0 PASSED IN PROD. See "Open issues" at top.

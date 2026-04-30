@@ -106,3 +106,28 @@ def test_returns_empty_on_invalid_json(profile: Profile, monkeypatch: pytest.Mon
     monkeypatch.setattr(ai_filter_mod, "call_llm", _stub_response("not json at all"))
     out = ai_filter_mod.ai_filter(listings, profile)
     assert out == []
+
+
+def test_tolerates_prose_preamble_before_json(profile: Profile, monkeypatch: pytest.MonkeyPatch) -> None:
+    """A prose preamble before the JSON object must not zero out the run.
+
+    GLM-4.5-Flash was observed (2026-04-30 prod run) emitting:
+        "Let me analyze the products one by one according to the rules
+         provided. First, let's review the rules: ... {"evaluations":[...]}"
+    despite response_format=json_object. The parser walks from the first '{'
+    and decodes the longest valid JSON at that position.
+    """
+    listings = [_make_listing(), _make_listing(title="other")]
+    preamble = (
+        "Let me analyze the products one by one according to the rules.\n"
+        "First, let's review what we have:\n\n"
+    )
+    body = (
+        '{"evaluations": ['
+        '{"index": 0, "pass": true, "reason": "ok"},'
+        '{"index": 1, "pass": false, "reason": "wrong"}'
+        ']}'
+    )
+    monkeypatch.setattr(ai_filter_mod, "call_llm", _stub_response(preamble + body))
+    out = ai_filter_mod.ai_filter(listings, profile)
+    assert [lst.title for lst in out] == [listings[0].title]

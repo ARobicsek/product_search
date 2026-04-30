@@ -23,6 +23,32 @@ def _loud(msg: str) -> None:
     print(f"[ai_filter] {msg}", file=sys.stderr, flush=True)
 
 
+def _extract_json(text: str) -> object | None:
+    """Return the first valid JSON object/array embedded in ``text``, else None.
+
+    First tries to parse the whole string. If that fails, walks from the first
+    ``{`` or ``[`` and uses ``json.JSONDecoder.raw_decode`` to find the longest
+    valid JSON value at that position. Tolerates models that prepend a prose
+    preamble like "Let me analyze the products..." before the structured JSON
+    (observed with GLM-4.5-Flash on 2026-04-30 even with response_format=json).
+    """
+    try:
+        return json.loads(text)
+    except json.JSONDecodeError:
+        pass
+
+    decoder = json.JSONDecoder()
+    for i, ch in enumerate(text):
+        if ch not in "{[":
+            continue
+        try:
+            obj, _end = decoder.raw_decode(text, i)
+        except json.JSONDecodeError:
+            continue
+        return obj
+    return None
+
+
 def _filter_log_path() -> Path:
     """Return today's filter-log file under ``worker/data/filter_logs/``."""
     # worker/src/product_search/validators/ai_filter.py -> worker/
@@ -189,16 +215,22 @@ IMPORTANT: Do NOT output any chain-of-thought or reasoning text outside the JSON
 ONLY output the JSON object.
 """
 
-    # Use GLM 4.5 Flash, NOT GLM-5.1. GLM-5.1 is a reasoning model that ignores
-    # response_format=json_object and dumps chain-of-thought prose into `content`
-    # even when explicitly told not to. GLM 4.5 Flash honors json_object mode and
-    # was the Phase 5 benchmark winner (10/10) for compact structured output —
-    # exactly what filtering needs. It also costs ~10x less.
-    logger.info("Calling GLM 4.5 Flash for filtering...")
+    # Use Anthropic Claude Haiku 4.5. Earlier revisions tried GLM-5.1 (a
+    # reasoning model that ignores response_format=json_object) and then
+    # GLM-4.5-Flash; both failed in prod by emitting chain-of-thought prose
+    # into `content` despite explicit "JSON only" instructions. The
+    # 2026-04-30 run after committing the diagnostic block confirmed
+    # GLM-4.5-Flash also dumps prose like "Let me analyze the products one
+    # by one according to the rules provided. First, let's review the
+    # rules: 1. form_factor_in {values:..."  — JSON parse fails on the
+    # first character. Haiku 4.5 honors json mode reliably (it's already
+    # the synth model per ADR-019). Cost is fine — ~$0.005/run for ~100
+    # listings vs essentially free for GLM, but correctness > cost here.
+    logger.info("Calling Claude Haiku 4.5 for filtering...")
     try:
         resp = call_llm(
-            provider="glm",
-            model="glm-4.5-flash",
+            provider="anthropic",
+            model="claude-haiku-4-5",
             system=system_prompt,
             messages=[Message(role="user", content=json.dumps(payload_for_llm, indent=2))],
             max_tokens=8192,
@@ -213,9 +245,8 @@ ONLY output the JSON object.
                 raw_text = raw_text[:-3].strip()
         raw_text = raw_text.removeprefix("json").strip()
 
-        try:
-            parsed = json.loads(raw_text)
-        except json.JSONDecodeError:
+        parsed = _extract_json(raw_text)
+        if parsed is None:
             _loud(f"JSON parse failed. Raw response (first 1000 chars):\n{resp.text[:1000]}")
             sentinel = [{
                 "index": -1, "pass": False,
