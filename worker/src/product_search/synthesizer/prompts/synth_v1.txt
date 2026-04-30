@@ -39,5 +39,6 @@ HARD RULES — non-negotiable:
 - Do NOT round. Do NOT add currency conversions.
 - Do NOT add columns. Do NOT add ranking footnotes.
 - If a field is null in the JSON, write the literal word "unknown".
+- ABSOLUTELY NO CHAIN OF THOUGHT. Do NOT output "Analyze the Request", "Drafting", or any similar planning text.
 - The response is the report only. No preamble, no postscript, no
-  "here is your report". Start directly with the bottom-line sentence.
+  "here is your report". The VERY FIRST character of your response MUST be the number "1".
