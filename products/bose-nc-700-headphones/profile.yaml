@@ -1,0 +1,47 @@
+slug: "bose-nc-700-headphones"
+display_name: "Bose Noise Cancelling Headphones 700"
+description: >
+  Track the cheapest new or used (good condition) listings for the Bose Noise Cancelling Headphones 700.
+
+target:
+  unit: "count"
+  amount: 1
+  configurations:
+    - { module_count: 1, module_capacity_gb: 1 }
+
+spec_attrs:
+  condition: { type: str, required: true, enum: ["New", "Used"] }
+  title: { type: str, required: true }
+
+spec_filters:
+  - { rule: "in_stock" }
+  - { rule: "single_sku_url" }
+  - { rule: "title_excludes", values: ["QC35", "QC45", "QuietComfort", "SoundLink", "Sport"] }
+
+spec_flags:
+  - { rule: "low_seller_feedback", flag: "low_seller_feedback", rating_pct_below: 98.0, count_below: 100 }
+  - { rule: "title_mentions", flag: "suspicious_listing", values: ["for parts", "as-is", "read description", "untested", "broken"] }
+  - { rule: "title_mentions", flag: "similar_bose_model", values: ["QC35", "QC45", "QuietComfort", "SoundLink", "700 UC", "Sport"] }
+
+sources:
+  - id: "ebay_search"
+    queries:
+      - "Bose Noise Cancelling Headphones 700"
+      - "Bose NC700 headphones"
+      - "Bose 700 headphones used"
+      - "Bose NCH700 headphones"
+    max_results_per_query: 20
+
+sources_pending: []
+
+qvl_file: "products/bose-nc-700-headphones/qvl.yaml"
+
+synthesis_hints:
+  - >
+    Watch out for similar Bose models (QC35, QC45, QuietComfort, SoundLink) being listed under misleading titles — verify the listing is specifically for the Noise Cancelling Headphones 700.
+  - >
+    A genuine Bose NC 700 listing in good condition should ideally include the USB-C charging cable and carrying case; listings missing accessories may indicate incomplete or misrepresented items.
+
+schedule:
+  cron: "0 8 * * *"
+  timezone: "UTC"
