@@ -87,12 +87,39 @@ LAST_RUN_USAGE: dict[str, Any] | None = None
 def _fetch_html(url: str, timeout: float = 20.0) -> tuple[str, int, str]:
     """Fetch ``url`` and return ``(html, status_code, fetcher_label)``.
 
-    Tries ``curl_cffi`` first (Chrome TLS fingerprint impersonation); on
-    ImportError falls back to ``httpx`` with a Chrome User-Agent. Either
-    way the response body is returned verbatim — non-2xx status codes are
-    logged but the body is still returned because some sites serve a
-    challenge page with status 200 and others 403.
+    Three-tier fetch strategy:
+
+    1. **ScrapFly** — when ``SCRAPFLY_API_KEY`` is set in the environment.
+       Routes through their API with ``render_js=true`` (full headless-Chrome
+       render) and ``asp=true`` (anti-scraping protection: residential
+       proxies + challenge solving). Costs credits, but gets us past
+       Cloudflare/Datadome/Akamai/full-React-SPA pages that the lower
+       tiers can't touch. Free tier is ~1k credits/month.
+
+    2. **curl_cffi** — Chrome TLS fingerprint impersonation. Free, fast,
+       beats basic Cloudflare TLS-fingerprint blocks but does no JS
+       execution. Works on most server-rendered storefronts.
+
+    3. **httpx** — plain HTTP fallback when ``curl_cffi`` isn't installed.
+       Default Python TLS fingerprint, fails on most modern bot detection.
+
+    Either way the response body is returned verbatim — non-2xx status
+    codes are logged but the body is still returned because some sites
+    serve a challenge page with status 200 and others 403.
     """
+    scrapfly_key = os.environ.get("SCRAPFLY_API_KEY", "").strip()
+    if scrapfly_key:
+        try:
+            return _fetch_via_scrapfly(url, scrapfly_key, timeout=timeout)
+        except Exception as exc:
+            # Don't let a ScrapFly outage zero a run — fall through to
+            # the cheap tiers. The worker log captures the failure so
+            # repeated outages are debuggable.
+            logger.warning(
+                f"[universal_ai] ScrapFly fetch failed ({type(exc).__name__}: "
+                f"{exc}); falling back to curl_cffi/httpx."
+            )
+
     headers = {
         "User-Agent": (
             "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
@@ -128,6 +155,41 @@ def _fetch_html(url: str, timeout: float = 20.0) -> tuple[str, int, str]:
     with httpx.Client(follow_redirects=True, headers=headers, timeout=timeout) as client:
         resp = client.get(url)
         return resp.text or "", resp.status_code, "httpx"
+
+
+def _fetch_via_scrapfly(
+    url: str, api_key: str, *, timeout: float = 60.0
+) -> tuple[str, int, str]:
+    """Fetch ``url`` via the ScrapFly API with JS rendering + ASP.
+
+    Returns ``(html, vendor_status_code, "scrapfly")``. The HTTP status
+    we return is the ORIGIN site's status (e.g. 200 for the vendor),
+    NOT ScrapFly's API status — that's what the rest of the adapter
+    expects. ScrapFly itself either returns 200 with a JSON envelope
+    or a non-2xx with an error JSON; both cases raise so the caller's
+    try/except routes to the fallback tiers.
+
+    JS rendering can take up to ~20s on heavy pages, so we use a
+    longer default timeout than the cheap fetchers.
+    """
+    import httpx
+
+    params = {
+        "key": api_key,
+        "url": url,
+        "render_js": "true",
+        "asp": "true",
+        "country": "us",
+    }
+    api = "https://api.scrapfly.io/scrape"
+    with httpx.Client(timeout=timeout) as client:
+        resp = client.get(api, params=params)
+    resp.raise_for_status()
+    payload = resp.json()
+    result = payload.get("result") or {}
+    html = result.get("content") or ""
+    origin_status = int(result.get("status_code") or 0)
+    return html, origin_status, "scrapfly"
 
 
 # --- Candidate extraction --------------------------------------------------

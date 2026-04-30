@@ -206,6 +206,121 @@ def test_fetch_returns_empty_when_no_url(monkeypatch: pytest.MonkeyPatch) -> Non
     assert universal_ai.fetch(query) == []
 
 
+def test_scrapfly_fetch_path_used_when_key_set(monkeypatch: pytest.MonkeyPatch) -> None:
+    """When SCRAPFLY_API_KEY is set, _fetch_html routes through ScrapFly
+    (not curl_cffi/httpx) and returns the origin HTML from the JSON envelope."""
+    monkeypatch.setenv("SCRAPFLY_API_KEY", "test-key-12345")
+
+    captured: dict[str, Any] = {}
+
+    class _StubClient:
+        def __init__(self, **kwargs: object) -> None:
+            captured["client_kwargs"] = kwargs
+
+        def __enter__(self) -> "_StubClient":
+            return self
+
+        def __exit__(self, *_: object) -> None:
+            return None
+
+        def get(self, url: str, params: dict[str, str] | None = None) -> Any:
+            captured["api_url"] = url
+            captured["params"] = params
+
+            class _Resp:
+                status_code = 200
+
+                def raise_for_status(self) -> None:
+                    return None
+
+                def json(self) -> dict[str, Any]:
+                    return {"result": {"content": "<html><body>scrapfly!</body></html>", "status_code": 200}}
+
+            return _Resp()
+
+    import httpx
+    monkeypatch.setattr(httpx, "Client", _StubClient)
+
+    html, status, fetcher = universal_ai._fetch_html("https://example.com/products")
+    assert fetcher == "scrapfly"
+    assert status == 200
+    assert "scrapfly!" in html
+    assert captured["api_url"] == "https://api.scrapfly.io/scrape"
+    assert captured["params"]["key"] == "test-key-12345"
+    assert captured["params"]["url"] == "https://example.com/products"
+    assert captured["params"]["render_js"] == "true"
+    assert captured["params"]["asp"] == "true"
+
+
+def test_scrapfly_failure_falls_back_to_lower_tier(monkeypatch: pytest.MonkeyPatch) -> None:
+    """ScrapFly outage / 5xx must not zero a run; we fall back to
+    curl_cffi/httpx so existing free-fetch sites keep working."""
+    monkeypatch.setenv("SCRAPFLY_API_KEY", "test-key")
+
+    def _scrapfly_explodes(url: str, key: str, *, timeout: float = 60.0) -> Any:
+        raise RuntimeError("scrapfly is down")
+
+    fallback_called: dict[str, bool] = {"hit": False}
+
+    def _fake_curl_get(*_args: object, **_kwargs: object) -> Any:
+        fallback_called["hit"] = True
+
+        class _Resp:
+            text = "<html><body>fallback ok</body></html>"
+            status_code = 200
+
+        return _Resp()
+
+    monkeypatch.setattr(universal_ai, "_fetch_via_scrapfly", _scrapfly_explodes)
+
+    # Fake the curl_cffi import inside _fetch_html.
+    import sys
+    import types as _types
+    fake_cc = _types.ModuleType("curl_cffi")
+    fake_requests = _types.ModuleType("curl_cffi.requests")
+    fake_requests.get = _fake_curl_get  # type: ignore[attr-defined]
+    fake_cc.requests = fake_requests  # type: ignore[attr-defined]
+    monkeypatch.setitem(sys.modules, "curl_cffi", fake_cc)
+    monkeypatch.setitem(sys.modules, "curl_cffi.requests", fake_requests)
+
+    html, status, fetcher = universal_ai._fetch_html("https://example.com/products")
+    assert fallback_called["hit"]
+    assert fetcher == "curl_cffi"
+    assert status == 200
+    assert "fallback ok" in html
+
+
+def test_no_scrapfly_key_skips_scrapfly_path(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Without SCRAPFLY_API_KEY, _fetch_via_scrapfly must NOT be called —
+    we go straight to curl_cffi/httpx so free-only setups don't break."""
+    monkeypatch.delenv("SCRAPFLY_API_KEY", raising=False)
+
+    def _should_not_be_called(*_a: object, **_k: object) -> Any:  # pragma: no cover
+        raise AssertionError("ScrapFly path must not run when key is unset")
+
+    monkeypatch.setattr(universal_ai, "_fetch_via_scrapfly", _should_not_be_called)
+
+    # Stub curl_cffi so the real fetch doesn't try to hit the network.
+    import sys
+    import types as _types
+
+    def _fake_get(*_a: object, **_k: object) -> Any:
+        class _Resp:
+            text = "<html></html>"
+            status_code = 200
+        return _Resp()
+
+    fake_cc = _types.ModuleType("curl_cffi")
+    fake_requests = _types.ModuleType("curl_cffi.requests")
+    fake_requests.get = _fake_get  # type: ignore[attr-defined]
+    fake_cc.requests = fake_requests  # type: ignore[attr-defined]
+    monkeypatch.setitem(sys.modules, "curl_cffi", fake_cc)
+    monkeypatch.setitem(sys.modules, "curl_cffi.requests", fake_requests)
+
+    _, _, fetcher = universal_ai._fetch_html("https://example.com")
+    assert fetcher == "curl_cffi"
+
+
 def test_fetch_returns_empty_when_html_has_no_anchors(monkeypatch: pytest.MonkeyPatch) -> None:
     """Bot-blocked pages often serve an empty challenge body — that path
     must short-circuit cleanly without burning an LLM call."""
