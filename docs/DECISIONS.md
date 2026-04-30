@@ -9,6 +9,125 @@ Status values:
 
 ---
 
+## ADR-030 — ScrapFly as the Tier-3 vendor fetcher (env-gated render_js + asp), curl_cffi/httpx remain the cheap tiers
+
+**Status**: ACCEPTED (extends ADR-029's fetch-priority chain)
+
+**Context**: ADR-029's `_fetch_html` had two tiers — `curl_cffi`
+(Chrome TLS-fingerprint impersonation, free) and `httpx` (plain
+fallback). Real-vendor runs on 2026-04-30 (commits `1237737` and
+`18b750a`) confirmed that those tiers cover server-rendered
+storefronts but not the bot-protection landscape modern e-commerce
+actually uses. Five vendors tested across two runs:
+
+| Vendor | Result | Why |
+|---|---|---|
+| crutchfield.com | 0/0 | Heavy client-side React, products loaded post-render |
+| adorama.com | 0/0 | Akamai-fronted, full bot challenge |
+| headphones.com | 0/0 | Modern Shopify theme, JS-heavy product cards |
+| audio46.com | 0/0 | Same — modern Shopify theme |
+| bhphotovideo.com | 0/0 | Search results page is partially client-rendered |
+
+The curl_cffi-only path got past TLS fingerprint blocks (no 403s)
+but the post-fetch HTML simply didn't contain product anchors with
+`$X.XX` price tokens because those elements are written into the
+DOM by JavaScript at runtime. `_extract_candidates` therefore
+returned [] every time.
+
+The user explicitly chose ScrapFly when offered the JS-render
+options (vs. self-hosted Playwright). ScrapFly bills credits, runs
+real headless Chrome, rotates residential proxies, and solves
+common JS challenges. Free tier is ~1k credits/month; expected
+usage at this project's scale (3 vendors × daily run × 5-10 credits
+each = ~270/month) sits comfortably inside free.
+
+**Decision**:
+
+1. **New `_fetch_via_scrapfly(url, key)` helper** in
+   `worker/src/product_search/adapters/universal_ai.py` that calls
+   `https://api.scrapfly.io/scrape` with:
+   - `key=<SCRAPFLY_API_KEY>`
+   - `url=<vendor URL>`
+   - `render_js=true` (full headless-Chrome render)
+   - `asp=true` (anti-scraping protection: residential proxies +
+     challenge solving)
+   - `country=us`
+   It parses ScrapFly's JSON envelope and returns
+   `(html, origin_status_code, "scrapfly")` so the rest of the
+   adapter doesn't care which tier produced the HTML.
+
+2. **`_fetch_html` priority is `scrapfly → curl_cffi → httpx`**.
+   ScrapFly is tried first ONLY when `SCRAPFLY_API_KEY` is set; the
+   key check is a single env-var read so no-key environments don't
+   pay any startup cost. If the ScrapFly call raises (network error,
+   API outage, 5xx), the helper logs a warning and falls through to
+   curl_cffi — so a ScrapFly outage cannot zero a run for vendors
+   that don't actually need rendering.
+
+3. **Both workflows propagate the secret**.
+   `.github/workflows/search-on-demand.yml` and `search-scheduled.yml`
+   now declare `SCRAPFLY_API_KEY: ${{ secrets.SCRAPFLY_API_KEY }}`
+   in the `env:` block of the search step. `.env.example` documents
+   the variable so local-dev runs can use it too.
+
+4. **No retry, no per-vendor opt-out**. The first iteration treats
+   "ScrapFly is on for all universal_ai_search sources or off for
+   all" as the only knob. If a specific vendor proves expensive or
+   reliably succeeds at the curl_cffi tier, a future ADR can add a
+   per-source `render: false` flag in the profile YAML to skip
+   ScrapFly for that one.
+
+**Consequence**: Adding a vendor URL via onboarding now genuinely
+covers JS-rendered + Cloudflare-fronted sites for the user, not
+just server-rendered Shopify-style stores. The architecture from
+ADR-029 — anchor-first candidate extraction with no LLM URL
+invention — is unchanged; ScrapFly only changes how the HTML
+arrives. A vendor that uses heavier-than-expected anti-bot still
+returns 0/0 (e.g. some Datadome-protected sites can defeat
+ScrapFly's default ASP profile), but those should now be the
+exception rather than the rule.
+
+**Trade-offs**:
+- **Cost**: 5-10 credits per JS-rendered page. The user's free
+  tier is 1k credits/month. At 3 vendors per profile × daily
+  scheduled run = ~270/month for one product, ~540 for two — well
+  inside free. If usage grows past free, ScrapFly's paid tier
+  starts at $30/month (50k credits).
+- **Latency**: JS render adds ~5-15s per vendor on top of the cheap
+  fetch baseline. A run with 3 universal_ai sources jumps from
+  ~10s to ~45s. Acceptable for both scheduled (no UI wait) and
+  Run-now (the user is already polling for ~3-4 minutes for the
+  full pipeline).
+- **Run-cost panel doesn't show ScrapFly cost**. The panel sums
+  LLM token spend from `LAST_RUN_USAGE` rows; ScrapFly is an HTTP
+  fetch, not an LLM call, so it's invisible there. The user
+  monitors ScrapFly spend in their ScrapFly dashboard. A future
+  improvement could parse `result.cost` from ScrapFly's JSON
+  envelope and add it as a synthetic cost row.
+- **Single-vendor outage failover is binary**. If ScrapFly is down
+  AND the vendor needs JS render, the run produces 0/0 for that
+  vendor (and falls back to curl_cffi which also produces 0/0).
+  Acceptable — alternative would be queue + retry, which is more
+  complexity than the issue warrants.
+- **Privacy**: vendor page HTML transits ScrapFly's servers. For
+  shopping-search use this is fine; would not be appropriate for
+  fetching authenticated or private content.
+
+**Reversibility**: Trivial. Unset `SCRAPFLY_API_KEY` and the
+adapter reverts to curl_cffi/httpx with no other change. The
+ScrapFly call site is one helper function gated by a single env
+check.
+
+**Open follow-ups**:
+- Surface ScrapFly per-call cost in the Run-cost panel (pull
+  `result.cost` from the ScrapFly response).
+- Per-source `render: false` profile flag if a specific vendor is
+  observed to succeed at curl_cffi (saves credits on that vendor).
+- Consider adding `wait_for_selector` for vendors whose product
+  cards lazy-load after the initial render fires.
+
+---
+
 ## ADR-029 — Universal vendor scraping: anchor-first extraction + Chrome TLS impersonation, no LLM URL invention
 
 **Status**: ACCEPTED (refines ADR-021's "Universal AI Adapter")

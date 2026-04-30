@@ -8,6 +8,213 @@
 
 See the Phase 12 brief in [PHASES.md](PHASES.md#phase-12--polish--second-product-proof).
 
+## Status as of end of 2026-04-30 session (continuation 9)
+
+**Universal vendor scraping went live; Tier-3 ScrapFly path added;
+PWA stale-cache bug found and fixed.**
+
+Continuation 8's adapter rewrite shipped, but the first real-vendor
+runs surfaced four follow-ups that this continuation closed. Five
+commits total this session, four already pushed at handoff
+(`d1eac6d`, `6a5ed4a`, `420069f`, `d8edcc2` — confirmed via
+`git log origin/main`). One docs commit local at handoff (this one).
+
+1. **Profile-schema gap** (`d1eac6d`). `KNOWN_SOURCE_IDS` in both
+   `worker/src/product_search/profile.py` and
+   `web/lib/onboard/schema.ts` was missing `universal_ai_search`,
+   even though `cli.py` had been wired for it since ADR-021. The
+   onboarding UI surfaced the gap as
+   `unknown source id "universal_ai_search"` the first time the AI
+   emitted a profile that actually used it. Fixed in both schemas
+   with a new pinning test
+   (`test_accepts_universal_ai_search_source`) so future drift
+   surfaces in CI.
+
+2. **Source-column display fix** (`6a5ed4a`). For
+   `universal_ai_search` Listings, the Source column now renders
+   the vendor host (without `www.`) instead of the literal adapter
+   id — `audio46.com` rather than `universal_ai_search`. Internal
+   `lst.source` stays canonical (source_stats grouping, cost panel
+   are unaffected). New `_source_label(lst)` helper in
+   `synthesizer.py` + 3 tests pinning the rendering for
+   universal_ai-with-attr / universal_ai-without-attr / non-universal
+   adapters.
+
+3. **Sources panel disambiguation** (`420069f`). When a profile has
+   multiple `universal_ai_search` entries, the panel previously
+   showed three identical rows. Now it shows
+   `universal_ai (audio46.com)` / `universal_ai (headphones.com)`
+   etc. by computing a `display_source` field in the source loop
+   and reading it from `_build_sources_searched_md`. Display-only
+   — `source_stats[i]['source']` stays canonical.
+
+4. **First two real-vendor runs** confirmed the architecture works
+   end-to-end but exposed that *server-rendered* hopes were
+   misplaced for two-thirds of the vendors I picked:
+   - Run `1237737` (21:41 UTC, against
+     crutchfield.com + adorama.com): both 0/0 — heavy JS rendering /
+     Akamai-fronted.
+   - Run `18b750a` (21:53 UTC, after profile swap to
+     headphones.com + audio46.com + bhphotovideo.com): all three
+     also 0/0 — modern Shopify themes are JS-heavier than expected
+     and B&H's search page is partially client-rendered for product
+     cards.
+   - Conclusion: free-tier server-rendered fetches won't cover the
+     vendor coverage the user wants. ADR-030 / ScrapFly is the
+     answer.
+
+5. **ScrapFly Tier-3 fetch** (`d8edcc2`, ADR-030). New
+   `_fetch_via_scrapfly()` routes vendor page fetches through the
+   ScrapFly API with `render_js=true` + `asp=true` (residential
+   proxies + Cloudflare/Akamai/Datadome challenge solving). Gated
+   by `SCRAPFLY_API_KEY` env var. `_fetch_html` priority is now
+   `scrapfly → curl_cffi → httpx`; ScrapFly outage / 5xx falls
+   through to the cheap tiers so an outage on ScrapFly's side can't
+   zero a run for sites that don't need JS rendering. Both
+   workflows propagate the secret. `.env.example` documents it.
+   3 new tests cover the fetcher routing.
+
+6. **PWA service-worker stale-cache bug** (`d8edcc2`).
+   `web/public/sw.js` v1 used stale-while-revalidate for every
+   same-origin GET, including the RSC payload that
+   `router.refresh()` fetches after a Run-now completes — so the
+   user reliably saw the OLD report immediately on every
+   "Done. Loading new report…" cycle. v2 strict-static-only:
+   only `/_next/static/*` and assets matching
+   `/\.(png|jpg|svg|webp|ico|css|js|mjs|woff2?|ttf|otf|map)$/`
+   are cached; HTML / RSC / `/api/*` / cross-origin all pass
+   through. CACHE_NAME bumped to `v2` + `skipWaiting()` +
+   `clients.claim()` + activate-handler eviction of v1 entries so
+   existing tabs adopt v2 on the first reload after deploy. This
+   was the single largest source of the recurring "stale screen"
+   complaint across this entire phase.
+
+135/135 worker tests pass (132 + 3 ScrapFly fetcher routing tests).
+Web `tsc` clean on the schema mirror.
+
+**Live state at handoff**:
+- `bose-nc-700-headphones` profile has 3 `universal_ai_search`
+  sources: headphones.com, audio46.com, bhphotovideo.com.
+- One additional Run-now landed after the SW/ScrapFly commit
+  pushed (`f7ef0df`, 22:28 UTC). Sources panel:
+
+  ```
+  ebay_search                        ok  44  41
+  universal_ai (headphones.com)      ok   0   0
+  universal_ai (audio46.com)         ok   0   0
+  universal_ai (bhphotovideo.com)    ok   0   0
+  ```
+
+  All three universal_ai vendors STILL returned 0/0 — but the
+  Run-cost panel now shows the LLM WAS called for each one (input
+  tokens: 3621 / 4067 / 729; output tokens: 13 / 17 / 13). That
+  means `_extract_candidates` found anchor candidates for all
+  three (so the fetch succeeded and produced non-empty HTML with
+  some hrefs) but the LLM returned essentially `{"listings": []}`
+  for each (~13 output tokens = empty wrapper). So the failure
+  mode shifted from "no anchors found" → "anchors found, none of
+  them looked like product listings to the LLM."
+- Whether that run actually used ScrapFly is the first question
+  for next session. Two ways the GH Actions secret could be
+  unset: (a) user added `SCRAPFLY_API_KEY` only to local `.env`
+  and not yet to repo secrets, (b) added it but the
+  workflow-dispatch race against another commit grabbed an SHA
+  before the secret was set. Worker stderr in the GH Actions log
+  for that run will show `[universal_ai] Fetched via scrapfly`
+  vs `via curl_cffi` per source — that is the diagnostic to pull
+  first.
+
+**Next-session investigation plan** (the user's stated focus):
+1. Confirm `SCRAPFLY_API_KEY` is in repo secrets and what fetcher
+   the `f7ef0df` run actually used (worker stderr in the GH
+   Actions log: `[universal_ai] Fetched via <tier>`).
+2. If it WAS curl_cffi: re-trigger Run-now after secret is in
+   place; expect ScrapFly to materially change the candidate
+   counts and possibly emit non-empty listings.
+3. If it WAS ScrapFly and we still got 0 listings: pull the
+   `worker/data/llm_traces/<date>.jsonl` artifact for that run,
+   inspect what candidate payload was sent to Haiku and what
+   Haiku rejected. Possible fixes:
+   - Loosen the prompt (currently: "OMIT candidates with no
+     price hint and no $ in context"). Some sites write prices
+     as `<span class="money">249</span><sup>99</sup>` which
+     `_PRICE_PATTERN` won't match.
+   - Loosen `_PRICE_PATTERN` to also accept bare numeric
+     dollar amounts in price-context contexts (`<span class="price">…</span>`).
+   - Increase `max_candidates` (currently 80) if the page has
+     many anchors and product cards are getting outside the cap.
+4. Confirm the SW v2 fix actually evicted v1 in the user's
+   installed PWA (one hard-refresh after deploy was the docs
+   instruction).
+
+**Files added this continuation**: none.
+
+**Files modified this continuation**:
+- `worker/src/product_search/profile.py` (KNOWN_SOURCE_IDS)
+- `worker/tests/test_profile.py` (pinning test)
+- `web/lib/onboard/schema.ts` (KNOWN_SOURCE_IDS mirror)
+- `worker/src/product_search/synthesizer/synthesizer.py`
+  (_source_label helper + Source column wiring)
+- `worker/tests/test_synthesizer.py` (3 source-column tests)
+- `worker/src/product_search/cli.py` (display_source field +
+  Sources panel renderer)
+- `worker/src/product_search/adapters/universal_ai.py`
+  (_fetch_via_scrapfly + tiered priority)
+- `worker/tests/test_universal_ai.py` (3 ScrapFly tests)
+- `.env.example` (SCRAPFLY_API_KEY documented)
+- `.github/workflows/search-on-demand.yml` + `search-scheduled.yml`
+  (SCRAPFLY_API_KEY env propagation)
+- `web/public/sw.js` (v1 → v2)
+- `products/bose-nc-700-headphones/profile.yaml` (vendor swap from
+  crutchfield + adorama → headphones + audio46 + bhphotovideo)
+- `docs/DECISIONS.md` (ADR-030)
+- `docs/PROGRESS.md` (this block)
+
+**Next session — start here:**
+
+1. **Confirm `SCRAPFLY_API_KEY` is set as a GH Actions repo secret**
+   (https://github.com/ARobicsek/product_search/settings/secrets/actions).
+   The user was adding it locally to `.env` at handoff; the GH
+   secret is what makes prod runs use ScrapFly.
+2. **Push any pending commits** and trigger a Run-now on the Bose
+   page. Expected outcome:
+   - The Sources panel shows three
+     `universal_ai (<host>)` rows.
+   - At least 1-2 vendors yield N>0 listings (with ScrapFly
+     handling the JS render). audio46 and headphones.com are the
+     most likely wins; B&H may still struggle if their cards are
+     loaded by post-render API.
+   - The Run-cost panel shows new
+     `universal_ai (<url>)` rows (one per vendor) at ~$0.005 each
+     (Haiku 4.5 calls; ScrapFly itself doesn't appear in the panel
+     because it's not an LLM call — see ADR-030 trade-offs).
+   - The page no longer shows stale results after the run completes
+     (sw.js v2 fix). User may need ONE hard-refresh to evict v1 from
+     their installed PWA.
+3. **Analyze the run together with the user** (their plan for the
+   next session). Things to look at:
+   - Per-vendor success/failure pattern.
+   - Whether ScrapFly's render_js was strictly necessary for each
+     vendor (vs. curl_cffi being sufficient — could re-test by
+     pulling SCRAPFLY_API_KEY out and re-running once).
+   - Cost: ScrapFly bills per credit (5-10 credits per JS-rendered
+     page). Free tier is 1k/month; 3 vendors * daily run = ~270
+     credits/month, well within free tier.
+   - Whether the ranked-listings table now has rows tagged
+     `[audio46.com](url)` etc. and whether they out-rank any eBay
+     listings (would surface the cheapest non-eBay path).
+4. **If a vendor still fails with ScrapFly enabled**, options:
+   - Try a different category-page URL for that vendor (some have
+     a `/collection/X` pattern that's more SSR-friendly than
+     `/search?q=...`).
+   - Add ScrapFly's `wait_for_selector` parameter (currently we
+     just `render_js=true` and grab the post-render HTML).
+   - Add the failing vendor to a per-profile blocklist or move it
+     to `sources_pending` with a note.
+5. **Phase 12b (Tier-B adapter) and 12c (schedule editor UI)** are
+   still queued; pick after universal vendor support is proven on
+   prod data.
+
 ## Status as of end of 2026-04-30 session (continuation 8)
 
 **Universal vendor scraping: anchor-first extraction + Chrome TLS
