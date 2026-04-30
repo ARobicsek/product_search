@@ -8,7 +8,102 @@
 
 See the Phase 12 brief in [PHASES.md](PHASES.md#phase-12--polish--second-product-proof).
 
-## Status as of end of 2026-04-30 session (continuation 4)
+## Status as of end of 2026-04-30 session (continuation 5)
+
+**Per-product report columns, brand inference, synth retry, run-info
+footer.**
+
+Five code commits pushed to origin (plus one local at handoff —
+`bb9b93e`, push pending):
+
+1. **Per-product `report_columns`** (`d370c15`, ADR-025). Profile YAML
+   may now declare a `report_columns: list[str]` from a 14-column
+   registry (`rank, source, title, price_unit, total_for_target, qty,
+   condition, brand, mpn, seller, seller_rating, ship_from, qvl_status,
+   flags`). Default = legacy 8 columns when unset. Wired through:
+   Pydantic schema → TS validator mirror → onboarding catalog →
+   synthesizer column dispatcher. The Bose profile uses this to drop
+   `qty` (always "unknown" for headphones) and surface `condition`,
+   `brand`, `seller_rating`, `ship_from`. Live-tested on the
+   `bose-nc-700-headphones` route — the table renders the chosen
+   columns exactly.
+
+2. **Edit-mode onboarding surfaces columns proactively** (`555b3ad`).
+   The Sonnet onboarding chat, when started with a pasted existing
+   profile, now MUST in its first reply: (a) acknowledge the profile,
+   (b) explicitly list the current `report_columns` (or note the
+   default), (c) show the full 14-id catalog, (d) ask what to change.
+   No more "user has to ask before any column info appears".
+
+3. **`brand_candidates` for missing-brand inference** (`b9d2ff6`,
+   ADR-026). eBay Browse API doesn't reliably populate `brand` for
+   non-RAM categories (headphones, peripherals). New optional
+   profile field `brand_candidates: list[str]`; the validator
+   pipeline (after ai_filter, before QVL/flags) runs
+   `infer_brand_from_title(listing, candidates)` — case-insensitive
+   word-boundary match, first hit wins, declared casing preserved.
+   Existing non-None brands are not overwritten. Bose profile has
+   `brand_candidates: [Bose]`.
+
+4. **Synth retries once on `PostCheckError`** (`bb9b93e`, ADR-027,
+   LOCAL ONLY at handoff). Both Haiku 4.5 and GLM 4.5 Flash
+   occasionally fabricate percentages / savings amounts despite the
+   prompt forbidding them. The retry's system prompt names the
+   rejected numbers, gives explicit anti-pattern phrases, and
+   restricts to qualitative phrasing only. If retry also fails, the
+   original error propagates and `cli.py`'s stub-report path takes
+   over. `PostCheckError` now carries `.bad_numbers: list[str]` so
+   the retry can cite them.
+
+5. **Run-info on the web UI** (`56c3a18` and `bb9b93e`):
+   - Next to the Run-now button: caption `Last run: <duration> ·
+     <relative time>` shown when no run is in flight (server-side
+     fetch via new `getLastCompletedRun(product)` in
+     `web/lib/dispatch.ts`).
+   - **Below the report**: footer "Last run completed
+     [absolute timestamp] · took [duration]". Renders red with the
+     conclusion appended if the run failed. Reuses the same
+     `lastRun` server fetch — no extra API calls.
+   - Fixed a missed `<RunNowButton />` instance that wasn't
+     receiving `lastRun` in the regular page path (only the
+     empty-state path had it before).
+
+98/98 worker tests pass; web tsc + eslint clean.
+
+**Live state at handoff**:
+- DDR5 profile: defaults; the deterministic table + GLM 4.5 Flash
+  synth produce clean reports.
+- Bose profile: custom 12-column set (most recent edit kept Brand
+  and MPN columns; `brand_candidates: [Bose]` makes Brand show "Bose"
+  instead of "unknown" in the next run).
+- One observed failure during user testing: GLM emitted
+  "saves 7.7%" → post-check rejected. The retry mechanism (pushed
+  locally as `bb9b93e`) addresses this. **Push it before the next
+  test run** or expect to see the same class of failure.
+
+**Next session — start here:**
+
+1. **Push `bb9b93e`** (synth retry + run-info footer) so the next
+   run benefits from the retry and the user sees the bottom-of-page
+   run footer.
+2. **Trigger one live run on each product** to confirm:
+   - Bose: Brand column shows "Bose" (not "unknown"); retry kicks in
+     if synth fabricates again.
+   - DDR5: still clean.
+   - Both: bottom-of-page "Last run completed … · took …" footer
+     renders correctly.
+3. **If retry STILL doesn't catch all percentage fabrications**:
+   options in order — (a) split Bottom line into a deterministic
+   first sentence + LLM-supplied "and here's why" clause; (b)
+   programmatically strip percentage tokens from LLM output before
+   post_check (last resort — borders on hiding fabrications); (c)
+   shorten synth's section list to just Flags + Context, drop
+   Bottom line entirely.
+4. **Phase 12b (Tier-B adapter) and 12c (schedule editor UI)** are
+   still queued. Pick one once two clean consecutive runs land on
+   each product.
+
+## Previous status (end of 2026-04-30 session, continuation 4)
 
 **Synth swapped to GLM 4.5 Flash; workflows now commit on failure.**
 

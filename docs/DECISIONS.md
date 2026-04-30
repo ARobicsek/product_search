@@ -9,6 +9,169 @@ Status values:
 
 ---
 
+## ADR-027 — Synth retries once on `PostCheckError` with a stricter prompt that cites the rejected numbers
+
+**Status**: ACCEPTED
+
+**Context**: Even after ADR-024's swap to GLM 4.5 Flash and the
+ranked-listings table being made deterministic, the synth LLM
+intermittently fabricates a single percentage or savings amount in
+the Bottom line / Context narrative ("$47.97 represents 7.7% lower
+than the average"). The base prompt (`synth_v1.txt`) already has
+explicit "Do NOT compute percentages, ratios, savings amounts" rules
+and even gives forbidden examples; it's not enough. Both Haiku 4.5
+(continuation 3) and GLM 4.5 Flash (continuation 5) hit this class
+of failure on prod-scale data. The post-check correctly rejects
+these as fabricated numbers and ADR-024's stub-report path surfaces
+the failure on the web UI, but a hard-fail on the daily report is a
+poor user experience when the issue is one stray clause.
+
+**Decision**:
+
+1. **Single retry inside `synthesize()`** when the first attempt
+   raises `PostCheckError`. The retry's system prompt is the base
+   prompt + a bolted-on "RETRY — PRIOR ATTEMPT REJECTED" section
+   that:
+   - Names the specific numbers the post-check rejected.
+   - Gives explicit anti-pattern phrases to avoid: "X% cheaper",
+     "saves $Y", "represents Z%", "lower than the average".
+   - Restricts to qualitative phrasing only ("cheapest",
+     "second-cheapest", "highest-priced", "lower-end", "mid-range").
+   - Says re-emit from scratch with the same section structure.
+2. **`PostCheckError` carries the rejected numbers** as
+   `.bad_numbers: list[str]` so the retry can cite them without
+   parsing the error message string.
+3. **Retry only once.** If the second attempt also fails, the
+   `PostCheckError` propagates, `cli.py`'s stub-report path runs,
+   and the web UI shows the diagnostic. No infinite retry loops, no
+   silent fabrication.
+
+**Consequence**: A failure mode that previously cost the user a full
+hard-fail of the daily report now usually self-heals on retry. Cost
+overhead per run is one extra LLM call only when the first call
+fails (rare on quiet payloads, common on prod-scale headphone
+listings). The strictness/correctness boundary is unchanged — the
+post-check is still the absolute gate; the retry is a courtesy that
+gives the model a chance to correct itself when given specific
+feedback.
+
+**Reversibility**: Trivial. Remove the retry block in
+`synthesize()`. The existing stub-report path absorbs the failure
+exactly as before.
+
+**Future direction (deferred)**: If retries don't catch enough of
+the percentage class — (a) split Bottom line into a deterministic
+first sentence + LLM-supplied "and here's why" clause; (b) drop
+Bottom line entirely and have the LLM contribute only Flags +
+Context. Both reduce LLM exposure further.
+
+---
+
+## ADR-026 — `brand_candidates` profile field fills in eBay's missing brand for non-RAM categories
+
+**Status**: ACCEPTED
+
+**Context**: eBay's Browse API summary endpoint reliably returns
+`brand` for RAM listings (Samsung, Micron, SK Hynix all populate)
+but for headphones and other non-RAM categories the field is
+frequently `None`. The synthesizer's Brand column then renders
+"unknown" for every listing even when the brand is visually obvious
+in the title ("Bose Noise Cancelling Headphones 700"). This made
+the Brand column useless for the user's first non-RAM product
+(Bose NC700) and pushed them to remove it from `report_columns`
+entirely.
+
+**Decision**:
+
+1. **New optional profile field**: `brand_candidates: list[str]`,
+   validated as a non-empty list of non-blank strings (or absent
+   entirely → no inference).
+2. **Pipeline integration** as step 2 (after ai_filter, before QVL
+   and flags): `infer_brand_from_title(listing, candidates)`
+   matches each candidate against the title using a
+   case-insensitive word-boundary regex (`\b<token>\b`). First
+   match wins; the canonical-cased candidate (the profile's
+   spelling) is assigned. Non-None brands are never overwritten —
+   adapter-supplied brand is authoritative when present.
+3. **Onboarding prompt update**: a new "Brand candidates" section
+   tells the AI that for non-RAM categories it should ask the user
+   for canonical brand names and put them in `brand_candidates:`.
+   For RAM, it can be omitted because eBay populates brand
+   correctly.
+
+**Consequence**: The Brand column now fills for products where eBay
+doesn't populate it, so users who want Brand visible can leave it
+in `report_columns`. No change for RAM (brand is already populated
+by the adapter). Inference is profile-scoped, deterministic, and
+fully under user control — no LLM involvement, no risk of
+hallucinated brands.
+
+**Trade-offs**:
+- Title prefix has to actually contain the brand. Aftermarket
+  cables for "Bose 700" would (incorrectly) be assigned brand
+  "Bose"; expected to be rare and the existing `title_excludes`
+  filter usually catches these.
+- MPN suffers the same issue (eBay often doesn't return it) but
+  there's no equivalent candidate-list approach because MPNs are
+  arbitrary alphanumeric strings. Deferred — see Open follow-ups.
+
+---
+
+## ADR-025 — Per-product report columns via `report_columns:` profile field
+
+**Status**: ACCEPTED
+
+**Context**: The synthesizer's "Ranked listings" table was hardcoded
+to 8 columns suited for RAM (`rank, source, title, price_unit,
+total_for_target, qty, seller, flags`). When the second product
+(Bose NC700) onboarded in continuation 5, several of those columns
+were either meaningless (`qty` always shows "unknown" for eBay
+headphones) or absent fields the user wanted (`condition`,
+`seller_rating`, `ship_from`). Hardcoding a one-size-fits-all
+column set against the architectural goal of supporting arbitrary
+product types.
+
+**Decision**:
+
+1. **Column registry in `synthesizer.py`**: `COLUMN_DEFS` maps
+   stable column ids to `(header, formatter)` tuples. Formatters
+   are pure `(rank_index, listing) -> str` functions reading only
+   `Listing` model fields. Initial registry has 14 ids:
+   `rank, source, title, price_unit, total_for_target, qty,
+   condition, brand, mpn, seller, seller_rating, ship_from,
+   qvl_status, flags`.
+2. **`DEFAULT_REPORT_COLUMNS`**: the legacy 8-column shape. Used
+   when a profile leaves `report_columns` unset, preserving
+   backwards compat for existing profiles.
+3. **Profile schema**: optional `report_columns: list[str]`,
+   validated against the registry's allow-list, deduplicated, and
+   non-empty if provided. Same allow-list mirrored in
+   `web/lib/onboard/schema.ts:KNOWN_REPORT_COLUMNS` for TS-side
+   pre-commit validation.
+4. **Onboarding prompt update**: an "Available report columns"
+   section enumerates the 14 ids with one-line descriptions and
+   gives use-case examples (RAM uses default; headphones drop
+   `qty`, add `condition`). Interview step 8 asks the user about
+   columns. An "Edit mode" section (added in `555b3ad`) ensures
+   the AI surfaces the current `report_columns` proactively when
+   the chat starts with a pasted existing profile.
+5. **No support for `attrs:<key>` columns yet** (e.g.
+   `attr:capacity_gb`). Listed as a v2 follow-up — adds ~15 lines
+   to the registry but not needed for either of the two live
+   products.
+
+**Consequence**: Each profile picks its own table shape. The
+synthesizer's deterministic table builder iterates the chosen
+columns and never sees raw column ids the LLM might have invented
+(the profile validator rejects unknown ids before the run starts).
+Post-check is unaffected because the table is injected
+deterministically AFTER the LLM output is checked.
+
+**Reversibility**: Removing the field from a profile reverts it to
+the default 8-column shape with no other change required.
+
+---
+
 ## ADR-024 — Swap synth model from Claude Haiku 4.5 back to GLM 4.5 Flash; commit-on-failure workflow
 
 **Status**: ACCEPTED (supersedes ADR-019's Haiku-as-synth choice)
