@@ -97,3 +97,39 @@ export async function getLatestOnDemandRun(product: string, sinceIso: string): P
     completedAt: state === 'completed' ? match.updated_at : null,
   };
 }
+
+export interface LastRunInfo {
+  completedAt: string;
+  durationMs: number;
+  conclusion: string | null;
+  htmlUrl: string;
+}
+
+export async function getLastCompletedRun(product: string): Promise<LastRunInfo | null> {
+  const url =
+    `https://api.github.com/repos/${REPO}/actions/workflows/${WORKFLOW_FILE}/runs` +
+    `?event=workflow_dispatch&status=completed&per_page=20`;
+
+  const res = await fetch(url, { headers: dispatchHeaders(), cache: 'no-store' });
+  if (!res.ok) {
+    throw new Error(`GitHub runs query failed: ${res.status} ${res.statusText}`);
+  }
+  const data = (await res.json()) as { workflow_runs?: GhRun[] };
+  const runs = data.workflow_runs ?? [];
+
+  const match = runs.find(
+    (r) => r.display_title?.includes(product) || r.name?.includes(product),
+  );
+  if (!match || !match.run_started_at) return null;
+
+  const start = Date.parse(match.run_started_at);
+  const end = Date.parse(match.updated_at);
+  if (Number.isNaN(start) || Number.isNaN(end)) return null;
+
+  return {
+    completedAt: match.updated_at,
+    durationMs: Math.max(0, end - start),
+    conclusion: match.conclusion,
+    htmlUrl: match.html_url,
+  };
+}

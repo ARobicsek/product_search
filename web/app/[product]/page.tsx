@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { getProductProfileExists, getProductReports, getReportContent } from '@/lib/github';
+import { getLastCompletedRun } from '@/lib/dispatch';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { ChevronLeft, History, Sparkles } from 'lucide-react';
@@ -18,6 +19,7 @@ export default async function ProductPage({
   const { date } = await searchParams;
 
   const reports = await getProductReports(product);
+  const lastRun = await getLastCompletedRun(product).catch(() => null);
 
   if (reports.length === 0) {
     // Fresh onboard: profile exists but no report has been generated yet.
@@ -48,7 +50,7 @@ export default async function ProductPage({
           >
             Edit Profile
           </Link>
-          <RunNowButton product={product} />
+          <RunNowButton product={product} lastRun={lastRun} />
         </div>
 
         <section className="p-6 max-w-2xl mx-auto w-full mt-2">

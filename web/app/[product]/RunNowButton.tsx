@@ -29,7 +29,32 @@ function formatElapsed(ms: number): string {
   return `${m}m ${rem.toString().padStart(2, '0')}s`;
 }
 
-export function RunNowButton({ product }: { product: string }) {
+function formatRelativeAgo(iso: string): string {
+  const diffMs = Date.now() - Date.parse(iso);
+  if (Number.isNaN(diffMs) || diffMs < 0) return '';
+  const s = Math.floor(diffMs / 1000);
+  if (s < 60) return 'just now';
+  const m = Math.floor(s / 60);
+  if (m < 60) return `${m} min ago`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h}h ago`;
+  const d = Math.floor(h / 24);
+  return `${d}d ago`;
+}
+
+export interface LastRun {
+  completedAt: string;
+  durationMs: number;
+  conclusion: string | null;
+}
+
+export function RunNowButton({
+  product,
+  lastRun,
+}: {
+  product: string;
+  lastRun?: LastRun | null;
+}) {
   const [state, setState] = useState<RunState>('idle');
   const [message, setMessage] = useState<string>('');
   const [elapsed, setElapsed] = useState<string>('');
@@ -185,6 +210,19 @@ export function RunNowButton({ product }: { product: string }) {
           title={message}
         >
           {elapsed ? `${message} (${elapsed})` : message}
+        </span>
+      )}
+      {!message && lastRun && (
+        <span
+          className="text-[11px] max-w-56 text-right truncate text-gray-500 dark:text-gray-400"
+          title={`Completed ${new Date(lastRun.completedAt).toLocaleString()}${
+            lastRun.conclusion && lastRun.conclusion !== 'success'
+              ? ` (${lastRun.conclusion})`
+              : ''
+          }`}
+        >
+          Last run: {formatElapsed(lastRun.durationMs)} ·{' '}
+          {formatRelativeAgo(lastRun.completedAt) || 'completed'}
         </span>
       )}
     </div>
