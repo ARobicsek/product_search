@@ -47,6 +47,17 @@ jobs:
         run: |
           python -m product_search.cli scheduler-tick
 
+      - name: Upload run diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: run-diagnostics-scheduled-${{ github.run_id }}
+          path: |
+            worker/data/filter_logs/
+            worker/data/llm_traces/
+          if-no-files-found: ignore
+          retention-days: 14
+
       - name: Commit and Push changes
         run: |
           git config --global user.name "github-actions[bot]"
