@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import json
 import re
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import date as _date
 from pathlib import Path
@@ -106,28 +107,76 @@ def render_prompt() -> str:
 # Python Tabular Markdown Generators
 # ---------------------------------------------------------------------------
 
-def build_listings_table_md(listings: list[Listing]) -> str:
+def _esc(value: str) -> str:
+    return value.replace("|", "\\|")
+
+
+def _money(value: float | None) -> str:
+    return f"${value:.2f}" if value is not None else "unknown"
+
+
+# Registry of available report-table columns. Each entry maps a stable
+# column id (used in profile.yaml) to (header, formatter). The formatter
+# receives (rank_index, listing) and returns the cell's markdown text.
+# Headers and formatters live here so they stay in sync; the onboarding
+# prompt's "available columns" list MUST be kept in sync with this dict.
+COLUMN_DEFS: dict[str, tuple[str, Callable[[int, Listing], str]]] = {
+    "rank": ("Rank", lambda i, lst: str(i)),
+    "source": ("Source", lambda i, lst: f"[{_esc(lst.source)}]({lst.url})"),
+    "title": ("Title", lambda i, lst: _esc(lst.title)),
+    "price_unit": ("Price (unit)", lambda i, lst: _money(lst.unit_price_usd)),
+    "total_for_target": ("Total for target", lambda i, lst: _money(lst.total_for_target_usd)),
+    "qty": (
+        "Qty",
+        lambda i, lst: str(lst.quantity_available) if lst.quantity_available is not None else "unknown",
+    ),
+    "condition": ("Condition", lambda i, lst: lst.condition or "unknown"),
+    "brand": ("Brand", lambda i, lst: _esc(lst.brand) if lst.brand else "unknown"),
+    "mpn": ("MPN", lambda i, lst: _esc(lst.mpn) if lst.mpn else "unknown"),
+    "seller": ("Seller", lambda i, lst: _esc(lst.seller_name) if lst.seller_name else "unknown"),
+    "seller_rating": (
+        "Seller rating",
+        lambda i, lst: f"{lst.seller_rating_pct:.1f}%" if lst.seller_rating_pct is not None else "unknown",
+    ),
+    "ship_from": ("Ships from", lambda i, lst: lst.ship_from_country or "unknown"),
+    "qvl_status": ("QVL", lambda i, lst: lst.qvl_status or "unknown"),
+    "flags": ("Flags", lambda i, lst: ", ".join(lst.flags) if lst.flags else "(no flags)"),
+}
+
+DEFAULT_REPORT_COLUMNS: list[str] = [
+    "rank",
+    "source",
+    "title",
+    "price_unit",
+    "total_for_target",
+    "qty",
+    "seller",
+    "flags",
+]
+
+
+def build_listings_table_md(
+    listings: list[Listing],
+    columns: list[str] | None = None,
+) -> str:
+    cols = columns if columns else DEFAULT_REPORT_COLUMNS
+    headers = [COLUMN_DEFS[c][0] for c in cols]
+
     lines = ["**Ranked listings.**\n"]
-    lines.append("| Rank | Source | Title | Price (unit) | Total for target | Qty | Seller | Flags |")
-    lines.append("|---|---|---|---|---|---|---|---|")
-    
+    lines.append("| " + " | ".join(headers) + " |")
+    lines.append("|" + "|".join(["---"] * len(headers)) + "|")
+
     def _key(lst: Listing) -> tuple[int, float]:
         if lst.total_for_target_usd is None:
             return (1, 0.0)
         return (0, lst.total_for_target_usd)
-        
+
     sorted_listings = sorted(listings, key=_key)[:SYNTH_MAX_LISTINGS]
-    
+
     for i, lst in enumerate(sorted_listings, 1):
-        source_link = f"[{lst.source}]({lst.url})"
-        title = lst.title.replace("|", "\\|")
-        price = f"${lst.unit_price_usd:.2f}" if lst.unit_price_usd is not None else "unknown"
-        total = f"${lst.total_for_target_usd:.2f}" if lst.total_for_target_usd is not None else "unknown"
-        qty = str(lst.quantity_available) if lst.quantity_available is not None else "unknown"
-        seller = lst.seller_name.replace("|", "\\|") if lst.seller_name else "unknown"
-        flags = ", ".join(lst.flags) if lst.flags else "(no flags)"
-        lines.append(f"| {i} | {source_link} | {title} | {price} | {total} | {qty} | {seller} | {flags} |")
-        
+        cells = [COLUMN_DEFS[c][1](i, lst) for c in cols]
+        lines.append("| " + " | ".join(cells) + " |")
+
     return "\n".join(lines)
 
 
@@ -258,7 +307,7 @@ def synthesize(
     ctx_text = context_match.group(1).strip() if context_match else "(extraction failed)"
     
     # Inject deterministic Python tables and re-number
-    listings_md = build_listings_table_md(listings)
+    listings_md = build_listings_table_md(listings, profile.report_columns)
     diff_md = build_diff_md(diff)
     
     final_report_md = f"""1. **Bottom line.** {bl_text}

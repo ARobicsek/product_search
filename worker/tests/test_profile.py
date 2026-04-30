@@ -162,6 +162,51 @@ def test_rejects_unknown_filter_rule() -> None:
     assert "nonexistent_filter_rule" in str(exc_info.value)
 
 
+def test_report_columns_optional_defaults_none() -> None:
+    """report_columns is optional; absent → None (synthesizer falls back)."""
+    profile = Profile.model_validate(VALID_PROFILE)
+    assert profile.report_columns is None
+
+
+def test_report_columns_accepts_known_ids() -> None:
+    import copy
+
+    good = copy.deepcopy(VALID_PROFILE)
+    good["report_columns"] = ["rank", "title", "condition", "price_unit", "seller"]
+    profile = Profile.model_validate(good)
+    assert profile.report_columns == ["rank", "title", "condition", "price_unit", "seller"]
+
+
+def test_rejects_unknown_report_column() -> None:
+    import copy
+
+    bad = copy.deepcopy(VALID_PROFILE)
+    bad["report_columns"] = ["rank", "totally_unknown_column"]
+    with pytest.raises(ValidationError) as exc_info:
+        Profile.model_validate(bad)
+    assert "totally_unknown_column" in str(exc_info.value)
+
+
+def test_rejects_duplicate_report_columns() -> None:
+    import copy
+
+    bad = copy.deepcopy(VALID_PROFILE)
+    bad["report_columns"] = ["rank", "title", "rank"]
+    with pytest.raises(ValidationError) as exc_info:
+        Profile.model_validate(bad)
+    assert "duplicate" in str(exc_info.value).lower()
+
+
+def test_rejects_empty_report_columns() -> None:
+    import copy
+
+    bad = copy.deepcopy(VALID_PROFILE)
+    bad["report_columns"] = []
+    with pytest.raises(ValidationError) as exc_info:
+        Profile.model_validate(bad)
+    assert "non-empty" in str(exc_info.value).lower()
+
+
 # ---------------------------------------------------------------------------
 # CLI integration test
 # ---------------------------------------------------------------------------

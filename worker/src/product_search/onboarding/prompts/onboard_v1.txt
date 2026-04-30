@@ -77,6 +77,10 @@ synthesis_hints:
   - >
     <≤2-sentence buying-decision hint>
 
+report_columns:
+  - <column_id>      # optional; omit to use the default set
+  # ...
+
 schedule:
   cron: "<5-field cron>"
   timezone: "UTC"
@@ -125,6 +129,35 @@ appears in the daily report.
 - `title_mentions_other_server` — params: `values: ["Tyan", ...]`
 - `title_mentions` — params: `values: ["Engineering Sample", ...]`
 
+## Available report columns (for `report_columns`)
+
+The daily report shows a "Ranked listings" table. By default the columns
+are: `rank`, `source`, `title`, `price_unit`, `total_for_target`, `qty`,
+`seller`, `flags`. The user can override this with any subset (in any
+order) of these column ids:
+
+- `rank` — 1-based rank within the report
+- `source` — adapter id, hyperlinked to the listing URL
+- `title` — listing title
+- `price_unit` — per-unit price in USD
+- `total_for_target` — total cost to hit the target (computed)
+- `qty` — quantity available (or "unknown")
+- `condition` — "new" / "used" / "refurbished"
+- `brand` — listing brand
+- `mpn` — manufacturer part number
+- `seller` — seller name
+- `seller_rating` — seller positive-feedback percentage
+- `ship_from` — ISO-2 ship-from country
+- `qvl_status` — QVL match status (RAM-specific; use only if a QVL is provided)
+- `flags` — comma-separated flags from `spec_flags` evaluation
+
+Pick columns that fit the product. Examples:
+- For RAM (DDR5), the default set is fine.
+- For headphones, `qty` is usually meaningless and `condition` matters
+  a lot — drop `qty`, add `condition`.
+- For laptops, you might want `condition`, `brand`, `seller_rating`
+  alongside the cheapest-path columns.
+
 ## Cron
 
 `schedule.cron` is a 5-field cron string (`minute hour dom month dow`).
@@ -161,7 +194,15 @@ Roughly in this order, but adapt to what the user volunteers:
    paste the parts list later.
 7. **Synthesis hints.** Anything non-obvious about the buying decision
    that the daily report should surface? Keep each hint to ≤2 sentences.
-8. **Schedule.** Daily at 08:00 UTC unless the user wants otherwise.
+8. **Report columns.** Show the user the proposed default columns
+   (`rank`, `source`, `title`, `price_unit`, `total_for_target`, `qty`,
+   `seller`, `flags`) and ask whether they want to add or remove any.
+   Reference the "Available report columns" section above for the
+   catalog. If they're happy with the default, OMIT `report_columns`
+   from the YAML entirely (it'll fall back to the default). If they
+   want a different set, emit `report_columns:` with their chosen ids
+   in their preferred order.
+9. **Schedule.** Daily at 08:00 UTC unless the user wants otherwise.
 
 You don't need to ask every one of these questions verbatim — combine,
 skip, or expand based on what the user has already told you. The goal is

@@ -15,8 +15,11 @@ from product_search.models import Listing
 from product_search.profile import load_profile
 from product_search.storage.diff import DiffResult, PriceChange
 from product_search.synthesizer import (
+    COLUMN_DEFS,
+    DEFAULT_REPORT_COLUMNS,
     PostCheckError,
     build_input_payload,
+    build_listings_table_md,
     post_check,
     render_prompt,
 )
@@ -198,3 +201,57 @@ def test_prompt_file_lives_in_package() -> None:
     """The prompt is checked into the repo, per LLM_STRATEGY hard rule #3."""
     here = Path(__file__).parent.parent / "src" / "product_search" / "synthesizer" / "prompts"
     assert (here / "synth_v1.txt").is_file()
+
+
+# ---------------------------------------------------------------------------
+# Report-column registry / table builder (per-product columns)
+# ---------------------------------------------------------------------------
+
+
+def test_default_report_columns_match_legacy_table_shape() -> None:
+    assert DEFAULT_REPORT_COLUMNS == [
+        "rank", "source", "title", "price_unit", "total_for_target",
+        "qty", "seller", "flags",
+    ]
+    for col in DEFAULT_REPORT_COLUMNS:
+        assert col in COLUMN_DEFS
+
+
+def test_table_uses_default_columns_when_none() -> None:
+    md = build_listings_table_md([_listing("https://x/a")], None)
+    assert "| Rank | Source | Title | Price (unit) | Total for target | Qty | Seller | Flags |" in md
+
+
+def test_table_respects_custom_column_set_and_order() -> None:
+    listing = _listing(
+        "https://x/a",
+        title="Bose NC700",
+        unit_price_usd=99.95,
+        total_for_target_usd=99.95,
+    )
+    md = build_listings_table_md(
+        [listing],
+        ["rank", "source", "title", "condition", "price_unit", "seller"],
+    )
+    assert "| Rank | Source | Title | Condition | Price (unit) | Seller |" in md
+    assert "| 1 | [ebay_search](https://x/a) | Bose NC700 | new | $99.95 | some_seller |" in md
+
+
+def test_table_drops_qty_and_includes_condition_for_headphone_use_case() -> None:
+    listing = _listing(
+        "https://x/a",
+        title="Bose NC700 used",
+        unit_price_usd=47.97,
+        total_for_target_usd=47.97,
+    )
+    listing.condition = "used"
+    md = build_listings_table_md([listing], ["rank", "title", "condition", "price_unit"])
+    assert "| Rank | Title | Condition | Price (unit) |" in md
+    assert "Qty" not in md
+    assert "| used |" in md
+
+
+def test_pipe_in_title_is_escaped_in_table() -> None:
+    listing = _listing("https://x/a", title="Bose | NC700")
+    md = build_listings_table_md([listing], None)
+    assert "Bose \\| NC700" in md

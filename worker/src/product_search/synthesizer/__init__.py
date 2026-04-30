@@ -11,20 +11,26 @@ loudly rather than committing fabricated data.
 
 from product_search.synthesizer.report import default_report_path, write_report
 from product_search.synthesizer.synthesizer import (
+    COLUMN_DEFS,
+    DEFAULT_REPORT_COLUMNS,
     SYNTH_MAX_LISTINGS,
     PostCheckError,
     SynthesisResult,
     build_input_payload,
+    build_listings_table_md,
     post_check,
     render_prompt,
     synthesize,
 )
 
 __all__ = [
+    "COLUMN_DEFS",
+    "DEFAULT_REPORT_COLUMNS",
     "SYNTH_MAX_LISTINGS",
     "PostCheckError",
     "SynthesisResult",
     "build_input_payload",
+    "build_listings_table_md",
     "default_report_path",
     "post_check",
     "render_prompt",

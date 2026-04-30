@@ -90,6 +90,17 @@ synthesis_hints:
     bandwidth gap. Surface this when 4x64GB and 8x32GB configs are close in
     cost.
 
+# --- Report columns ----------------------------------------------------------
+# Optional. Per-product override of the daily report's "Ranked listings" table
+# columns. Omit to use the default set:
+#   [rank, source, title, price_unit, total_for_target, qty, seller, flags]
+# Available column ids:
+#   rank, source, title, price_unit, total_for_target, qty, condition,
+#   brand, mpn, seller, seller_rating, ship_from, qvl_status, flags
+#
+# Example (headphones — drop quantity, surface condition):
+# report_columns: [rank, source, title, condition, price_unit, seller, flags]
+
 # --- Schedule ----------------------------------------------------------------
 
 schedule:

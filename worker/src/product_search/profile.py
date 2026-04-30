@@ -69,6 +69,30 @@ KNOWN_FLAG_RULES: frozenset[str] = frozenset(
 )
 
 # ---------------------------------------------------------------------------
+# Allow-list of report-table column ids. Must match the keys of
+# ``synthesizer.COLUMN_DEFS``. Kept here (not imported) to avoid an
+# import cycle and to keep ``profile.py`` self-contained.
+# ---------------------------------------------------------------------------
+KNOWN_REPORT_COLUMNS: frozenset[str] = frozenset(
+    [
+        "rank",
+        "source",
+        "title",
+        "price_unit",
+        "total_for_target",
+        "qty",
+        "condition",
+        "brand",
+        "mpn",
+        "seller",
+        "seller_rating",
+        "ship_from",
+        "qvl_status",
+        "flags",
+    ]
+)
+
+# ---------------------------------------------------------------------------
 # Sub-models
 # ---------------------------------------------------------------------------
 
@@ -200,7 +224,31 @@ class Profile(BaseModel):
 
     synthesis_hints: list[str] = Field(default_factory=list)
 
+    # Optional per-product override of the daily report's ranked-listings
+    # table columns. When unset (None) the synthesizer's
+    # ``DEFAULT_REPORT_COLUMNS`` is used. Each id must be in
+    # ``KNOWN_REPORT_COLUMNS``. The order in this list is the order the
+    # columns appear in the report.
+    report_columns: list[str] | None = None
+
     schedule: Schedule
+
+    @field_validator("report_columns")
+    @classmethod
+    def report_columns_must_be_known(cls, v: list[str] | None) -> list[str] | None:
+        if v is None:
+            return v
+        if len(v) == 0:
+            raise ValueError("report_columns: list must be non-empty if provided")
+        unknown = [c for c in v if c not in KNOWN_REPORT_COLUMNS]
+        if unknown:
+            raise ValueError(
+                f"Unknown report column(s) {unknown!r}. "
+                f"Known columns: {sorted(KNOWN_REPORT_COLUMNS)}"
+            )
+        if len(set(v)) != len(v):
+            raise ValueError("report_columns: must not contain duplicates")
+        return v
 
     @model_validator(mode="after")
     def slug_matches_qvl_path(self) -> Profile:

@@ -38,6 +38,25 @@ export const KNOWN_FLAG_RULES = new Set<string>([
   'title_mentions',
 ]);
 
+// Mirrors worker/src/product_search/profile.py:KNOWN_REPORT_COLUMNS.
+// Keep in sync with worker/src/product_search/synthesizer/synthesizer.py:COLUMN_DEFS.
+export const KNOWN_REPORT_COLUMNS = new Set<string>([
+  'rank',
+  'source',
+  'title',
+  'price_unit',
+  'total_for_target',
+  'qty',
+  'condition',
+  'brand',
+  'mpn',
+  'seller',
+  'seller_rating',
+  'ship_from',
+  'qvl_status',
+  'flags',
+]);
+
 const SLUG_RE = /^[a-z0-9][a-z0-9-]{0,63}$/;
 const CRON_FIELD_RE = /^[\d*/,\-]+$/;
 const SPEC_TYPES = new Set(['int', 'str', 'float', 'bool']);
@@ -246,6 +265,29 @@ export function parseAndValidateProfileYaml(text: string): ParsedProfile {
   if (obj.synthesis_hints !== undefined) {
     const hints = asArray(obj.synthesis_hints, 'synthesis_hints', ctx);
     if (hints) hints.forEach((h, i) => asString(h, `synthesis_hints[${i}]`, ctx));
+  }
+
+  if (obj.report_columns !== undefined && obj.report_columns !== null) {
+    const cols = asArray(obj.report_columns, 'report_columns', ctx);
+    if (cols) {
+      if (cols.length < 1) {
+        ctx.errors.push('report_columns: list must be non-empty if provided');
+      }
+      const seen = new Set<string>();
+      cols.forEach((c, i) => {
+        const id = asString(c, `report_columns[${i}]`, ctx);
+        if (id === null) return;
+        if (!KNOWN_REPORT_COLUMNS.has(id)) {
+          ctx.errors.push(
+            `report_columns[${i}]: unknown column ${JSON.stringify(id)}; known: ${[...KNOWN_REPORT_COLUMNS].sort().join(',')}`,
+          );
+        }
+        if (seen.has(id)) {
+          ctx.errors.push(`report_columns[${i}]: duplicate column ${JSON.stringify(id)}`);
+        }
+        seen.add(id);
+      });
+    }
   }
 
   validateSchedule(obj.schedule, ctx);
