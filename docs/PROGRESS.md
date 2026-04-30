@@ -8,27 +8,42 @@
 
 See the Phase 12 brief in [PHASES.md](PHASES.md#phase-12--polish--second-product-proof).
 
-## Status as of end of 2026-04-29 session
+## Status as of end of 2026-04-30 session (UI polling fix + filter logs)
 
-The full prod pipeline is now working end-to-end on live data for the
-DDR5 profile. Run-now → live eBay Browse API → 161 passing listings →
-truncated to top-30 → Anthropic Haiku 4.5 synthesis → canonical URL
-post-check → committed report rendered on Vercel. Verified on the page:
-bottom-line analysis, 21-row ranked listings table with real prices
-($625–$1,250 range), real eBay URLs, sources-searched panel.
+Both queued prep items shipped:
 
-This was a 5-wave debug arc — see "Recently completed" below for the
-sequence and what each fix did. All 65 worker tests pass; web tsc
-clean; pushed through `b2b23d3`.
+1. **Web UI polling edge-cache fix.** `getReportContent` in
+   `web/lib/github.ts` now appends `?_cb=${Date.now()}` to the
+   `raw.githubusercontent.com` URL. Even with Next.js
+   `cache: 'no-store'`, GitHub's raw CDN was returning the stale
+   report after `revalidatePath`, so the Run-now polling state machine
+   refreshed against the old content and reset to idle while the new
+   report sat invisible. The query-string buster forces the CDN to
+   revalidate against origin on every page render.
+2. **Detailed AI filter reasoning logs.** Upgraded
+   `worker/src/product_search/validators/ai_filter.py` to ask GLM-5.1
+   for `{"evaluations": [{index, pass, reason}, ...]}` covering every
+   evaluated listing (not just the survivors). Each run appends one
+   line per listing to `worker/data/filter_logs/<date>.jsonl` with
+   title, price, url, source, pass status and reason — so the user
+   can inspect exactly why each rejected listing was dropped. The
+   prompt key `evaluations` matches the prior session's plan.
+   Backwards-compat preserved: a legacy `{"indices": [...]}` response
+   still works (logged with a "(legacy indices-only response)"
+   reason). Bumped `max_tokens` from 4096 → 8192 because every
+   listing now carries a reason string. Fixture mode
+   (`WORKER_USE_FIXTURES=1`) still short-circuits to a no-op so
+   tests stay deterministic.
 
-## Current task — pick one of these for next session
+All 62 worker tests pass; web `tsc` clean. Commit local; not pushed.
 
-- **Fix Web UI Polling Cache Bug**: GitHub's raw edge cache causes `getReportContent` in `web/lib/github.ts` to return the old report even after `revalidatePath`. Needs a `?_cb=${Date.now()}` cache-buster appended to the fetch URL.
-- **Detailed AI Filtering Logs**: The `ai_filter.py` GLM-5.1 prompt needs to be upgraded to return explicit `pass` status and `reason` for every evaluated listing instead of just indices. This detailed reasoning should be written out to a dedicated log file (e.g. `worker/data/filter_logs/2026-04-30.jsonl`) so the user can inspect exactly why 94 listings were rejected.
-- **Phase 12b** — **Wire up a Tier-B source adapter** (newegg, serversupply, memorynet, or theserverstore).
+## Current task — pick one for next session
+
+- **Phase 12b** — **Wire up a Tier-B source adapter** (newegg, serversupply, memorynet, or theserverstore). With universal AI extraction (ADR-021) the bar is just adding the URL/seed to the profile + checking it returns sane listings.
 - **Phase 12c** — **Schedule editor UI** on `/[product]` that writes `schedule.cron` back to the profile YAML via the GitHub Contents API.
+- **Verify the polling + filter-log fixes in prod.** Push, click Run-now once the action commits, confirm the page swaps to the new report without a manual refresh, and inspect the `filter_logs/<date>.jsonl` written by the GH Actions run.
 
-Recommended order: Fix the UI polling and AI filtering logs first, then proceed to Phase 12b.
+Recommended: verify the two fixes in prod first (small, fast), then Phase 12b.
 
 ## Open follow-ups (deferred during this session)
 
@@ -44,9 +59,15 @@ Recommended order: Fix the UI polling and AI filtering logs first, then proceed 
 ## Next session — start here
 
 1. Read this file.
-2. Read the `implementation_plan.md` artifact from the previous session (it details the exact fixes for the Next.js cache bug and the GLM-5.1 filtering logs).
-3. Execute the implementation plan to fix the UI polling and add detailed reasoning logs.
-4. Continue to Phase 12b or 12c.
+2. Push the local commit so the polling + filter-log fixes hit prod.
+3. Trigger Run-now on `/ddr5-rdimm-256gb`; confirm the page auto-refreshes
+   to the newly-committed report (no manual reload). If it still
+   stalls, the cache-buster didn't help — investigate the
+   `getProductReports` path next (also hits GitHub edge).
+4. Pull `worker/data/filter_logs/<date>.jsonl` from the GH Actions
+   artifact (or local re-run) and skim it to confirm rejection
+   reasons are useful.
+5. Then pick Phase 12b (Tier-B adapter) or 12c (schedule editor UI).
 
 ## Manual verification still needed for Phase 11
 
@@ -117,6 +138,22 @@ None.
   diffs, add a second threshold or fall back gracefully when `total_for_target_usd is None`.
 
 ## Recently completed
+
+- 2026-04-30: UI polling cache-buster + AI filter reasoning logs.
+  - `web/lib/github.ts:getReportContent` now appends `?_cb=${Date.now()}`
+    to the `raw.githubusercontent.com` URL. The CDN was returning the
+    stale report after `revalidatePath`, so polling refreshed against
+    the old content and the Run-now button reset to idle while the
+    new report was invisible. Cache-buster forces CDN revalidation.
+  - `worker/src/product_search/validators/ai_filter.py` now asks
+    GLM-5.1 for a per-listing evaluation (`pass` + `reason`) instead
+    of just the passing indices. Every evaluated listing is appended
+    to `worker/data/filter_logs/<date>.jsonl` (gitignored under
+    `worker/data/`). Listings the model dropped from its response are
+    logged with `pass=false, reason="no verdict returned by model"`.
+    Backwards-compat preserved for the older `{"indices": [...]}`
+    response shape. `max_tokens` bumped 4096→8192 to fit per-listing
+    reasoning. 62/62 worker tests still green; web `tsc` clean.
 
 - 2026-04-30: Phase 12a (Storefront silent-fail diagnostic & GitHub Actions push fix).
   - Fixed a race condition in `search-on-demand.yml` and `search-scheduled.yml` where pushing the generated report would fail with `[rejected] main -> main (fetch first)` if the repository was updated during execution. Added `git pull --rebase origin main` before `git push`.

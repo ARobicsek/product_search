@@ -102,7 +102,10 @@ export async function getProductReports(product: string): Promise<string[]> {
 
 export async function getReportContent(product: string, date: string): Promise<string | null> {
   try {
-    const url = `https://raw.githubusercontent.com/${REPO}/${BRANCH}/reports/${product}/${date}.md`;
+    // raw.githubusercontent.com has its own edge cache that ignores `cache: 'no-store'`.
+    // After Run-now commits a new report, the page can re-render against the stale edge
+    // copy. A query-string cache-buster forces the CDN to revalidate against origin.
+    const url = `https://raw.githubusercontent.com/${REPO}/${BRANCH}/reports/${product}/${date}.md?_cb=${Date.now()}`;
     const headers: Record<string, string> = {
       'User-Agent': 'Product-Search-PWA',
     };
