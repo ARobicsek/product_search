@@ -8,7 +8,38 @@
 
 See the Phase 12 brief in [PHASES.md](PHASES.md#phase-12--polish--second-product-proof).
 
-## Status as of end of 2026-04-30 session (continuation 3)
+## Status as of end of 2026-04-30 session (continuation 4)
+
+**Synth swapped to GLM 4.5 Flash; workflows now commit on failure.**
+
+This continuation tackled the two open items at the top of continuation 3.
+
+1. **Synth model swap (config.py)**: `DEFAULT_SYNTH_PROVIDER` is now
+   `glm`; `DEFAULT_SYNTH_MODEL` is now `glm-4.5-flash`. The
+   URL-hallucination concern that justified ADR-019's swap to Haiku is
+   gone — the 2026-04-30 synthesizer rewrite made the ranked-listings
+   table deterministic, so the LLM no longer emits URLs at all (only
+   Bottom line / Flags / Context). The post-check correspondingly
+   only validates numbers (not URLs) since the rewrite. Phase 5
+   benchmark scored GLM 4.5 Flash 10/10 on this same post-check at
+   $0/run cost. The synthesizer extracts sections by regex from the
+   LLM response, which tolerates a prose preamble even if GLM emits
+   one. The OpenAI shim's `reasoning_content` fallback (from
+   `bd4d005`) remains in place. ADR-024.
+
+2. **Workflows commit on failure (search-on-demand.yml &
+   search-scheduled.yml)**: added `if: always()` to "Commit and Push
+   changes" in both. Paired with a new diagnostic-stub write in
+   `cli.py`'s `PostCheckError` handler (writes the post-check error
+   message + listing counts to today's report path before
+   `sys.exit(1)`), so a synth failure now commits a useful diagnostic
+   instead of leaving the stale prior-day report visible on the web
+   UI. Without the stub, `if: always()` alone has no effect on a
+   first-run-of-the-day failure (no report file would exist yet).
+
+75/75 worker tests pass. Pushed: pending — local commit only.
+
+## Previous status (end of 2026-04-30 session, continuation 3)
 
 **The whole stack works. One known intermittency in synth.**
 
@@ -44,38 +75,21 @@ So the situation is:
 - Workflow doesn't commit when search exits 1 — that masks the
   failure mode behind a stale report.
 
-**Next session — three concrete things to do, in order:**
+**Next session — start here:**
 
-1. **Address synth fabrication.** Two viable options, listed by
-   estimated effort:
-   - **(A) Swap synth to `glm / glm-4.5-flash`** in
-     `worker/src/product_search/config.py:synth_config()`. Phase 5
-     benchmark scored it 10/10 on the same post-check at near-zero
-     cost. GLM was originally rejected for synth in ADR-019 because
-     it hallucinated eBay tracking-param URLs — but the
-     synthesizer rewrite (2026-04-30, before this session) made the
-     ranked-listings table deterministic, so the LLM no longer
-     emits URLs at all. The URL-hallucination concern that
-     justified ADR-019 is gone. This is probably the right call.
-   - **(B) Tighten the synth prompt** in
-     `worker/src/product_search/prompts/synth_v1.txt`. Add at the
-     top: "Do NOT compute percentages, dollar savings, ratios, or
-     ANY number that is not present verbatim in the ranked listings
-     input." Test against fixtures in
-     `worker/tests/fixtures/synth/`. Lower-confidence than (A);
-     prompt iteration on Haiku has gone in circles for two sessions.
-
-2. **Make the workflow commit even on search-step failure.**
-   `.github/workflows/search-on-demand.yml` and
-   `search-scheduled.yml`: add `if: always()` to "Commit and Push
-   changes". Then a synth post-check failure would still update the
-   report (with the new diagnostic block) instead of leaving the
-   prior day's content visible. Alternative: have cli.py write a
-   stub report capturing `PostCheckError.message` before
-   `sys.exit(1)`. Either is fine; `if: always()` is one line.
-
+1. **Trigger one live on-demand run** for `ddr5-rdimm-256gb` to
+   confirm GLM 4.5 Flash synth produces a clean Bottom line / Flags /
+   Context. Verify the committed report has a real ranked-listings
+   table (deterministic) plus the LLM-supplied qualitative sections.
+2. **If GLM regresses** (post-check rejects, or empty Bottom line),
+   options in order: (a) tighten `synth_v1.txt` further; (b) revert
+   to Haiku via `LLM_SYNTH_PROVIDER=anthropic` /
+   `LLM_SYNTH_MODEL=claude-haiku-4-5` workflow env (no code change);
+   (c) propose a new ADR that re-runs the Phase 5 benchmark against
+   the simplified post-numbers-only post-check.
 3. **Phase 12c (schedule editor UI) and 12b (Tier-B adapter) are
-   still queued** behind a clean, deterministic prod path.
+   still queued** behind a clean, deterministic prod path. Pick one
+   once a clean GLM run is on disk.
 
 ### What shipped this continuation (commits 88c1bfd and 33cf8db, both on origin/main)
 
@@ -177,14 +191,14 @@ style (already tracked under "Noticed but deferred").
 
 ### Open issues for next session
 
-1. **synth Haiku fabrication is intermittent (~50% on prod data).**
-   See "Status as of end of 2026-04-30 session (continuation 3)"
-   above. Recommended action: swap synth to `glm/glm-4.5-flash`
-   (the URL-hallucination concern that drove ADR-019 is gone since
-   the synthesizer rewrite made the table deterministic). Add
-   `if: always()` to the workflow's commit step so post-check
-   failures show as the new diagnostic block on the web UI instead
-   of as a silent stale-cache surface.
+1. **synth Haiku fabrication** — addressed in continuation 4 by
+   swapping synth to `glm/glm-4.5-flash` (ADR-024). The
+   URL-hallucination concern from ADR-019 is gone since the
+   synthesizer rewrite made the table deterministic. Workflows now
+   commit on failure (`if: always()`) and `cli.py` writes a stub
+   report on `PostCheckError`, so any future regression surfaces on
+   the web UI as a diagnostic block instead of a stale-cache
+   surface.
 2. **UI polling still times out.** Latest run before the prompt fix
    showed "Timed out waiting for run to complete" in red on the page
    even though the report committed. The cache-buster (`?_cb=`)
@@ -207,45 +221,29 @@ style (already tracked under "Noticed but deferred").
 
 ## Next session — start here
 
-`ai_filter` is fixed (Haiku 4.5, 69 of 96 passed in prod run
-`25174234732`). The remaining blocker is `synth` fabricating numbers
-that ADR-001's post-check correctly rejects, and the workflow not
-committing reports when search exits 1.
+`ai_filter` is on Haiku 4.5 (ADR-023). `synth` is now on GLM 4.5
+Flash (ADR-024) — same model that scored 10/10 in the Phase 5
+benchmark on the same post-check at $0/run. The synthesizer rewrite
+made the ranked-listings table deterministic, so the LLM no longer
+emits URLs at all and the URL-hallucination risk that drove ADR-019
+is gone. Both workflows now commit on failure (`if: always()`); a
+`PostCheckError` writes a stub diagnostic report before exiting 1.
 
-1. **Read this file.** Pay attention to the "continuation 3" block
-   for the actual prod stderr output.
-2. **Decide: tighten synth prompt, or swap synth to GLM 4.5 Flash.**
-   - Synth prompt lives at
-     `worker/src/product_search/prompts/synth_v1.txt`. Add
-     "Do NOT compute percentages, dollar savings, ratios, or ANY
-     number that isn't present in the ranked listings input."
-     near the top. Test against fixtures in
-     `worker/tests/fixtures/synth/` (Phase 5 leftovers).
-   - OR swap config: `worker/src/product_search/config.py` ->
-     `synth_config()`. Phase 5 benchmark scored
-     `glm/glm-4.5-flash` 10/10 on the post-check at near-zero cost.
-     URL-hallucination risk is gone since the synthesizer rewrite
-     made the ranked listings table deterministic (2026-04-30).
-   - The deferred list at the bottom of this file already notes
-     "Anthropic Haiku 4.5 still produces occasional savings figures
-     (~20% of fixtures)". With 69 listings instead of ~10 the rate
-     converged to 100%.
-3. **Make the workflow commit even on search-step failure.**
-   `.github/workflows/search-on-demand.yml` and
-   `search-scheduled.yml`: add `if: always()` to "Commit and Push
-   changes". This way a synth failure still updates the committed
-   report (which now has a diagnostic block) instead of leaving the
-   stale prior-day report visible on the web UI. Alternative: have
-   `cli.py` write a stub report before `sys.exit(1)` on
-   `PostCheckError` containing the post-check error message.
-4. **Trigger one more live run** and verify the committed report has
-   a real ranked-listings table.
-5. **Investigate the UI polling timeout** ("Run finished with
+1. **Read this file.** Continuation 4 block at top is current state.
+2. **Trigger one live on-demand run** for `ddr5-rdimm-256gb`. Verify
+   the committed report has the deterministic ranked-listings table
+   plus an LLM-generated Bottom line / Flags / Context.
+3. **If GLM regresses**, options in order: (a) tighten
+   `synth_v1.txt` further; (b) revert via workflow env vars
+   `LLM_SYNTH_PROVIDER=anthropic` /
+   `LLM_SYNTH_MODEL=claude-haiku-4-5` (no code change); (c) propose
+   a new ADR.
+4. **Investigate the UI polling timeout** ("Run finished with
    conclusion: failure" appears immediately when the Action exits 1
-   but the page still shows the stale report — that's correct
-   behaviour given (3) above; this issue self-resolves once the
-   workflow always commits).
-6. **Then** pick Phase 12b (Tier-B adapter), 12c (schedule editor),
+   but the page still shows the stale report — once the workflow
+   always commits and writes a stub report on PostCheckError, this
+   should self-resolve).
+5. **Then** pick Phase 12b (Tier-B adapter), 12c (schedule editor),
    or cost tracking.
 
 Useful housekeeping before the next run:
@@ -321,6 +319,24 @@ None.
   diffs, add a second threshold or fall back gracefully when `total_for_target_usd is None`.
 
 ## Recently completed
+
+- 2026-04-30 (continuation 4): Synth swapped to GLM 4.5 Flash;
+  workflows commit on failure; `cli.py` writes a stub diagnostic
+  report on synth `PostCheckError` before exiting 1. ADR-024.
+  - `worker/src/product_search/config.py`:
+    `DEFAULT_SYNTH_PROVIDER = "glm"`,
+    `DEFAULT_SYNTH_MODEL = "glm-4.5-flash"` (was anthropic /
+    claude-haiku-4-5 from ADR-019).
+  - `.github/workflows/search-on-demand.yml` and
+    `search-scheduled.yml`: added `if: always()` to "Commit and Push
+    changes".
+  - `worker/src/product_search/cli.py`: the `PostCheckError` handler
+    now writes a stub report to today's report path with the error
+    message, fetched/passed counts, and the sources panel before
+    `sys.exit(1)`. Paired with `if: always()`, this makes synth
+    fabrication failures surface as a diagnostic block on the web
+    UI instead of a stale prior-day report.
+  - 75/75 worker tests pass.
 
 - 2026-04-30 (continuation 3): First clean live run since Phase 12
   started. Run `25174096193` on commit `33cf8db` produced

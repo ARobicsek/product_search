@@ -9,6 +9,75 @@ Status values:
 
 ---
 
+## ADR-024 — Swap synth model from Claude Haiku 4.5 back to GLM 4.5 Flash; commit-on-failure workflow
+
+**Status**: ACCEPTED (supersedes ADR-019's Haiku-as-synth choice)
+
+**Context**: ADR-019 swapped synth from GLM 4.5 Flash to Claude
+Haiku 4.5 because GLM was emitting eBay URLs with mangled tracking
+parameters that the strict ADR-001 post-check rejected. That choice
+was sound at the time. Two things changed since then:
+
+1. **Synthesizer rewrite (2026-04-30, before continuation 1)** moved
+   the ranked-listings table and the diff section out of the LLM and
+   into deterministic Python (`build_listings_table_md`,
+   `build_diff_md` in `synthesizer/synthesizer.py`). The LLM now
+   only contributes Bottom line / Flags / Context — no URLs at all.
+   The post-check was correspondingly relaxed to validate only
+   numbers, not URLs (`post_check` docstring: "URLs are now
+   generated programmatically by python, so we only check numbers").
+   The verbatim-URL-copy guarantee that ADR-019's swap was protecting
+   no longer depends on the synth model — it's enforced structurally.
+
+2. **Haiku 4.5 fabricates numbers on prod-scale data** (~50%
+   observed in continuation 3, vs the ~20% on fixtures the ADR-019
+   handoff anticipated). Two consecutive runs on
+   `ddr5-rdimm-256gb` produced one clean run and one
+   `fabricated numbers: ['169.54', '250']` rejection. Fixture-vs-prod
+   divergence is a known regime gap (memory:
+   project_synth_regime_gap.md).
+
+**Decision**:
+
+1. **Switch `DEFAULT_SYNTH_PROVIDER` back to `glm` and
+   `DEFAULT_SYNTH_MODEL` back to `glm-4.5-flash`** in
+   `worker/src/product_search/config.py`. Phase 5 benchmark scored
+   GLM 4.5 Flash 10/10 on the same post-check at $0/run. The
+   simplified prompt (only Bottom line / Flags / Context) is closer
+   to the benchmark fixtures than the prior 5-section ask, so the
+   benchmark result is more predictive than it was for ADR-019. Env
+   vars `LLM_SYNTH_PROVIDER` / `LLM_SYNTH_MODEL` remain the override
+   path.
+
+2. **Add `if: always()` to "Commit and Push changes" in both
+   `.github/workflows/search-on-demand.yml` and
+   `search-scheduled.yml`** so a synth post-check failure no longer
+   masks itself behind a stale-cache surface on the web UI.
+
+3. **Write a stub diagnostic report on `PostCheckError`** in
+   `cli.py` before `sys.exit(1)`: the error message, fetched/passed
+   listing counts, and the sources panel. Without this, `if:
+   always()` has no effect on a first-run-of-the-day failure (no
+   report file to commit). With it, the user sees the failure mode
+   rendered on the web UI.
+
+**Consequence**: Synth cost drops from ~$0.001/run back to $0/run.
+The two failure modes that motivated ADR-019 — URL fabrication and
+silent stale-cache — are both addressed structurally now (the
+deterministic table + the always-commit + stub report) rather than
+by paying the Haiku premium for verbatim-copy reliability that the
+synth no longer needs.
+
+**Reversibility**: Trivial. Set `LLM_SYNTH_PROVIDER=anthropic` /
+`LLM_SYNTH_MODEL=claude-haiku-4-5` in the workflow env block.
+
+**Open follow-up**: Re-run the Phase 5 benchmark fixtures against
+both `glm/glm-4.5-flash` and `anthropic/claude-haiku-4-5` with the
+post-numbers-only post-check, to formally re-confirm the choice.
+Not blocking; live data is the next signal.
+
+---
+
 ## ADR-023 — `ai_filter` swaps to Anthropic Claude Haiku 4.5; parser tolerates prose preambles
 
 **Status**: ACCEPTED (supersedes the GLM-4.5-Flash choice in ADR-022)

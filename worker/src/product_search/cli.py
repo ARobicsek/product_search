@@ -372,6 +372,21 @@ def _cmd_search(
             )
         except PostCheckError as exc:
             print(f"ERROR (synth post-check): {exc}", file=sys.stderr)
+            stub_body = (
+                f"_Run failed at synthesizer post-check on "
+                f"{snapshot_date.isoformat()}._\n\n"
+                f"**Synth post-check error.**\n\n"
+                f"```\n{exc}\n```\n\n"
+                f"The validator pipeline kept "
+                f"{len(passed_listings)} of {len(all_listings)} listing(s); "
+                f"the synthesizer's output was rejected because it contained "
+                f"numeric values not present in the input payload. The full "
+                f"set of passing listings is persisted to SQLite and the "
+                f"daily CSV.\n\n{sources_md}"
+            )
+            report_path = default_report_path(slug, snapshot_date)
+            write_report(report_path, stub_body)
+            print(f"Wrote post-check stub report: {report_path}", file=sys.stderr)
             sys.exit(1)
 
         body = result.report_md
