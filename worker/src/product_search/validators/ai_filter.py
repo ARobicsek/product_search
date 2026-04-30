@@ -73,22 +73,37 @@ def ai_filter(listings: list[Listing], profile: Profile) -> list[Listing]:
             "attrs": lst.attrs,
         })
 
-    system_prompt = f"""You are a strict product filter.
+    system_prompt = f"""You are a product filter.
 The user wants: {profile.display_name}
 Description: {profile.description}
 {target_desc}
 
-Strict Rules to Apply:
+Rules to apply:
 {json.dumps(rules, indent=2)}
 
-You will receive a JSON list of products.
-Output a JSON object with a single key "evaluations" containing an array with one entry PER PRODUCT in the input list, in the same order. Each entry must be an object with these exact keys:
+How to decide each listing's verdict:
+- For every rule, look at BOTH the listing's `attrs` dict AND its `title`. The title
+  typically encodes attributes that aren't in attrs (e.g. "RDIMM ECC DDR5-4800 32GB"
+  implies form_factor=RDIMM, ecc=true, speed_mts=4800, capacity_gb=32).
+- "pass": true means NO rule is clearly violated.
+- Unknown is NOT the same as "failed". If a rule references an attribute that is
+  missing from attrs AND not contradicted by the title, treat the rule as passed.
+  Only reject when an attribute is PRESENT and clearly violates the rule, or the
+  TITLE clearly contradicts it (e.g. "UDIMM" in the title for a form_factor: RDIMM rule).
+- title_excludes rules: fail only if one of the excluded substrings appears in the
+  title (case-insensitive). Otherwise pass.
+
+You will receive a JSON list of products. Output a JSON object with a single key
+"evaluations" containing an array with one entry PER PRODUCT, in input order. Each
+entry must have these exact keys:
   - "index": integer, matching the input index
-  - "pass": boolean — true only if the product strictly satisfies ALL rules
-  - "reason": short string (1 sentence) explaining the decision; for failures, name the specific rule that failed
+  - "pass": boolean
+  - "reason": short string (1 sentence) — for failures, name the specific rule that
+    failed and quote the offending word from attrs or title.
 
 Every input product must appear exactly once in "evaluations". Do not omit any.
-IMPORTANT: Do NOT output any chain-of-thought or reasoning text outside the JSON. ONLY output the JSON object.
+IMPORTANT: Do NOT output any chain-of-thought or reasoning text outside the JSON.
+ONLY output the JSON object.
 """
 
     logger.info("Calling GLM-5.1 for filtering...")
