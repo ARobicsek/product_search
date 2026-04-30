@@ -17,6 +17,37 @@ from typing import Literal
 from product_search.llm import LLMError, LLMResponse, Message
 
 
+def _pick_json_text(content: str, reasoning: str) -> str | None:
+    """Return whichever of (content, reasoning) parses as JSON, else None.
+
+    Tries the OpenAI-canonical `content` field first, then falls back to
+    `reasoning_content` (the Z.AI / GLM-5.1 quirk). Strips ```json fences
+    before attempting to parse.
+    """
+    import json as _json
+
+    def _try(text: str) -> bool:
+        if not text:
+            return False
+        s = text.strip()
+        if s.startswith("```"):
+            s = s.split("\n", 1)[-1]
+            if s.endswith("```"):
+                s = s[:-3].strip()
+        s = s.removeprefix("json").strip()
+        try:
+            _json.loads(s)
+            return True
+        except _json.JSONDecodeError:
+            return False
+
+    if _try(content):
+        return content
+    if _try(reasoning):
+        return reasoning
+    return None
+
+
 def call(
     *,
     provider: str,
@@ -81,17 +112,23 @@ def call(
         raise LLMError(f"{provider.upper()} connection error: {exc}") from exc
 
     choice = resp.choices[0]
-    text = choice.message.content or ""
-    # Some OpenAI-compatible providers (notably Z.AI / GLM) sometimes route
-    # the assistant text into `reasoning_content` instead of `content` —
-    # especially under finish_reason="length" or for reasoning-style
-    # models. Fall back so we don't silently lose the response.
-    if not text:
-        text = (
-            getattr(choice.message, "reasoning_content", None)
-            or getattr(choice.message, "reasoning", None)
-            or ""
-        )
+    content = choice.message.content or ""
+    reasoning = (
+        getattr(choice.message, "reasoning_content", None)
+        or getattr(choice.message, "reasoning", None)
+        or ""
+    )
+
+    # Some OpenAI-compatible providers (notably Z.AI / GLM) route the assistant
+    # text into `reasoning_content` instead of `content`. Reasoning-style models
+    # (e.g. GLM-5.1) may even dump chain-of-thought prose into `content` while
+    # placing the structured answer in `reasoning_content`. Pick the field whose
+    # contents look right for the requested format.
+    if response_format == "json":
+        text = _pick_json_text(content, reasoning) or content or reasoning
+    else:
+        text = content or reasoning
+
     if not text:
         import sys
         finish_reason = getattr(choice, "finish_reason", "?")

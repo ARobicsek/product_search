@@ -106,11 +106,16 @@ IMPORTANT: Do NOT output any chain-of-thought or reasoning text outside the JSON
 ONLY output the JSON object.
 """
 
-    logger.info("Calling GLM-5.1 for filtering...")
+    # Use GLM 4.5 Flash, NOT GLM-5.1. GLM-5.1 is a reasoning model that ignores
+    # response_format=json_object and dumps chain-of-thought prose into `content`
+    # even when explicitly told not to. GLM 4.5 Flash honors json_object mode and
+    # was the Phase 5 benchmark winner (10/10) for compact structured output —
+    # exactly what filtering needs. It also costs ~10x less.
+    logger.info("Calling GLM 4.5 Flash for filtering...")
     try:
         resp = call_llm(
             provider="glm",
-            model="glm-5.1",
+            model="glm-4.5-flash",
             system=system_prompt,
             messages=[Message(role="user", content=json.dumps(payload_for_llm, indent=2))],
             max_tokens=8192,
