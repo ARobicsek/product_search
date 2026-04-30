@@ -5,13 +5,14 @@ markdown report with EXACTLY these sections, in this order:
 1. **Bottom line.** One sentence: the cheapest viable path to the target,
    the total cost in USD, and a one-clause "why" tied to the data.
 2. **Ranked listings.** A markdown table sorted by `total_for_target_usd`
-   ascending. Columns IN THIS ORDER: Rank, Source, URL, Title, Price
-   (unit), Total for target, Qty, Seller, Flags. Include EVERY row in
-   the input, in order. Do not add columns. Do not omit rows. If a
-   field is null, write "unknown". Listings whose `total_for_target_usd`
+   ascending. Columns IN THIS ORDER: Rank, Source, Title, Price
+   (unit), Total for target, Qty, Seller, Flags. The `Source` column MUST
+   be a markdown link pointing to the URL (e.g. `[ebay_search](https://...)`).
+   Include EVERY row in the input, in order. Do not add columns. Do not omit rows.
+   If a field is null, write "unknown". Listings whose `total_for_target_usd`
    is null go at the bottom, in input order.
 3. **Diff vs yesterday.** Three sub-bullets: New, Dropped, Price-changed
-   (>=5%). For each, show URL and one short detail. If a bucket is
+   (>=5%). For each, show a markdown link to the URL and one short detail. If a bucket is
    empty, write "(none)". If no diff was supplied (first run), write
    "(no prior snapshot)".
 4. **Flags.** A bulleted plain-English explanation of each distinct flag

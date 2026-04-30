@@ -126,3 +126,31 @@ export async function getReportContent(product: string, date: string): Promise<s
     return null;
   }
 }
+
+export async function getProductProfileContent(slug: string): Promise<string | null> {
+  try {
+    const url = `https://raw.githubusercontent.com/${REPO}/${BRANCH}/products/${slug}/profile.yaml`;
+    const headers: Record<string, string> = {
+      'User-Agent': 'Product-Search-PWA',
+    };
+    if (process.env.GITHUB_TOKEN) {
+      headers['Authorization'] = `token ${process.env.GITHUB_TOKEN}`;
+    }
+
+    const res = await fetch(url, {
+      headers,
+      cache: 'no-store',
+    });
+    
+    if (!res.ok) {
+      if (res.status === 404) return null;
+      throw new Error(`GitHub raw fetch error: ${res.status} ${res.statusText}`);
+    }
+    
+    return await res.text();
+  } catch (err) {
+    console.error(`Failed to fetch profile content for ${slug}:`, err);
+    return null;
+  }
+}
+

@@ -42,6 +42,12 @@ export default async function ProductPage({
 
         <div className="px-4 pt-4 max-w-2xl mx-auto w-full flex items-center justify-end gap-3">
           <SubscribeButton productSlug={product} />
+          <Link 
+            href={`/onboard?edit=${product}`}
+            className="inline-flex items-center justify-center px-4 py-2 text-sm font-medium rounded-lg bg-gray-100 text-gray-900 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-100 dark:hover:bg-gray-700 transition"
+          >
+            Edit Profile
+          </Link>
           <RunNowButton product={product} />
         </div>
 
@@ -114,6 +120,12 @@ export default async function ProductPage({
       {/* Action toolbar */}
       <div className="px-4 pt-4 max-w-2xl mx-auto w-full flex items-center justify-end gap-3">
         <SubscribeButton productSlug={product} />
+        <Link 
+          href={`/onboard?edit=${product}`}
+          className="inline-flex items-center justify-center px-4 py-2 text-sm font-medium rounded-lg bg-gray-100 text-gray-900 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-100 dark:hover:bg-gray-700 transition"
+        >
+          Edit Profile
+        </Link>
         <RunNowButton product={product} />
       </div>
 

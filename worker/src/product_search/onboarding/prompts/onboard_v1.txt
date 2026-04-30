@@ -109,6 +109,7 @@ not in `sources:`.
 - `min_quantity_for_target` — no params; uses `target.configurations`
 - `in_stock` — no params
 - `single_sku_url` — no params; rejects search-page URLs
+- `title_excludes` — params: `values: ["Non-Working", "16GB", ...]`
 
 ## Allowed flag rules (for `spec_flags[].rule`)
 

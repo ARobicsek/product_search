@@ -29,7 +29,7 @@ spec_filters:
   - { rule: "min_quantity_for_target" }
   - { rule: "in_stock" }
   - { rule: "single_sku_url" }
-  - { rule: "title_excludes",     values: ["Non-Working", "For parts or not working", " ES ", "Engineering Sample"] }
+  - { rule: "title_excludes",     values: ["Non-Working", "For parts or not working", " ES ", "Engineering Sample", "16GB", "16 GB", "Error", "Defective"] }
 
 spec_flags:
   - { rule: "ship_from_country_in", values: ["CN", "HK"], flag: "china_shipping" }

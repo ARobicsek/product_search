@@ -26,11 +26,18 @@ type SaveState =
   | { kind: 'success'; slug: string; commitUrl: string | null }
   | { kind: 'error'; message: string; details?: string[] };
 
-const KICKOFF: ChatMessage = {
-  role: 'user',
-  content:
-    "Hi — I'd like to onboard a new product to track. Please ask me your first question.",
-};
+function getKickoff(initialProfile?: string | null): ChatMessage {
+  if (!initialProfile) {
+    return {
+      role: 'user',
+      content: "Hi — I'd like to onboard a new product to track. Please ask me your first question.",
+    };
+  }
+  return {
+    role: 'user',
+    content: `Hi — I'd like to edit an existing product profile. Here is the current draft:\n\n\`\`\`yaml\n${initialProfile}\n\`\`\`\n\nPlease acknowledge this profile and ask me what I would like to change.`,
+  };
+}
 
 function extractLatestYamlBlock(markdown: string): string | null {
   const re = /```ya?ml\s*\n([\s\S]*?)```/gi;
@@ -47,9 +54,10 @@ function extractSlug(yamlText: string): string | null {
   return m ? m[1] : null;
 }
 
-export function OnboardChat() {
+export function OnboardChat({ initialProfile }: { initialProfile?: string | null }) {
   const router = useRouter();
-  const [messages, setMessages] = useState<ChatMessage[]>([KICKOFF]);
+  const kickoffMessage = getKickoff(initialProfile);
+  const [messages, setMessages] = useState<ChatMessage[]>([kickoffMessage]);
   const [input, setInput] = useState('');
   const [streaming, setStreaming] = useState(false);
   const [statusLine, setStatusLine] = useState<string>('');
@@ -66,7 +74,7 @@ export function OnboardChat() {
 
   // Kick off the first assistant turn automatically.
   useEffect(() => {
-    void runTurn([KICKOFF]);
+    void runTurn([kickoffMessage]);
     return () => {
       cancelled.current = true;
     };
@@ -157,10 +165,10 @@ export function OnboardChat() {
 
   function onReset() {
     if (streaming) return;
-    setMessages([KICKOFF]);
+    setMessages([kickoffMessage]);
     setSaveState({ kind: 'idle' });
     setError('');
-    void runTurn([KICKOFF]);
+    void runTurn([kickoffMessage]);
   }
 
   // Find the latest YAML draft across assistant messages, freshest first.
