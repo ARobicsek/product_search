@@ -23,7 +23,7 @@ clean; pushed through `b2b23d3`.
 
 ## Current task — pick one of these for next session
 
-- **Experiment with AI filtering**: Investigate shifting from deterministic python filtering to an AI-aided filtering system to improve our filtering accuracy.
+- **Review test results for Universal AI Extraction**: The AI pipeline was deployed. Next session will review its output on test queries to ensure it extracts and filters correctly.
 - **Phase 12a** — **Storefront silent-fail diagnostic.** ebay_search
   returned 161 passing; `nemixram_storefront`, `cloudstoragecorp_ebay`,
   and `memstore_ebay` all returned `fetched: 0` with `status: ok`.
@@ -140,6 +140,12 @@ None.
 
 ## Recently completed
 
+- 2026-04-30: Phase 12 (Universal AI Extraction and Filtering).
+  - Designed and deployed a "best of both worlds" pipeline (ADR-021).
+  - Replaced explicit CSS scraping with `universal_ai_search`, using GLM-5.1 to extract JSON from raw HTML.
+  - Mitigated hallucination by strictly enforcing that LLM-extracted URLs exist verbatim in the source HTML.
+  - Replaced deterministic `apply_filters` with `ai_filter`, offloading complex spec evaluations to GLM-5.1 before passing the surviving listing objects to Claude Haiku for report synthesis.
+  - Set up persistent `.jsonl` trace logging for all LLM calls in `worker/data/llm_traces/`.
 - 2026-04-29: Phase 12 wave 6 (Profile Edit Mode & Synthesizer Fixes).
   - Implemented the **Profile Edit Mode** in the Web UI. Users can now click "Edit Profile" on any product page, which loads the existing `profile.yaml` from GitHub and passes it into the Onboarding AI context. The AI can then apply natural language edits (e.g. "avoid 16GB cards").
   - Fixed GitHub Contents API PUT failing on overwrites by automatically fetching the existing file `sha` before committing.
