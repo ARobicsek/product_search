@@ -140,6 +140,20 @@ def test_rejects_unknown_source_id() -> None:
     assert "totally_unknown_source" in str(exc_info.value)
 
 
+def test_accepts_universal_ai_search_source() -> None:
+    """The universal_ai_search adapter (ADR-029) is wired in cli.py and
+    must validate as a known source. Pinned because the schema has been
+    out-of-sync with cli.py before — the onboarding UI surfaced
+    'unknown source id "universal_ai_search"' when the AI emitted it."""
+    import copy
+
+    p = copy.deepcopy(VALID_PROFILE)
+    p["sources"] = [
+        {"id": "universal_ai_search", "url": "https://example.com/collections/headphones"},
+    ]
+    Profile.model_validate(p)  # must not raise
+
+
 def test_rejects_invalid_cron() -> None:
     """A profile with a malformed cron expression must raise ValidationError."""
     import copy

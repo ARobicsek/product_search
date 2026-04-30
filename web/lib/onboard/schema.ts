@@ -9,6 +9,7 @@ import yaml from 'js-yaml';
 
 export const KNOWN_SOURCE_IDS = new Set<string>([
   'ebay_search',
+  'universal_ai_search',
   'nemixram_storefront',
   'cloudstoragecorp_ebay',
   'memstore_ebay',

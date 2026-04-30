@@ -31,6 +31,7 @@ from pydantic import BaseModel, Field, field_validator, model_validator
 KNOWN_SOURCE_IDS: frozenset[str] = frozenset(
     [
         "ebay_search",
+        "universal_ai_search",
         "nemixram_storefront",
         "cloudstoragecorp_ebay",
         "memstore_ebay",
