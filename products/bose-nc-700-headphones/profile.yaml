@@ -44,6 +44,20 @@ synthesis_hints:
   - >
     In the final report table, display a column for listing condition, distinguishing clearly between New and Used listings so prices across conditions can be compared at a glance.
 
+report_columns:
+  - rank
+  - source
+  - title
+  - price_unit
+  - total_for_target
+  - condition
+  - brand
+  - mpn
+  - seller
+  - seller_rating
+  - ship_from
+  - flags
+
 schedule:
   cron: "0 8 * * *"
   timezone: "UTC"
