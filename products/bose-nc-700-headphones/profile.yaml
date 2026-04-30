@@ -41,6 +41,8 @@ synthesis_hints:
     Watch out for similar Bose models (QC35, QC45, QuietComfort, SoundLink) being listed under misleading titles — verify the listing is specifically for the Noise Cancelling Headphones 700.
   - >
     A genuine Bose NC 700 listing in good condition should ideally include the USB-C charging cable and carrying case; listings missing accessories may indicate incomplete or misrepresented items.
+  - >
+    In the final report table, display a column for listing condition, distinguishing clearly between New and Used listings so prices across conditions can be compared at a glance.
 
 schedule:
   cron: "0 8 * * *"
