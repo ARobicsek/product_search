@@ -346,6 +346,10 @@ def _cmd_search(
 
     # --- Synthesize report (Phase 5) ------------------------------------------
     sources_md = _build_sources_searched_md(source_stats, profile)
+    # Reset before synth so a synth-failure run still gets a (partial) cost
+    # panel that includes ai_filter's spend.
+    from product_search.validators import ai_filter as ai_filter_mod
+
     if not no_report and passed_listings:
         from product_search.config import synth_config
         from product_search.synthesizer import (
@@ -372,6 +376,12 @@ def _cmd_search(
             )
         except PostCheckError as exc:
             print(f"ERROR (synth post-check): {exc}", file=sys.stderr)
+            # Even on failure, surface ai_filter cost (synth's two failed
+            # calls are not counted because no surviving SynthesisResult).
+            stub_calls: list[dict] = []
+            if ai_filter_mod.LAST_RUN_USAGE:
+                stub_calls.append(ai_filter_mod.LAST_RUN_USAGE)
+            stub_cost_md = _build_run_cost_md(stub_calls)
             stub_body = (
                 f"_Run failed at synthesizer post-check on "
                 f"{snapshot_date.isoformat()}._\n\n"
@@ -382,7 +392,7 @@ def _cmd_search(
                 f"the synthesizer's output was rejected because it contained "
                 f"numeric values not present in the input payload. The full "
                 f"set of passing listings is persisted to SQLite and the "
-                f"daily CSV.\n\n{sources_md}"
+                f"daily CSV.\n\n{sources_md}\n\n{stub_cost_md}"
             )
             report_path = default_report_path(slug, snapshot_date)
             write_report(report_path, stub_body)
@@ -405,8 +415,21 @@ def _cmd_search(
                 f"persisted to SQLite and the daily CSV._"
             )
 
+        # Build deterministic Run cost panel from ai_filter (if any) + synth.
+        run_calls: list[dict] = []
+        if ai_filter_mod.LAST_RUN_USAGE:
+            run_calls.append(ai_filter_mod.LAST_RUN_USAGE)
+        run_calls.append({
+            "step": "synth",
+            "provider": result.provider,
+            "model": result.model,
+            "input_tokens": result.input_tokens,
+            "output_tokens": result.output_tokens,
+        })
+        run_cost_md = _build_run_cost_md(run_calls)
+
         report_path = default_report_path(slug, snapshot_date)
-        write_report(report_path, body + "\n\n" + sources_md)
+        write_report(report_path, body + "\n\n" + sources_md + "\n\n" + run_cost_md)
         print(
             f"Wrote report: {report_path}  "
             f"(in={result.input_tokens}, out={result.output_tokens})",
@@ -420,6 +443,10 @@ def _cmd_search(
         from product_search.synthesizer import default_report_path, write_report
 
         diagnostic_md = _build_filter_diagnostic_md(len(all_listings))
+        zero_pass_calls: list[dict] = []
+        if ai_filter_mod.LAST_RUN_USAGE:
+            zero_pass_calls.append(ai_filter_mod.LAST_RUN_USAGE)
+        zero_pass_cost_md = _build_run_cost_md(zero_pass_calls)
 
         body = (
             f"_No listings passed the validator pipeline for "
@@ -427,6 +454,7 @@ def _cmd_search(
         )
         if diagnostic_md:
             body += "\n\n" + diagnostic_md
+        body += "\n\n" + zero_pass_cost_md
 
         report_path = default_report_path(slug, snapshot_date)
         write_report(report_path, body)
@@ -498,6 +526,61 @@ def _build_filter_diagnostic_md(total_fetched: int) -> str:
         reason = _cell(entry.get("reason", "(no reason)"), 200)
         title = _cell(entry.get("title", ""), 80)
         lines.append(f"| {idx} | {reason} | {title} |")
+    return "\n".join(lines)
+
+
+def _build_run_cost_md(calls: list[dict]) -> str:
+    """Render the deterministic 'Run cost' panel for the daily report.
+
+    Each entry in ``calls`` is ``{"step", "provider", "model",
+    "input_tokens", "output_tokens"}``. Costs are looked up in
+    :data:`product_search.llm.pricing.PRICING` — unknown ``(provider,
+    model)`` pairs render as "(unpriced)" rather than $0.0000 so the
+    operator can see the gap. Onboarding cost is intentionally NOT
+    included here; this panel is the *run* cost only (per the user's
+    spec — onboarding cost is shown at the end of the chat instead).
+    """
+    from product_search.llm.pricing import estimate_cost_usd, format_cost_usd
+
+    if not calls:
+        return "**Run cost.**\n\n(no LLM calls were made)"
+
+    lines = ["**Run cost.**", ""]
+    lines.append("| Step | Model | Input tokens | Output tokens | Cost (USD) |")
+    lines.append("|------|-------|--------------|---------------|------------|")
+
+    total_cost = 0.0
+    any_unpriced = False
+    for c in calls:
+        cost = estimate_cost_usd(
+            str(c.get("provider", "")),
+            str(c.get("model", "")),
+            c.get("input_tokens"),
+            c.get("output_tokens"),
+        )
+        if cost is None:
+            any_unpriced = True
+        else:
+            total_cost += cost
+
+        in_tok = c.get("input_tokens") or 0
+        out_tok = c.get("output_tokens") or 0
+        lines.append(
+            f"| {c.get('step', '?')} | {c.get('provider', '?')}/"
+            f"{c.get('model', '?')} | {in_tok:,} | {out_tok:,} | "
+            f"{format_cost_usd(cost)} |"
+        )
+
+    total_label = format_cost_usd(total_cost)
+    if any_unpriced:
+        total_label += " (plus unpriced calls)"
+    lines.append(f"| **Total** | | | | **{total_label}** |")
+    lines.append("")
+    lines.append(
+        "_Costs are estimates from a hand-maintained price table; actual "
+        "billing may differ. Onboarding cost is shown separately at the "
+        "end of the onboarding chat._"
+    )
     return "\n".join(lines)
 
 

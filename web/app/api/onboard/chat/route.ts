@@ -103,6 +103,23 @@ export async function POST(request: NextRequest) {
         });
 
         const final = await messageStream.finalMessage();
+        // Surface token usage so the chat UI can accumulate session cost.
+        // Anthropic's `usage` includes cache_* fields when prompt caching
+        // is in play; we sum into a single input/output figure to match
+        // the worker's pricing table semantics.
+        const usage = final.usage ?? null;
+        if (usage) {
+          send({
+            type: 'usage',
+            provider: 'anthropic',
+            model: MODEL,
+            input_tokens:
+              (usage.input_tokens ?? 0) +
+              (usage.cache_creation_input_tokens ?? 0) +
+              (usage.cache_read_input_tokens ?? 0),
+            output_tokens: usage.output_tokens ?? 0,
+          });
+        }
         send({ type: 'done', stopReason: final.stop_reason ?? null });
       } catch (err) {
         const message = err instanceof Error ? err.message : 'onboarding LLM call failed';

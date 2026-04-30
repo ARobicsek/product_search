@@ -7,6 +7,7 @@ import remarkGfm from 'remark-gfm';
 import {
   Bot,
   CheckCircle2,
+  DollarSign,
   Loader2,
   Save,
   Search,
@@ -14,6 +15,7 @@ import {
   Trash2,
   User,
 } from 'lucide-react';
+import { estimateCostUsd, formatCostUsd } from '@/lib/llm-prices';
 
 interface ChatMessage {
   role: 'user' | 'assistant';
@@ -63,6 +65,15 @@ export function OnboardChat({ initialProfile }: { initialProfile?: string | null
   const [statusLine, setStatusLine] = useState<string>('');
   const [error, setError] = useState<string>('');
   const [saveState, setSaveState] = useState<SaveState>({ kind: 'idle' });
+  const [sessionUsage, setSessionUsage] = useState({
+    inputTokens: 0,
+    outputTokens: 0,
+    turns: 0,
+    // The onboarding model can be overridden via env, so capture it from the
+    // first usage event rather than hard-coding 'claude-sonnet-4-6'.
+    provider: 'anthropic',
+    model: '',
+  });
   const transcriptRef = useRef<HTMLDivElement | null>(null);
   const cancelled = useRef(false);
 
@@ -124,7 +135,15 @@ export function OnboardChat({ initialProfile }: { initialProfile?: string | null
         if (!line.startsWith('data:')) continue;
         const json = line.slice(5).trim();
         if (!json) continue;
-        let payload: { type?: string; text?: string; error?: string };
+        let payload: {
+          type?: string;
+          text?: string;
+          error?: string;
+          provider?: string;
+          model?: string;
+          input_tokens?: number;
+          output_tokens?: number;
+        };
         try {
           payload = JSON.parse(json);
         } catch {
@@ -142,6 +161,16 @@ export function OnboardChat({ initialProfile }: { initialProfile?: string | null
           });
         } else if (payload.type === 'tool_use') {
           setStatusLine('Searching the web…');
+        } else if (payload.type === 'usage') {
+          const inTok = payload.input_tokens ?? 0;
+          const outTok = payload.output_tokens ?? 0;
+          setSessionUsage((u) => ({
+            inputTokens: u.inputTokens + inTok,
+            outputTokens: u.outputTokens + outTok,
+            turns: u.turns + 1,
+            provider: payload.provider ?? u.provider,
+            model: payload.model ?? u.model,
+          }));
         } else if (payload.type === 'error') {
           setError(payload.error ?? 'unknown error');
         } else if (payload.type === 'done') {
@@ -168,6 +197,7 @@ export function OnboardChat({ initialProfile }: { initialProfile?: string | null
     setMessages([kickoffMessage]);
     setSaveState({ kind: 'idle' });
     setError('');
+    setSessionUsage({ inputTokens: 0, outputTokens: 0, turns: 0, provider: 'anthropic', model: '' });
     void runTurn([kickoffMessage]);
   }
 
@@ -299,6 +329,15 @@ export function OnboardChat({ initialProfile }: { initialProfile?: string | null
           )}
         </div>
         <div className="border-t border-gray-200 dark:border-gray-800 p-3 space-y-2 bg-gray-50 dark:bg-gray-900/50">
+          {sessionUsage.turns > 0 && (
+            <SessionCost
+              inputTokens={sessionUsage.inputTokens}
+              outputTokens={sessionUsage.outputTokens}
+              turns={sessionUsage.turns}
+              provider={sessionUsage.provider}
+              model={sessionUsage.model}
+            />
+          )}
           {saveState.kind === 'error' && (
             <div className="text-[11px] text-red-700 dark:text-red-400 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-900/40 rounded-lg px-3 py-2 space-y-1">
               <div className="font-medium">{saveState.message}</div>
@@ -334,6 +373,43 @@ export function OnboardChat({ initialProfile }: { initialProfile?: string | null
           </button>
         </div>
       </aside>
+    </div>
+  );
+}
+
+function SessionCost({
+  inputTokens,
+  outputTokens,
+  turns,
+  provider,
+  model,
+}: {
+  inputTokens: number;
+  outputTokens: number;
+  turns: number;
+  provider: string;
+  model: string;
+}) {
+  const cost = model
+    ? estimateCostUsd(provider, model, inputTokens, outputTokens)
+    : null;
+  const totalTokens = inputTokens + outputTokens;
+  return (
+    <div className="flex items-start gap-2 text-[11px] text-gray-600 dark:text-gray-400 bg-white dark:bg-gray-950 border border-gray-200 dark:border-gray-800 rounded-lg px-3 py-2">
+      <DollarSign className="w-3.5 h-3.5 shrink-0 mt-0.5 text-gray-400" />
+      <div className="leading-snug">
+        <div>
+          Session cost: <strong>{formatCostUsd(cost)}</strong>
+          {model && (
+            <span className="text-gray-400"> · {provider}/{model}</span>
+          )}
+        </div>
+        <div className="text-gray-400">
+          {totalTokens.toLocaleString()} tokens across {turns}{' '}
+          {turns === 1 ? 'turn' : 'turns'} ({inputTokens.toLocaleString()} in,{' '}
+          {outputTokens.toLocaleString()} out)
+        </div>
+      </div>
     </div>
   );
 }

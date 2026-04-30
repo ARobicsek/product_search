@@ -89,6 +89,13 @@ def _per_product_filter_log_path(slug: str) -> Path | None:
 LAST_RUN_LOG: list[dict] = []
 LAST_RUN_RAW_RESPONSE: str = ""
 
+# Module-level capture of the most-recent ai_filter call's token usage so
+# cli.py can render a Run cost panel covering ai_filter + synth without
+# having to thread an extra return value through the validator pipeline.
+# ``None`` after a fixture-mode run (no LLM call was made) or when the call
+# bailed before reaching the API.
+LAST_RUN_USAGE: dict | None = None
+
 
 def _write_filter_log(slug: str, entries: list[dict]) -> None:
     """Append entries to the daily filter log AND truncate-write a per-product
@@ -123,9 +130,10 @@ def ai_filter(listings: list[Listing], profile: Profile) -> list[Listing]:
     listing, persists those verdicts to ``worker/data/filter_logs/<date>.jsonl``
     for inspection, and returns the subset that passed.
     """
-    global LAST_RUN_LOG, LAST_RUN_RAW_RESPONSE
+    global LAST_RUN_LOG, LAST_RUN_RAW_RESPONSE, LAST_RUN_USAGE
     LAST_RUN_LOG = []
     LAST_RUN_RAW_RESPONSE = ""
+    LAST_RUN_USAGE = None
 
     if not listings:
         return []
@@ -237,6 +245,13 @@ ONLY output the JSON object.
             response_format="json",
         )
         LAST_RUN_RAW_RESPONSE = resp.text or ""
+        LAST_RUN_USAGE = {
+            "step": "ai_filter",
+            "provider": "anthropic",
+            "model": "claude-haiku-4-5",
+            "input_tokens": resp.input_tokens,
+            "output_tokens": resp.output_tokens,
+        }
 
         raw_text = resp.text.strip()
         if raw_text.startswith("```"):

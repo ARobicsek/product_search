@@ -432,6 +432,8 @@ def synthesize(
 
     resp = _call(system_prompt)
     context_text = _strip_context_prefix(resp.text.strip())
+    total_input_tokens = resp.input_tokens or 0
+    total_output_tokens = resp.output_tokens or 0
 
     try:
         post_check(context_text, payload)
@@ -459,6 +461,8 @@ def synthesize(
         )
         resp = _call(retry_system)
         context_text = _strip_context_prefix(resp.text.strip())
+        total_input_tokens += resp.input_tokens or 0
+        total_output_tokens += resp.output_tokens or 0
         post_check(context_text, payload)
 
     if not context_text:
@@ -480,11 +484,14 @@ def synthesize(
         f"**Context.** {context_text}"
     )
 
+    # `input_tokens` / `output_tokens` are SUMS across the initial call and
+    # the retry (if any), so the Run cost panel reflects the true synth
+    # spend rather than only the surviving call.
     return SynthesisResult(
         report_md=final_report_md,
         provider=provider,
         model=model,
-        input_tokens=resp.input_tokens,
-        output_tokens=resp.output_tokens,
+        input_tokens=total_input_tokens,
+        output_tokens=total_output_tokens,
         prompt_chars=len(system_prompt) + len(user_content),
     )
