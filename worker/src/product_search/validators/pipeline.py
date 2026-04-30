@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from product_search.models import Listing
 from product_search.profile import QVL, Profile
-from product_search.validators.filters import apply_filters
+from product_search.validators.ai_filter import ai_filter
 from product_search.validators.flags import apply_flags
 from product_search.validators.qvl import annotate_qvl
 
@@ -60,16 +60,12 @@ def run_pipeline(
         A tuple of (passed_listings, rejected_count).
     """
     passed: list[Listing] = []
-    rejected_count = 0
 
-    for listing in listings:
-        # 1. Filters (reject non-compliant)
-        rejection_reason = apply_filters(listing, profile.spec_filters, profile)
-        if rejection_reason is not None:
-            # Drop the listing
-            rejected_count += 1
-            continue
+    # 1. AI Filter (replaces deterministic filters)
+    ai_passed_listings = ai_filter(listings, profile)
+    rejected_count = len(listings) - len(ai_passed_listings)
 
+    for listing in ai_passed_listings:
         # 2. Annotate QVL
         annotate_qvl(listing, qvl)
 

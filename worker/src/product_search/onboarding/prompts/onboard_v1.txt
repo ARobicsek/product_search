@@ -90,6 +90,7 @@ not in `sources:`.
 
 - `ebay_search` — eBay-wide search. Params: `queries: [..]`,
   `max_results_per_query: <int>`. Use this for almost every product.
+- `universal_ai_search` — Universal AI scraper that can extract listings from ANY website. Param: `url: "<string>"`. Use this for any specific storefront, seller page, or vendor URL discovered via web search.
 - `nemixram_storefront` — NEMIX Ram's Shopify storefront. Param:
   `storefront_url`. RAM-specific.
 - `cloudstoragecorp_ebay` — CloudStorageCorp's eBay store. Param:

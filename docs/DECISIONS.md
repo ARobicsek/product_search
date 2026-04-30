@@ -9,6 +9,19 @@ Status values:
 
 ---
 
+## ADR-021 — Universal AI Extraction and AI-Aided Filtering
+
+**Status**: ACCEPTED (supersedes the strict "deterministic extraction only" rule from ADR-011)
+
+**Context**: In Phase 12, it became clear that maintaining deterministic scraping code (CSS selectors) for every vendor discovered by the onboarding AI was a significant bottleneck. Small site changes would silently fail the deterministic adapters. Furthermore, the deterministic Python filter pipeline was difficult to adapt to fuzzily described long-tail consumer products.
+
+**Decision**: 
+1. **Universal AI Adapter**: We introduced `universal_ai_search` which fetches raw HTML from any given URL and uses GLM-5.1 to extract product listings into a JSON format.
+2. **AI-Aided Filtering**: We replaced the deterministic python `apply_filters` function with an `ai_filter` step that asks GLM-5.1 to evaluate all extracted listings against the profile's strict rules, outputting only the indices of valid listings.
+3. **Structural Safety Net**: To uphold ADR-001 (no fabricated data), the Universal Adapter enforces that any URL extracted by the LLM MUST be a verbatim substring present in the raw HTML. The valid Python objects are then passed deterministically to the Synthesizer (Haiku) which builds the final report.
+
+**Consequence**: The onboarding AI can now confidently add arbitrary vendor URLs to the `sources` list without requiring a human developer to write a custom adapter. The deterministic filters still exist in code as a fallback or for specialized properties, but the primary filter uses AI reasoning. This greatly accelerates onboarding at the cost of higher LLM token usage during the extraction and filtering phases.
+
 ## ADR-020 — Synthesizer URL post-check uses canonical (scheme+host+path) match
 
 **Status**: ACCEPTED (refines, does not supersede, ADR-001)

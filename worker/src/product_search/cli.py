@@ -258,6 +258,9 @@ def _cmd_search(
             elif source.id == "memstore_ebay":
                 from product_search.adapters.memstore import fetch as fetch_memstore
                 listings = fetch_memstore(query)
+            elif source.id == "universal_ai_search":
+                from product_search.adapters.universal_ai import fetch as fetch_universal
+                listings = fetch_universal(query)
             else:
                 error_msg = "no adapter wired"
             all_listings.extend(listings)
