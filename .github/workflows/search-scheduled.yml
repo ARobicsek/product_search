@@ -1,9 +1,13 @@
 name: Search (Scheduled)
 
+# Scheduled cron is disabled for now — searches only run when manually
+# triggered via the Run-now button (search-on-demand.yml) or the Actions
+# UI. To re-enable hourly runs, uncomment the `schedule` block below.
 on:
-  schedule:
-    # Run at minute 0 past every hour
-    - cron: '0 * * * *'
+  workflow_dispatch:
+  # schedule:
+  #   # Run at minute 0 past every hour
+  #   - cron: '0 * * * *'
 
 permissions:
   contents: write
