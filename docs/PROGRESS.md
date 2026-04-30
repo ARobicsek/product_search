@@ -80,10 +80,11 @@ predates this session).
   client RunInfoFooter import)
 - `docs/DECISIONS.md` (ADR-028)
 
-**Three local commits ahead of `origin/main` at handoff:**
-- `898b74a` — ADR-028 (LLM writes Context only)
-- `dd7952d` — cost visibility + column chooser
-- (pending) — local timezone fix for run footer + this PROGRESS update
+**Commits this session:**
+- `898b74a` — ADR-028 (LLM writes Context only) — pushed
+- `dd7952d` — cost visibility + column chooser — pushed
+- `fe4dcd5` — local-timezone run footer + this PROGRESS update — local
+  at handoff (1 commit ahead of `origin/main`)
 
 **Next session — start here:**
 
