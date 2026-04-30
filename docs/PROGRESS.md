@@ -23,6 +23,7 @@ clean; pushed through `b2b23d3`.
 
 ## Current task — pick one of these for next session
 
+- **Experiment with AI filtering**: Investigate shifting from deterministic python filtering to an AI-aided filtering system to improve our filtering accuracy.
 - **Phase 12a** — **Storefront silent-fail diagnostic.** ebay_search
   returned 161 passing; `nemixram_storefront`, `cloudstoragecorp_ebay`,
   and `memstore_ebay` all returned `fetched: 0` with `status: ok`.
@@ -138,6 +139,13 @@ None.
   diffs, add a second threshold or fall back gracefully when `total_for_target_usd is None`.
 
 ## Recently completed
+
+- 2026-04-29: Phase 12 wave 6 (Profile Edit Mode & Synthesizer Fixes).
+  - Implemented the **Profile Edit Mode** in the Web UI. Users can now click "Edit Profile" on any product page, which loads the existing `profile.yaml` from GitHub and passes it into the Onboarding AI context. The AI can then apply natural language edits (e.g. "avoid 16GB cards").
+  - Fixed GitHub Contents API PUT failing on overwrites by automatically fetching the existing file `sha` before committing.
+  - Synced `title_excludes` down to the `web` validation schema, matching the python schema.
+  - Reverted synthesizer LLM from GLM-5.1 back to `claude-haiku-4-5` to avoid overly verbose Chain-of-Thought output in the generated markdown. Added strict prompt rules explicitly forbidding planning text ("Analyze the Request", etc.) while condensing the `URL` and `Source` column into a single markdown hyperlink.
+  - Fixed a classic clock-skew bug in `RunNowButton` polling where the Vercel server's dispatched timestamp was slightly ahead of GitHub Action's `created_at` timestamp, causing the frontend to wait indefinitely. Also added `run-name` to the dispatch workflow.
 
 - 2026-04-29: Phase 12 wave 5 (stale-cache hotfix on the web side).
   - Wave 4 actually fixed the synth — the 2026-04-29 report on disk has
