@@ -48,6 +48,7 @@ synthesis_hints:
     In the final report table, display a column for listing condition, distinguishing clearly between New and Used listings so prices across conditions can be compared at a glance.
 
 report_columns:
+  - flags
   - rank
   - source
   - title
@@ -57,7 +58,6 @@ report_columns:
   - seller
   - seller_rating
   - ship_from
-  - flags
 
 schedule:
   cron: "0 8 * * *"
