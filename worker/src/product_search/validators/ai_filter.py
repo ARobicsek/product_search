@@ -3,6 +3,7 @@
 import json
 import logging
 import os
+import sys
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -11,6 +12,15 @@ from product_search.models import Listing
 from product_search.profile import Profile
 
 logger = logging.getLogger(__name__)
+
+
+def _loud(msg: str) -> None:
+    """Print to stderr so the message is visible in GitHub Actions logs.
+
+    `logger.error` requires the action's log-level config to flush to stderr;
+    a bare print is more reliable for prod-failure visibility.
+    """
+    print(f"[ai_filter] {msg}", file=sys.stderr, flush=True)
 
 
 def _filter_log_path() -> Path:
@@ -102,25 +112,53 @@ IMPORTANT: Do NOT output any chain-of-thought or reasoning text outside the JSON
         try:
             parsed = json.loads(raw_text)
         except json.JSONDecodeError:
-            logger.error(f"Failed to parse JSON. Raw LLM output:\n{resp.text}")
+            _loud(f"JSON parse failed. Raw response (first 1000 chars):\n{resp.text[:1000]}")
+            _write_filter_log(profile.slug, [{
+                "index": -1, "pass": False,
+                "reason": f"ai_filter parse failure: {resp.text[:200]!r}",
+                "title": "(filter call failed)", "price": None, "url": None, "source": None,
+            }])
             return []
 
+        # GLM-5.1 (and GLM 4.5 Flash before it) often emit a bare list even when the
+        # prompt asks for an object. Accept several shapes so we don't silently drop
+        # everything on a stylistic difference. Documented post-mortem: yesterday's
+        # local trace showed GLM returning `[0]` for an `{"indices": [...]}` prompt.
         evaluations: list[dict] = []
-        if isinstance(parsed, dict) and "evaluations" in parsed and isinstance(parsed["evaluations"], list):
+        bare_indices: list[int] | None = None
+
+        if isinstance(parsed, dict) and isinstance(parsed.get("evaluations"), list):
             evaluations = parsed["evaluations"]
-        elif isinstance(parsed, dict) and "indices" in parsed and isinstance(parsed["indices"], list):
-            # Backwards-compat: older prompt shape returned only the passing indices.
-            passed_set = {int(i) for i in parsed["indices"] if isinstance(i, int | str) and str(i).lstrip("-").isdigit()}
+        elif isinstance(parsed, dict) and isinstance(parsed.get("indices"), list):
+            bare_indices = [int(i) for i in parsed["indices"] if str(i).lstrip("-").isdigit()]
+        elif isinstance(parsed, list) and parsed and isinstance(parsed[0], dict):
+            # Bare array of evaluation objects.
+            evaluations = parsed
+        elif isinstance(parsed, list):
+            # Bare array of integers (legacy indices-only).
+            bare_indices = [int(i) for i in parsed if str(i).lstrip("-").isdigit()]
+        else:
+            _loud(f"Unexpected JSON structure: {str(parsed)[:500]}")
+            _write_filter_log(profile.slug, [{
+                "index": -1, "pass": False,
+                "reason": f"ai_filter unexpected JSON structure: {str(parsed)[:200]!r}",
+                "title": "(filter call failed)", "price": None, "url": None, "source": None,
+            }])
+            return []
+
+        if bare_indices is not None:
+            passed_set = set(bare_indices)
             evaluations = [
                 {"index": i, "pass": i in passed_set, "reason": "(legacy indices-only response)"}
                 for i in range(len(listings))
             ]
-        else:
-            logger.error(f"LLM returned unexpected JSON structure: {parsed}")
-            return []
 
     except Exception as e:
-        logger.error(f"Filtering LLM failed: {e}")
+        _loud(f"Filtering LLM call failed: {e!r}")
+        _write_filter_log(profile.slug, [{
+            "index": -1, "pass": False, "reason": f"ai_filter exception: {e!r}",
+            "title": "(filter call failed)", "price": None, "url": None, "source": None,
+        }])
         return []
 
     # Build log entries (one per listing the model evaluated) and pick the survivors.
