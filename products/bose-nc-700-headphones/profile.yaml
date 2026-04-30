@@ -32,9 +32,11 @@ sources:
       - "Bose NCH700 headphones"
     max_results_per_query: 20
   - id: "universal_ai_search"
-    url: "https://www.crutchfield.com/shopsearch/bose_noise_canceling_headphones.html"
+    url: "https://headphones.com/search?q=bose+nc+700"
   - id: "universal_ai_search"
-    url: "https://www.adorama.com/l/Audio/Bose~Headphones-and-Earphones"
+    url: "https://audio46.com/search?q=bose+700"
+  - id: "universal_ai_search"
+    url: "https://www.bhphotovideo.com/c/search?Ntt=bose+nc+700&N=0"
 
 sources_pending: []
 

@@ -270,6 +270,36 @@ def test_pipe_in_title_is_escaped_in_table() -> None:
     assert "Bose \\| NC700" in md
 
 
+def test_source_column_renders_vendor_host_for_universal_ai() -> None:
+    """The 'source' column shows the vendor host (without `www.`) for
+    universal_ai_search rows so the user sees `audio46.com` instead of
+    the literal adapter id. Internal `lst.source` stays canonical so
+    source_stats / cost panel grouping is unaffected."""
+    listing = _listing("https://www.audio46.com/products/bose-nc700", title="Bose 700")
+    listing.source = "universal_ai_search"
+    listing.attrs = {"vendor_host": "www.audio46.com"}
+    md = build_listings_table_md([listing], ["rank", "source", "title"])
+    assert "[audio46.com](https://www.audio46.com/products/bose-nc700)" in md
+    assert "universal_ai_search" not in md
+
+
+def test_source_column_falls_back_to_url_host_when_attr_missing() -> None:
+    """Older Listings (pre-vendor_host attr) still render cleanly by
+    parsing the URL host at render time."""
+    listing = _listing("https://shop.example.com/p/widget", title="Widget")
+    listing.source = "universal_ai_search"
+    listing.attrs = {}
+    md = build_listings_table_md([listing], ["rank", "source", "title"])
+    assert "[shop.example.com](https://shop.example.com/p/widget)" in md
+
+
+def test_source_column_unchanged_for_non_universal_adapters() -> None:
+    """eBay etc. continue to display the adapter id verbatim."""
+    listing = _listing("https://www.ebay.com/itm/123", title="Bose 700")
+    md = build_listings_table_md([listing], ["rank", "source", "title"])
+    assert "[ebay_search](https://www.ebay.com/itm/123)" in md
+
+
 # ---------------------------------------------------------------------------
 # Deterministic Bottom line (ADR-028)
 # ---------------------------------------------------------------------------

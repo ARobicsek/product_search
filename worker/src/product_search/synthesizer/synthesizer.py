@@ -126,6 +126,26 @@ def _money(value: float | None) -> str:
     return f"${value:.2f}" if value is not None else "unknown"
 
 
+def _source_label(lst: Listing) -> str:
+    """Display label for the Source column.
+
+    For ``universal_ai_search`` rows, the literal adapter id isn't useful
+    to a human reader — show the vendor's host (without ``www.``) instead,
+    falling back to the URL host parsed at render time. The internal
+    ``lst.source`` field is still the canonical adapter id everywhere
+    else (source_stats, cost panel, SQLite); this is presentation-only.
+    """
+    if lst.source == "universal_ai_search":
+        host = (lst.attrs or {}).get("vendor_host")
+        if not host:
+            from urllib.parse import urlparse
+            host = urlparse(lst.url).netloc.lower()
+        if host.startswith("www."):
+            host = host[4:]
+        return host or lst.source
+    return lst.source
+
+
 # Registry of available report-table columns. Each entry maps a stable
 # column id (used in profile.yaml) to (header, formatter). The formatter
 # receives (rank_index, listing) and returns the cell's markdown text.
@@ -133,7 +153,7 @@ def _money(value: float | None) -> str:
 # prompt's "available columns" list MUST be kept in sync with this dict.
 COLUMN_DEFS: dict[str, tuple[str, Callable[[int, Listing], str]]] = {
     "rank": ("Rank", lambda i, lst: str(i)),
-    "source": ("Source", lambda i, lst: f"[{_esc(lst.source)}]({lst.url})"),
+    "source": ("Source", lambda i, lst: f"[{_esc(_source_label(lst))}]({lst.url})"),
     "title": ("Title", lambda i, lst: _esc(lst.title)),
     "price_unit": ("Price (unit)", lambda i, lst: _money(lst.unit_price_usd)),
     "total_for_target": ("Total for target", lambda i, lst: _money(lst.total_for_target_usd)),
