@@ -192,6 +192,14 @@ def test_post_check_failure_message_lists_offending_tokens() -> None:
     assert "77.77" in msg
 
 
+def test_post_check_error_carries_bad_numbers_for_retry() -> None:
+    payload = _payload_one()
+    report = "Saves 7.7% vs average."
+    with pytest.raises(PostCheckError) as excinfo:
+        post_check(report, payload)
+    assert "7.7" in excinfo.value.bad_numbers
+
+
 # ---------------------------------------------------------------------------
 # Smoke: the bundled prompt file is actually present.
 # ---------------------------------------------------------------------------
@@ -255,3 +263,61 @@ def test_pipe_in_title_is_escaped_in_table() -> None:
     listing = _listing("https://x/a", title="Bose | NC700")
     md = build_listings_table_md([listing], None)
     assert "Bose \\| NC700" in md
+
+
+# ---------------------------------------------------------------------------
+# Synthesize() — retry on post-check failure
+# ---------------------------------------------------------------------------
+
+
+def test_synthesize_retries_once_on_post_check_failure() -> None:
+    from unittest.mock import patch
+
+    from product_search.llm import LLMResponse
+    from product_search.synthesizer import synthesize
+
+    profile = load_profile("ddr5-rdimm-256gb")
+    listing = _listing("https://www.ebay.com/itm/123", unit_price_usd=120.0,
+                       total_for_target_usd=960.0)
+
+    bad_text = (
+        "1. **Bottom line.** $120 each, $960 total — saves 7.7% vs average.\n\n"
+        "2. **Flags.** (no flags)\n\n3. **Context.** ok"
+    )
+    good_text = (
+        "1. **Bottom line.** Cheapest at $120 each, $960 total.\n\n"
+        "2. **Flags.** (no flags)\n\n3. **Context.** ok"
+    )
+    responses = iter([
+        LLMResponse(provider="glm", model="glm-4.5-flash",
+                    text=bad_text, input_tokens=1, output_tokens=1),
+        LLMResponse(provider="glm", model="glm-4.5-flash",
+                    text=good_text, input_tokens=1, output_tokens=1),
+    ])
+    with patch("product_search.synthesizer.synthesizer.call_llm",
+               side_effect=lambda **kw: next(responses)):
+        result = synthesize([listing], None, profile,
+                            provider="glm", model="glm-4.5-flash")
+    # Successful retry — the deterministic table is injected, so the final
+    # report contains both the LLM's qualitative sections and the table.
+    assert "Bottom line" in result.report_md
+    assert "$120" in result.report_md
+
+
+def test_synthesize_propagates_error_when_retry_also_fails() -> None:
+    from unittest.mock import patch
+
+    from product_search.llm import LLMResponse
+    from product_search.synthesizer import synthesize
+
+    profile = load_profile("ddr5-rdimm-256gb")
+    listing = _listing("https://www.ebay.com/itm/123", unit_price_usd=120.0,
+                       total_for_target_usd=960.0)
+
+    bad = LLMResponse(provider="glm", model="glm-4.5-flash",
+                      text="1. **Bottom line.** Saves 7.7%.", input_tokens=1, output_tokens=1)
+    with patch("product_search.synthesizer.synthesizer.call_llm",
+               side_effect=lambda **kw: bad):
+        with pytest.raises(PostCheckError):
+            synthesize([listing], None, profile,
+                       provider="glm", model="glm-4.5-flash")

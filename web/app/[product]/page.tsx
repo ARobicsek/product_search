@@ -128,13 +128,13 @@ export default async function ProductPage({
         >
           Edit Profile
         </Link>
-        <RunNowButton product={product} />
+        <RunNowButton product={product} lastRun={lastRun} />
       </div>
 
       {/* Report Content */}
       <article className="p-4 max-w-2xl mx-auto w-full mt-2">
-        <div className="prose prose-sm sm:prose-base dark:prose-invert max-w-none 
-          prose-headings:font-semibold 
+        <div className="prose prose-sm sm:prose-base dark:prose-invert max-w-none
+          prose-headings:font-semibold
           prose-a:text-blue-600 dark:prose-a:text-blue-400
           prose-table:w-full prose-table:border-collapse
           prose-th:border prose-th:border-gray-200 dark:prose-th:border-gray-800 prose-th:p-2 prose-th:bg-gray-50 dark:prose-th:bg-gray-900
@@ -145,7 +145,40 @@ export default async function ProductPage({
             {content}
           </ReactMarkdown>
         </div>
+        {lastRun && <RunInfoFooter lastRun={lastRun} />}
       </article>
     </main>
+  );
+}
+
+function formatDuration(ms: number): string {
+  const s = Math.floor(ms / 1000);
+  if (s < 60) return `${s}s`;
+  const m = Math.floor(s / 60);
+  const rem = s % 60;
+  return `${m}m ${rem.toString().padStart(2, '0')}s`;
+}
+
+function RunInfoFooter({
+  lastRun,
+}: {
+  lastRun: { completedAt: string; durationMs: number; conclusion: string | null };
+}) {
+  const completed = new Date(lastRun.completedAt);
+  const completedLabel = completed.toLocaleString(undefined, {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+  });
+  const duration = formatDuration(lastRun.durationMs);
+  const failed = lastRun.conclusion && lastRun.conclusion !== 'success';
+  return (
+    <div
+      className={`mt-6 pt-4 border-t border-gray-200 dark:border-gray-800 text-xs ${
+        failed ? 'text-red-600 dark:text-red-400' : 'text-gray-500 dark:text-gray-400'
+      }`}
+    >
+      Last run completed {completedLabel} · took {duration}
+      {failed ? ` · conclusion: ${lastRun.conclusion}` : ''}
+    </div>
   );
 }

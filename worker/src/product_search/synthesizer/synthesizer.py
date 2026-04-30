@@ -28,6 +28,10 @@ PROMPT_NAME = "synth_v1.txt"
 class PostCheckError(RuntimeError):
     """Raised when the synth output contains numbers not in the input."""
 
+    def __init__(self, message: str, bad_numbers: list[str] | None = None) -> None:
+        super().__init__(message)
+        self.bad_numbers: list[str] = bad_numbers or []
+
 
 @dataclass
 class SynthesisResult:
@@ -262,7 +266,10 @@ def post_check(report_md: str, payload: dict[str, Any]) -> None:
     )
 
     if bad_numbers:
-        raise PostCheckError(f"Synthesizer post-check failed: fabricated numbers: {bad_numbers}")
+        raise PostCheckError(
+            f"Synthesizer post-check failed: fabricated numbers: {bad_numbers}",
+            bad_numbers=bad_numbers,
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -280,21 +287,62 @@ def synthesize(
     snapshot_date: _date | None = None,
     max_tokens: int = 4096,
 ) -> SynthesisResult:
-    """Build the payload, call the LLM, post-check, return the report."""
+    """Build the payload, call the LLM, post-check, return the report.
+
+    On a PostCheckError we retry exactly once with a stricter system
+    prompt that names the rejected numbers and forbids percentages /
+    comparisons outright. GLM 4.5 Flash and Haiku 4.5 both occasionally
+    compute "X% cheaper than Y" despite the base prompt forbidding it;
+    citing the specific failure in the retry prompt resolves it most of
+    the time. If the retry also fails, the original error propagates so
+    cli.py's stub-report path still surfaces a diagnostic.
+    """
     payload = build_input_payload(listings, diff, profile, snapshot_date=snapshot_date)
     system_prompt = render_prompt()
     user_content = json.dumps(payload, default=str, indent=2)
 
-    resp = call_llm(
-        provider=cast(ProviderName, provider),
-        model=model,
-        system=system_prompt,
-        messages=[Message(role="user", content=user_content)],
-        max_tokens=max_tokens,
-    )
+    def _call(system: str) -> Any:
+        return call_llm(
+            provider=cast(ProviderName, provider),
+            model=model,
+            system=system,
+            messages=[Message(role="user", content=user_content)],
+            max_tokens=max_tokens,
+        )
 
+    resp = _call(system_prompt)
     llm_report_md = resp.text.strip()
-    post_check(llm_report_md, payload)
+    try:
+        post_check(llm_report_md, payload)
+    except PostCheckError as exc:
+        import sys
+
+        print(
+            f"[synth] post-check rejected {exc.bad_numbers}; retrying once "
+            f"with stricter prompt",
+            file=sys.stderr,
+        )
+        retry_system = (
+            system_prompt
+            + "\n\n# RETRY — PRIOR ATTEMPT REJECTED\n\n"
+            + f"Your previous response was REJECTED by the post-check "
+            + f"because it contained these numbers that are NOT in the "
+            + f"input JSON: {exc.bad_numbers}.\n\n"
+            + "These were almost certainly computed values — percentages, "
+            + "ratios, savings amounts, averages, or numeric comparisons. "
+            + "Do NOT compute. Do NOT compare numerically. Do NOT use "
+            + "phrases like 'X% cheaper', 'saves $Y', 'represents Z%', "
+            + "'lower than the average'. Use ONLY qualitative phrasing: "
+            + "'cheapest', 'second-cheapest', 'highest-priced', 'lower-end', "
+            + "'mid-range'. The ONLY numbers in your output must be prices, "
+            + "totals, quantities, or rank indices that appear LITERALLY in "
+            + "the JSON input.\n\n"
+            + "Re-emit the report from scratch following the original "
+            + "section structure (Bottom line / Flags / Context)."
+        )
+        resp = _call(retry_system)
+        llm_report_md = resp.text.strip()
+        post_check(llm_report_md, payload)
     
     # Extract sections using regex
     import re
