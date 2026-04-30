@@ -26,6 +26,7 @@ export const KNOWN_FILTER_RULES = new Set<string>([
   'min_quantity_for_target',
   'in_stock',
   'single_sku_url',
+  'title_excludes',
 ]);
 
 export const KNOWN_FLAG_RULES = new Set<string>([
