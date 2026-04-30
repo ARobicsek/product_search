@@ -9,6 +9,103 @@ Status values:
 
 ---
 
+## ADR-028 — Numbers belong to Python; words belong to the LLM (Bottom line and Flags become deterministic; LLM only writes Context)
+
+**Status**: ACCEPTED (refines ADR-001's split, partially supersedes
+ADR-027 — the retry remains as a courtesy but is no longer the primary
+defense)
+
+**Context**: The previous structure left three sections to the LLM —
+Bottom line, Flags, Context — guarded only by the post-check rejecting
+fabricated numbers in the rendered report. ADR-027 added a single
+retry with a stricter prompt naming the rejected numbers. This still
+failed in production: a 2026-04-30 Bose run produced
+`fabricated numbers: ['7.7']` (a computed percentage in the Bottom
+line / Context narrative) on both the first attempt and the retry.
+
+The pattern is structural, not promptable: when the LLM is asked to
+write narrative *about* listings whose prices it can see, it
+intermittently computes comparisons ("X% cheaper", "saves $Y") because
+that's what an analyst-style sentence reaches for. Stricter prompts and
+retries chase the symptom.
+
+**Decision**:
+
+1. **Bottom line is built deterministically in Python** —
+   `build_bottom_line_md(listings, profile)` picks the cheapest passing
+   listing (sorted by `total_for_target_usd`, falling back to
+   `unit_price_usd` when target totals are not meaningful for the
+   product type) and emits a one-sentence summary using only fields
+   verbatim from that listing: price clause, seller, source link,
+   title, condition. No LLM involvement, so no fabrication risk.
+
+2. **Flags is built deterministically in Python** —
+   `build_flags_md(listings, profile)` enumerates the distinct flags
+   that appear in the visible listings and emits one bullet each. The
+   description text comes from a new optional field
+   `FlagRule.description` on the profile, falling back to a built-in
+   `FLAG_FALLBACK_DESCRIPTIONS` dict for stable IDs
+   (`unknown_quantity`, `low_seller_feedback`, etc.), and finally to
+   the bare flag id. Future profiles SHOULD set `description:` per
+   flag; the fallback dict is only a safety net.
+
+3. **The LLM writes ONE qualitative paragraph — the Context section
+   only.** `synth_v1.txt` is rewritten to ask for prose only, with a
+   non-negotiable "ABSOLUTELY NO DIGITS" rule. The model still
+   receives the full payload (listings, diff, synthesis_hints) so its
+   commentary is informed; the constraint is only on its output shape.
+
+4. **`synthesize()` post-checks the LLM's paragraph** (not the
+   assembled report). The existing `post_check` semantics are
+   unchanged — any digit in the LLM output that isn't in the input
+   payload is rejected — but the surface area is now ~80 words of
+   prose instead of three sections of mixed numbers and prose. The
+   single retry from ADR-027 survives, but its scope shrinks
+   accordingly: "you wrote digits that aren't in the JSON; remove
+   them and rephrase qualitatively."
+
+5. **Final report assembly is purely string concatenation in Python** —
+   `build_bottom_line_md` + `build_listings_table_md` + `build_diff_md`
+   + `build_flags_md` + `**Context.** {llm_paragraph}`. No regex
+   extraction of LLM sections.
+
+**Consequence**: The "fabricated computed comparison" failure mode
+disappears structurally — the LLM is no longer asked to write
+sentences that contain prices, so it no longer reaches for
+"$X represents Y% lower than Z." The Context paragraph is now a
+qualitative analyst observation ("most listings are used", "the
+cheapest tier comes from sellers with sub-99% ratings"), which is
+more useful than a paraphrase of the table the user can already see.
+
+**Trade-offs**:
+- Context loses phrasings like "$47.97 to $325.00 spread". The
+  ranked-listings table directly above shows this; the qualitative
+  narrative is more distinctive in any case.
+- Bottom line is now templated rather than free-form. Less stylistic
+  variety per day; zero fabrication risk and consistent across
+  products.
+- Adding a new product no longer requires re-tuning the synth prompt
+  for its flag vocabulary. Each profile can declare its own flag
+  descriptions; otherwise the synthesizer falls back gracefully.
+
+**Reversibility**: Moderate. The deterministic builders (`build_*_md`)
+are self-contained pure functions; reverting would mean restoring the
+old `synth_v1.txt` and the old `synthesize()` regex-extraction path.
+The `FlagRule.description` field is optional and forward-compatible
+with profiles written under the old structure.
+
+**Future direction (deferred)**:
+- Re-run the Phase 5 benchmark fixtures against the new
+  Context-only contract — most criteria (sort_order, all_rows_present)
+  no longer apply because they're enforced deterministically. The
+  benchmark may collapse to a single "post-check passes on a 10-fixture
+  Context paragraph" check.
+- Update onboarding to ask the user for `description:` per flag at
+  profile-creation time, so the fallback dict is genuinely a safety
+  net rather than the common path.
+
+---
+
 ## ADR-027 — Synth retries once on `PostCheckError` with a stricter prompt that cites the rejected numbers
 
 **Status**: ACCEPTED

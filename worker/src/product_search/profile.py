@@ -133,6 +133,11 @@ class FilterRule(BaseModel):
 class FlagRule(BaseModel):
     rule: str
     flag: str
+    # Plain-English explanation of what this flag means; surfaced in the
+    # report's deterministic Flags section. Optional — if absent, the
+    # synthesizer falls back to a built-in dict of stable flag IDs and
+    # then to the bare flag id.
+    description: str | None = None
     # All extra keys (values, rating_pct_below, etc.) are allowed.
     model_config = {"extra": "allow"}
 

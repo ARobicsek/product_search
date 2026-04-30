@@ -17,7 +17,10 @@ from product_search.storage.diff import DiffResult, PriceChange
 from product_search.synthesizer import (
     COLUMN_DEFS,
     DEFAULT_REPORT_COLUMNS,
+    FLAG_FALLBACK_DESCRIPTIONS,
     PostCheckError,
+    build_bottom_line_md,
+    build_flags_md,
     build_input_payload,
     build_listings_table_md,
     post_check,
@@ -64,9 +67,11 @@ def _listing(
 
 def test_prompt_file_exists_and_has_hard_rules() -> None:
     text = render_prompt()
-    assert "Do NOT invent" in text
-    assert "Do NOT modify any number" in text
-    assert "Bottom line" in text
+    # Per ADR-028, the LLM only writes the Context paragraph; numeric
+    # sections are deterministic. The prompt must enforce that boundary.
+    assert "Context" in text
+    assert "ABSOLUTELY NO DIGITS" in text
+    assert "ABSOLUTELY NO CHAIN OF THOUGHT" in text
 
 
 # ---------------------------------------------------------------------------
@@ -266,58 +271,244 @@ def test_pipe_in_title_is_escaped_in_table() -> None:
 
 
 # ---------------------------------------------------------------------------
-# Synthesize() — retry on post-check failure
+# Deterministic Bottom line (ADR-028)
 # ---------------------------------------------------------------------------
 
 
-def test_synthesize_retries_once_on_post_check_failure() -> None:
+def test_build_bottom_line_uses_cheapest_total_when_available() -> None:
+    profile = load_profile("ddr5-rdimm-256gb")
+    listings = [
+        _listing("https://x/a", title="A", total_for_target_usd=900.0),
+        _listing("https://x/b", title="B", total_for_target_usd=500.0),
+        _listing("https://x/c", title="C", total_for_target_usd=700.0),
+    ]
+    md = build_bottom_line_md(listings, profile)
+    assert md.startswith("**Bottom line.**")
+    assert "$500.00" in md
+    assert "B" in md
+    # Other prices must NOT appear in the bottom line — only the cheapest.
+    assert "$700.00" not in md
+    assert "$900.00" not in md
+
+
+def test_build_bottom_line_falls_back_to_unit_price_when_total_is_none() -> None:
+    profile = load_profile("bose-nc-700-headphones")
+    listing = _listing(
+        "https://www.ebay.com/itm/127828108562",
+        title="BOSE headphones NC700 USED",
+        unit_price_usd=47.97,
+        total_for_target_usd=None,
+    )
+    listing.condition = "used"
+    md = build_bottom_line_md([listing], profile)
+    assert "$47.97" in md
+    # Used should be surfaced from listing.condition.
+    assert "used" in md.lower()
+
+
+def test_build_bottom_line_handles_empty_listings() -> None:
+    profile = load_profile("ddr5-rdimm-256gb")
+    md = build_bottom_line_md([], profile)
+    assert "No listings" in md
+
+
+def test_build_bottom_line_emits_clickable_source_link() -> None:
+    profile = load_profile("ddr5-rdimm-256gb")
+    listing = _listing("https://www.ebay.com/itm/123", total_for_target_usd=960.0)
+    md = build_bottom_line_md([listing], profile)
+    assert "[ebay_search](https://www.ebay.com/itm/123)" in md
+
+
+# ---------------------------------------------------------------------------
+# Deterministic Flags (ADR-028)
+# ---------------------------------------------------------------------------
+
+
+def test_build_flags_emits_no_flags_when_none_present() -> None:
+    profile = load_profile("ddr5-rdimm-256gb")
+    listing = _listing("https://x/a", flags=[])
+    md = build_flags_md([listing], profile)
+    assert md == "**Flags.** (no flags)"
+
+
+def test_build_flags_uses_profile_description_when_present() -> None:
+    """Profile-defined description wins over the fallback dict."""
+    from product_search.profile import FlagRule, Profile
+
+    base = load_profile("ddr5-rdimm-256gb")
+    custom_rule = FlagRule(
+        rule="low_seller_feedback",
+        flag="low_seller_feedback",
+        description="Custom description from profile",
+    )
+    profile = base.model_copy(update={"spec_flags": [custom_rule]})
+    assert isinstance(profile, Profile)
+    listing = _listing("https://x/a", flags=["low_seller_feedback"])
+    md = build_flags_md([listing], profile)
+    assert "Custom description from profile" in md
+    # Fallback text must NOT appear when profile description is set.
+    assert FLAG_FALLBACK_DESCRIPTIONS["low_seller_feedback"] not in md
+
+
+def test_build_flags_falls_back_to_builtin_dict_when_profile_missing_description() -> None:
+    profile = load_profile("ddr5-rdimm-256gb")
+    listing = _listing("https://x/a", flags=["low_seller_feedback"])
+    md = build_flags_md([listing], profile)
+    assert FLAG_FALLBACK_DESCRIPTIONS["low_seller_feedback"] in md
+
+
+def test_build_flags_dedupes_across_listings_and_sorts_stably() -> None:
+    profile = load_profile("ddr5-rdimm-256gb")
+    listings = [
+        _listing("https://x/a", flags=["low_seller_feedback", "china_shipping"]),
+        _listing("https://x/b", flags=["low_seller_feedback"]),
+        _listing("https://x/c", flags=["china_shipping"]),
+    ]
+    md = build_flags_md(listings, profile)
+    # Each unique flag appears exactly once.
+    assert md.count("**low_seller_feedback**") == 1
+    assert md.count("**china_shipping**") == 1
+    # Sorted alphabetically — china_shipping appears before low_seller_feedback.
+    assert md.index("china_shipping") < md.index("low_seller_feedback")
+
+
+# ---------------------------------------------------------------------------
+# synthesize() — LLM is responsible for Context only (ADR-028)
+# ---------------------------------------------------------------------------
+
+
+def test_synthesize_uses_only_context_from_llm_and_assembles_rest_deterministically() -> None:
     from unittest.mock import patch
 
     from product_search.llm import LLMResponse
     from product_search.synthesizer import synthesize
 
     profile = load_profile("ddr5-rdimm-256gb")
-    listing = _listing("https://www.ebay.com/itm/123", unit_price_usd=120.0,
-                       total_for_target_usd=960.0)
-
-    bad_text = (
-        "1. **Bottom line.** $120 each, $960 total — saves 7.7% vs average.\n\n"
-        "2. **Flags.** (no flags)\n\n3. **Context.** ok"
+    listing = _listing(
+        "https://www.ebay.com/itm/123",
+        unit_price_usd=120.0,
+        total_for_target_usd=960.0,
     )
-    good_text = (
-        "1. **Bottom line.** Cheapest at $120 each, $960 total.\n\n"
-        "2. **Flags.** (no flags)\n\n3. **Context.** ok"
+
+    # The LLM emits ONLY a qualitative paragraph — no headers, no numbers
+    # except those that appear in the payload.
+    llm_paragraph = (
+        "Today's market is dominated by a single seller offering the "
+        "cheapest path; the remaining listings cluster at the higher end."
     )
-    responses = iter([
-        LLMResponse(provider="glm", model="glm-4.5-flash",
-                    text=bad_text, input_tokens=1, output_tokens=1),
-        LLMResponse(provider="glm", model="glm-4.5-flash",
-                    text=good_text, input_tokens=1, output_tokens=1),
-    ])
-    with patch("product_search.synthesizer.synthesizer.call_llm",
-               side_effect=lambda **kw: next(responses)):
-        result = synthesize([listing], None, profile,
-                            provider="glm", model="glm-4.5-flash")
-    # Successful retry — the deterministic table is injected, so the final
-    # report contains both the LLM's qualitative sections and the table.
-    assert "Bottom line" in result.report_md
-    assert "$120" in result.report_md
+    resp = LLMResponse(
+        provider="glm",
+        model="glm-4.5-flash",
+        text=llm_paragraph,
+        input_tokens=1,
+        output_tokens=1,
+    )
+    with patch(
+        "product_search.synthesizer.synthesizer.call_llm",
+        side_effect=lambda **kw: resp,
+    ):
+        result = synthesize(
+            [listing], None, profile, provider="glm", model="glm-4.5-flash"
+        )
+
+    md = result.report_md
+    assert "**Bottom line.**" in md
+    assert "$960.00" in md  # deterministic Bottom line
+    assert "**Ranked listings.**" in md
+    assert "**Diff vs yesterday.**" in md
+    assert "**Flags.**" in md
+    assert "**Context.**" in md
+    assert llm_paragraph in md
 
 
-def test_synthesize_propagates_error_when_retry_also_fails() -> None:
+def test_synthesize_strips_redundant_context_prefix_from_llm() -> None:
+    """Even if the LLM disobeys the prompt and prefixes 'Context.' the
+    deterministic layer should normalise it."""
     from unittest.mock import patch
 
     from product_search.llm import LLMResponse
     from product_search.synthesizer import synthesize
 
     profile = load_profile("ddr5-rdimm-256gb")
-    listing = _listing("https://www.ebay.com/itm/123", unit_price_usd=120.0,
-                       total_for_target_usd=960.0)
+    listing = _listing("https://x/a", total_for_target_usd=960.0)
 
-    bad = LLMResponse(provider="glm", model="glm-4.5-flash",
-                      text="1. **Bottom line.** Saves 7.7%.", input_tokens=1, output_tokens=1)
-    with patch("product_search.synthesizer.synthesizer.call_llm",
-               side_effect=lambda **kw: bad):
+    resp = LLMResponse(
+        provider="glm",
+        model="glm-4.5-flash",
+        text="**Context.** Most listings come from familiar sellers.",
+        input_tokens=1,
+        output_tokens=1,
+    )
+    with patch(
+        "product_search.synthesizer.synthesizer.call_llm",
+        side_effect=lambda **kw: resp,
+    ):
+        result = synthesize(
+            [listing], None, profile, provider="glm", model="glm-4.5-flash"
+        )
+    # The Context header appears exactly once (the deterministic one).
+    assert result.report_md.count("**Context.**") == 1
+
+
+def test_synthesize_retries_once_when_llm_fabricates_in_context() -> None:
+    from unittest.mock import patch
+
+    from product_search.llm import LLMResponse
+    from product_search.synthesizer import synthesize
+
+    profile = load_profile("ddr5-rdimm-256gb")
+    listing = _listing(
+        "https://x/a", unit_price_usd=120.0, total_for_target_usd=960.0
+    )
+
+    bad = LLMResponse(
+        provider="glm",
+        model="glm-4.5-flash",
+        text="The cheapest entry saves 7.7% versus the average.",
+        input_tokens=1,
+        output_tokens=1,
+    )
+    good = LLMResponse(
+        provider="glm",
+        model="glm-4.5-flash",
+        text="The cheapest entry sits well below the rest of the field.",
+        input_tokens=1,
+        output_tokens=1,
+    )
+    responses = iter([bad, good])
+    with patch(
+        "product_search.synthesizer.synthesizer.call_llm",
+        side_effect=lambda **kw: next(responses),
+    ):
+        result = synthesize(
+            [listing], None, profile, provider="glm", model="glm-4.5-flash"
+        )
+    assert "well below" in result.report_md
+
+
+def test_synthesize_propagates_error_when_retry_also_fabricates() -> None:
+    from unittest.mock import patch
+
+    from product_search.llm import LLMResponse
+    from product_search.synthesizer import synthesize
+
+    profile = load_profile("ddr5-rdimm-256gb")
+    listing = _listing(
+        "https://x/a", unit_price_usd=120.0, total_for_target_usd=960.0
+    )
+
+    bad = LLMResponse(
+        provider="glm",
+        model="glm-4.5-flash",
+        text="The cheapest entry saves 7.7% versus the average.",
+        input_tokens=1,
+        output_tokens=1,
+    )
+    with patch(
+        "product_search.synthesizer.synthesizer.call_llm",
+        side_effect=lambda **kw: bad,
+    ):
         with pytest.raises(PostCheckError):
-            synthesize([listing], None, profile,
-                       provider="glm", model="glm-4.5-flash")
+            synthesize(
+                [listing], None, profile, provider="glm", model="glm-4.5-flash"
+            )

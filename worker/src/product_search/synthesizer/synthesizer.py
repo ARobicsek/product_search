@@ -1,10 +1,17 @@
 """Synthesizer — render today's listings + diff into a markdown report.
 
-Public entry point is :func:`synthesize`. It calls the configured LLM
-with the prompt at ``prompts/synth_v1.txt`` and runs :func:`post_check`
-on the output. Per ADR-001 the run fails loud if any price, or quantity
-in the report commentary does not appear in the input — we'd rather
-miss a daily report than commit fabricated data.
+Architecture (ADR-028, supersedes the structure left after ADR-027):
+
+The LLM contributes ONE qualitative paragraph (the **Context** section).
+Every other report section — Bottom line, Ranked listings, Diff,
+Flags — is built deterministically from the verified listing data. The
+post-check still rejects any digit in the LLM's paragraph that isn't
+present in the input payload, but with the LLM's job narrowed to
+qualitative prose the failure mode "model fabricates a percentage in a
+narrative comparison" can no longer originate inside a fact-laden
+sentence we asked the model to write.
+
+Public entry point is :func:`synthesize`.
 """
 
 from __future__ import annotations
@@ -159,6 +166,25 @@ DEFAULT_REPORT_COLUMNS: list[str] = [
 ]
 
 
+# Plain-English fallback descriptions for stable flag IDs surfaced across
+# profiles. Profile-level ``FlagRule.description`` always wins over this
+# dict; this is just a safety net so a freshly onboarded profile that
+# forgot to set ``description:`` still renders a useful Flags section.
+FLAG_FALLBACK_DESCRIPTIONS: dict[str, str] = {
+    "unknown_quantity": "The listing did not declare a quantity-available count.",
+    "low_seller_feedback": "Seller's feedback rating or count is below the profile threshold.",
+    "china_shipping": "Listing ships from China or Hong Kong.",
+    "smart_memory": "OEM-branded SmartMemory; may not POST on third-party boards.",
+    "kingston_e_suffix": "Kingston part number ends in 'E' (likely UDIMM, not RDIMM).",
+    "compatible_with_other_server": (
+        "Title mentions a different server platform than the profile target."
+    ),
+    "generic_brand": "Generic or aftermarket brand.",
+    "suspicious_listing": "Title language suggests an as-is, untested, or for-parts listing.",
+    "similar_bose_model": "Title mentions a similar but different Bose model than the target.",
+}
+
+
 def build_listings_table_md(
     listings: list[Listing],
     columns: list[str] | None = None,
@@ -181,6 +207,85 @@ def build_listings_table_md(
         cells = [COLUMN_DEFS[c][1](i, lst) for c in cols]
         lines.append("| " + " | ".join(cells) + " |")
 
+    return "\n".join(lines)
+
+
+def _cheapest_listing(listings: list[Listing]) -> Listing:
+    """Return the cheapest passing listing, treating missing totals as fallback to unit price."""
+
+    def _key(lst: Listing) -> tuple[int, float]:
+        if lst.total_for_target_usd is not None:
+            return (0, lst.total_for_target_usd)
+        if lst.unit_price_usd is not None:
+            return (1, lst.unit_price_usd)
+        return (2, 0.0)
+
+    return sorted(listings, key=_key)[0]
+
+
+def build_bottom_line_md(listings: list[Listing], profile: Profile) -> str:
+    """Render the deterministic **Bottom line** section.
+
+    Picks the cheapest passing listing and emits a one-sentence summary
+    using only fields verbatim from that listing. No LLM involvement, so
+    no fabrication risk. Falls back to a graceful message when the
+    listing set is empty (which shouldn't happen in production —
+    `cli.py` writes a separate "no listings passed" report in that
+    case — but keeps the function safe to call from tests).
+    """
+    if not listings:
+        return "**Bottom line.** No listings passed the validator pipeline today."
+
+    top = _cheapest_listing(listings)
+
+    if top.total_for_target_usd is not None:
+        price_clause = f"${top.total_for_target_usd:.2f} total for target"
+    elif top.unit_price_usd is not None:
+        price_clause = f"${top.unit_price_usd:.2f}"
+    else:
+        price_clause = "price unknown"
+
+    seller_clause = f" from {top.seller_name}" if top.seller_name else ""
+    cond_clause = f" ({top.condition})" if top.condition else ""
+    title_clip = top.title if len(top.title) <= 90 else top.title[:87] + "…"
+    title_clip = _esc(title_clip)
+
+    return (
+        f"**Bottom line.** Cheapest passing listing for "
+        f"{_esc(profile.display_name)}: {price_clause}{seller_clause} via "
+        f"[{_esc(top.source)}]({top.url}) — {title_clip}{cond_clause}."
+    )
+
+
+def build_flags_md(listings: list[Listing], profile: Profile) -> str:
+    """Render the deterministic **Flags** section.
+
+    One bullet per distinct flag that appears in the visible listings,
+    using ``FlagRule.description`` from the profile when present, else a
+    fallback from :data:`FLAG_FALLBACK_DESCRIPTIONS`, else the bare flag
+    id. Output is stable (sorted) so daily reports diff cleanly.
+    """
+    seen: set[str] = set()
+    for lst in listings:
+        for f in lst.flags:
+            seen.add(f)
+
+    if not seen:
+        return "**Flags.** (no flags)"
+
+    profile_desc: dict[str, str] = {}
+    for rule in profile.spec_flags:
+        if rule.description and rule.flag not in profile_desc:
+            profile_desc[rule.flag] = rule.description
+
+    lines = ["**Flags.**", ""]
+    for flag in sorted(seen):
+        desc = (
+            profile_desc.get(flag)
+            or FLAG_FALLBACK_DESCRIPTIONS.get(flag)
+            or "(no description)"
+        )
+        lines.append(f"- **{flag}**: {desc}")
     return "\n".join(lines)
 
 
@@ -277,6 +382,18 @@ def post_check(report_md: str, payload: dict[str, Any]) -> None:
 # ---------------------------------------------------------------------------
 
 
+_CONTEXT_PREFIX_RE = re.compile(
+    r"^\s*(?:\d+\.\s*)?\**\s*context\s*[\.\:\*]*\s*",
+    re.IGNORECASE,
+)
+
+
+def _strip_context_prefix(text: str) -> str:
+    """Drop a leading ``Context.``/``**Context.**``/``5. **Context.**`` if the
+    LLM emitted one despite the prompt telling it not to."""
+    return _CONTEXT_PREFIX_RE.sub("", text, count=1).lstrip()
+
+
 def synthesize(
     listings: list[Listing],
     diff: DiffResult | None,
@@ -285,17 +402,20 @@ def synthesize(
     provider: str,
     model: str,
     snapshot_date: _date | None = None,
-    max_tokens: int = 4096,
+    max_tokens: int = 1024,
 ) -> SynthesisResult:
-    """Build the payload, call the LLM, post-check, return the report.
+    """Build the payload, ask the LLM for a Context paragraph, assemble the report.
 
-    On a PostCheckError we retry exactly once with a stricter system
-    prompt that names the rejected numbers and forbids percentages /
-    comparisons outright. GLM 4.5 Flash and Haiku 4.5 both occasionally
-    compute "X% cheaper than Y" despite the base prompt forbidding it;
-    citing the specific failure in the retry prompt resolves it most of
-    the time. If the retry also fails, the original error propagates so
-    cli.py's stub-report path still surfaces a diagnostic.
+    Per ADR-028, every numeric/structural section (Bottom line, Ranked
+    listings, Diff, Flags) is built deterministically here. The LLM's only
+    job is one qualitative paragraph. We still post-check that paragraph
+    against the input payload — any digit the LLM emits that isn't in the
+    JSON is rejected — so the no-fabricated-numbers invariant from ADR-001
+    is preserved structurally rather than by prompt discipline alone.
+
+    On a PostCheckError we retry exactly once with a stricter prompt that
+    names the rejected digits. If the retry also fails the original error
+    propagates and ``cli.py``'s stub-report path takes over.
     """
     payload = build_input_payload(listings, diff, profile, snapshot_date=snapshot_date)
     system_prompt = render_prompt()
@@ -311,62 +431,54 @@ def synthesize(
         )
 
     resp = _call(system_prompt)
-    llm_report_md = resp.text.strip()
+    context_text = _strip_context_prefix(resp.text.strip())
+
     try:
-        post_check(llm_report_md, payload)
+        post_check(context_text, payload)
     except PostCheckError as exc:
         import sys
 
         print(
-            f"[synth] post-check rejected {exc.bad_numbers}; retrying once "
-            f"with stricter prompt",
+            f"[synth] post-check rejected {exc.bad_numbers} in Context; "
+            f"retrying once with stricter prompt",
             file=sys.stderr,
         )
         retry_system = (
             system_prompt
             + "\n\n# RETRY — PRIOR ATTEMPT REJECTED\n\n"
-            + f"Your previous response was REJECTED by the post-check "
-            + f"because it contained these numbers that are NOT in the "
-            + f"input JSON: {exc.bad_numbers}.\n\n"
-            + "These were almost certainly computed values — percentages, "
-            + "ratios, savings amounts, averages, or numeric comparisons. "
-            + "Do NOT compute. Do NOT compare numerically. Do NOT use "
-            + "phrases like 'X% cheaper', 'saves $Y', 'represents Z%', "
-            + "'lower than the average'. Use ONLY qualitative phrasing: "
-            + "'cheapest', 'second-cheapest', 'highest-priced', 'lower-end', "
-            + "'mid-range'. The ONLY numbers in your output must be prices, "
-            + "totals, quantities, or rank indices that appear LITERALLY in "
-            + "the JSON input.\n\n"
-            + "Re-emit the report from scratch following the original "
-            + "section structure (Bottom line / Flags / Context)."
+            + "Your previous Context paragraph was REJECTED because it "
+            + "contained digit-tokens NOT present in the input JSON: "
+            + f"{exc.bad_numbers}. These were almost certainly computed "
+            + "comparisons (percentages, ratios, savings, averages).\n\n"
+            + "Re-emit the Context paragraph using ONLY qualitative "
+            + "phrasing. NO digits at all unless they appear inside a "
+            + "product-model name that already shows up verbatim in the "
+            + "input titles. Use 'cheapest', 'lower-end', 'a small "
+            + "fraction', 'most listings' instead of any number, "
+            + "percentage, or comparison. Plain prose only, no headers."
         )
         resp = _call(retry_system)
-        llm_report_md = resp.text.strip()
-        post_check(llm_report_md, payload)
-    
-    # Extract sections using regex
-    import re
-    bl_match = re.search(r'1\.\s*\*\*Bottom line\.\*\*(.*?)(?=2\.\s*\*\*Flags\.\*\*|$)', llm_report_md, re.DOTALL)
-    flags_match = re.search(r'2\.\s*\*\*Flags\.\*\*(.*?)(?=3\.\s*\*\*Context\.\*\*|$)', llm_report_md, re.DOTALL)
-    context_match = re.search(r'3\.\s*\*\*Context\.\*\*(.*)', llm_report_md, re.DOTALL)
-    
-    bl_text = bl_match.group(1).strip() if bl_match else "(extraction failed)"
-    flags_text = flags_match.group(1).strip() if flags_match else "(extraction failed)"
-    ctx_text = context_match.group(1).strip() if context_match else "(extraction failed)"
-    
-    # Inject deterministic Python tables and re-number
+        context_text = _strip_context_prefix(resp.text.strip())
+        post_check(context_text, payload)
+
+    if not context_text:
+        context_text = (
+            "_(The synthesizer returned an empty Context paragraph. The "
+            "deterministic sections above show the day's data.)_"
+        )
+
+    bl_md = build_bottom_line_md(listings, profile)
     listings_md = build_listings_table_md(listings, profile.report_columns)
     diff_md = build_diff_md(diff)
-    
-    final_report_md = f"""1. **Bottom line.** {bl_text}
+    flags_md = build_flags_md(listings, profile)
 
-{listings_md}
-
-{diff_md}
-
-4. **Flags.** {flags_text}
-
-5. **Context.** {ctx_text}"""
+    final_report_md = (
+        f"{bl_md}\n\n"
+        f"{listings_md}\n\n"
+        f"{diff_md}\n\n"
+        f"{flags_md}\n\n"
+        f"**Context.** {context_text}"
+    )
 
     return SynthesisResult(
         report_md=final_report_md,

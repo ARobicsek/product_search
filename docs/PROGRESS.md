@@ -8,6 +8,86 @@
 
 See the Phase 12 brief in [PHASES.md](PHASES.md#phase-12--polish--second-product-proof).
 
+## Status as of end of 2026-04-30 session (continuation 6)
+
+**Numbers belong to Python; words belong to the LLM. Bottom line and
+Flags are now deterministic; LLM only writes the Context paragraph.**
+
+The 2026-04-30 prod run rejected `['7.7']` (a computed percentage)
+even after ADR-027's retry. The retry was chasing a symptom — the
+LLM was being asked to write narrative *about* prices, and
+intermittently fabricated comparisons. ADR-028 changes the structure:
+
+1. **`build_bottom_line_md(listings, profile)`** picks the cheapest
+   passing listing and emits a one-sentence summary from verbatim
+   fields (total or unit price, seller, source link, title,
+   condition). No LLM, no fabrication possible.
+
+2. **`build_flags_md(listings, profile)`** enumerates the distinct
+   flags in the visible listings, one bullet each. Description text
+   comes from a new optional `FlagRule.description` profile field,
+   falling back to a built-in `FLAG_FALLBACK_DESCRIPTIONS` dict for
+   stable IDs, then to the bare flag id. No LLM.
+
+3. **`synth_v1.txt` rewritten** — asks for one qualitative paragraph
+   only (the Context section). "ABSOLUTELY NO DIGITS" is the
+   non-negotiable rule. The deterministic Bottom line / table /
+   diff / Flags are assembled around the LLM paragraph in
+   `synthesize()`.
+
+4. **`post_check` now runs on the LLM's paragraph alone** (not the
+   full assembled report). Same semantics — any digit token not in
+   the input payload is rejected — but the surface area is much
+   smaller and the failure mode "model fabricates a percentage in a
+   narrative comparison" can no longer originate inside a fact-laden
+   sentence we asked it to write.
+
+5. **Single retry survives** (per ADR-027) but with a tighter
+   instruction: "you wrote digits not in the JSON; remove them and
+   rephrase qualitatively." If the retry also fails, the existing
+   `cli.py` stub-report path handles it.
+
+108/108 worker tests pass (10 new tests cover the deterministic
+builders + the Context-only synthesize contract). Ruff/mypy clean on
+all changed files (3 pre-existing E501s in COLUMN_DEFS / build_diff_md
+left alone per session protocol).
+
+**Files changed**:
+- `worker/src/product_search/profile.py`: added optional
+  `FlagRule.description: str | None`.
+- `worker/src/product_search/synthesizer/synthesizer.py`: added
+  `FLAG_FALLBACK_DESCRIPTIONS`, `build_bottom_line_md`,
+  `build_flags_md`, `_strip_context_prefix`. Replaced `synthesize()`.
+- `worker/src/product_search/synthesizer/__init__.py`: exported the
+  new builders.
+- `worker/src/product_search/synthesizer/prompts/synth_v1.txt`:
+  rewritten for Context-only.
+- `worker/tests/test_synthesizer.py`: removed retry-on-full-report
+  tests, added builder tests + Context-only synthesize tests.
+- `docs/DECISIONS.md`: added ADR-028.
+
+**Next session — start here:**
+
+1. **Push the commit** (this session's work is local) so the next
+   prod run benefits from the new structure.
+2. **Trigger one live on-demand run on each product** to confirm:
+   - Bose: Bottom line shows "$47.97 from schicjar via ebay_search —
+     ... (used)"; Flags section enumerates each flag with a clear
+     description; Context paragraph is digit-free narrative.
+   - DDR5: same shape; Bottom line uses `$X total for target`.
+3. **If the new Context post-check still rejects** something
+   (extremely unlikely given the LLM is no longer paraphrasing
+   numbers): the retry instruction is now unambiguous, but if it
+   still fails twice, the `cli.py` stub-report path renders a
+   diagnostic on the web UI. No further code work needed.
+4. **Phase 12b (Tier-B adapter) and 12c (schedule editor UI)** are
+   still queued. Pick one once two clean consecutive runs land on
+   each product.
+5. **Onboarding follow-up** — when convenient, update the onboarding
+   prompt to ask the user for a `description:` per flag at
+   profile-creation time, so `FLAG_FALLBACK_DESCRIPTIONS` becomes a
+   safety net rather than the common path.
+
 ## Status as of end of 2026-04-30 session (continuation 5)
 
 **Per-product report columns, brand inference, synth retry, run-info
