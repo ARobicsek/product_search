@@ -281,8 +281,23 @@ def _cmd_search(
         except Exception as exc:
             error_msg = f"{type(exc).__name__}: {exc}"
             print(f"ERROR ({source.id} fetch): {exc}", file=sys.stderr)
+        # Disambiguate multiple universal_ai_search rows in the Sources
+        # panel by the vendor host so the user can tell which vendor
+        # returned what (e.g. "universal_ai (audio46.com)" vs
+        # "universal_ai (headphones.com)" instead of three identical rows).
+        display_source = source.id
+        if source.id == "universal_ai_search":
+            src_url = query.extra.get("url") or query.storefront_url
+            if src_url:
+                from urllib.parse import urlparse
+                host = urlparse(src_url).netloc.lower()
+                if host.startswith("www."):
+                    host = host[4:]
+                if host:
+                    display_source = f"universal_ai ({host})"
         source_stats.append({
             "source": source.id,
+            "display_source": display_source,
             "fetched": len(listings),
             "error": error_msg,
         })
@@ -615,8 +630,12 @@ def _build_sources_searched_md(
         err = s.get("error")
         status = "ok" if err is None else f"error: {err}"
         status = status.replace("|", "\\|").replace("\n", " ").replace("\r", "")
+        # ``display_source`` is the human-friendly label (e.g.
+        # ``universal_ai (audio46.com)``) when the source loop set one;
+        # falls back to the canonical adapter id for older callers.
+        label = s.get("display_source") or s["source"]
         lines.append(
-            f"| {s['source']} | {status} | {s.get('fetched', 0)} | {s.get('passed', 0)} |"
+            f"| {label} | {status} | {s.get('fetched', 0)} | {s.get('passed', 0)} |"
         )
 
     pending = getattr(profile, "sources_pending", []) or []
