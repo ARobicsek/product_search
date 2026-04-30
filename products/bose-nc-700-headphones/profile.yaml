@@ -31,6 +31,10 @@ sources:
       - "Bose 700 headphones used"
       - "Bose NCH700 headphones"
     max_results_per_query: 20
+  - id: "universal_ai_search"
+    url: "https://www.crutchfield.com/shopsearch/bose_noise_canceling_headphones.html"
+  - id: "universal_ai_search"
+    url: "https://www.adorama.com/l/Audio/Bose~Headphones-and-Earphones"
 
 sources_pending: []
 
