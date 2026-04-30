@@ -8,42 +8,72 @@
 
 See the Phase 12 brief in [PHASES.md](PHASES.md#phase-12--polish--second-product-proof).
 
-## Status as of end of 2026-04-30 session (UI polling fix + filter logs)
+## Status as of end of 2026-04-30 session
 
-Both queued prep items shipped:
+**Open mystery: prod ai_filter still rejects all 95 eBay listings even after
+four targeted fixes. Next session must investigate from the artifact upload.**
 
-1. **Web UI polling edge-cache fix.** `getReportContent` in
-   `web/lib/github.ts` now appends `?_cb=${Date.now()}` to the
-   `raw.githubusercontent.com` URL. Even with Next.js
-   `cache: 'no-store'`, GitHub's raw CDN was returning the stale
-   report after `revalidatePath`, so the Run-now polling state machine
-   refreshed against the old content and reset to idle while the new
-   report sat invisible. The query-string buster forces the CDN to
-   revalidate against origin on every page render.
-2. **Detailed AI filter reasoning logs.** Upgraded
-   `worker/src/product_search/validators/ai_filter.py` to ask GLM-5.1
-   for `{"evaluations": [{index, pass, reason}, ...]}` covering every
-   evaluated listing (not just the survivors). Each run appends one
-   line per listing to `worker/data/filter_logs/<date>.jsonl` with
-   title, price, url, source, pass status and reason — so the user
-   can inspect exactly why each rejected listing was dropped. The
-   prompt key `evaluations` matches the prior session's plan.
-   Backwards-compat preserved: a legacy `{"indices": [...]}` response
-   still works (logged with a "(legacy indices-only response)"
-   reason). Bumped `max_tokens` from 4096 → 8192 because every
-   listing now carries a reason string. Fixture mode
-   (`WORKER_USE_FIXTURES=1`) still short-circuits to a no-op so
-   tests stay deterministic.
+### What shipped this session (all on origin/main)
 
-All 62 worker tests pass; web `tsc` clean. Commit local; not pushed.
+1. **Web UI polling edge-cache fix** — `getReportContent` in
+   `web/lib/github.ts` appends `?_cb=${Date.now()}` to the
+   `raw.githubusercontent.com` URL because the GitHub raw CDN was
+   serving stale reports past `revalidatePath`. The most recent run UI
+   showed "Timed out waiting for run to complete" with the report
+   already on disk — see "Open issues" below.
+2. **Per-listing AI filter reasoning logs** — `ai_filter.py` writes
+   one line per listing to `worker/data/filter_logs/<date>.jsonl`
+   with title, price, url, source, pass, reason. Sentinel rows on
+   filter failure: `index=-1, title="(filter call failed)", reason=...`.
+3. **`ai_filter` parser robustness** — accepts four JSON shapes
+   (`{"evaluations":[…]}`, `{"indices":[…]}`, bare-array variants).
+   Loud `[ai_filter] ...` stderr prints on parse/shape failures.
+4. **`ai_filter` prompt rewritten** — explicitly tells the LLM that
+   unknown attributes are not failures; only reject when an attr is
+   PRESENT and clearly violates a rule (or the title clearly
+   contradicts). Mirrors the lenient semantic of the deterministic
+   `apply_filters` it replaced (eBay adapter intentionally leaves
+   `form_factor`, `ecc`, `voltage_v` as None).
+5. **`ai_filter` model swap glm-5.1 → glm-4.5-flash** — confirmed
+   prod failure mode: GLM-5.1 is a reasoning model, ignored
+   `response_format=json_object`, dumped CoT prose into `content`.
+   Switched to glm-4.5-flash (Phase 5 benchmark winner, non-reasoning,
+   ~10x cheaper).
+6. **`_openai.py` field-pick** — in JSON mode, picks whichever of
+   `content` / `reasoning_content` actually parses as JSON, instead of
+   only falling back when `content` is empty.
+7. **Scheduled cron disabled** — `search-scheduled.yml` keeps only
+   `workflow_dispatch`. Schedule editor UI is Phase 12c.
+8. **Run diagnostics uploaded as workflow artifacts** — both
+   `search-on-demand.yml` and `search-scheduled.yml` now upload
+   `worker/data/filter_logs/` and `worker/data/llm_traces/` as a 14-day
+   artifact named `run-diagnostics-<product>-<run_id>` (or
+   `run-diagnostics-scheduled-<run_id>`).
+9. **Pytest no longer pollutes the local filter log** —
+   `tests/test_ai_filter.py` autouse fixture monkeypatches
+   `_filter_log_path()` to `tmp_path`. The local
+   `worker/data/filter_logs/2026-04-30.jsonl` (41 lines, all from test
+   runs) is safe to delete before the next real run.
 
-## Current task — pick one for next session
+74/74 worker tests pass. Pushed: `2072708`, `6ee155d`, `d05523e`,
+`dc34961`, `8726dc3` all on origin/main.
 
-- **Phase 12b** — **Wire up a Tier-B source adapter** (newegg, serversupply, memorynet, or theserverstore). With universal AI extraction (ADR-021) the bar is just adding the URL/seed to the profile + checking it returns sane listings.
-- **Phase 12c** — **Schedule editor UI** on `/[product]` that writes `schedule.cron` back to the profile YAML via the GitHub Contents API.
-- **Verify the polling + filter-log fixes in prod.** Push, click Run-now once the action commits, confirm the page swaps to the new report without a manual refresh, and inspect the `filter_logs/<date>.jsonl` written by the GH Actions run.
+### Open issues for next session
 
-Recommended: verify the two fixes in prod first (small, fast), then Phase 12b.
+1. **Prod ai_filter still produces 0 passed.** The most recent run
+   after the glm-4.5-flash swap STILL showed `ebay_search ok 95 / 0`.
+   Either glm-4.5-flash also fails this prompt (different mode), or
+   it's now correctly returning per-listing verdicts and ALL 95
+   listings legitimately fail. The filter_logs/<date>.jsonl in the run
+   artifact will say which.
+2. **UI polling still times out.** Latest run showed "Timed out
+   waiting for run to complete" in red on the page even though the
+   report committed. The cache-buster (`?_cb=`) targeted
+   `getReportContent`, but the polling state machine likely also
+   reads `getProductReports` (api.github.com — not raw CDN), or the
+   action genuinely took longer than the polling timeout. Investigate
+   `web/components/RunNowButton.tsx` polling timeout vs typical action
+   duration (~3-4 minutes per the Actions UI history).
 
 ## Open follow-ups (deferred during this session)
 
@@ -58,16 +88,51 @@ Recommended: verify the two fixes in prod first (small, fast), then Phase 12b.
 
 ## Next session — start here
 
-1. Read this file.
-2. Push the local commit so the polling + filter-log fixes hit prod.
-3. Trigger Run-now on `/ddr5-rdimm-256gb`; confirm the page auto-refreshes
-   to the newly-committed report (no manual reload). If it still
-   stalls, the cache-buster didn't help — investigate the
-   `getProductReports` path next (also hits GitHub edge).
-4. Pull `worker/data/filter_logs/<date>.jsonl` from the GH Actions
-   artifact (or local re-run) and skim it to confirm rejection
-   reasons are useful.
-5. Then pick Phase 12b (Tier-B adapter) or 12c (schedule editor UI).
+The chain of fixes built ai_filter observability, but the prod failure
+isn't yet diagnosed. Pull the data first, then theorise.
+
+1. **Read this file.**
+2. **Pull the run-diagnostics artifact from the most recent GH Actions
+   run.** Open <https://github.com/ARobicsek/product_search/actions/workflows/search-on-demand.yml>,
+   click the most recent successful run, scroll to the bottom of the
+   summary page → "Artifacts" panel → download
+   `run-diagnostics-ddr5-rdimm-256gb-<run_id>.zip`. Inspect:
+   - `filter_logs/<date>.jsonl` — last N entries (one per listing for
+     the latest run). What did GLM 4.5 Flash actually return per
+     listing? Are reasons sane? Does any listing have `pass=true`?
+   - `llm_traces/<date>.jsonl` — find the entry where `model =
+     "glm-4.5-flash"` (most recent). Inspect `response`. Is it valid
+     JSON? `{"evaluations":[…]}`? An empty string? Truncated?
+3. **If GLM 4.5 Flash also failed silently,** the next move is to try
+   a different provider for ai_filter (e.g. `anthropic /
+   claude-haiku-4-5`, which is already wired and working for synth).
+   Search `worker/src/product_search/validators/ai_filter.py` line 88
+   for the `provider="glm", model="glm-4.5-flash"` call and swap.
+4. **If GLM 4.5 Flash succeeded but returned `pass=false` for all
+   listings,** read the reasons in `filter_logs`. The prompt may
+   still be too strict, or the eBay adapter is producing data the
+   prompt can't reconcile. Iterate on the prompt or the adapter
+   (consider populating form_factor/ecc/voltage from the title in
+   `worker/src/product_search/adapters/ebay.py`).
+5. **Investigate the UI polling timeout.** Check
+   `web/components/RunNowButton.tsx` for the polling timeout constant.
+   Recent on-demand runs took 3-4 minutes per the Actions list; if
+   the UI gives up earlier, bump the timeout. Also verify
+   `getProductReports` (lists dates) isn't being edge-cached by
+   GitHub's `api.github.com` — it already uses `cache: 'no-store'`
+   but may benefit from the same `?_cb=` buster pattern.
+6. **Cost tracking (option A from this session) is still queued.**
+   Once prod returns listings, build the worker-side per-run cost
+   helper (read today's traces, multiply by a hand-maintained
+   pricing table, append to the report's "Sources searched" panel)
+   and the onboarding-chat session-cost SSE event. Design notes
+   already in this conversation; one-day work for both.
+7. **Then** pick Phase 12b (Tier-B adapter) or 12c (schedule editor).
+
+Useful housekeeping before the next run:
+- `rm worker/data/filter_logs/2026-04-30.jsonl` to start with a clean
+  local slate (the existing 41 lines are pytest contamination from
+  earlier in this session, fixed in `dc34961`).
 
 ## Manual verification still needed for Phase 11
 
@@ -139,7 +204,35 @@ None.
 
 ## Recently completed
 
-- 2026-04-30: UI polling cache-buster + AI filter reasoning logs.
+- 2026-04-30 (late session): Five-commit ai_filter debug arc — STILL
+  RETURNS 0 PASSED IN PROD. See "Open issues" at top.
+  - `2072708` — disabled scheduled cron (`search-scheduled.yml` keeps
+    only `workflow_dispatch`).
+  - `6ee155d` — `ai_filter` parser accepts four shapes (canonical
+    object, legacy `indices` object, bare-array variants); writes
+    sentinel rows on failure; loud `[ai_filter] ...` stderr.
+  - `d05523e` — prompt rewrite teaching LLM that unknown attrs ≠
+    failure; only reject on present-and-violating data or clear title
+    contradiction. Eliminates the "all 95 reject because eBay adapter
+    leaves form_factor/ecc/voltage as None" hypothesis.
+  - `dc34961` — workflow upload-artifact step publishes
+    `worker/data/filter_logs/` and `worker/data/llm_traces/` from each
+    run. Test fixture redirects log writes to tmp_path so pytest
+    stops polluting the local file.
+  - `8726dc3` — confirmed via stderr that GLM-5.1 dumped CoT prose
+    into `content` (visible: "The user wants to filter a list of
+    products for DDR5 RDIMM ECC..."). Switched `ai_filter` model from
+    `glm-5.1` (reasoning) to `glm-4.5-flash` (Phase 5 benchmark
+    winner; honors `json_object`; ~10x cheaper). Hardened
+    `_openai.py` to pick whichever of `content`/`reasoning_content`
+    actually parses as JSON. New tests pin the field-pick logic.
+  - **Despite all five commits, the run after `8726dc3` still
+    reported 95 fetched / 0 passed.** Diagnostic artifact wasn't
+    pulled before the user ended the session. Next session must
+    download the artifact and inspect the actual GLM 4.5 Flash
+    response per listing.
+
+- 2026-04-30 (early session): UI polling cache-buster + AI filter reasoning logs.
   - `web/lib/github.ts:getReportContent` now appends `?_cb=${Date.now()}`
     to the `raw.githubusercontent.com` URL. The CDN was returning the
     stale report after `revalidatePath`, so polling refreshed against
