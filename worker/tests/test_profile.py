@@ -207,6 +207,40 @@ def test_rejects_empty_report_columns() -> None:
     assert "non-empty" in str(exc_info.value).lower()
 
 
+def test_brand_candidates_optional_defaults_none() -> None:
+    profile = Profile.model_validate(VALID_PROFILE)
+    assert profile.brand_candidates is None
+
+
+def test_brand_candidates_accepts_strings() -> None:
+    import copy
+
+    good = copy.deepcopy(VALID_PROFILE)
+    good["brand_candidates"] = ["Bose", "Sony"]
+    profile = Profile.model_validate(good)
+    assert profile.brand_candidates == ["Bose", "Sony"]
+
+
+def test_rejects_empty_brand_candidates_list() -> None:
+    import copy
+
+    bad = copy.deepcopy(VALID_PROFILE)
+    bad["brand_candidates"] = []
+    with pytest.raises(ValidationError) as exc_info:
+        Profile.model_validate(bad)
+    assert "non-empty" in str(exc_info.value).lower()
+
+
+def test_rejects_blank_brand_candidate() -> None:
+    import copy
+
+    bad = copy.deepcopy(VALID_PROFILE)
+    bad["brand_candidates"] = ["Bose", "   "]
+    with pytest.raises(ValidationError) as exc_info:
+        Profile.model_validate(bad)
+    assert "non-empty" in str(exc_info.value).lower()
+
+
 # ---------------------------------------------------------------------------
 # CLI integration test
 # ---------------------------------------------------------------------------

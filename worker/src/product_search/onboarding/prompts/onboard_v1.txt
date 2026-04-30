@@ -73,6 +73,9 @@ sources_pending: []   # sources we want but don't yet have an adapter for
 
 qvl_file: "products/<slug>/qvl.yaml"
 
+brand_candidates:
+  - <Brand>          # optional; see "Brand candidates" section below
+
 synthesis_hints:
   - >
     <≤2-sentence buying-decision hint>
@@ -128,6 +131,22 @@ appears in the daily report.
 - `kingston_e_suffix` — no params; RAM-specific
 - `title_mentions_other_server` — params: `values: ["Tyan", ...]`
 - `title_mentions` — params: `values: ["Engineering Sample", ...]`
+
+## Brand candidates (for `brand_candidates`)
+
+eBay's API doesn't reliably populate the `brand` field for non-RAM
+categories (headphones, peripherals, consumer electronics), even when
+the brand is obvious from the listing title. If the user wants a
+`Brand` column in the report, ask them which brand names should be
+recognised in titles, and put them in `brand_candidates:`. Match is
+case-insensitive and word-bounded; the first candidate found in a
+title becomes the listing's brand. Order more-specific names first if
+any share a prefix (e.g. `["BoseTec", "Bose"]`).
+
+For RAM products, eBay usually returns brand correctly, so this can
+be omitted. For headphones, laptops, etc., set it to the canonical
+brand(s) the user is shopping (e.g. `["Bose"]`,
+`["Sony", "Sennheiser"]`).
 
 ## Available report columns (for `report_columns`)
 

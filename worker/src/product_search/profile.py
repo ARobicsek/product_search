@@ -231,7 +231,29 @@ class Profile(BaseModel):
     # columns appear in the report.
     report_columns: list[str] | None = None
 
+    # Optional list of brand names the validator pipeline should look
+    # for in listing titles when an adapter leaves ``brand`` as ``None``.
+    # Match is case-insensitive, word-boundary. The first candidate
+    # found is assigned to ``listing.brand`` in its declared casing.
+    # Used because eBay's Browse API summary endpoint doesn't reliably
+    # populate ``brand`` for non-RAM categories (e.g. headphones).
+    brand_candidates: list[str] | None = None
+
     schedule: Schedule
+
+    @field_validator("brand_candidates")
+    @classmethod
+    def brand_candidates_must_be_non_empty_strings(
+        cls, v: list[str] | None
+    ) -> list[str] | None:
+        if v is None:
+            return v
+        if len(v) == 0:
+            raise ValueError("brand_candidates: list must be non-empty if provided")
+        for c in v:
+            if not isinstance(c, str) or not c.strip():
+                raise ValueError("brand_candidates: each entry must be a non-empty string")
+        return v
 
     @field_validator("report_columns")
     @classmethod

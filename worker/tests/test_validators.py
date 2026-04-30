@@ -5,7 +5,7 @@ from __future__ import annotations
 from product_search.profile import QVL, FilterRule, FlagRule, Profile
 from product_search.validators.filters import apply_filters
 from product_search.validators.flags import apply_flags
-from product_search.validators.pipeline import run_pipeline
+from product_search.validators.pipeline import infer_brand_from_title, run_pipeline
 from product_search.validators.qvl import annotate_qvl
 from tests.test_phase2 import _make_listing
 from tests.test_profile import VALID_PROFILE
@@ -141,3 +141,57 @@ def test_pipeline_flags_unknown_quantity() -> None:
     passed, rejected = run_pipeline([lst], profile, None)
     assert rejected == 0
     assert "unknown_quantity" in passed[0].flags
+
+
+# ---------------------------------------------------------------------------
+# Brand inference
+# ---------------------------------------------------------------------------
+
+
+def test_infer_brand_fills_in_when_adapter_left_it_none() -> None:
+    lst = _make_listing(title="Bose Noise Cancelling Headphones 700 (Black)")
+    lst.brand = None
+    infer_brand_from_title(lst, ["Bose"])
+    assert lst.brand == "Bose"
+
+
+def test_infer_brand_is_case_insensitive_but_preserves_canonical_casing() -> None:
+    lst = _make_listing(title="BOSE Noise Cancelling Headphones NC700 Silver")
+    lst.brand = None
+    infer_brand_from_title(lst, ["Bose"])
+    assert lst.brand == "Bose"
+
+
+def test_infer_brand_does_not_overwrite_existing_brand() -> None:
+    lst = _make_listing(title="Bose Noise Cancelling Headphones 700")
+    lst.brand = "Sony"
+    infer_brand_from_title(lst, ["Bose"])
+    assert lst.brand == "Sony"
+
+
+def test_infer_brand_uses_word_boundary() -> None:
+    """'turbo' should not match 'turbojet' — protect against substrings."""
+    lst = _make_listing(title="Turbojet 5000 Vacuum")
+    lst.brand = None
+    infer_brand_from_title(lst, ["Turbo"])
+    assert lst.brand is None
+
+
+def test_infer_brand_first_match_wins() -> None:
+    lst = _make_listing(title="Sony WH-1000XM5 Bose-style headphones")
+    lst.brand = None
+    infer_brand_from_title(lst, ["Sony", "Bose"])
+    assert lst.brand == "Sony"
+
+
+def test_pipeline_runs_brand_inference() -> None:
+    lst = _make_listing(
+        title="Bose Noise Cancelling Headphones 700",
+        attrs={"capacity_gb": 32},
+    )
+    lst.brand = None
+    profile_dict = {**VALID_PROFILE, "brand_candidates": ["Bose"]}
+    profile = Profile.model_validate(profile_dict)
+    passed, _ = run_pipeline([lst], profile, None)
+    assert len(passed) == 1
+    assert passed[0].brand == "Bose"

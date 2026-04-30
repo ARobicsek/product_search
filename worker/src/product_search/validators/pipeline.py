@@ -5,11 +5,35 @@ Runs filters, flags, QVL annotation, and calculates `total_for_target_usd`.
 
 from __future__ import annotations
 
+import re
+
 from product_search.models import Listing
 from product_search.profile import QVL, Profile
 from product_search.validators.ai_filter import ai_filter
 from product_search.validators.flags import apply_flags
 from product_search.validators.qvl import annotate_qvl
+
+
+def infer_brand_from_title(listing: Listing, candidates: list[str]) -> None:
+    """Fill in ``listing.brand`` from a title-substring match if it's None.
+
+    eBay's Browse API doesn't always return ``brand`` in the search summary
+    for non-RAM categories (e.g. headphones), so the synthesizer's Brand
+    column shows "unknown" even for visually obvious brands. Match is
+    case-insensitive and word-bounded so "boseheadphones" doesn't match
+    "Bose". The first candidate found wins (so order the list by
+    specificity if any candidates share a prefix).
+    """
+    if listing.brand or not candidates:
+        return
+    title_lower = listing.title.lower()
+    for cand in candidates:
+        token = cand.strip().lower()
+        if not token:
+            continue
+        if re.search(rf"\b{re.escape(token)}\b", title_lower):
+            listing.brand = cand
+            return
 
 
 def _calculate_total(listing: Listing, profile: Profile) -> float | None:
@@ -66,15 +90,19 @@ def run_pipeline(
     rejected_count = len(listings) - len(ai_passed_listings)
 
     for listing in ai_passed_listings:
-        # 2. Annotate QVL
+        # 2. Infer brand from title if the adapter left it blank
+        if profile.brand_candidates:
+            infer_brand_from_title(listing, profile.brand_candidates)
+
+        # 3. Annotate QVL
         annotate_qvl(listing, qvl)
 
-        # 3. Apply Flags
+        # 4. Apply Flags
         apply_flags(listing, profile.spec_flags)
 
-        # 4. Calculate total for target
+        # 5. Calculate total for target
         listing.total_for_target_usd = _calculate_total(listing, profile)
-        
+
         # If unknown quantity and total_for_target_usd couldn't be calculated
         # we still keep it, but it might be flagged.
         if listing.quantity_available is None and "unknown_quantity" not in listing.flags:

@@ -267,6 +267,21 @@ export function parseAndValidateProfileYaml(text: string): ParsedProfile {
     if (hints) hints.forEach((h, i) => asString(h, `synthesis_hints[${i}]`, ctx));
   }
 
+  if (obj.brand_candidates !== undefined && obj.brand_candidates !== null) {
+    const cands = asArray(obj.brand_candidates, 'brand_candidates', ctx);
+    if (cands) {
+      if (cands.length < 1) {
+        ctx.errors.push('brand_candidates: list must be non-empty if provided');
+      }
+      cands.forEach((c, i) => {
+        const s = asString(c, `brand_candidates[${i}]`, ctx);
+        if (s !== null && s.trim() === '') {
+          ctx.errors.push(`brand_candidates[${i}]: must be a non-empty string`);
+        }
+      });
+    }
+  }
+
   if (obj.report_columns !== undefined && obj.report_columns !== null) {
     const cols = asArray(obj.report_columns, 'report_columns', ctx);
     if (cols) {

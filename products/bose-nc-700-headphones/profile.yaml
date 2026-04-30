@@ -36,6 +36,9 @@ sources_pending: []
 
 qvl_file: "products/bose-nc-700-headphones/qvl.yaml"
 
+brand_candidates:
+  - Bose
+
 synthesis_hints:
   - >
     Watch out for similar Bose models (QC35, QC45, QuietComfort, SoundLink) being listed under misleading titles — verify the listing is specifically for the Noise Cancelling Headphones 700.
