@@ -13,6 +13,7 @@ import { notFound } from 'next/navigation';
 import { RunNowButton } from './RunNowButton';
 import SubscribeButton from './SubscribeButton';
 import { ColumnChooserButton } from './ColumnChooserButton';
+import { RunInfoFooter } from './RunInfoFooter';
 
 export default async function ProductPage({
   params,
@@ -163,34 +164,3 @@ export default async function ProductPage({
   );
 }
 
-function formatDuration(ms: number): string {
-  const s = Math.floor(ms / 1000);
-  if (s < 60) return `${s}s`;
-  const m = Math.floor(s / 60);
-  const rem = s % 60;
-  return `${m}m ${rem.toString().padStart(2, '0')}s`;
-}
-
-function RunInfoFooter({
-  lastRun,
-}: {
-  lastRun: { completedAt: string; durationMs: number; conclusion: string | null };
-}) {
-  const completed = new Date(lastRun.completedAt);
-  const completedLabel = completed.toLocaleString(undefined, {
-    dateStyle: 'medium',
-    timeStyle: 'short',
-  });
-  const duration = formatDuration(lastRun.durationMs);
-  const failed = lastRun.conclusion && lastRun.conclusion !== 'success';
-  return (
-    <div
-      className={`mt-6 pt-4 border-t border-gray-200 dark:border-gray-800 text-xs ${
-        failed ? 'text-red-600 dark:text-red-400' : 'text-gray-500 dark:text-gray-400'
-      }`}
-    >
-      Last run completed {completedLabel} · took {duration}
-      {failed ? ` · conclusion: ${lastRun.conclusion}` : ''}
-    </div>
-  );
-}

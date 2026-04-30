@@ -8,6 +8,109 @@
 
 See the Phase 12 brief in [PHASES.md](PHASES.md#phase-12--polish--second-product-proof).
 
+## Status as of end of 2026-04-30 session (continuation 7)
+
+**Cost visibility (run + onboarding), inline column chooser on the run
+page, and local-timezone fix for the run footer.**
+
+Three commits this session, all local at handoff:
+
+1. **ADR-028** (`898b74a`) — Bottom line and Flags become deterministic;
+   LLM writes only the Context paragraph. The 2026-04-30 prod run
+   rejected `['7.7']` (a fabricated percentage) even after ADR-027's
+   retry — the failure mode was structural, not promptable. Splitting
+   numeric content (Python) from qualitative prose (LLM) eliminates
+   the class of failure entirely. See ADR-028 in DECISIONS.md.
+
+2. **Cost visibility + column chooser** (`dd7952d`):
+   - Worker: new `worker/src/product_search/llm/pricing.py` price
+     table; `ai_filter` exposes `LAST_RUN_USAGE`; `synthesize()` sums
+     tokens across the retry; `cli.py._build_run_cost_md` renders a
+     deterministic Run-cost panel appended to every report (success,
+     post-check stub, zero-pass diagnostic).
+   - Web: `web/lib/llm-prices.ts` mirrors the Python table;
+     `/api/onboard/chat` emits a `usage` SSE event from `final.usage`;
+     `OnboardChat.tsx` accumulates per-turn usage and renders a
+     `SessionCost` block in the sidebar footer.
+   - Web: inline column chooser on `/[product]` — new
+     `web/lib/report-columns.ts` (column metadata + surgical YAML
+     mutators); new `web/app/[product]/ColumnChooserButton.tsx` with
+     selected/available split, up/down reorder, save via existing
+     `/api/onboard/save`. Saves immediately with "Saved. Will apply on
+     the next run." (option A — no auto re-run).
+
+3. **Run footer renders in user's local timezone** (this commit):
+   - `RunInfoFooter` was previously a function inside the server
+     component `[product]/page.tsx`, so `toLocaleString` ran on Vercel
+     (UTC). Extracted to its own client component
+     `web/app/[product]/RunInfoFooter.tsx`. Renders a placeholder
+     during SSR, then `useEffect` fills in the localized string once
+     the browser hydrates. Wraps the timestamp in `<time
+     dateTime={iso}>` for accessibility / semantics.
+   - The `RunNowButton`'s "Last run: 2m · just now" caption was
+     already a client component; no change there.
+
+118/118 worker tests pass (98 baseline + 10 ADR-028 builders + 10
+pricing helpers, all added this session). Web `tsc` and `eslint` clean
+on all changed files (the one pre-existing `OnboardChat.tsx` warning
+predates this session).
+
+**Files added this session**:
+- `worker/src/product_search/llm/pricing.py`
+- `worker/tests/test_pricing.py`
+- `web/lib/llm-prices.ts`
+- `web/lib/report-columns.ts`
+- `web/app/[product]/ColumnChooserButton.tsx`
+- `web/app/[product]/RunInfoFooter.tsx`
+
+**Files modified this session**:
+- `worker/src/product_search/profile.py` (FlagRule.description)
+- `worker/src/product_search/synthesizer/synthesizer.py` +
+  `__init__.py` (deterministic Bottom line / Flags; sum tokens across
+  retry)
+- `worker/src/product_search/synthesizer/prompts/synth_v1.txt`
+  (Context-only)
+- `worker/src/product_search/validators/ai_filter.py`
+  (LAST_RUN_USAGE)
+- `worker/src/product_search/cli.py` (`_build_run_cost_md`)
+- `worker/tests/test_synthesizer.py`
+- `web/app/api/onboard/chat/route.ts` (usage SSE event)
+- `web/app/onboard/OnboardChat.tsx` (SessionCost block)
+- `web/app/[product]/page.tsx` (profile fetch + chooser button +
+  client RunInfoFooter import)
+- `docs/DECISIONS.md` (ADR-028)
+
+**Three local commits ahead of `origin/main` at handoff:**
+- `898b74a` — ADR-028 (LLM writes Context only)
+- `dd7952d` — cost visibility + column chooser
+- (pending) — local timezone fix for run footer + this PROGRESS update
+
+**Next session — start here:**
+
+1. **Push the three local commits.** They build on each other; pushing
+   together is fine. CI should pass (worker pytest is green, web tsc
+   and lint are green on changed files).
+2. **Live verification on each product:**
+   - Bose: Bottom line shows "$47.97 from schicjar via ebay_search …
+     (used)"; Flags section enumerates each flag with a description;
+     Context paragraph is digit-free narrative; Run-cost panel at the
+     bottom shows ai_filter and synth costs; bottom-of-page footer
+     shows the user's local time.
+   - DDR5: same shape with `$X total for target` in Bottom line.
+3. **Test the column chooser end-to-end** — open it on either product,
+   change the column set, save, click Run-now, confirm the next
+   report uses the new columns.
+4. **Test the onboarding session-cost block** — start a new
+   `/onboard` session, exchange a few turns, confirm the Session cost
+   row appears in the sidebar footer with running total.
+5. **Phase 12b (Tier-B adapter) and 12c (schedule editor UI)** are
+   still queued. Pick one once two clean consecutive runs land on
+   each product.
+6. **Onboarding follow-up** (deferred from continuation 6): teach the
+   onboarding prompt to ask for `description:` per flag at
+   profile-creation time, so `FLAG_FALLBACK_DESCRIPTIONS` becomes a
+   safety net rather than the common path.
+
 ## Status as of end of 2026-04-30 session (continuation 6)
 
 **Numbers belong to Python; words belong to the LLM. Bottom line and
