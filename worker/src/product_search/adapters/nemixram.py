@@ -132,7 +132,7 @@ def _fetch_live(query: AdapterQuery) -> list[Listing]:
     with httpx.Client(timeout=20.0) as client:
         resp = client.get(api_url, params={"limit": query.max_results_per_query})
         if resp.status_code != 200:
-            return []
+            raise RuntimeError(f"HTTP {resp.status_code}: {resp.text[:100]}")
             
         data = resp.json()
         base_url = "/".join(storefront_url.split("/")[:3]) # e.g. https://nemixram.com

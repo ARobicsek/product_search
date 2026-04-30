@@ -13,6 +13,10 @@ def ai_filter(listings: list[Listing], profile: Profile) -> list[Listing]:
     if not listings:
         return []
 
+    import os
+    if os.environ.get("WORKER_USE_FIXTURES", "").strip() in ("1", "true", "yes"):
+        return listings
+
     # 1. Build context
     rules = [r.rule for r in profile.spec_filters]
     target_desc = f"Target: {profile.target.amount} {profile.target.unit}"

@@ -55,5 +55,6 @@ jobs:
             echo "No changes to commit."
           else
             git commit -m "chore: on-demand report for ${{ inputs.product }} [skip ci]"
+            git pull --rebase origin main
             git push
           fi

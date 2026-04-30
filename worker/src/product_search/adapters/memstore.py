@@ -133,7 +133,7 @@ def _fetch_live(query: AdapterQuery) -> list[Listing]:
     with httpx.Client(timeout=20.0, headers={"User-Agent": "Mozilla/5.0"}) as client:
         resp = client.get(url)
         if resp.status_code != 200:
-            return []
+            raise RuntimeError(f"HTTP {resp.status_code}: {resp.text[:100]}")
         return _parse_html(resp.text)
 
 
