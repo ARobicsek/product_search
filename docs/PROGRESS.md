@@ -8,14 +8,91 @@
 
 See the Phase 12 brief in [PHASES.md](PHASES.md#phase-12--polish--second-product-proof).
 
-## Status as of end of 2026-04-30 session (continuation 2)
+## Status as of end of 2026-04-30 session (continuation 3)
 
-**Two-part fix shipped. (1) ai_filter prompt now sends full rule
-defs (ADR-022). (2) ai_filter swapped to Anthropic Haiku 4.5 because
-the first run after (1) showed GLM-4.5-Flash emitting chain-of-thought
-prose despite json_object mode (ADR-023). Parser also now tolerates
-prose preambles before JSON. The new diagnostic block worked exactly
-as designed — caught the GLM behaviour on the first run.**
+**The whole stack works. One known intermittency in synth.**
+
+There were TWO on-demand runs after commit `33cf8db` (Haiku swap):
+
+1. **Run `25174096193`** (15:27Z on `33cf8db`) — **SUCCESS**.
+   - ai_filter (Haiku 4.5) kept 71 of 96 listings.
+   - synth (Haiku 4.5) wrote a full report (Bottom line, 30-row
+     ranked listings, Diff, Flags, Context).
+   - post-check passed — no fabricated numbers.
+   - bot committed `7f741a1`. **This is the report currently
+     committed at `reports/ddr5-rdimm-256gb/2026-04-30.md`.**
+   - Total wall-clock: ~1m40s (vs ~20m for the previous GLM run).
+
+2. **Run `25174234732`** (15:30Z on `7f741a1`) — **FAILURE at synth
+   post-check** with `fabricated numbers: ['169.54', '250']`.
+   - ai_filter still robust: 69 of 96 listings kept.
+   - synth Haiku invented `$169.54` and `250` in its narrative.
+   - cli.py exited 1 → "Commit and Push changes" was skipped (no
+     `if: always()`), so the run-1 report was preserved on disk.
+
+The user-visible "Run finished with conclusion: failure" + stale
+zero-pass report on the web UI is the run-2 stderr surfaced + an
+edge-cache miss for the run-1 commit. The actual committed report
+is the run-1 success.
+
+So the situation is:
+- ai_filter Haiku swap is unambiguously working.
+- synth Haiku is intermittent. PROGRESS already flagged this:
+  "Anthropic Haiku 4.5 still produces occasional savings figures
+  (~20% of fixtures)". Observed rate today is ~50% (1 fail / 2 runs)
+  on prod-scale data (69-71 listings vs ~10 in the fixture suite).
+- Workflow doesn't commit when search exits 1 — that masks the
+  failure mode behind a stale report.
+
+**Next session — three concrete things to do, in order:**
+
+1. **Address synth fabrication.** Two viable options, listed by
+   estimated effort:
+   - **(A) Swap synth to `glm / glm-4.5-flash`** in
+     `worker/src/product_search/config.py:synth_config()`. Phase 5
+     benchmark scored it 10/10 on the same post-check at near-zero
+     cost. GLM was originally rejected for synth in ADR-019 because
+     it hallucinated eBay tracking-param URLs — but the
+     synthesizer rewrite (2026-04-30, before this session) made the
+     ranked-listings table deterministic, so the LLM no longer
+     emits URLs at all. The URL-hallucination concern that
+     justified ADR-019 is gone. This is probably the right call.
+   - **(B) Tighten the synth prompt** in
+     `worker/src/product_search/prompts/synth_v1.txt`. Add at the
+     top: "Do NOT compute percentages, dollar savings, ratios, or
+     ANY number that is not present verbatim in the ranked listings
+     input." Test against fixtures in
+     `worker/tests/fixtures/synth/`. Lower-confidence than (A);
+     prompt iteration on Haiku has gone in circles for two sessions.
+
+2. **Make the workflow commit even on search-step failure.**
+   `.github/workflows/search-on-demand.yml` and
+   `search-scheduled.yml`: add `if: always()` to "Commit and Push
+   changes". Then a synth post-check failure would still update the
+   report (with the new diagnostic block) instead of leaving the
+   prior day's content visible. Alternative: have cli.py write a
+   stub report capturing `PostCheckError.message` before
+   `sys.exit(1)`. Either is fine; `if: always()` is one line.
+
+3. **Phase 12c (schedule editor UI) and 12b (Tier-B adapter) are
+   still queued** behind a clean, deterministic prod path.
+
+### What shipped this continuation (commits 88c1bfd and 33cf8db, both on origin/main)
+
+`88c1bfd` — full rule defs in ai_filter prompt + per-product filter
+log committed alongside report + inline diagnostic block when 0
+listings pass. ADR-022.
+
+`33cf8db` — swap ai_filter from `glm/glm-4.5-flash` to
+`anthropic/claude-haiku-4-5`. Parser walks from first `{`/`[` so a
+prose preamble can't zero a run. New test pins it. ADR-023.
+
+The diagnostic block from `88c1bfd` worked on its very first run —
+it showed exactly that GLM-4.5-Flash was emitting "Let me analyze
+the products one by one..." despite json_object mode. That observation
+drove the Haiku swap in `33cf8db`. The whole arc — diagnose, build
+diagnostics, observe, fix — completed in three commits over one
+session.
 
 ### What shipped this continuation (uncommitted at handoff start; this commit captures it)
 
@@ -100,14 +177,14 @@ style (already tracked under "Noticed but deferred").
 
 ### Open issues for next session
 
-1. **Verify the Haiku-based ai_filter on a live run.** The
-   GLM-4.5-Flash → Haiku 4.5 swap is in this commit. Trigger a run
-   via <https://ari-product-search.vercel.app/ddr5-rdimm-256gb>
-   "Run now". Expect: passing listings > 0; the committed
-   `reports/ddr5-rdimm-256gb/<date>.filter.jsonl` will show
-   per-listing verdicts; the report won't include the "AI filter
-   diagnostic" block. If 0 listings still pass, the diagnostic block
-   in the report will surface why.
+1. **synth Haiku fabrication is intermittent (~50% on prod data).**
+   See "Status as of end of 2026-04-30 session (continuation 3)"
+   above. Recommended action: swap synth to `glm/glm-4.5-flash`
+   (the URL-hallucination concern that drove ADR-019 is gone since
+   the synthesizer rewrite made the table deterministic). Add
+   `if: always()` to the workflow's commit step so post-check
+   failures show as the new diagnostic block on the web UI instead
+   of as a silent stale-cache surface.
 2. **UI polling still times out.** Latest run before the prompt fix
    showed "Timed out waiting for run to complete" in red on the page
    even though the report committed. The cache-buster (`?_cb=`)
@@ -130,44 +207,50 @@ style (already tracked under "Noticed but deferred").
 
 ## Next session — start here
 
-The ai_filter root cause is fixed in this commit (ADR-022). The
-diagnostic surface is now sufficient to debug any future regression
-from the public repo alone. Verify the fix, then move on.
+`ai_filter` is fixed (Haiku 4.5, 69 of 96 passed in prod run
+`25174234732`). The remaining blocker is `synth` fabricating numbers
+that ADR-001's post-check correctly rejects, and the workflow not
+committing reports when search exits 1.
 
-1. **Read this file.**
-2. **Trigger a live run** via
-   <https://ari-product-search.vercel.app/ddr5-rdimm-256gb> "Run now"
-   (or the GH Actions on-demand workflow with `ddr5-rdimm-256gb`).
-3. **Verify the fix worked.** Two checks:
-   - The committed report `reports/ddr5-rdimm-256gb/<today>.md` should
-     have a non-empty ranked-listings table and `ebay_search ok N / M`
-     with M > 0.
-   - The new committed `reports/ddr5-rdimm-256gb/<today>.filter.jsonl`
-     should have one line per evaluated listing with sane `pass` and
-     `reason` fields. Spot-check a few rejections and a few passes.
-4. **If 0 listings still pass**: the report itself now contains an
-   "AI filter diagnostic" section with the first 10 rejection reasons
-   (or raw LLM response on hard failure). No artifact download needed
-   — the failure mode is in the public report. Then iterate on the
-   prompt or fall back to deterministic `apply_filters`.
-5. **Investigate the UI polling timeout.** Check
-   `web/components/RunNowButton.tsx` for the polling timeout constant.
-   Recent on-demand runs took 3-4 minutes per the Actions list; if
-   the UI gives up earlier, bump the timeout. Also verify
-   `getProductReports` (lists dates) isn't being edge-cached by
-   GitHub's `api.github.com` — it already uses `cache: 'no-store'`
-   but may benefit from the same `?_cb=` buster pattern.
-6. **Cost tracking (option A from earlier this session) is still
-   queued.** Once prod returns listings, build the worker-side per-run
-   cost helper (read today's traces, multiply by a hand-maintained
-   pricing table, append to the report's "Sources searched" panel)
-   and the onboarding-chat session-cost SSE event. One-day work.
-7. **Then** pick Phase 12b (Tier-B adapter) or 12c (schedule editor).
+1. **Read this file.** Pay attention to the "continuation 3" block
+   for the actual prod stderr output.
+2. **Decide: tighten synth prompt, or swap synth to GLM 4.5 Flash.**
+   - Synth prompt lives at
+     `worker/src/product_search/prompts/synth_v1.txt`. Add
+     "Do NOT compute percentages, dollar savings, ratios, or ANY
+     number that isn't present in the ranked listings input."
+     near the top. Test against fixtures in
+     `worker/tests/fixtures/synth/` (Phase 5 leftovers).
+   - OR swap config: `worker/src/product_search/config.py` ->
+     `synth_config()`. Phase 5 benchmark scored
+     `glm/glm-4.5-flash` 10/10 on the post-check at near-zero cost.
+     URL-hallucination risk is gone since the synthesizer rewrite
+     made the ranked listings table deterministic (2026-04-30).
+   - The deferred list at the bottom of this file already notes
+     "Anthropic Haiku 4.5 still produces occasional savings figures
+     (~20% of fixtures)". With 69 listings instead of ~10 the rate
+     converged to 100%.
+3. **Make the workflow commit even on search-step failure.**
+   `.github/workflows/search-on-demand.yml` and
+   `search-scheduled.yml`: add `if: always()` to "Commit and Push
+   changes". This way a synth failure still updates the committed
+   report (which now has a diagnostic block) instead of leaving the
+   stale prior-day report visible on the web UI. Alternative: have
+   `cli.py` write a stub report before `sys.exit(1)` on
+   `PostCheckError` containing the post-check error message.
+4. **Trigger one more live run** and verify the committed report has
+   a real ranked-listings table.
+5. **Investigate the UI polling timeout** ("Run finished with
+   conclusion: failure" appears immediately when the Action exits 1
+   but the page still shows the stale report — that's correct
+   behaviour given (3) above; this issue self-resolves once the
+   workflow always commits).
+6. **Then** pick Phase 12b (Tier-B adapter), 12c (schedule editor),
+   or cost tracking.
 
 Useful housekeeping before the next run:
-- `rm worker/data/filter_logs/2026-04-30.jsonl` to start with a clean
-  local slate (the existing 41 lines are pytest contamination from
-  earlier in this session, fixed in `dc34961`).
+- `rm worker/data/filter_logs/2026-04-30.jsonl` if the local file is
+  cluttered (CI runs don't depend on local state).
 
 ## Manual verification still needed for Phase 11
 
@@ -238,6 +321,16 @@ None.
   diffs, add a second threshold or fall back gracefully when `total_for_target_usd is None`.
 
 ## Recently completed
+
+- 2026-04-30 (continuation 3): First clean live run since Phase 12
+  started. Run `25174096193` on commit `33cf8db` produced
+  `reports/ddr5-rdimm-256gb/2026-04-30.md` — Bottom line, 30-row
+  ranked listings, Diff, Flags, Context, Sources. ai_filter passed
+  71/96 listings; synth post-check passed. A SECOND run immediately
+  after hit a Haiku synth fabrication (`['169.54', '250']`) and
+  post-check correctly rejected it; that run's commit step was
+  skipped, so the run-1 report stayed on disk. See "continuation 3"
+  block at top for the full picture.
 
 - 2026-04-30 (continuation 2): The diagnostic block from the previous
   commit caught GLM-4.5-Flash emitting prose preamble before JSON.
