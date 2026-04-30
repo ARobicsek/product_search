@@ -35,13 +35,18 @@ async function putFile(
   repoPath: string,
   textContent: string,
   message: string,
+  sha?: string,
 ): Promise<PutResult> {
   const url = `https://api.github.com/repos/${REPO}/contents/${repoPath}`;
-  const body = JSON.stringify({
+  const payload: any = {
     message,
     content: Buffer.from(textContent, 'utf-8').toString('base64'),
     branch: BRANCH,
-  });
+  };
+  if (sha) {
+    payload.sha = sha;
+  }
+  const body = JSON.stringify(payload);
   const res = await fetch(url, { method: 'PUT', headers: contentsHeaders(), body, cache: 'no-store' });
   if (res.status !== 201 && res.status !== 200) {
     const txt = await res.text().catch(() => '');
@@ -55,14 +60,17 @@ async function putFile(
   };
 }
 
-async function fileExists(repoPath: string): Promise<boolean> {
+async function getFileSha(repoPath: string): Promise<string | null> {
   const url = `https://api.github.com/repos/${REPO}/contents/${repoPath}?ref=${BRANCH}`;
   const headers = contentsHeaders();
   // GET doesn't need Content-Type; remove it to keep the request clean.
   delete (headers as Record<string, string>)['Content-Type'];
   const res = await fetch(url, { headers, cache: 'no-store' });
-  if (res.status === 200) return true;
-  if (res.status === 404) return false;
+  if (res.status === 200) {
+    const data = await res.json();
+    return data.sha;
+  }
+  if (res.status === 404) return null;
   const txt = await res.text().catch(() => '');
   throw new Error(`GitHub GET ${repoPath} failed: ${res.status} ${res.statusText} ${txt}`);
 }
@@ -82,21 +90,22 @@ export async function commitNewProfile(
   const profilePath = `products/${slug}/profile.yaml`;
   const qvlPath = `products/${slug}/qvl.yaml`;
 
-  if (await fileExists(profilePath)) {
-    throw new Error(
-      `products/${slug}/profile.yaml already exists. Pick a different slug or delete the existing profile first.`,
-    );
-  }
+  const existingSha = await getFileSha(profilePath);
+  const message = existingSha
+    ? `onboard: update ${slug} profile\n\nProfile updated via /onboard interview.`
+    : `onboard: add ${slug} profile\n\nProfile created via /onboard interview.`;
 
-  // Write the profile first; if the QVL file is needed and missing, write a stub.
+  // Write the profile
   const profileResult = await putFile(
     profilePath,
     profileYaml,
-    `onboard: add ${slug} profile\n\nProfile created via /onboard interview.`,
+    message,
+    existingSha ?? undefined
   );
 
   let qvlCreated = false;
-  if (!(await fileExists(qvlPath))) {
+  const existingQvlSha = await getFileSha(qvlPath);
+  if (!existingQvlSha) {
     const stub = `# QVL (Qualified Vendor List) for ${slug}.\n# Add entries below as you find them. Each entry needs at minimum:\n#   - mpn, brand, capacity_gb, speed_mts\n# See products/ddr5-rdimm-256gb/qvl.yaml for a populated example.\nqvl: []\n`;
     await putFile(qvlPath, stub, `onboard: stub QVL for ${slug}`);
     qvlCreated = true;
