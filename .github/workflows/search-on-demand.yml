@@ -1,4 +1,5 @@
 name: Search (On-Demand)
+run-name: Search for ${{ inputs.product }}
 
 on:
   workflow_dispatch:

@@ -37,7 +37,9 @@ export async function POST(request: NextRequest) {
     return badRequest('product must be a valid slug');
   }
 
-  const dispatchedAt = new Date().toISOString();
+  const d = new Date();
+  d.setMinutes(d.getMinutes() - 2); // Buffer for clock skew between Vercel and GitHub
+  const dispatchedAt = d.toISOString();
   try {
     await dispatchOnDemandRun(product);
   } catch (err) {
