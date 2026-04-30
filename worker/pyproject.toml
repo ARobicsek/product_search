@@ -20,6 +20,10 @@ dependencies = [
     "google-generativeai>=0.7",
     # Phase 4: storage
     "aiosqlite>=0.20",
+    # Phase 12d: TLS fingerprint impersonation for the universal_ai adapter
+    # so server-rendered storefronts that gate on JA3/HTTP2-fingerprint
+    # accept us. Falls back to httpx when not installed.
+    "curl-cffi>=0.7",
 ]
 
 [project.optional-dependencies]

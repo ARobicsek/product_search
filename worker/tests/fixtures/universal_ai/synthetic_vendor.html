@@ -1,0 +1,97 @@
+<!--
+  Synthetic vendor product-list page fixture for universal_ai tests.
+  Designed to exercise:
+    - Real product anchors with $-prices nearby in a card-like ancestor.
+    - Mix of absolute and relative hrefs (urljoin must resolve correctly).
+    - UI-chrome anchors that must be filtered (cart, sign-in, "view all").
+    - A search-results URL that must be filtered.
+    - Two cards pointing at the SAME canonical URL (dedupe by scheme+host+path).
+-->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <title>SynthVendor — Headphones</title>
+</head>
+<body>
+
+<header>
+  <nav>
+    <a href="/">Home</a>
+    <a href="/cart">View cart</a>
+    <a href="/account">Sign in</a>
+    <a href="/search?q=headphones">Search results</a>
+    <a href="/collections/headphones">Headphones category</a>
+  </nav>
+</header>
+
+<main>
+
+  <section class="results">
+
+    <article class="product-card">
+      <a href="/products/synth-noise-cancelling-700">
+        <h3>SynthBose Noise Cancelling Headphones 700</h3>
+      </a>
+      <p class="meta">Brand new in box. Free shipping.</p>
+      <p class="price">$249.99</p>
+      <button>Add to cart</button>
+    </article>
+
+    <article class="product-card">
+      <a href="https://www.synthvendor.com/products/synth-700-refurb">
+        <h3>SynthBose Headphones 700 — Refurbished</h3>
+      </a>
+      <p class="meta">Refurbished, 90-day warranty.</p>
+      <p class="price">$179.50</p>
+      <a href="/cart/add?sku=synth-700-refurb">Add to bag</a>
+    </article>
+
+    <!-- Duplicate of the first card (different "view options" link
+         pointing at the same canonical URL — should dedupe). -->
+    <article class="product-card">
+      <a href="/products/synth-noise-cancelling-700?variant=black">
+        <h3>SynthBose 700 (black)</h3>
+      </a>
+      <p class="price">$249.99</p>
+    </article>
+
+    <article class="product-card">
+      <a href="/products/synth-700-used-fair">
+        <h3>Used SynthBose 700 — fair condition</h3>
+      </a>
+      <p class="meta">Used, cosmetic wear, fully functional.</p>
+      <p class="price">USD $129.00</p>
+    </article>
+
+    <article class="product-card">
+      <a href="/products/unrelated-soundbar">
+        <h3>SynthBeam Soundbar 500</h3>
+      </a>
+      <p class="meta">Brand new.</p>
+      <p class="price">$399.00</p>
+    </article>
+
+    <!-- Article missing a price — extractor should still surface it
+         (URL looks product-like) and let the LLM omit it. -->
+    <article class="product-card">
+      <a href="/products/coming-soon-flagship">
+        <h3>SynthBose Flagship — coming soon</h3>
+      </a>
+      <p class="meta">Sign up to be notified.</p>
+    </article>
+
+    <a class="view-all" href="/collections/headphones?page=2">View all</a>
+
+  </section>
+
+</main>
+
+<footer>
+  <a href="/about">About</a>
+  <a href="/contact">Contact</a>
+  <a href="mailto:hello@synthvendor.com">Email us</a>
+  <a href="tel:+18005551234">Call us</a>
+</footer>
+
+</body>
+</html>

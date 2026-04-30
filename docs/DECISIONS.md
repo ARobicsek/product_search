@@ -9,6 +9,158 @@ Status values:
 
 ---
 
+## ADR-029 — Universal vendor scraping: anchor-first extraction + Chrome TLS impersonation, no LLM URL invention
+
+**Status**: ACCEPTED (refines ADR-021's "Universal AI Adapter")
+
+**Context**: ADR-021 introduced `universal_ai_search` so the onboarding
+flow could add arbitrary vendor URLs without a developer writing a
+custom adapter. The first implementation:
+
+1. Used `httpx` with a Chrome User-Agent string but Python's TLS
+   fingerprint, which trips most modern bot-detection (Cloudflare's
+   default rules, Akamai, PerimeterX) on contact even though the
+   header looks Chromy.
+2. Used `glm-5.1` for extraction. The 2026-04-30 ai_filter debug arc
+   already established that GLM-5.1 is a reasoning model that ignores
+   `response_format=json_object` and dumps chain-of-thought into
+   `content` (see ADR-023 + memory entry `reference_zai_openai_shim`).
+   Same model was still wired into universal_ai.
+3. Stripped `<nav>`, `<footer>`, `<svg>` from the DOM, then fed the
+   resulting body text to the LLM and asked it to invent
+   `{title, price, url, condition}` objects from prose. URL
+   hallucination was guarded only by a verbatim-substring check
+   against the original raw HTML — which the LLM frequently failed
+   when the URL ran across newline-introducing whitespace in the
+   cleaned text.
+4. Had no unit tests, no fixture, no `LAST_RUN_USAGE` capture for the
+   cost panel, and no anti-bot story beyond the User-Agent header.
+
+The user wants universal vendor support to actually work, including
+overcoming bot blocking. The 2026-04-30 cost-panel work (ADR-028
+context) made it cheap to surface per-source LLM cost, but
+`universal_ai_search` was invisible.
+
+**Decision**:
+
+1. **Anchor-first candidate extraction**. `_extract_candidates(html,
+   base_url)` walks every `<a href>` in the DOM with `selectolax`,
+   resolves each href to absolute via `urljoin`, and keeps only
+   anchors that are either (a) hosted on a path that looks
+   product-like (`/product/`, `/products/`, `/p/`, `/dp/`, `/itm/`,
+   etc., or a slug-shaped last segment) OR (b) have a `$X.XX`-style
+   price token in their nearest "card-like" ancestor (climbing up to
+   4 parents and stopping when the ancestor's text exceeds 600
+   chars). Search-results URLs (`/search`, `?q=`, `/collections/`,
+   `/categories/`) are filtered out so we never emit a category page
+   as a "listing." Dedupe by canonical scheme+host+path.
+
+2. **LLM picks by index, never by URL**. The candidate list is sent
+   to Claude Haiku 4.5 with each entry's `idx`, anchor text, price
+   hints, and ≤400-char card context. The LLM returns
+   `{idx, title, price_usd, condition}` objects. URLs are looked up
+   from `candidates[idx].href` server-side. The LLM therefore cannot
+   invent URLs — they are sourced verbatim from the page's DOM, by
+   construction. This eliminates a whole class of post-check failure
+   without needing a verbatim-substring guard.
+
+3. **LLM swap glm-5.1 → claude-haiku-4-5**. Same model already used
+   by `ai_filter` (ADR-023) and as a synth fallback. Reliable JSON
+   mode, tolerates short structured payloads. Same prose-tolerant
+   `_extract_json` helper as `ai_filter` is mirrored locally in the
+   adapter so it stays standalone.
+
+4. **TLS-fingerprint impersonation via `curl_cffi`**. New optional
+   import: when the `curl_cffi` package is installed, the adapter
+   issues the GET via `cc_requests.get(..., impersonate="chrome")`,
+   which negotiates the TLS handshake and HTTP/2 settings frames
+   using a real pinned Chrome profile. Server-rendered storefronts
+   that gate on JA3/HTTP2-fingerprint accept this. When `curl_cffi`
+   is absent, the adapter falls back to plain `httpx` with the same
+   header set so existing environments keep working.
+
+5. **Cost-panel integration**. `LAST_RUN_USAGE` is populated after
+   each successful call. `cli.py`'s source loop accumulates one
+   usage row per `universal_ai_search` source (tagged with the
+   source URL so a multi-vendor profile's cost panel disambiguates
+   them) and threads them into all three Run-cost build sites
+   (success report, post-check stub, zero-pass diagnostic).
+
+6. **Onboarder prompt update**. The `web_search` section and
+   interview step 5 now actively direct the AI to use `web_search`
+   for vendor discovery and to convert each confirmed vendor URL
+   into a `universal_ai_search` source (multiple entries are fine).
+   The "Allowed source IDs" section explicitly notes that
+   `universal_ai_search` URLs must point at category / search /
+   collection pages, not single product detail pages, and that
+   sites requiring JS rendering or solving a Cloudflare challenge
+   will silently return zero listings (so the onboarder should
+   suggest alternatives in that case).
+
+7. **Test fixture + unit tests**. A synthetic vendor HTML
+   (`worker/tests/fixtures/universal_ai/synthetic_vendor.html`) pins
+   the candidate extractor's behaviour: nav/cart/footer chrome are
+   skipped, relative and absolute hrefs both resolve, duplicates by
+   canonical URL collapse, price hints attach to the right card,
+   and priceless-but-product-shaped anchors survive into the LLM
+   payload (so the LLM can decide). End-to-end `fetch()` tests stub
+   both `_fetch_html` and `call_llm`, asserting verbatim URLs in
+   the resulting Listings, no crash on out-of-range LLM idx values,
+   and tolerant parsing of a prose preamble before the JSON.
+
+**Consequence**: A profile can now declare one or more
+`universal_ai_search` sources with arbitrary vendor URLs, and the
+adapter will:
+- Get past TLS-fingerprint bot blocks on most server-rendered sites.
+- Extract real product anchors with prices structurally, not via LLM
+  guesswork.
+- Never invent a URL (URLs come from the DOM by index lookup).
+- Surface per-source LLM cost in the daily report.
+
+**Trade-offs**:
+- Sites that require full JS rendering (React/Vue SPAs, Cloudflare
+  challenge pages, Datadome) still return zero listings. The
+  adapter logs a clear "no anchor candidates extracted" warning so
+  the failure mode is debuggable from the worker log. A Tier-3
+  Playwright/headless-browser path is intentionally deferred until
+  a profile actually needs it — and may never be needed if the
+  user's vendor list happens to be all server-rendered.
+- The candidate extractor is heuristic: "looks product-like" is a
+  set of URL-substring signals plus a price-nearby check. Sites
+  with unusual URL schemes (e.g. all-numeric SKU paths, no slug)
+  may need a tweak. The synthetic test fixture makes such tweaks
+  observable as test diffs rather than silent regressions.
+- `curl_cffi` adds a transitive dependency on libcurl-impersonate
+  (ships pre-built wheels for Windows/macOS/Linux on Python 3.12).
+  CI install time grows by ~5-10 seconds on the first warm. This
+  is acceptable for the value of getting past basic bot blocks.
+- Cost: each `universal_ai_search` source is one Haiku 4.5 call
+  per run. ~1-2k input tokens (anchor candidates) + ≤500 output
+  tokens, so ~$0.005 per vendor URL per run. A profile with three
+  vendor URLs running daily costs ~$0.45/month on universal_ai
+  alone — small but visible in the cost panel.
+
+**Reversibility**: Moderate. The adapter's old call shape (LLM
+extracts directly from page text) is gone; reverting would mean
+restoring the old `universal_ai.py` from git. The `curl_cffi`
+dependency is benign and can be left in place even if reverted.
+The onboarder prompt edits are easily reverted by ADR-021's
+prior wording.
+
+**Open follow-ups**:
+- Tier-3 JS-render path (Playwright or a hosted scraping service
+  like ScrapFly / BrowserBase) gated by env var, only when a
+  profile needs it. Cost is non-trivial; defer until needed.
+- Live smoke test: pick one real vendor URL the user trusts, run
+  `cli search` on a profile pointing at it, capture a fixture from
+  the actual response if useful. Not a CI test (would couple to a
+  third-party site's HTML), but a useful one-off validation step.
+- The candidate extractor currently caps at 80 candidates per
+  page. Larger result pages would need pagination support — defer
+  until a profile actually paginates.
+
+---
+
 ## ADR-028 — Numbers belong to Python; words belong to the LLM (Bottom line and Flags become deterministic; LLM only writes Context)
 
 **Status**: ACCEPTED (refines ADR-001's split, partially supersedes

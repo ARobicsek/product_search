@@ -232,6 +232,9 @@ def _cmd_search(
 
     all_listings: list[Listing] = []
     source_stats: list[dict[str, Any]] = []
+    # Accumulate per-call universal_ai LLM usage so the run-cost panel
+    # reflects every vendor-page extraction (one call per source entry).
+    universal_ai_usage: list[dict[str, Any]] = []
     for source in profile.sources:
         query = AdapterQuery.from_profile_source(source.model_dump())
         listings: list[Listing] = []
@@ -259,8 +262,19 @@ def _cmd_search(
                 from product_search.adapters.memstore import fetch as fetch_memstore
                 listings = fetch_memstore(query)
             elif source.id == "universal_ai_search":
-                from product_search.adapters.universal_ai import fetch as fetch_universal
-                listings = fetch_universal(query)
+                from product_search.adapters import universal_ai as universal_ai_mod
+                listings = universal_ai_mod.fetch(query)
+                if universal_ai_mod.LAST_RUN_USAGE:
+                    # Tag with the source URL so the cost panel can
+                    # disambiguate when a profile has multiple vendor URLs.
+                    usage = dict(universal_ai_mod.LAST_RUN_USAGE)
+                    src_url = (
+                        query.extra.get("url")
+                        or query.storefront_url
+                        or "?"
+                    )
+                    usage["step"] = f"universal_ai ({src_url})"
+                    universal_ai_usage.append(usage)
             else:
                 error_msg = "no adapter wired"
             all_listings.extend(listings)
@@ -378,7 +392,7 @@ def _cmd_search(
             print(f"ERROR (synth post-check): {exc}", file=sys.stderr)
             # Even on failure, surface ai_filter cost (synth's two failed
             # calls are not counted because no surviving SynthesisResult).
-            stub_calls: list[dict] = []
+            stub_calls: list[dict] = list(universal_ai_usage)
             if ai_filter_mod.LAST_RUN_USAGE:
                 stub_calls.append(ai_filter_mod.LAST_RUN_USAGE)
             stub_cost_md = _build_run_cost_md(stub_calls)
@@ -415,8 +429,9 @@ def _cmd_search(
                 f"persisted to SQLite and the daily CSV._"
             )
 
-        # Build deterministic Run cost panel from ai_filter (if any) + synth.
-        run_calls: list[dict] = []
+        # Build deterministic Run cost panel from each universal_ai
+        # source (if any) + ai_filter (if any) + synth.
+        run_calls: list[dict] = list(universal_ai_usage)
         if ai_filter_mod.LAST_RUN_USAGE:
             run_calls.append(ai_filter_mod.LAST_RUN_USAGE)
         run_calls.append({
@@ -443,7 +458,7 @@ def _cmd_search(
         from product_search.synthesizer import default_report_path, write_report
 
         diagnostic_md = _build_filter_diagnostic_md(len(all_listings))
-        zero_pass_calls: list[dict] = []
+        zero_pass_calls: list[dict] = list(universal_ai_usage)
         if ai_filter_mod.LAST_RUN_USAGE:
             zero_pass_calls.append(ai_filter_mod.LAST_RUN_USAGE)
         zero_pass_cost_md = _build_run_cost_md(zero_pass_calls)

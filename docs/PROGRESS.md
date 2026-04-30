@@ -8,6 +8,120 @@
 
 See the Phase 12 brief in [PHASES.md](PHASES.md#phase-12--polish--second-product-proof).
 
+## Status as of end of 2026-04-30 session (continuation 8)
+
+**Universal vendor scraping: anchor-first extraction + Chrome TLS
+impersonation, no LLM URL invention.**
+
+The `universal_ai_search` adapter (introduced in ADR-021) was wired into
+`cli.py` but had never been exercised in prod and had three structural
+problems: it used `glm-5.1` (a reasoning model the project already
+abandoned everywhere else for ignoring `json_object` mode), it had no
+anti-bot story beyond a Chrome User-Agent header, and it asked the LLM
+to invent `{title, price, url}` objects from cleaned page text — guarded
+only by a verbatim-substring URL check that frequently misfired across
+whitespace boundaries. ADR-029 addresses all three.
+
+Single commit this session, local at handoff.
+
+1. **Refactor `worker/src/product_search/adapters/universal_ai.py`**
+   end-to-end (ADR-029):
+   - `_extract_candidates(html, base_url)` walks every `<a href>` with
+     selectolax, resolves to absolute via `urljoin`, filters
+     navigation/cart/footer/search/category chrome, attaches nearby
+     `$X.XX` price hints from a "card-like" ancestor (≤4 hops, stops at
+     >600 chars), and dedupes by canonical scheme+host+path. Caps at
+     80 candidates.
+   - `fetch()` sends candidates to Claude Haiku 4.5 (same model as
+     `ai_filter`, ADR-023) with the prose-tolerant `_extract_json`
+     parser mirrored locally. The LLM returns
+     `{idx, title, price_usd, condition}`; URLs are looked up
+     server-side from `candidates[idx].href`. URL hallucination is
+     structurally impossible.
+   - `_fetch_html` prefers `curl_cffi` (Chrome TLS-fingerprint
+     impersonation via libcurl-impersonate) when installed, falls
+     back to `httpx` otherwise. Logs status + body length on every
+     fetch so bot blocks surface in the worker log.
+   - `LAST_RUN_USAGE` populated after each call so `cli.py` can
+     surface universal_ai cost in the Run-cost panel.
+
+2. **`worker/pyproject.toml`** — `curl-cffi>=0.7` added to runtime
+   dependencies (ships pre-built wheels for Windows/macOS/Linux on
+   Python 3.12).
+
+3. **`worker/src/product_search/cli.py`** — source loop accumulates
+   one `universal_ai_usage` entry per `universal_ai_search` source
+   (tagged with the source URL so the cost panel disambiguates
+   multi-vendor profiles). Threaded into all three Run-cost build
+   sites: success report, post-check stub, zero-pass diagnostic.
+
+4. **`worker/src/product_search/onboarding/prompts/onboard_v1.txt`**
+   — `web_search` section reframed from "use sparingly" to "use
+   actively for vendor discovery"; interview step 5 now explicitly
+   walks the AI through finding vendor URLs via web_search and
+   converting each into a `universal_ai_search` source. The
+   "Allowed source IDs" entry for `universal_ai_search` documents
+   that URLs must point at category/search/collection pages (not
+   product detail pages) and that JS-rendered / Cloudflare-gated
+   sites silently return zero listings.
+
+5. **Test coverage** — new `worker/tests/test_universal_ai.py` (10
+   tests) pinned against
+   `worker/tests/fixtures/universal_ai/synthetic_vendor.html`. Covers
+   nav/cart/footer/search filtering, relative+absolute URL
+   resolution, canonical-URL dedupe, price-hint attachment,
+   priceless-but-product-shaped anchor survival, end-to-end fetch
+   with verbatim URLs, out-of-range LLM idx rejection, prose-preamble
+   tolerance, no-URL short-circuit, and no-anchor-found
+   short-circuit (LLM must NOT be called when extraction yields no
+   candidates).
+
+128/128 worker tests pass (118 baseline + 10 new). Mypy clean on
+`adapters/universal_ai.py`. Ruff clean on the new files. Pre-existing
+`cli.py` `dict` type-arg notices and unrelated E501s left alone per
+session protocol.
+
+**Files added this session**:
+- `worker/src/product_search/adapters/universal_ai.py` (full rewrite)
+- `worker/tests/test_universal_ai.py`
+- `worker/tests/fixtures/universal_ai/synthetic_vendor.html`
+
+**Files modified this session**:
+- `worker/pyproject.toml` (curl-cffi runtime dep)
+- `worker/src/product_search/cli.py` (per-source universal_ai usage capture)
+- `worker/src/product_search/onboarding/prompts/onboard_v1.txt` (active web_search guidance + per-vendor universal_ai_search entries)
+- `docs/DECISIONS.md` (ADR-029)
+- `docs/PROGRESS.md` (this block)
+
+**Next session — start here:**
+
+1. **Push this session's commit.** Continuation 7's three commits
+   are already on `origin/main`. CI should pass (worker pytest is
+   green, web tsc/lint untouched).
+2. **Live smoke-test universal vendor** — pick one trusted vendor
+   (e.g. an Adorama, B&H, or a Shopify store the user knows). Edit
+   the Bose profile to add a `universal_ai_search` source pointing
+   at that vendor's headphones search page. Run on-demand and
+   verify:
+   - The "Sources searched" panel shows
+     `universal_ai_search` with a fetched count > 0.
+   - The Run-cost panel shows a `universal_ai (<url>)` row with
+     the per-source Haiku call cost.
+   - At least one ranked-listings row carries
+     `source: universal_ai_search` with a real verbatim vendor URL.
+   - If the vendor blocks (zero listings extracted), the worker
+     log shows the clear "no anchor candidates extracted" warning;
+     swap to a different vendor and try again.
+3. **If the smoke test reveals a Cloudflare-challenge / JS-render
+   site the user really needs**: defer to a follow-up Tier-3
+   adapter session. Options: Playwright with stealth, or a hosted
+   service like ScrapFly / BrowserBase gated behind an env var.
+4. **Phase 12b (Tier-B adapter) and 12c (schedule editor UI)** are
+   still queued.
+5. **Onboarding follow-up** (deferred from continuation 6): teach
+   the onboarding prompt to ask for `description:` per flag at
+   profile-creation time.
+
 ## Status as of end of 2026-04-30 session (continuation 7)
 
 **Cost visibility (run + onboarding), inline column chooser on the run
