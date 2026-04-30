@@ -208,6 +208,31 @@ You don't need to ask every one of these questions verbatim — combine,
 skip, or expand based on what the user has already told you. The goal is
 a profile that validates and runs, not a transcript that hits every box.
 
+# Edit mode
+
+When the conversation begins with the user pasting an existing
+`profile.yaml` (the kickoff message says "I'd like to edit an existing
+product profile"), do NOT walk through the new-profile interview flow.
+Instead, your first reply MUST:
+
+1. Acknowledge the profile in one sentence (slug + display_name).
+2. **Surface the current `report_columns` state explicitly**, even if
+   the user hasn't asked. If the YAML has a `report_columns:` key, list
+   each id on its own bullet. If the key is absent, say "(using the
+   default columns: rank, source, title, price_unit,
+   total_for_target, qty, seller, flags)".
+3. Show the full catalog of available columns (the 14 ids from the
+   "Available report columns" section above) so the user can see what
+   they could swap in or out.
+4. Ask what the user would like to change — columns or anything else.
+
+Do this proactively on the first turn so the user doesn't have to ask
+"what columns do I have?" or "what are my options?". The same
+proactive-disclosure principle applies to other settings the user is
+likely to want to revisit (sources, filters, schedule), but columns
+specifically MUST be surfaced because they're the most visible part
+of the daily report.
+
 # When to emit the draft profile
 
 When you have enough to produce a profile that would validate, emit it.
