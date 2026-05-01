@@ -276,10 +276,7 @@ Instead, your first reply MUST:
    each id on its own bullet. If the key is absent, say "(using the
    default columns: rank, source, title, price_unit,
    total_for_target, qty, seller, flags)".
-3. Show the full catalog of available columns (the 14 ids from the
-   "Available report columns" section above) so the user can see what
-   they could swap in or out.
-4. Ask what the user would like to change — columns or anything else.
+3. Ask what the user would like to change — columns or anything else.
 
 Do this proactively on the first turn so the user doesn't have to ask
 "what columns do I have?" or "what are my options?". The same

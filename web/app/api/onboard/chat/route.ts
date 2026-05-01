@@ -67,10 +67,18 @@ export async function POST(request: NextRequest) {
     return bad('last message must be from user');
   }
 
+  const lastUserText = messages[messages.length - 1].content.toLowerCase();
+  const mightSearch = lastUserText.includes('search') || lastUserText.includes('look') || lastUserText.includes('find');
+
   // Keep only the last 6 messages (3 turns) to prevent context ballooning.
   // Since the assistant emits the full draft profile in each turn, older turns
   // are redundant and only increase cost.
-  const trimmedMessages = messages.slice(-6);
+  // CRITICAL: We MUST preserve messages[0] because it contains the original
+  // profile.yaml and slug when editing an existing profile!
+  let trimmedMessages = messages;
+  if (messages.length > 6) {
+    trimmedMessages = [messages[0], ...messages.slice(-5)];
+  }
 
   const systemPrompt = await loadOnboardPrompt();
   
@@ -83,6 +91,12 @@ export async function POST(request: NextRequest) {
     async start(controller) {
       const send = (payload: unknown) => controller.enqueue(sseEncode(payload));
       try {
+        let hasEmittedToolUse = false;
+        if (mightSearch) {
+          send({ type: 'tool_use', name: 'web_search' });
+          hasEmittedToolUse = true;
+        }
+
         const messageStream = await client.chat.completions.create({
           model: MODEL,
           max_tokens: MAX_TOKENS,
@@ -103,7 +117,6 @@ export async function POST(request: NextRequest) {
           ],
         });
 
-        let hasEmittedToolUse = false;
         let stopReason: string | null = null;
 
         for await (const chunk of messageStream) {
