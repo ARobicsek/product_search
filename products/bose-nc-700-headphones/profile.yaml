@@ -34,9 +34,11 @@ sources:
   - id: "universal_ai_search"
     url: "https://www.backmarket.com/en-us/search?q=bose+nc+700"
   - id: "universal_ai_search"
-    url: "https://www.bhphotovideo.com/c/search?Ntt=bose+nc+700&N=0"
+    url: "https://buy.gazelle.com/collections/headphones"
 
-sources_pending: []
+sources_pending:
+  - id: "newegg_search"
+    note: "Newegg search adapter not yet available; add when built"
 
 qvl_file: "products/bose-nc-700-headphones/qvl.yaml"
 
