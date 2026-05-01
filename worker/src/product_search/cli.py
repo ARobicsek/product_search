@@ -84,7 +84,7 @@ def main() -> None:
     search_parser.add_argument(
         "--no-store",
         action="store_true",
-        help="Do not write results to SQLite or to the daily CSV dump",
+        help="Do not write results to SQLite or to the per-run CSV dump",
     )
     search_parser.add_argument(
         "--no-report",
@@ -355,7 +355,8 @@ def _cmd_search(
     )
 
     # --- Persist (Phase 4) ----------------------------------------------------
-    snapshot_date = datetime.now(tz=UTC).date()
+    run_started_at = datetime.now(tz=UTC)
+    snapshot_date = run_started_at.date()
     diff_result = None
     if not no_store and passed_listings:
         from product_search.storage.csv_dump import default_csv_path, write_snapshot_csv
@@ -402,7 +403,9 @@ def _cmd_search(
         finally:
             conn.close()
 
-        csv_path = default_csv_path(slug, snapshot_date)
+        # Per-run CSV (not per-day): timestamp-named so multiple runs on
+        # the same date each get their own file rather than overwriting.
+        csv_path = default_csv_path(slug, run_started_at)
         write_snapshot_csv(csv_path, passed_listings)
 
         print(
@@ -457,8 +460,8 @@ def _cmd_search(
                 f"{len(passed_listings)} of {len(all_listings)} listing(s); "
                 f"the synthesizer's output was rejected because it contained "
                 f"numeric values not present in the input payload. The full "
-                f"set of passing listings is persisted to SQLite and the "
-                f"daily CSV.\n\n{sources_md}\n\n{stub_cost_md}"
+                f"set of passing listings is persisted to a per-run CSV "
+                f"under `reports/<slug>/data/`.\n\n{sources_md}\n\n{stub_cost_md}"
             )
             report_path = default_report_path(slug, snapshot_date)
             write_report(report_path, stub_body)
@@ -470,7 +473,8 @@ def _cmd_search(
             body = (
                 "_The synthesizer returned an empty response — "
                 "the listing payload may be too large or the LLM may have "
-                "refused. Raw listings are available in the daily CSV._"
+                "refused. Raw listings are available in this run's CSV "
+                "under `reports/<slug>/data/`._"
             )
 
         n_passed = len(passed_listings)
@@ -478,7 +482,7 @@ def _cmd_search(
             body += (
                 f"\n\n_Showing the top {SYNTH_MAX_LISTINGS} of {n_passed} "
                 f"passing listings in the ranking above. The full set is "
-                f"persisted to SQLite and the daily CSV._"
+                f"persisted to a per-run CSV under `reports/<slug>/data/`._"
             )
 
         # Build deterministic Run cost panel from each universal_ai

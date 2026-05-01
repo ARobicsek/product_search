@@ -32,7 +32,11 @@ from product_search.storage import (
     query_snapshot_for_date,
     snapshot_dates,
 )
-from product_search.storage.csv_dump import read_snapshot_csv, write_snapshot_csv
+from product_search.storage.csv_dump import (
+    default_csv_path,
+    read_snapshot_csv,
+    write_snapshot_csv,
+)
 from product_search.storage.db import connect
 
 # ---------------------------------------------------------------------------
@@ -241,6 +245,36 @@ def test_csv_round_trip_preserves_listing(tmp_path: Path) -> None:
     assert restored.unit_price_usd == original.unit_price_usd
     # None-valued optionals should round-trip as None, not ''.
     assert restored.kit_price_usd is None
+
+
+def test_default_csv_path_is_per_run_under_reports() -> None:
+    # The CSV must live under reports/<slug>/data/ (committable tree, not
+    # gitignored worker/data/) and must include a UTC timestamp so multiple
+    # runs on the same date don't overwrite each other.
+    when = datetime(2026, 4, 30, 22, 30, 15, tzinfo=UTC)
+    p = default_csv_path("test-slug", when)
+
+    assert p.name == "2026-04-30T22-30-15Z.csv"
+    assert p.parent.name == "data"
+    assert p.parent.parent.name == "test-slug"
+    assert p.parent.parent.parent.name == "reports"
+
+
+def test_default_csv_path_emits_utc_regardless_of_input_tz() -> None:
+    # Same instant, two different input zones — must produce the same path
+    # so dev (local TZ) and prod (UTC GHA runner) sort identically.
+    from datetime import timedelta, timezone
+
+    instant_utc = datetime(2026, 4, 30, 22, 30, 15, tzinfo=UTC)
+    instant_pst = instant_utc.astimezone(timezone(timedelta(hours=-8)))
+
+    assert default_csv_path("s", instant_utc) == default_csv_path("s", instant_pst)
+
+
+def test_default_csv_path_treats_naive_datetime_as_utc() -> None:
+    naive = datetime(2026, 4, 30, 22, 30, 15)  # no tzinfo
+    aware = datetime(2026, 4, 30, 22, 30, 15, tzinfo=UTC)
+    assert default_csv_path("s", naive) == default_csv_path("s", aware)
 
 
 # ---------------------------------------------------------------------------

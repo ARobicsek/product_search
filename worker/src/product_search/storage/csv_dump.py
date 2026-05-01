@@ -1,8 +1,12 @@
-"""Daily CSV dump of listings to ``worker/data/<slug>/<date>.csv``.
+"""Per-run CSV dump of listings to ``reports/<slug>/data/<run-timestamp>.csv``.
 
-The CSV is a flat, gitignored mirror of the SQLite snapshot meant for
-human inspection and ad-hoc tooling. ``attrs`` and ``flags`` are stored
-as JSON strings so the round-trip is lossless.
+One CSV per worker run (not per day) so the full raw listing set for every
+run is preserved instead of being overwritten by the next run on the same
+date. Lives under ``reports/`` rather than ``worker/data/`` because that
+tree is committed back from GitHub Actions; the previous ``worker/data/``
+location is gitignored and ephemeral on the runner.
+
+``attrs`` and ``flags`` are JSON strings so the round-trip is lossless.
 """
 
 from __future__ import annotations
@@ -10,7 +14,6 @@ from __future__ import annotations
 import csv
 import json
 from collections.abc import Iterable
-from datetime import date as _date
 from datetime import datetime
 from pathlib import Path
 
@@ -41,9 +44,21 @@ CSV_FIELDS: tuple[str, ...] = (
 )
 
 
-def default_csv_path(slug: str, snapshot_date: _date) -> Path:
-    """Return ``worker/data/<slug>/<YYYY-MM-DD>.csv`` under the repo root."""
-    return _repo_root() / "worker" / "data" / slug / f"{snapshot_date.isoformat()}.csv"
+def default_csv_path(slug: str, fetched_at: datetime) -> Path:
+    """Return ``reports/<slug>/data/<YYYY-MM-DDTHH-MM-SSZ>.csv``.
+
+    One CSV per run, keyed on the run's ``fetched_at`` UTC timestamp. The
+    filename uses ``-`` instead of ``:`` so it's a valid filename on Windows
+    too (NTFS reserves ``:`` for ADS). Always emitted in UTC regardless of
+    the caller's local timezone, so prod (GHA, UTC) and dev (local TZ) sort
+    consistently and don't double-up on DST boundaries.
+    """
+    from datetime import UTC
+
+    if fetched_at.tzinfo is None:
+        fetched_at = fetched_at.replace(tzinfo=UTC)
+    stamp = fetched_at.astimezone(UTC).strftime("%Y-%m-%dT%H-%M-%SZ")
+    return _repo_root() / "reports" / slug / "data" / f"{stamp}.csv"
 
 
 def write_snapshot_csv(
