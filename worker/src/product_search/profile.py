@@ -173,16 +173,6 @@ class PendingSource(BaseModel):
     note: str | None = None
     model_config = {"extra": "allow"}
 
-    @field_validator("id")
-    @classmethod
-    def id_must_be_known(cls, v: str) -> str:
-        if v not in KNOWN_SOURCE_IDS:
-            raise ValueError(
-                f"Unknown pending source id {v!r}. "
-                f"Known source IDs: {sorted(KNOWN_SOURCE_IDS)}"
-            )
-        return v
-
 
 class Schedule(BaseModel):
     cron: str

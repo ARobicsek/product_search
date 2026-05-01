@@ -211,12 +211,11 @@ function validateSources(
     const so = asObject(s, `${path}[${i}]`, ctx);
     if (!so) return;
     const id = asString(so.id, `${path}[${i}].id`, ctx);
-    if (id !== null && !KNOWN_SOURCE_IDS.has(id)) {
+    if (id !== null && !pendingAllowed && !KNOWN_SOURCE_IDS.has(id)) {
       ctx.errors.push(
         `${path}[${i}].id: unknown source id ${JSON.stringify(id)}; known: ${[...KNOWN_SOURCE_IDS].sort().join(',')}`,
       );
     }
-    void pendingAllowed;
   });
 }
 
