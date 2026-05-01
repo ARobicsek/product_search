@@ -1,0 +1,5 @@
+# QVL (Qualified Vendor List) for bose-nc700-headphones.
+# Add entries below as you find them. Each entry needs at minimum:
+#   - mpn, brand, capacity_gb, speed_mts
+# See products/ddr5-rdimm-256gb/qvl.yaml for a populated example.
+qvl: []
