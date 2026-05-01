@@ -27,7 +27,13 @@ sources:
     max_results_per_query: 30
   - id: "universal_ai_search"
     url: "https://www.backmarket.com/en-us/search?q=bose+nc+700"
-sources_pending: []
+  - id: "universal_ai_search"
+    url: "https://www.bestbuy.com/site/searchpage.jsp?st=bose+700+headphones"
+  - id: "universal_ai_search"
+    url: "https://buy.gazelle.com/collections/headphones"
+sources_pending:
+  - id: "newegg_search"
+    note: "Newegg search for refurbished Bose NC700 headphones; adapter not yet available"
 qvl_file: "products/bose-nc700-headphones/qvl.yaml"
 brand_candidates:
   - Bose
