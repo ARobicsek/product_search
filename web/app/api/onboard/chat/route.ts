@@ -1,13 +1,13 @@
 import { NextRequest } from 'next/server';
-import Anthropic from '@anthropic-ai/sdk';
+import OpenAI from 'openai';
 import { loadOnboardPrompt } from '@/lib/onboard/prompt';
 
 export const runtime = 'nodejs';
 export const maxDuration = 60;
 
-const MODEL = process.env.LLM_ONBOARD_MODEL ?? 'claude-sonnet-4-6';
+const PROVIDER = process.env.LLM_ONBOARD_PROVIDER ?? 'glm';
+const MODEL = process.env.LLM_ONBOARD_MODEL ?? 'glm-5.1';
 const MAX_TOKENS = 8192;
-const MAX_WEB_SEARCHES = 5;
 const MAX_TURNS_PER_REQUEST = 50;
 
 interface IncomingMessage {
@@ -34,8 +34,8 @@ export async function POST(request: NextRequest) {
     return bad('invalid or missing x-web-secret header', 401);
   }
 
-  if (!process.env.ANTHROPIC_API_KEY) {
-    return bad('ANTHROPIC_API_KEY not configured on server', 500);
+  if (!process.env.GLM_API_KEY) {
+    return bad('GLM_API_KEY not configured on server', 500);
   }
 
   let body: { messages?: unknown };
@@ -67,60 +67,80 @@ export async function POST(request: NextRequest) {
     return bad('last message must be from user');
   }
 
+  // Keep only the last 6 messages (3 turns) to prevent context ballooning.
+  // Since the assistant emits the full draft profile in each turn, older turns
+  // are redundant and only increase cost.
+  const trimmedMessages = messages.slice(-6);
+
   const systemPrompt = await loadOnboardPrompt();
-  const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+  
+  const client = new OpenAI({
+    apiKey: process.env.GLM_API_KEY,
+    baseURL: 'https://open.bigmodel.cn/api/paas/v4/',
+  });
 
   const stream = new ReadableStream<Uint8Array>({
     async start(controller) {
       const send = (payload: unknown) => controller.enqueue(sseEncode(payload));
       try {
-        const messageStream = client.messages.stream({
+        const messageStream = await client.chat.completions.create({
           model: MODEL,
           max_tokens: MAX_TOKENS,
-          system: systemPrompt,
-          messages: messages.map((m) => ({ role: m.role, content: m.content })),
+          messages: [
+            { role: 'system', content: systemPrompt },
+            ...trimmedMessages.map((m) => ({ role: m.role, content: m.content })),
+          ],
+          stream: true,
+          stream_options: { include_usage: true },
           tools: [
             {
-              type: 'web_search_20260209',
-              name: 'web_search',
-              max_uses: MAX_WEB_SEARCHES,
-            },
+              type: 'web_search',
+              web_search: {
+                enable: true,
+                search_result: true,
+              },
+            } as any,
           ],
         });
 
-        messageStream.on('text', (delta: string) => {
-          if (delta) send({ type: 'delta', text: delta });
-        });
+        let hasEmittedToolUse = false;
+        let stopReason: string | null = null;
 
-        messageStream.on('streamEvent', (ev) => {
-          if (
-            ev.type === 'content_block_start' &&
-            ev.content_block?.type === 'server_tool_use' &&
-            ev.content_block.name === 'web_search'
-          ) {
-            send({ type: 'tool_use', name: 'web_search' });
+        for await (const chunk of messageStream) {
+          if (chunk.choices && chunk.choices.length > 0) {
+            const delta = chunk.choices[0].delta;
+            
+            // Detect Zhipu's web search tool invocation
+            // Depending on the exact API response, the tool_calls might be streamed.
+            if (delta.tool_calls && delta.tool_calls.length > 0) {
+              const tc = delta.tool_calls[0];
+              if ((tc as any).type === 'web_search' && !hasEmittedToolUse) {
+                send({ type: 'tool_use', name: 'web_search' });
+                hasEmittedToolUse = true;
+              }
+            }
+            
+            if (delta.content) {
+              send({ type: 'delta', text: delta.content });
+            }
+
+            if (chunk.choices[0].finish_reason) {
+              stopReason = chunk.choices[0].finish_reason;
+            }
           }
-        });
-
-        const final = await messageStream.finalMessage();
-        // Surface token usage so the chat UI can accumulate session cost.
-        // Anthropic's `usage` includes cache_* fields when prompt caching
-        // is in play; we sum into a single input/output figure to match
-        // the worker's pricing table semantics.
-        const usage = final.usage ?? null;
-        if (usage) {
-          send({
-            type: 'usage',
-            provider: 'anthropic',
-            model: MODEL,
-            input_tokens:
-              (usage.input_tokens ?? 0) +
-              (usage.cache_creation_input_tokens ?? 0) +
-              (usage.cache_read_input_tokens ?? 0),
-            output_tokens: usage.output_tokens ?? 0,
-          });
+          
+          if (chunk.usage) {
+            send({
+              type: 'usage',
+              provider: PROVIDER,
+              model: MODEL,
+              input_tokens: chunk.usage.prompt_tokens ?? 0,
+              output_tokens: chunk.usage.completion_tokens ?? 0,
+            });
+          }
         }
-        send({ type: 'done', stopReason: final.stop_reason ?? null });
+
+        send({ type: 'done', stopReason });
       } catch (err) {
         const message = err instanceof Error ? err.message : 'onboarding LLM call failed';
         send({ type: 'error', error: message });

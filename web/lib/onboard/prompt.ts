@@ -20,6 +20,8 @@ let cached: Promise<string> | null = null;
 
 export function loadOnboardPrompt(): Promise<string> {
   if (cached) return cached;
-  cached = readFile(path.join(process.cwd(), PROMPT_REL_PATH), 'utf-8');
+  cached = readFile(path.join(process.cwd(), PROMPT_REL_PATH), 'utf-8').then(
+    (text) => text.replace(/\n\s*\n/g, '\n').trim()
+  );
   return cached;
 }
