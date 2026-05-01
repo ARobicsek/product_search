@@ -2,8 +2,7 @@ import { NextRequest } from 'next/server';
 import OpenAI from 'openai';
 import { loadOnboardPrompt } from '@/lib/onboard/prompt';
 
-export const runtime = 'nodejs';
-export const maxDuration = 300; // Increased to 300s to allow Zhipu web_search enough time without Vercel 504ing
+export const runtime = 'edge';
 
 const PROVIDER = process.env.LLM_ONBOARD_PROVIDER ?? 'glm';
 const MODEL = process.env.LLM_ONBOARD_MODEL ?? 'glm-5.1';

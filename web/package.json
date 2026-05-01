@@ -3,7 +3,9 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
+    "predev": "node scripts/sync-prompt.js",
     "dev": "next dev",
+    "prebuild": "node scripts/sync-prompt.js",
     "build": "next build",
     "start": "next start",
     "lint": "eslint"
