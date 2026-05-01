@@ -111,7 +111,6 @@ export async function POST(request: NextRequest) {
               type: 'web_search',
               web_search: {
                 enable: true,
-                search_result: true,
               },
             } as any,
           ],
