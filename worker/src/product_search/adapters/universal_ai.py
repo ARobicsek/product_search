@@ -109,8 +109,12 @@ def _fetch_html(url: str, timeout: float = 20.0) -> tuple[str, int, str]:
     """
     scrapfly_key = os.environ.get("SCRAPFLY_API_KEY", "").strip()
     if scrapfly_key:
+        # ScrapFly needs its own (much longer) timeout: render_js spins up
+        # a real Chrome and can take 30-60s on heavy pages (B&H, Crutchfield).
+        # The outer `timeout` arg is sized for the cheap raw-HTTP fetchers and
+        # would prematurely abort an in-flight render.
         try:
-            return _fetch_via_scrapfly(url, scrapfly_key, timeout=timeout)
+            return _fetch_via_scrapfly(url, scrapfly_key, timeout=120.0)
         except Exception as exc:
             # Don't let a ScrapFly outage zero a run — fall through to
             # the cheap tiers. The worker log captures the failure so

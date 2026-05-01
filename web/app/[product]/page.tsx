@@ -15,6 +15,12 @@ import SubscribeButton from './SubscribeButton';
 import { ColumnChooserButton } from './ColumnChooserButton';
 import { RunInfoFooter } from './RunInfoFooter';
 
+// Force every request through SSR so the Vercel edge can never serve a
+// rendered HTML/RSC payload from before a Run-now's commit. The `cache: 'no-store'`
+// fetches inside this page guarantee fresh data; `force-dynamic` guarantees fresh
+// rendering on top of that.
+export const dynamic = 'force-dynamic';
+
 export default async function ProductPage({
   params,
   searchParams,

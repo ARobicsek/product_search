@@ -1,7 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState, useTransition } from 'react';
-import { useRouter } from 'next/navigation';
+import { useEffect, useRef, useState } from 'react';
 import { Loader2, Play, RefreshCw } from 'lucide-react';
 
 type RunState = 'idle' | 'dispatching' | 'polling' | 'done' | 'error';
@@ -58,8 +57,6 @@ export function RunNowButton({
   const [state, setState] = useState<RunState>('idle');
   const [message, setMessage] = useState<string>('');
   const [elapsed, setElapsed] = useState<string>('');
-  const [isRefreshing, startRefresh] = useTransition();
-  const router = useRouter();
   const cancelled = useRef(false);
   const startedAtRef = useRef<number>(0);
 
@@ -79,17 +76,6 @@ export function RunNowButton({
       setElapsed('');
     };
   }, [state]);
-
-  // Once router.refresh() finishes streaming the new RSC payload, clear the
-  // toolbar back to idle so the "Done. Loading new report…" message goes away.
-  useEffect(() => {
-    if (state !== 'done' || isRefreshing) return;
-    const id = setTimeout(() => {
-      setState('idle');
-      setMessage('');
-    }, 0);
-    return () => clearTimeout(id);
-  }, [state, isRefreshing]);
 
   async function pollUntilComplete(since: string) {
     const deadline = Date.now() + POLL_TIMEOUT_MS;
@@ -123,9 +109,14 @@ export function RunNowButton({
             }).catch(() => {});
             setState('done');
             setMessage('Done. Loading new report…');
-            startRefresh(() => {
-              router.refresh();
-            });
+            // Full reload, not router.refresh(): Next 16's `refresh()` only
+            // re-fetches the RSC payload and explicitly does not invalidate the
+            // server-side cache. A hard reload bypasses Vercel's edge cache and
+            // the browser's HTTP cache, and re-runs the page through SSR with a
+            // fresh `?_cb=` cache-buster on the raw.githubusercontent fetch —
+            // which is the only path we know reliably surfaces a just-pushed
+            // report file.
+            window.location.reload();
           } else {
             setState('error');
             setMessage(`Run finished with conclusion: ${data.conclusion ?? 'unknown'}`);
