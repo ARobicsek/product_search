@@ -56,7 +56,7 @@ function extractSlug(yamlText: string): string | null {
   return m ? m[1] : null;
 }
 
-export function OnboardChat({ initialProfile }: { initialProfile?: string | null }) {
+export function OnboardChat({ initialProfile, initialSlug }: { initialProfile?: string | null, initialSlug?: string | null }) {
   const router = useRouter();
   const kickoffMessage = getKickoff(initialProfile);
   const [messages, setMessages] = useState<ChatMessage[]>([kickoffMessage]);
@@ -221,7 +221,7 @@ export function OnboardChat({ initialProfile }: { initialProfile?: string | null
       const res = await fetch('/api/onboard/save', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'x-web-secret': secret },
-        body: JSON.stringify({ yaml: draftYaml }),
+        body: JSON.stringify({ yaml: draftYaml, originalSlug: initialSlug }),
       });
       const data = (await res.json()) as {
         ok: boolean;

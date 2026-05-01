@@ -30,7 +30,7 @@ export default async function OnboardPage({
       </header>
 
       <Suspense fallback={<div className="p-8 text-center text-gray-500">Loading chat...</div>}>
-        <OnboardChat initialProfile={initialProfile} />
+        <OnboardChat initialProfile={initialProfile} initialSlug={edit} />
       </Suspense>
     </main>
   );

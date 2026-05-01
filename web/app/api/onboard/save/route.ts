@@ -21,7 +21,7 @@ export async function POST(request: NextRequest) {
     return bad('invalid or missing x-web-secret header', 401);
   }
 
-  let body: { yaml?: unknown };
+  let body: { yaml?: unknown; originalSlug?: string | null };
   try {
     body = await request.json();
   } catch {
@@ -31,9 +31,15 @@ export async function POST(request: NextRequest) {
     return bad('yaml must be a non-empty string');
   }
 
+  let yamlText = body.yaml;
+  if (body.originalSlug && SLUG_RE.test(body.originalSlug)) {
+    // If editing an existing profile, aggressively overwrite whatever slug the LLM hallucinated
+    yamlText = yamlText.replace(/^\s*slug\s*:\s*.*$/m, `slug: "${body.originalSlug}"`);
+  }
+
   let parsed;
   try {
-    parsed = parseAndValidateProfileYaml(body.yaml);
+    parsed = parseAndValidateProfileYaml(yamlText);
   } catch (err) {
     if (err instanceof ProfileValidationError) {
       return bad('profile failed schema validation', 422, { details: err.errors });
@@ -49,7 +55,7 @@ export async function POST(request: NextRequest) {
 
   let result;
   try {
-    result = await commitNewProfile(slug, body.yaml);
+    result = await commitNewProfile(slug, yamlText);
   } catch (err) {
     const msg = err instanceof Error ? err.message : 'commit failed';
     return bad(msg, 502);
