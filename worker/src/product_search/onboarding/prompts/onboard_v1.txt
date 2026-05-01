@@ -312,7 +312,7 @@ Important rules for the draft:
 
 - The YAML must be syntactically valid and conform to the schema above.
 - Every `sources[].id` MUST be in the allowed-source-IDs list. Anything
-  the user wants but isn't on that list goes in `sources_pending:`.
+  the user wants but isn't on that list goes in `sources_pending:` as a list of objects, each with an `id` string and an optional `note` string.
 - Every `spec_filters[].rule` and `spec_flags[].rule` MUST be in the
   allowed-rules lists.
 - `spec_attrs`, `spec_filters`, `spec_flags`, `sources` each need at
