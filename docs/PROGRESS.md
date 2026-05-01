@@ -8,6 +8,153 @@
 
 See the Phase 12 brief in [PHASES.md](PHASES.md#phase-12--polish--second-product-proof).
 
+## Status as of end of 2026-05-01 session (continuation 10)
+
+**Bose universal_ai pipeline now actually returns listings; Run-now
+freshness rebuilt; per-run CSVs preserved in repo.**
+
+The user's core complaint at session start was "two cache layers fixed,
+still seeing stale screen + 0/0 universal_ai results." This continuation
+chased that down through five distinct issues, all fixed:
+
+1. **Post-run staleness on desktop browser** (`fcfd381`). Previous
+   wave's PWA service-worker fix (`d8edcc2`) didn't help because the
+   user was on a desktop browser, not the PWA. Diagnosed via the
+   screenshot: their report numbers exact-matched commit `18b750a`
+   even though `f7ef0df` was on origin — so the page was serving
+   stale content from before the disambiguation fix landed. Two more
+   defensive layers added to the existing `cache: 'no-store'` +
+   `?_cb=` cache-busters: `export const dynamic = 'force-dynamic'`
+   on `web/app/[product]/page.tsx` to opt the route out of any
+   Vercel edge HTML/RSC caching, and replaced `router.refresh()`
+   with `window.location.reload()` in
+   `web/app/[product]/RunNowButton.tsx` because Next 16's
+   `router.refresh()` only re-fetches the RSC payload and explicitly
+   does NOT invalidate the server-side cache (per the
+   `node_modules/next/dist/docs/01-app/03-api-reference/04-functions/use-router.md`
+   warning). New ADR-032.
+
+2. **ScrapFly timeout was being shadowed by the outer fetch budget**
+   (`fcfd381`). `_fetch_html(timeout=20.0)` passed `timeout=timeout`
+   to `_fetch_via_scrapfly`, so ScrapFly was always called with 20s
+   regardless of the 60s default in its own signature. JS-render of
+   heavy sites (B&H, Crutchfield) reliably exceeded 20s and fell
+   through to the doomed httpx/curl_cffi tier. Fix: ScrapFly now
+   gets its own dedicated 120s budget while curl_cffi/httpx stay at
+   20s — the two have very different characteristics and shouldn't
+   share a budget.
+
+3. **Vendor-pick mismatch for the Bose 700** (`fcfd381`). Verified
+   locally with `_fetch_via_scrapfly`:
+   - headphones.com: 27 anchors, all blog/review content. The store
+     reports "15 results found" but they're MENTIONS in articles, not
+     SKUs for sale. Audiophile shops don't carry consumer Bose.
+   - audio46.com: only stocks earpad accessories for the 700, not
+     the headphones. `Search: 3 results found` — accessories.
+   - bhphotovideo.com: ScrapFly 60s ReadTimeout (worsened by issue 2
+     above), fell through to httpx → 403 Cloudflare challenge.
+
+   User confirmed Bose 700 is EOL — refurb marketplaces are now the
+   realistic supply. Profile updated: drop headphones+audio46, add
+   `https://www.backmarket.com/en-us/search?q=bose+nc+700` (verified
+   to surface 3 actual NC700 listings: Silver $196, White $239, Black
+   $272).
+
+4. **"Passed > Fetched" misattribution in Sources panel** (`3ea6a1b`).
+   First Run-now after the vendor swap showed
+   `universal_ai (bhphotovideo.com) | ok | 0 | 3` — impossible.
+   Root cause: `passed` was attributed to source_stats rows by
+   `lst.source` alone, but every universal_ai listing carries the
+   canonical `source = "universal_ai_search"` regardless of which
+   vendor URL produced it, so all three universal_ai rows each
+   claimed the full universal_ai_search passed-count. Fix: tuple key
+   `(source_id, vendor_host_or_None)`; source rows now also store
+   `match_host` (already extracted for the display label) and
+   listings emit their host via `attrs["vendor_host"]` (already set
+   by adapter at emit time). Hoisted the key-builder to module-level
+   `_passed_match_key` and pinned with 6 tests in the new
+   `tests/test_cli.py`.
+
+5. **CSV said "persisted" but wasn't** (`b2e012d`). Reports claimed
+   "the full set is persisted to SQLite and the daily CSV" but
+   `worker/data/` is gitignored and not uploaded as an artifact, so
+   on the GH Actions runner both the SQLite and CSV were ephemeral.
+   AND the CSV was per-day (overwriting on same-day reruns). Fix:
+   relocated CSV to `reports/<slug>/data/<YYYY-MM-DDTHH-MM-SSZ>.csv`
+   — per-run timestamped, in the committable reports tree. The
+   workflow's existing `git add -A` step now picks up CSVs the same
+   way it picks up the report markdown. Verified end-to-end on
+   `aec721b`: `reports/bose-nc-700-headphones/data/2026-05-01T00-46-39Z.csv`
+   landed with 42 rows alongside the .md report. Report wording
+   updated to drop the misleading SQLite claim. SQLite stays at
+   `worker/data/<slug>/listings.sqlite` (gitignored, ephemeral on
+   GHA but useful locally for `diff` command). New ADR-031.
+
+144 worker tests pass (was 135 at session start).
+
+**Live state at handoff** (latest GHA run `aec721b`, 2026-05-01 00:47Z):
+
+```
+ebay_search                        ok  44  42
+universal_ai (backmarket.com)      ok   3   3
+universal_ai (bhphotovideo.com)    ok   0   0
+```
+
+backmarket.com is producing real listings into the report. B&H still
+0/0 — its ScrapFly call may be working now (under the 120s budget) but
+its anti-bot layer is harder than backmarket's; whether it's worth
+keeping is a vendor-tuning question for next session. Run-cost panel
+should now correctly show 2 universal_ai LLM calls (one per vendor
+that got past `_extract_candidates`).
+
+**Next session — start here:**
+
+1. **Verify the Run-now freshness fix actually resolved the
+   complaint.** User's previous-run experience was the smoking gun;
+   confirm a run today opens directly to the new report on desktop
+   without manual reload. If still stale, the next defensive layer
+   is `Cache-Control: no-store` on the `/api/revalidate` response,
+   though that should now be unnecessary.
+
+2. **Decide what to do about B&H.** Options: (a) keep it but accept
+   the 0/0; (b) remove it from the profile to declutter the Sources
+   panel; (c) try ScrapFly's `wait_for_selector` or a different B&H
+   URL pattern (`/c/buy/Headphones/ci/12780/N/4226657555`-style
+   category pages tend to be more SSR-friendly). The ScrapFly
+   timeout fix in this session may have helped — re-check after
+   the user runs once more.
+
+3. **Phase 12b (Tier-B adapter) and 12c (schedule editor UI)** are
+   still queued. Pick one once Bose is stable on prod data —
+   the architecture is now end-to-end proven (ScrapFly working,
+   per-run CSVs landing, freshness reliable), so moving on is fine.
+
+**Files added this continuation**:
+- `worker/tests/test_cli.py` (6 tests pinning `_passed_match_key`)
+
+**Files modified this continuation**:
+- `web/app/[product]/page.tsx` (`force-dynamic` segment config)
+- `web/app/[product]/RunNowButton.tsx` (window.location.reload()
+  in place of router.refresh(); removed unused useTransition/useRouter)
+- `worker/src/product_search/adapters/universal_ai.py` (ScrapFly gets
+  own 120s timeout instead of inheriting outer 20s)
+- `worker/src/product_search/cli.py` (per-run CSV path; tuple-keyed
+  passed-attribution; `_passed_match_key` hoisted to module level;
+  report wording updated to drop misleading SQLite claim)
+- `worker/src/product_search/storage/csv_dump.py` (per-run timestamp
+  path under `reports/<slug>/data/`)
+- `worker/tests/test_storage.py` (3 new tests for `default_csv_path`)
+- `products/bose-nc-700-headphones/profile.yaml` (vendor swap)
+- `docs/DECISIONS.md` (ADR-031, ADR-032)
+- `docs/PROGRESS.md` (this block)
+
+**Commits this continuation** (all pushed at session end except docs):
+- `fcfd381` — post-run freshness + ScrapFly timeout + bose vendor swap
+- `3ea6a1b` — Sources-panel "passed" misattribution fix
+- `b2e012d` — per-run CSV under reports/ tree
+- `aec721b` — chore: on-demand report (auto from GHA, validates the
+  per-run CSV landing path end-to-end)
+
 ## Status as of end of 2026-04-30 session (continuation 9)
 
 **Universal vendor scraping went live; Tier-3 ScrapFly path added;

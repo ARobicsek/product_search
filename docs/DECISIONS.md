@@ -9,6 +9,147 @@ Status values:
 
 ---
 
+## ADR-032 — Run-now freshness: `force-dynamic` on the product page + `window.location.reload()` after run completion
+
+**Status**: ACCEPTED
+
+**Context**: The Run-now flow was supposed to land a freshly-pushed
+report on the user's screen as soon as the GH Actions workflow
+completed. Three previous waves had stacked defenses:
+
+- Wave 5 (`b2b23d3`): switch report-fetches to `cache: 'no-store'` so
+  the Next.js fetch cache doesn't serve stale data.
+- Early 2026-04-30 session: append `?_cb=${Date.now()}` to the
+  `raw.githubusercontent.com` URL because that CDN ignores
+  `cache: 'no-store'` headers.
+- Wave 12d ScrapFly commit (`d8edcc2`): rewrote the PWA service
+  worker (`v1` → `v2`) to stop stale-while-revalidate'ing the RSC
+  payload after `router.refresh()`.
+
+After all three, this session's user — on a desktop browser, not the
+PWA — still saw the previous run's report (an exact match for commit
+`18b750a`'s numbers, two report-commits behind origin's HEAD). Even a
+hard-refresh before clicking Run-now didn't help. Two layers remained
+unaddressed:
+
+1. **Vercel edge HTML/RSC cache.** Despite `await searchParams` and
+   `cache: 'no-store'` fetches inside the page, nothing in the route
+   was an explicit "this is dynamic" signal that the platform's edge
+   layer was guaranteed to honour. With the right combination of CDN
+   config and route heuristics, Vercel can serve an HTML/RSC payload
+   from a previous render even on a hard refresh.
+
+2. **`router.refresh()` doesn't invalidate the server-side cache.**
+   Per the explicit warning in
+   `node_modules/next/dist/docs/01-app/03-api-reference/04-functions/use-router.md`
+   line 55: *"`refresh()` could re-produce the same result if fetch
+   requests are cached."* It only re-fetches the RSC payload; it
+   does not bypass any underlying cache layers. So even if every
+   data layer was wired correctly, the client-side trigger after
+   run completion was the wrong tool for the job.
+
+**Decision**:
+
+1. **Add `export const dynamic = 'force-dynamic'`** to
+   `web/app/[product]/page.tsx`. Defensive: makes the route
+   un-prerenderable and un-cacheable at the Vercel edge regardless
+   of how the underlying fetch heuristics evolve.
+
+2. **Replace `router.refresh()` with `window.location.reload()`** in
+   `web/app/[product]/RunNowButton.tsx` after the run completes
+   successfully. A full page reload bypasses Vercel's edge cache,
+   the browser's HTTP cache, and Next's RSC client cache — and
+   re-runs SSR with a fresh `?_cb=` cache-buster. We accept the
+   visual flash because the freshness guarantee is the user's
+   explicit ask.
+
+The full defensive stack on a Run-now click is now four layers:
+
+| Layer | Defense |
+|---|---|
+| Next.js fetch cache | `cache: 'no-store'` on `getReportContent`, `getProductReports` |
+| GitHub raw CDN (Fastly) | `?_cb=${Date.now()}` query-string buster |
+| Vercel edge HTML/RSC cache | `export const dynamic = 'force-dynamic'` (this ADR) |
+| Browser HTTP / Next router cache | `window.location.reload()` (this ADR) |
+
+**Consequence**: Run-now reliability becomes a hard guarantee, not a
+heuristic. Trade-off: a brief flash on the reload (vs. the smooth
+RSC swap that `router.refresh()` provided). For a one-user app where
+freshness > smoothness, acceptable. The `useTransition` /
+`useRouter` scaffolding in `RunNowButton.tsx` is no longer needed
+and was removed.
+
+---
+
+## ADR-031 — Per-run CSV under `reports/<slug>/data/`, replacing per-day `worker/data/<slug>/<date>.csv`
+
+**Status**: ACCEPTED
+
+**Context**: The previous CSV layout had two distinct problems:
+
+1. **Wrong location for prod persistence.** `worker/data/` is in
+   `.gitignore` and is not uploaded as a GH Actions artifact (only
+   `filter_logs/` and `llm_traces/` are). On the prod runner, both
+   the SQLite DB and the CSV were ephemeral — when the job ended,
+   they vanished. But the synth report's standard footer said
+   *"the full set is persisted to SQLite and the daily CSV"* — true
+   locally, false in prod. The user noticed: report claimed CSVs
+   existed, but they didn't.
+
+2. **Per-day, not per-run.** `default_csv_path` returned
+   `worker/data/<slug>/<YYYY-MM-DD>.csv` and `write_snapshot_csv`
+   opened with mode `"w"`. Re-running on the same day overwrote the
+   previous run's CSV. The SQLite layer correctly preserved every
+   run (composite PK `(url, fetched_at)`) but the CSV did not.
+   User explicitly asked for "each run's full list, not just
+   overwrite daily."
+
+The repo-as-database architecture (ADR-002, ADR-004) already
+established that anything we want to outlive a workflow run has to
+be committed back. The synth `.md` report does this; the
+`.filter.jsonl` does this. The CSV should too.
+
+**Decision**:
+
+1. **Move CSVs from `worker/data/<slug>/<date>.csv` to
+   `reports/<slug>/data/<YYYY-MM-DDTHH-MM-SSZ>.csv`.** Inside the
+   committable `reports/` tree so the existing `git add -A` step in
+   both workflows picks them up automatically alongside the .md
+   report. One CSV per run (timestamp-named) so same-day reruns
+   accumulate rather than overwrite.
+
+2. **`default_csv_path` signature changes** from
+   `(slug, snapshot_date: date)` to `(slug, fetched_at: datetime)`.
+   The cli.py call site captures `run_started_at = datetime.now(tz=UTC)`
+   once at the top of the persist block and passes it through.
+   `snapshot_date` (used for the report `.md` filename and diff
+   queries) is unchanged — that stays per-day so `2026-05-01.md`
+   cleanly reflects "today's report" regardless of how many times
+   the user clicked Run-now.
+
+3. **UTC-normalise the filename timestamp** regardless of the
+   caller's tz, so dev (local TZ) and prod (UTC GHA runner) produce
+   identical paths for the same instant. Filename uses `-` instead
+   of `:` for Windows compat (NTFS reserves `:` for ADS).
+
+4. **SQLite stays at `worker/data/<slug>/listings.sqlite`** —
+   gitignored, ephemeral on GHA, useful locally for the `diff`
+   command. Not changed; CSVs are the prod-persisted artifact.
+
+5. **Report wording updated** to drop the misleading "SQLite and the
+   daily CSV" claim. Reports now say *"persisted to a per-run CSV
+   under `reports/<slug>/data/`"* which is true in both prod and dev.
+
+**Consequence**: Every Run-now click — and every scheduled run —
+now produces a permanent, timestamped, browseable record of every
+listing the worker considered. Repo size grows by ~20-30 KB per
+run; at 1 product × 1 daily run + occasional ad-hoc, that's ~10 MB
+per year, manageable. If repo size becomes an issue later, archival
+of older CSVs to a release artifact or external store is a
+straightforward future ADR.
+
+---
+
 ## ADR-030 — ScrapFly as the Tier-3 vendor fetcher (env-gated render_js + asp), curl_cffi/httpx remain the cheap tiers
 
 **Status**: ACCEPTED (extends ADR-029's fetch-priority chain)
