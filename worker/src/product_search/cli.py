@@ -13,6 +13,34 @@ Phase 7: scheduler-tick
 
 import argparse
 import sys
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from product_search.models import Listing
+
+
+def _passed_match_key(lst: "Listing") -> tuple[str, str | None]:
+    """Tuple key used to attribute a passing listing back to its source-stats row.
+
+    Mirror the ``source_stats`` key shape ``(source_id, vendor_host_or_None)``.
+    Multiple ``universal_ai_search`` source entries — one per vendor URL —
+    all share ``lst.source == 'universal_ai_search'``, so without the host
+    tiebreaker each source row would claim the full universal_ai_search
+    passed-count (the original bug: bhphotovideo showing 0 fetched / 3 passed
+    because backmarket's listings got attributed to it too).
+
+    universal_ai listings carry ``vendor_host`` in ``attrs`` (set by the
+    adapter at emit time). Other adapters don't set that key, so the host
+    is None and matches the source row that also has ``match_host=None``.
+    """
+    if lst.source == "universal_ai_search":
+        host = (lst.attrs or {}).get("vendor_host")
+        if isinstance(host, str):
+            h = host.lower()
+            if h.startswith("www."):
+                h = h[4:]
+            return (lst.source, h or None)
+    return (lst.source, None)
 
 
 def main() -> None:
@@ -286,6 +314,7 @@ def _cmd_search(
         # returned what (e.g. "universal_ai (audio46.com)" vs
         # "universal_ai (headphones.com)" instead of three identical rows).
         display_source = source.id
+        match_host: str | None = None
         if source.id == "universal_ai_search":
             src_url = query.extra.get("url") or query.storefront_url
             if src_url:
@@ -294,9 +323,15 @@ def _cmd_search(
                 if host.startswith("www."):
                     host = host[4:]
                 if host:
+                    match_host = host
                     display_source = f"universal_ai ({host})"
         source_stats.append({
             "source": source.id,
+            # ``match_host`` is the per-source-entry tiebreaker for the
+            # ``passed`` count below — without it, three universal_ai_search
+            # entries all share ``source == 'universal_ai_search'`` and end
+            # up each claiming the full universal_ai_search passed-count.
+            "match_host": match_host,
             "display_source": display_source,
             "fetched": len(listings),
             "error": error_msg,
@@ -305,11 +340,13 @@ def _cmd_search(
     # --- Pipeline -------------------------------------------------------------
     from product_search.validators.pipeline import run_pipeline
     passed_listings, rejected_count = run_pipeline(all_listings, profile, qvl)
-    passed_by_source: dict[str, int] = {}
+
+    passed_by_key: dict[tuple[str, str | None], int] = {}
     for lst in passed_listings:
-        passed_by_source[lst.source] = passed_by_source.get(lst.source, 0) + 1
+        k = _passed_match_key(lst)
+        passed_by_key[k] = passed_by_key.get(k, 0) + 1
     for s in source_stats:
-        s["passed"] = passed_by_source.get(s["source"], 0)
+        s["passed"] = passed_by_key.get((s["source"], s.get("match_host")), 0)
 
     print(
         f"Fetched {len(all_listings)} listing(s). "
