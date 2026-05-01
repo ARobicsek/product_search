@@ -8,6 +8,28 @@
 
 See the Phase 12 brief in [PHASES.md](PHASES.md#phase-12--polish--second-product-proof).
 
+## Status as of end of 2026-05-01 session (continuation 11)
+
+**Onboarding optimized to Zhipu GLM-5.1, context window reigned in, and web search hallucination/schema bugs resolved.**
+
+The user's core goal for this session was to optimize the onboarding interview costs while migrating to GLM-5.1. Along the way, we diagnosed and resolved multiple subtle issues caused by the migration and prompt structure.
+
+1. **Migration to Zhipu GLM-5.1** (`8619287`). Swapped `openai` SDK for Anthropic SDK in `web/app/api/onboard/chat/route.ts`. Configured with `https://open.bigmodel.cn/api/paas/v4/` endpoint.
+2. **Context Window Ballooning Fix** (`8619287`). Implemented a sliding window in `route.ts`. It now retains `messages[0]` (critical because it contains the original `profile.yaml` draft and slug in edit mode) plus the last 5 turns. This ensures the model doesn't hallucinate a new slug mid-conversation while saving massive token costs.
+3. **Prompt Minification** (`8619287`). Updated `web/lib/onboard/prompt.ts` to strip blank lines dynamically, significantly reducing the base token footprint of `onboard_v1.txt`.
+4. **Zhipu Web Search "Hang" / Hallucination** (`cb2ca95`, `af2553c`). The UI was hanging after the model said "Let me search...". Zhipu's `web_search` with `enable: true` handles search transparently *before* generation, unlike Anthropic's multi-turn tool calling. Two fixes applied:
+   - Removed `search_result: true` from the `web_search` tool payload so Zhipu streams the answer directly without returning a `tool_calls` payload.
+   - Removed the explicit "Use web_search tool" instruction from `onboard_v1.txt`. The model was hallucinating a literal markdown JSON tool call because it was told to use a tool that had no explicit function schema. Replaced with instructions to rely on the automatically injected search results.
+5. **`sources_pending` Schema Bug** (`bc52caa`, `d1eff10`). The model placed an invented source (`amazon_renewed`) in the `sources_pending` array, but the frontend and backend strictly validated it against `KNOWN_SOURCE_IDS`, breaking the wishlist intent. Fixed `schema.ts` and `profile.py` to allow arbitrary IDs in `sources_pending`. Additionally, clarified the `sources_pending` structure in `onboard_v1.txt` to explicitly request a list of objects with `id` and `note` fields to prevent the model from emitting a bare list of strings.
+
+**Live state at handoff:**
+- The onboarding interview is now stable, extremely cheap (via sliding window + GLM-5.1 + minification), and successfully integrates automatic web search.
+- The `bose-nc-700-headphones` profile has had its vendors swapped. The user is currently running an on-demand search to verify the new vendor results.
+
+**Next session — start here:**
+1. **Review the results of the Bose search run** with the newly selected vendors. Address any vendor-specific anti-bot scraping issues if they arise.
+2. **Phase 12b (Tier-B adapter) and 12c (schedule editor UI)** remain queued.
+
 ## Status as of end of 2026-05-01 session (continuation 10)
 
 **Bose universal_ai pipeline now actually returns listings; Run-now
