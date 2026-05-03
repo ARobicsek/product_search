@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { Loader2, Play, RefreshCw } from 'lucide-react';
+import { setRunning } from './runState';
 
 type RunState = 'idle' | 'dispatching' | 'polling' | 'done' | 'error';
 
@@ -63,8 +64,21 @@ export function RunNowButton({
   useEffect(() => {
     return () => {
       cancelled.current = true;
+      // Defensive: if the user navigates away mid-run, don't leave the shared
+      // store flagged as running — a future return to the page would otherwise
+      // hide the report with no run actually in flight.
+      setRunning(false);
     };
   }, []);
+
+  // Mirror local run state into the shared store so ReportSection can hide
+  // the previous report's data while a new run is in flight. Keep the
+  // "hidden" state through 'done' too — that state is the brief window
+  // between successful completion and window.location.reload().
+  useEffect(() => {
+    const inFlight = state === 'dispatching' || state === 'polling' || state === 'done';
+    setRunning(inFlight);
+  }, [state]);
 
   useEffect(() => {
     if (state !== 'dispatching' && state !== 'polling') return;

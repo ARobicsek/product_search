@@ -14,6 +14,7 @@ import { RunNowButton } from './RunNowButton';
 import SubscribeButton from './SubscribeButton';
 import { ColumnChooserButton } from './ColumnChooserButton';
 import { RunInfoFooter } from './RunInfoFooter';
+import { ReportSection } from './ReportSection';
 
 // Force every request through SSR so the Vercel edge can never serve a
 // rendered HTML/RSC payload from before a Run-now's commit. The `cache: 'no-store'`
@@ -152,19 +153,21 @@ export default async function ProductPage({
 
       {/* Report Content */}
       <article className="p-4 max-w-2xl mx-auto w-full mt-2">
-        <div className="prose prose-sm sm:prose-base dark:prose-invert max-w-none
-          prose-headings:font-semibold
-          prose-a:text-blue-600 dark:prose-a:text-blue-400
-          prose-table:w-full prose-table:border-collapse
-          prose-th:border prose-th:border-gray-200 dark:prose-th:border-gray-800 prose-th:p-2 prose-th:bg-gray-50 dark:prose-th:bg-gray-900
-          prose-td:border prose-td:border-gray-200 dark:prose-td:border-gray-800 prose-td:p-2
-          prose-tr:border-b prose-tr:border-gray-200 dark:prose-tr:border-gray-800"
-        >
-          <ReactMarkdown remarkPlugins={[remarkGfm]}>
-            {content}
-          </ReactMarkdown>
-        </div>
-        {lastRun && <RunInfoFooter lastRun={lastRun} />}
+        <ReportSection>
+          <div className="prose prose-sm sm:prose-base dark:prose-invert max-w-none
+            prose-headings:font-semibold
+            prose-a:text-blue-600 dark:prose-a:text-blue-400
+            prose-table:w-full prose-table:border-collapse
+            prose-th:border prose-th:border-gray-200 dark:prose-th:border-gray-800 prose-th:p-2 prose-th:bg-gray-50 dark:prose-th:bg-gray-900
+            prose-td:border prose-td:border-gray-200 dark:prose-td:border-gray-800 prose-td:p-2
+            prose-tr:border-b prose-tr:border-gray-200 dark:prose-tr:border-gray-800"
+          >
+            <ReactMarkdown remarkPlugins={[remarkGfm]}>
+              {content}
+            </ReactMarkdown>
+          </div>
+          {lastRun && <RunInfoFooter lastRun={lastRun} />}
+        </ReportSection>
       </article>
     </main>
   );
