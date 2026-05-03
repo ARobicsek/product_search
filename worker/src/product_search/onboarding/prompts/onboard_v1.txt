@@ -51,6 +51,14 @@ target:
     - { module_count: <int>, module_capacity_gb: <int> }
     # ...one or more valid ways to reach the target
 
+# `target.configurations` is ALWAYS a list, NEVER a bare object or null.
+# The keys `module_count` and `module_capacity_gb` originated in the RAM
+# domain. For non-RAM products (headphones, apparel, single-SKU goods)
+# emit a single degenerate entry so the schema validates:
+#   target.configurations: [{module_count: 1, module_capacity_gb: 1}]
+# with target.unit: "count" and target.amount: 1. This pattern is what
+# every non-RAM profile in the repo uses today.
+
 spec_attrs:
   <attr_name>: { type: <int|str|float|bool>, required: <bool>, enum: [...] }
   # one or more attribute definitions
@@ -304,7 +312,8 @@ The server uses this ledger to compress the conversation when it gets long: olde
 A JSON object that mirrors the YAML schema 1:1. Use the same key names and shapes documented in "The schema you are filling in" above. The server deterministically renders YAML from this JSON at save time, so you never need to emit YAML yourself.
 
 Examples of the JSON ↔ YAML mapping:
-- `target.configurations: [{"module_count": 4, "module_capacity_gb": 64}]`
+- `target.configurations: [{"module_count": 4, "module_capacity_gb": 64}]` (RAM)
+- `target.configurations: [{"module_count": 1, "module_capacity_gb": 1}]` (non-RAM placeholder — ALWAYS a list with at least one entry, never a bare object or null)
 - `spec_filters: [{"rule": "in_stock"}, {"rule": "speed_mts_min", "value": 4800}]`
 - `spec_flags: [{"rule": "low_seller_feedback", "flag": "low_feedback", "rating_pct_below": 98.0, "count_below": 50}]`
 - `sources: [{"id": "ebay_search", "queries": ["bose nc 700"], "max_results_per_query": 50}, {"id": "universal_ai_search", "url": "https://www.backmarket.com/en-us/search?q=bose+nc+700"}]`

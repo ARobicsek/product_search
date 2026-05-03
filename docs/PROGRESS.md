@@ -46,10 +46,15 @@ What landed:
 - Tests: 144/144 worker tests still pass (Phase 14 didn't touch the worker pipeline — only the prompt file). Web app has no test framework yet; the bench script is the integration test.
 - Phase 14 → closed. Phase 15 next.
 
+**Noticed but deferred (carry into next session)**:
+- **Stale-run display on the product page persists** despite ADR-032's four-cache mitigation (Next fetch + raw.gh CDN + Vercel edge + browser, plus `force-dynamic` and `window.location.reload()`). User reports the product page sometimes still shows a previous run after a Run-now. Worth a focused investigation — possibly a fifth cache layer we haven't accounted for (PWA service worker on a registered tab? GitHub raw.githubusercontent.com edge that the existing cache-buster doesn't reach? Vercel ISR even with `force-dynamic`?). Reproduction: hit Run-now, watch for the new commit on origin, refresh — old numbers persist for some interval.
+- Onboarder UX polish landed during Phase 14 closeout: `<state>`/`<draft>` JSON blocks no longer flash on screen mid-stream (commit `a83f98d`); prompt now explicitly tells the model `target.configurations` is always a list with the non-RAM placeholder pattern (this commit) — caught by user reporting a `target.configurations: expected array` save failure on a Lululemon profile.
+
 **Next session — start here (Phase 15)**:
 1. Read the Phase 15 brief in [PHASES.md](PHASES.md#phase-15--universal-adapter-quality-pass).
-2. Optional follow-up: tighten `web_search.max_uses` from 5 → 2 in [web/app/api/onboard/chat/route.ts](../web/app/api/onboard/chat/route.ts) (per ADR-034 open follow-up). Cheap win, ~60% drop in search-turn cost.
-3. Universal adapter quality work proper.
+2. Investigate the stale-run display issue above before starting Phase 15 proper, since the user is hitting it daily and it blocks confidence in any vendor-quality work that follows.
+3. Optional follow-up: tighten `web_search.max_uses` from 5 → 2 in [web/app/api/onboard/chat/route.ts](../web/app/api/onboard/chat/route.ts) (per ADR-034 open follow-up). Cheap win, ~60% drop in search-turn cost.
+4. Universal adapter quality work proper.
 
 ## Status as of end of 2026-05-02 session (continuation 13 — Phase 13 closeout)
 
