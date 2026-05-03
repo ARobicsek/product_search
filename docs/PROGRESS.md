@@ -4,9 +4,41 @@
 
 ## Active phase
 
-**Phase 12 — Polish & second product proof** (live prod path proven; sub-phases queued)
+**Phase 13 — Verify & stabilize the AlterLab vendor-render path**
 
-See the Phase 12 brief in [PHASES.md](PHASES.md#phase-12--polish--second-product-proof).
+See the Phase 13 brief in [PHASES.md](PHASES.md#phase-13--verify--stabilize-the-alterlab-vendor-render-path). Phases 13–18 were rewritten on 2026-05-02 to address a backlog of issues that surfaced after Phase 12. The old "Phase 12 — Polish & second product proof" is now Phase 18 in revised form.
+
+## Status as of end of 2026-05-02 session (continuation 12 — planning reset)
+
+**Planning-only session. No code changes. Issued a multi-phase plan (Phases 13–18) to address a backlog: AlterLab migration unverified, onboarder forgets context mid-conversation, universal adapter only works on backmarket, no slug-delete UI, no schedule-edit UI.**
+
+User-confirmed decisions this session:
+1. **Onboarder model**: switch from `glm-5.1` ($2/$8 per M tokens, reasoning-class with json_object/CoT quirks per memory) to `claude-haiku-4-5` ($1/$5) with Anthropic's native `web_search` tool + prompt caching. ADR-014's `claude-sonnet-4-6` choice is superseded.
+2. **Slug deletion**: hard delete — remove `products/<slug>/` AND `reports/<slug>/` history when the user deletes a product. (No soft-delete / archive option.)
+3. **AlterLab key**: confirmed set in GH repo secrets as of 2026-05-02.
+4. **YAML schema**: stays as the on-disk format. The architectural commitment (deterministic worker pipeline, LLM only synthesizes pre-verified data) requires it. The change is in onboarder UX: per-turn assistant emits structured intent JSON, server renders YAML at save time.
+
+Where models are currently used (snapshot for reference; updated by Phase 14):
+
+| Step | Provider / Model | $/M in/out |
+|---|---|---|
+| Onboarding interview | `glm` / `glm-5.1` (Phase 14 swaps to anthropic/claude-haiku-4-5) | $2.00 / $8.00 |
+| Validator (`ai_filter`) | `anthropic` / `claude-haiku-4-5` (hardcoded) | $1.00 / $5.00 |
+| Universal AI adapter | `anthropic` / `claude-haiku-4-5` (hardcoded) | $1.00 / $5.00 |
+| Synthesizer (Context paragraph only) | `glm` / `glm-4.5-flash` (env-overridable) | $0.05 / $0.05 |
+
+**Live state at handoff**:
+- AlterLab migration code is local & uncommitted (universal_ai.py, both workflow ymls, test_universal_ai.py, cli.py, .env.example).
+- `web/lib/onboard/promptText.ts` is untracked (introduced in continuation 11; needs commit alongside).
+- ALTERLAB_API_KEY is set in GH Actions secrets.
+- Bose profile has 4 universal_ai_search vendors (backmarket, bhphotovideo, bestbuy, gazelle) — only backmarket is known to work.
+
+**Next session — start here (Phase 13)**:
+1. Commit the pending AlterLab migration changes + the untracked `promptText.ts`. Single commit, message: `phase 13: switch universal_ai vendor-render path from ScrapFly to AlterLab`.
+2. Trigger a Run-now on `bose-nc-700-headphones`. From the GH Actions log's worker stderr, verify each `universal_ai_search` source emits `[universal_ai] Fetched via alterlab`. If any fell through to curl_cffi, AlterLab itself failed — capture the response.
+3. Per-vendor classification (backmarket / bhphotovideo / bestbuy / gazelle): success / extraction-issue (defer to Phase 15) / AlterLab-failed (capture body to fixture).
+4. Write ADR-033 documenting the ScrapFly → AlterLab swap.
+5. Update PROGRESS.md with the per-vendor verdicts and set active phase to Phase 14.
 
 ## Status as of end of 2026-05-01 session (continuation 11)
 

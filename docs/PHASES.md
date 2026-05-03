@@ -235,3 +235,126 @@ Each phase is sized to fit one focused dev session (~30-90 min with an AI co-pil
 
 **Done when**:
 - Two products run scheduled in production, with reports committed daily, and the system worked the same for both.
+
+---
+
+## Phase 13 — Verify & stabilize the AlterLab vendor-render path
+
+**Goal**: confirm the ScrapFly → AlterLab swap actually works in prod, and lock it in with an ADR. The migration code is already in [worker/src/product_search/adapters/universal_ai.py](worker/src/product_search/adapters/universal_ai.py) and both workflow files but is uncommitted at session start; `ALTERLAB_API_KEY` is confirmed set in GH Actions secrets.
+
+**Prerequisite**: `ALTERLAB_API_KEY` set in repo secrets (confirmed 2026-05-02).
+
+**Tasks**:
+1. Commit the pending migration changes (universal_ai.py, both workflow ymls, test_universal_ai.py, cli.py, .env.example).
+2. Trigger a Run-now on `bose-nc-700-headphones`. Pull the worker stderr from the GH Actions log; verify each `universal_ai_search` source emits `[universal_ai] Fetched via alterlab`. If any fell through to curl_cffi, the API key isn't reaching the worker.
+3. For each of the four Bose vendors (backmarket, bhphotovideo, bestbuy, gazelle), classify the result:
+   - ≥1 listing emitted → success.
+   - 0 listings + non-empty HTML body → candidate-extraction problem (defer to Phase 15).
+   - 0 listings + empty / challenge body → AlterLab itself failed; capture the response body to a fixture for diagnosis.
+4. Write ADR-033 documenting the ScrapFly → AlterLab swap: motivation (credit exhaustion), reliability comparison, cost comparison, fallback semantics.
+5. If any AlterLab-specific error path needs handling (auth/quota errors at runtime), make sure they bubble up to the UI cleanly via cli.py's existing error path — already wired but verify on a real failure.
+
+**Done when**:
+- One green Run-now on Bose with `Fetched via alterlab` in the worker log for every universal_ai source.
+- ADR-033 in DECISIONS.md.
+- A clear written verdict per vendor in PROGRESS.md ("backmarket: 3 listings, ok; gazelle: 0/0, extraction issue, deferred to Phase 15"; etc.).
+
+**Out of scope**: improving the extractor itself (Phase 15), changing the onboarder (Phase 14).
+
+---
+
+## Phase 14 — Onboarder cost & memory rebuild
+
+**Goal**: cut average onboarding session cost by ≥70% AND make "what product are we talking about?" failures structurally impossible.
+
+**Decisions locked in by user (2026-05-02)**:
+- Switch onboarder model from `glm-5.1` → `claude-haiku-4-5`. Use Anthropic's native `web_search` tool. Use prompt caching on the system prompt.
+- Keep YAML as the on-disk profile format. Switch the per-turn assistant output from full YAML → structured intent JSON; render YAML server-side at save time only.
+
+**Tasks**:
+1. **Re-platform [web/app/api/onboard/chat/route.ts](web/app/api/onboard/chat/route.ts) to Anthropic SDK + Claude Haiku 4.5.** Default `LLM_ONBOARD_PROVIDER=anthropic`, `LLM_ONBOARD_MODEL=claude-haiku-4-5`. Wire Anthropic's `web_search` tool (multi-turn — server handles tool_use → tool_result roundtrips and streams the post-search assistant text). Update `.env.example`.
+2. **Enable Anthropic prompt caching** on the system prompt + the static-schema portion of `messages[0]`. Cache breakpoint at the seam between "static schema docs" and "conversation". Cuts repeat-turn cost ~90%.
+3. **Decisions ledger pattern.** Update [worker/src/product_search/onboarding/prompts/onboard_v1.txt](worker/src/product_search/onboarding/prompts/onboard_v1.txt) to instruct the assistant to emit a `<state>{...json...}</state>` block at the end of every assistant message, containing the running list of confirmed decisions (slug, target, filters, flags, sources, columns, schedule). Server-side: when trimming the sliding window, replace the dropped middle turns with one synthetic `assistant` turn that contains only the most recent `<state>` block. Result: the model always sees `messages[0]` (kickoff) + latest decisions ledger + last 4 conversational turns.
+4. **Structured intent JSON instead of YAML in turns.** Replace per-turn YAML emission with a `<draft>{...json...}</draft>` block matching the same schema. Server-side `web/lib/onboard/render-yaml.ts` deterministically renders YAML from the JSON at save time. Eliminates the "model dropped a closing brace" failure class and shrinks output tokens.
+5. **Update [web/app/onboard/OnboardChat.tsx](web/app/onboard/OnboardChat.tsx)** to parse the new `<state>` and `<draft>` block format; the right-pane preview shows the rendered YAML (regenerated client-side per turn for the user, server-side at save time as the source of truth).
+6. **Bench on one real onboarding session.** Onboard a hypothetical product (e.g. "noise-cancelling headphones budget under $300") through ~15 turns including web search. Compare against the GLM-5.1 baseline: input/output tokens, $ cost, and whether the model ever loses the slug or display_name.
+
+**Done when**:
+- A 15-turn session about a multi-spec product ends with a valid profile and the model never loses the slug, display_name, or any decision confirmed in turn ≤4.
+- Average cost per session ≤30% of the GLM-5.1 baseline (measured on one real session).
+- Web search still works (verifiable: ask a vendor-discovery question that requires it).
+
+**Out of scope**: changing the YAML schema itself, changing the universal adapter (Phase 15).
+
+---
+
+## Phase 15 — Universal adapter quality pass
+
+**Goal**: take the universal adapter from "works on backmarket only" to "works on most major e-commerce stacks." Stop adding vendor URLs that score 0/0.
+
+**Tasks**:
+1. **Add JSON-LD / microdata extraction tier** to [worker/src/product_search/adapters/universal_ai.py](worker/src/product_search/adapters/universal_ai.py). Walk all `<script type="application/ld+json">` blocks; if any contain `Product` / `Offer` / `ItemList` types, extract `name`, `offers.price`, `url` directly. Most modern e-commerce embeds this for SEO. Tried BEFORE the anchor heuristics; falls through if no JSON-LD found. Zero LLM cost when it works.
+2. **Add `cli probe-url <url> [--render]` command** to [worker/src/product_search/cli.py](worker/src/product_search/cli.py). Fetches via the same tier chain as the adapter (with optional AlterLab forced via `--render`), runs candidate extraction, prints: fetcher used, status, body length, candidate count, JSON-LD count, and 3 sample candidates with title + price. Returns nonzero exit if candidate count is 0. Useful for both manual diagnosis and the onboarder hook in step 4.
+3. **Capture fixtures from 6 real vendors** representing different stacks: Shopify (e.g. headphones.com), Magento, BigCommerce, custom React (e.g. bestbuy), refurb marketplace (backmarket), big-box (bhphotovideo or newegg). Fixtures live in `worker/tests/fixtures/universal_ai/<vendor>.html`. Pin extractor behavior in tests — both JSON-LD path AND anchor heuristics.
+4. **Tighten anchor heuristics** based on fixture failures: loosen `_PRICE_PATTERN` to handle split-price markup (e.g. `<span class="price">249</span><sup>99</sup>`); add support for sites where prices live in `data-price` attributes; consider raising `max_candidates` or paginating.
+5. **Onboarder integration** (depends on Phase 14): when the AI proposes a `universal_ai_search` URL, it MUST first call the probe (via a new `probe_url` tool exposed to the assistant). URLs scoring 0 land in `sources_pending` with an explicit "probe returned 0 candidates" note instead of `sources`. The user never gets a profile that silently has dead vendor URLs.
+
+**Done when**:
+- 4 of 6 fixture vendors yield ≥3 listings each via the offline test.
+- `cli probe-url` works locally and from CI.
+- A new onboarding session can't add a 0/0 URL to `sources` — it routes to `sources_pending`.
+- ADR-034 documenting the JSON-LD tier + probe pattern.
+
+**Out of scope**: writing native per-vendor adapters (those are Tier-A work, separate scope).
+
+---
+
+## Phase 16 — Slug deletion (hard delete)
+
+**Goal**: a delete button on the home page that actually removes a product end-to-end. Hard delete confirmed by user (2026-05-02).
+
+**Tasks**:
+1. **`DELETE /api/profile/[slug]` route.** Auth via `WEB_SHARED_SECRET` header (same pattern as `/api/dispatch`). Deletes via the GitHub Contents API:
+   - `products/<slug>/profile.yaml`
+   - `products/<slug>/qvl.yaml` (if present)
+   - Every file under `reports/<slug>/` (markdown reports + per-run CSVs under `data/`)
+   - Issues a single commit: `chore: delete product <slug>`.
+2. **Home-page UI**: small delete button per product card. Opens a typed-confirmation modal — user must type the slug verbatim before the Delete button enables. On success, `revalidatePath('/')` and the card disappears.
+3. **Edge cases**: deletion mid-Run-now must not break — the in-flight workflow run will commit a report into a now-empty directory; that's tolerable (orphaned report, no profile to read it). Document this in the ADR.
+4. **Tests**: a unit test for the delete handler that mocks the Contents API and asserts the right files are deleted; manual test that deleting the bose profile actually removes the directory tree.
+
+**Done when**:
+- Deleting `bose-nc-700-headphones` (or any test slug) removes `products/<slug>/` AND `reports/<slug>/` from the repo via a single auto-commit.
+- The home page no longer lists the deleted product.
+- ADR-035 in DECISIONS.md (auth model, what gets deleted, mid-run safety).
+
+---
+
+## Phase 17 — Schedule editor UI
+
+**Goal**: change a product's schedule from the web UI without editing YAML by hand. (Was Phase 12c in the old plan.)
+
+**Tasks**:
+1. **Inline schedule editor** on `/[product]`. Common-case picker (radio): daily 08:00 UTC / hourly / every 6h / every 12h / custom cron. The picker writes to `profile.yaml.schedule.cron`.
+2. **Local-time display**: show "next scheduled run: <user's local time>" computed from the cron string + current UTC. Use the same client-component pattern as RunInfoFooter.
+3. **Save flow**: reuse `/api/onboard/save` (it already commits profile.yaml deltas) — just need a new "schedule-only" entry point or extend the existing surgical mutator pattern in [web/lib/report-columns.ts](web/lib/report-columns.ts) to schedule.
+4. **Test**: change Bose's schedule from daily 08:00 → every 6h, verify the next `scheduler-tick` workflow invocation picks up the new cron.
+
+**Done when**:
+- Editing a product's schedule from the UI is reflected in the next scheduled-run workflow tick.
+- Cron strings the user can input are validated client-side (reject invalid 5-field crons before save).
+
+---
+
+## Phase 18 — Polish & second product proof (replaces old Phase 12)
+
+**Goal**: end-to-end proof that the rebuilt system works for a third product type.
+
+**Tasks**:
+- Onboard one new non-RAM, non-headphones product end-to-end using the rebuilt onboarder (Phase 14) + improved adapter (Phase 15). Suggestion: a category that exercises web search hard (e.g. mechanical keyboards or a specific GPU model).
+- Use the schedule editor (Phase 17) to set a non-default cadence.
+- Run scheduled for 7 consecutive days. Verify reports land daily.
+- At end of week, delete one of the three products via the delete button (Phase 16) to validate that path on real data.
+
+**Done when**:
+- Three products onboarded, one deleted, two run scheduled for a full week with daily reports committed.
