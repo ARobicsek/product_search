@@ -16,6 +16,8 @@ import {
   User,
 } from 'lucide-react';
 import { estimateCostUsd, formatCostUsd } from '@/lib/llm-prices';
+import { extractDraftJson, stripBlocks } from '@/lib/onboard/blocks';
+import { renderProfileYaml } from '@/lib/onboard/render-yaml';
 
 interface ChatMessage {
   role: 'user' | 'assistant';
@@ -41,19 +43,22 @@ function getKickoff(initialProfile?: string | null): ChatMessage {
   };
 }
 
-function extractLatestYamlBlock(markdown: string): string | null {
-  const re = /```ya?ml\s*\n([\s\S]*?)```/gi;
-  let last: string | null = null;
-  let m: RegExpExecArray | null;
-  while ((m = re.exec(markdown)) !== null) {
-    last = m[1];
+function findLatestDraft(messages: ChatMessage[]): Record<string, unknown> | null {
+  for (let i = messages.length - 1; i >= 0; i--) {
+    if (messages[i].role !== 'assistant') continue;
+    const j = extractDraftJson(messages[i].content);
+    if (j) return j;
   }
-  return last;
+  return null;
 }
 
-function extractSlug(yamlText: string): string | null {
-  const m = /^\s*slug\s*:\s*["']?([a-z0-9][a-z0-9-]{0,63})["']?\s*$/m.exec(yamlText);
-  return m ? m[1] : null;
+function safeRender(intent: Record<string, unknown> | null): string | null {
+  if (!intent) return null;
+  try {
+    return renderProfileYaml(intent);
+  } catch {
+    return null;
+  }
 }
 
 export function OnboardChat({ initialProfile, initialSlug }: { initialProfile?: string | null, initialSlug?: string | null }) {
@@ -68,22 +73,20 @@ export function OnboardChat({ initialProfile, initialSlug }: { initialProfile?: 
   const [sessionUsage, setSessionUsage] = useState({
     inputTokens: 0,
     outputTokens: 0,
+    cacheReadTokens: 0,
+    cacheCreationTokens: 0,
     turns: 0,
-    // The onboarding model can be overridden via env, so capture it from the
-    // first usage event rather than hard-coding 'claude-sonnet-4-6'.
     provider: 'anthropic',
     model: '',
   });
   const transcriptRef = useRef<HTMLDivElement | null>(null);
   const cancelled = useRef(false);
 
-  // Scroll to bottom on new content.
   useEffect(() => {
     const el = transcriptRef.current;
     if (el) el.scrollTop = el.scrollHeight;
   }, [messages, statusLine]);
 
-  // Kick off the first assistant turn automatically.
   useEffect(() => {
     void runTurn([kickoffMessage]);
     return () => {
@@ -143,6 +146,8 @@ export function OnboardChat({ initialProfile, initialSlug }: { initialProfile?: 
           model?: string;
           input_tokens?: number;
           output_tokens?: number;
+          cache_read_tokens?: number;
+          cache_creation_tokens?: number;
         };
         try {
           payload = JSON.parse(json);
@@ -162,11 +167,11 @@ export function OnboardChat({ initialProfile, initialSlug }: { initialProfile?: 
         } else if (payload.type === 'tool_use') {
           setStatusLine('Searching the web…');
         } else if (payload.type === 'usage') {
-          const inTok = payload.input_tokens ?? 0;
-          const outTok = payload.output_tokens ?? 0;
           setSessionUsage((u) => ({
-            inputTokens: u.inputTokens + inTok,
-            outputTokens: u.outputTokens + outTok,
+            inputTokens: u.inputTokens + (payload.input_tokens ?? 0),
+            outputTokens: u.outputTokens + (payload.output_tokens ?? 0),
+            cacheReadTokens: u.cacheReadTokens + (payload.cache_read_tokens ?? 0),
+            cacheCreationTokens: u.cacheCreationTokens + (payload.cache_creation_tokens ?? 0),
             turns: u.turns + 1,
             provider: payload.provider ?? u.provider,
             model: payload.model ?? u.model,
@@ -197,23 +202,24 @@ export function OnboardChat({ initialProfile, initialSlug }: { initialProfile?: 
     setMessages([kickoffMessage]);
     setSaveState({ kind: 'idle' });
     setError('');
-    setSessionUsage({ inputTokens: 0, outputTokens: 0, turns: 0, provider: 'anthropic', model: '' });
+    setSessionUsage({
+      inputTokens: 0,
+      outputTokens: 0,
+      cacheReadTokens: 0,
+      cacheCreationTokens: 0,
+      turns: 0,
+      provider: 'anthropic',
+      model: '',
+    });
     void runTurn([kickoffMessage]);
   }
 
-  // Find the latest YAML draft across assistant messages, freshest first.
-  const draftYaml = (() => {
-    for (let i = messages.length - 1; i >= 0; i--) {
-      if (messages[i].role !== 'assistant') continue;
-      const y = extractLatestYamlBlock(messages[i].content);
-      if (y) return y;
-    }
-    return null;
-  })();
-  const draftSlug = draftYaml ? extractSlug(draftYaml) : null;
+  const draftIntent = findLatestDraft(messages);
+  const draftYaml = safeRender(draftIntent);
+  const draftSlug = (draftIntent?.slug as string | undefined) ?? null;
 
   async function onSave() {
-    if (!draftYaml || saveState.kind === 'saving') return;
+    if (!draftIntent || saveState.kind === 'saving') return;
     setSaveState({ kind: 'saving' });
 
     const secret = process.env.NEXT_PUBLIC_WEB_SHARED_SECRET ?? '';
@@ -221,7 +227,7 @@ export function OnboardChat({ initialProfile, initialSlug }: { initialProfile?: 
       const res = await fetch('/api/onboard/save', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'x-web-secret': secret },
-        body: JSON.stringify({ yaml: draftYaml, originalSlug: initialSlug }),
+        body: JSON.stringify({ draft: draftIntent, originalSlug: initialSlug }),
       });
       const data = (await res.json()) as {
         ok: boolean;
@@ -239,7 +245,6 @@ export function OnboardChat({ initialProfile, initialSlug }: { initialProfile?: 
         return;
       }
       setSaveState({ kind: 'success', slug: data.slug, commitUrl: data.commitUrl ?? null });
-      // Brief delay so the user sees the success state, then navigate.
       setTimeout(() => router.push(`/${data.slug}`), 800);
     } catch (err) {
       setSaveState({
@@ -333,6 +338,8 @@ export function OnboardChat({ initialProfile, initialSlug }: { initialProfile?: 
             <SessionCost
               inputTokens={sessionUsage.inputTokens}
               outputTokens={sessionUsage.outputTokens}
+              cacheReadTokens={sessionUsage.cacheReadTokens}
+              cacheCreationTokens={sessionUsage.cacheCreationTokens}
               turns={sessionUsage.turns}
               provider={sessionUsage.provider}
               model={sessionUsage.model}
@@ -380,20 +387,34 @@ export function OnboardChat({ initialProfile, initialSlug }: { initialProfile?: 
 function SessionCost({
   inputTokens,
   outputTokens,
+  cacheReadTokens,
+  cacheCreationTokens,
   turns,
   provider,
   model,
 }: {
   inputTokens: number;
   outputTokens: number;
+  cacheReadTokens: number;
+  cacheCreationTokens: number;
   turns: number;
   provider: string;
   model: string;
 }) {
-  const cost = model
+  // Anthropic prompt-cache pricing: cache reads cost 0.1× input rate, cache
+  // creation costs 1.25× input rate. Apply those multipliers to the stock
+  // input price the LLM_PRICING table already exposes.
+  const baseCost = model
     ? estimateCostUsd(provider, model, inputTokens, outputTokens)
     : null;
-  const totalTokens = inputTokens + outputTokens;
+  const cacheReadCost = model
+    ? (estimateCostUsd(provider, model, cacheReadTokens, 0) ?? 0) * 0.1
+    : 0;
+  const cacheCreationCost = model
+    ? (estimateCostUsd(provider, model, cacheCreationTokens, 0) ?? 0) * 1.25
+    : 0;
+  const cost = baseCost === null ? null : baseCost + cacheReadCost + cacheCreationCost;
+  const totalTokens = inputTokens + outputTokens + cacheReadTokens + cacheCreationTokens;
   return (
     <div className="flex items-start gap-2 text-[11px] text-gray-600 dark:text-gray-400 bg-white dark:bg-gray-950 border border-gray-200 dark:border-gray-800 rounded-lg px-3 py-2">
       <DollarSign className="w-3.5 h-3.5 shrink-0 mt-0.5 text-gray-400" />
@@ -407,7 +428,9 @@ function SessionCost({
         <div className="text-gray-400">
           {totalTokens.toLocaleString()} tokens across {turns}{' '}
           {turns === 1 ? 'turn' : 'turns'} ({inputTokens.toLocaleString()} in,{' '}
-          {outputTokens.toLocaleString()} out)
+          {outputTokens.toLocaleString()} out
+          {cacheReadTokens > 0 && `, ${cacheReadTokens.toLocaleString()} cached`}
+          )
         </div>
       </div>
     </div>
@@ -416,6 +439,10 @@ function SessionCost({
 
 function MessageBubble({ role, content }: { role: 'user' | 'assistant'; content: string }) {
   const isUser = role === 'user';
+  // Strip <state> and <draft> JSON blocks from assistant messages — they're
+  // for the server, not the user. Keeps the right-pane preview as the single
+  // source of truth for "what's in the draft".
+  const display = isUser ? content : stripBlocks(content);
   return (
     <div className={`flex gap-2 ${isUser ? 'flex-row-reverse' : ''}`}>
       <div
@@ -437,8 +464,8 @@ function MessageBubble({ role, content }: { role: 'user' | 'assistant'; content:
           <span className="whitespace-pre-wrap wrap-break-word">{content || ' '}</span>
         ) : (
           <div className="prose prose-sm dark:prose-invert max-w-none prose-p:my-2 prose-pre:my-2 prose-pre:text-[11px] prose-pre:leading-snug prose-pre:bg-gray-50 dark:prose-pre:bg-gray-900 prose-code:text-[12px] prose-headings:my-2 prose-headings:text-base">
-            {content ? (
-              <ReactMarkdown remarkPlugins={[remarkGfm]}>{content}</ReactMarkdown>
+            {display ? (
+              <ReactMarkdown remarkPlugins={[remarkGfm]}>{display}</ReactMarkdown>
             ) : (
               <Loader2 className="w-3.5 h-3.5 animate-spin text-gray-400" />
             )}

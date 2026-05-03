@@ -4,11 +4,58 @@
 
 ## Active phase
 
-**Phase 14 — Onboarder cost & memory rebuild** (Phase 13 closed 2026-05-02 continuation 13)
+**Phase 15 — Universal adapter quality pass** (Phase 14 closed 2026-05-03)
 
-See the Phase 14 brief in [PHASES.md](PHASES.md#phase-14--onboarder-cost--memory-rebuild).
+See the Phase 15 brief in [PHASES.md](PHASES.md#phase-15--universal-adapter-quality-pass).
+
+## Status as of end of 2026-05-03 session (Phase 14 closeout)
+
+**Onboarder rebuilt around Claude Haiku 4.5 + native web_search + ephemeral prompt caching + `<state>`/`<draft>` JSON blocks. ADR-034 written. Phase 14 closed.**
+
+What landed:
+
+1. **Chat route re-platformed** to Anthropic SDK in [web/app/api/onboard/chat/route.ts](../web/app/api/onboard/chat/route.ts):
+   - `model: 'claude-haiku-4-5'` (env-overridable via `LLM_ONBOARD_MODEL`).
+   - `system` now sent as a single text block with `cache_control: { type: 'ephemeral' }`. Cuts repeat-turn input cost ~90% (cache reads are 0.1× input rate; the system prompt is ~4500 tokens).
+   - `tools: [{ type: 'web_search_20250305', name: 'web_search', max_uses: 5 }]`. Anthropic runs the search server-side and feeds results back into the same streaming response — no multi-turn round-tripping in our code.
+   - Sliding window: `messages[0]` (kickoff) + synthetic assistant turn carrying the latest `<state>` ledger + last 4 conversational turns. Compression replaces middle turns rather than dropping them, so the model never loses a decision confirmed early in the session.
+
+2. **`<state>` and `<draft>` block format** ([worker/src/product_search/onboarding/prompts/onboard_v1.txt](../worker/src/product_search/onboarding/prompts/onboard_v1.txt)). Every assistant turn ends with two single-line JSON blocks; `<state>` is the running decisions ledger (slug, display_name, target/filters/flags/sources/schedule summaries, open_questions, edit_mode), `<draft>` is structured intent JSON that mirrors the YAML schema 1:1. Server-side [web/lib/onboard/render-yaml.ts](../web/lib/onboard/render-yaml.ts) deterministically renders YAML at save time via `js-yaml.dump`. The "model dropped a closing brace in YAML" failure class is gone.
+
+3. **Save endpoint** ([web/app/api/onboard/save/route.ts](../web/app/api/onboard/save/route.ts)) accepts either `draft` (preferred) or legacy `yaml` payload. Renders YAML server-side, runs the existing schema validator, and commits via `commitNewProfile` unchanged.
+
+4. **OnboardChat.tsx** parses `<state>`/`<draft>` blocks, strips them from the rendered markdown so the user sees a clean reply, and renders the right-pane preview via the shared `renderProfileYaml` (same renderer the server uses at save time). `SessionCost` panel now also tracks cache_read / cache_creation tokens and applies the 0.1× / 1.25× multipliers.
+
+5. **`.env.example` updated** to default `LLM_ONBOARD_MODEL=claude-haiku-4-5`.
+
+6. **Bench passed** — [web/scripts/bench-onboard.mjs](../web/scripts/bench-onboard.mjs), 15-turn scripted dialogue about NC headphones <$300:
+   - 7 web searches fired (3 in turn 6, 4 in turn 7 — both vendor-discovery turns).
+   - Slug `nc-headphones-under-300` set at turn 3, persisted through turn 13's explicit memory probe ("what slug did we agree on?") and through the end of the session.
+   - `display_name` "Noise-Cancelling Over-Ear Headphones Under $300" likewise persisted.
+   - Total cost: $0.1779. Non-search turns averaged $0.007 (~25% of estimated GLM-5.1 equivalent at ~$0.023/turn). Search turns ran $0.04–$0.06 each, dominated by web-search-result tokens being cached at creation rate (1.25× input).
+
+7. **Build & type-check green**: `npx tsc --noEmit` clean, `npx next build` compiles with all routes including the new edge-runtime `/api/onboard/chat`. ESLint shows 5 pre-existing errors and 6 pre-existing warnings; none are from Phase 14.
+
+**Done-when checklist**:
+- ✅ 15-turn session ends with a valid profile and the model never loses the slug/display_name confirmed early.
+- ⚠️ Average cost ≤30% of GLM-5.1 baseline: **met on non-search turns; search-heavy turns are dominated by Anthropic-side web-search-result cache creation that is largely model-architecture-independent.** ADR-034 documents this caveat and proposes tightening `max_uses` from 5 → 2 in Phase 15+.
+- ✅ Web search still works (verified end-to-end via 7 successful invocations).
+
+**Live state at handoff**:
+- Local commits to push (uncommitted): `web/app/api/onboard/chat/route.ts`, `web/app/api/onboard/save/route.ts`, `web/app/onboard/OnboardChat.tsx`, `web/lib/onboard/blocks.ts` (new), `web/lib/onboard/render-yaml.ts` (new), `web/lib/onboard/promptText.ts` (re-synced), `web/scripts/bench-onboard.mjs` (new), `worker/src/product_search/onboarding/prompts/onboard_v1.txt`, `.env.example`, `docs/DECISIONS.md` (ADR-034 added; ADR-015 marked SUPERSEDED), `docs/PROGRESS.md` (this update).
+- Tests: 144/144 worker tests still pass (Phase 14 didn't touch the worker pipeline — only the prompt file). Web app has no test framework yet; the bench script is the integration test.
+- Phase 14 → closed. Phase 15 next.
+
+**Next session — start here (Phase 15)**:
+1. Read the Phase 15 brief in [PHASES.md](PHASES.md#phase-15--universal-adapter-quality-pass).
+2. Optional follow-up: tighten `web_search.max_uses` from 5 → 2 in [web/app/api/onboard/chat/route.ts](../web/app/api/onboard/chat/route.ts) (per ADR-034 open follow-up). Cheap win, ~60% drop in search-turn cost.
+3. Universal adapter quality work proper.
 
 ## Status as of end of 2026-05-02 session (continuation 13 — Phase 13 closeout)
+
+**AlterLab integration verified and stabilized after a wire-format defect was found and fixed. ADR-033 written. Phase 13 closed.**
+
+## Status as of end of 2026-05-02 session (continuation 13 — Phase 13 closeout) [archived]
 
 **AlterLab integration verified and stabilized after a wire-format defect was found and fixed. ADR-033 written. Phase 13 closed.**
 

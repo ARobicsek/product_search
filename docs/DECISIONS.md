@@ -9,6 +9,39 @@ Status values:
 
 ---
 
+## ADR-034 — Onboarder swap to Claude Haiku 4.5 + structured-intent JSON; supersedes ADR-015
+
+**Status**: ACCEPTED
+
+**Date**: 2026-05-03
+
+**Context**: After ADR-015 picked Claude Sonnet 4.6 (Phase 10) and the Phase 11 reset moved to Zhipu GLM-5.1 ($2/$8 per M tokens) for cheaper interview cost, two structural problems remained:
+
+1. The model emitted full YAML in every turn. A single dropped brace or stray comment broke the right-pane preview and the save flow. Sliding-window compression made this worse — older turns whose YAML was authoritative could be evicted.
+2. Mid-conversation the model would forget the slug or display_name and either ask again or invent a new one. The previous mitigation ("preserve messages[0]") covered edit-mode but not new-profile sessions where slug was decided in turn 3.
+
+**Decision**: Onboarder is `anthropic/claude-haiku-4-5` ($1/$5 per M tokens) with three structural changes:
+
+1. **Native `web_search_20250305` server-tool.** Anthropic runs the search server-side and feeds results back into the same streaming response — no multi-turn tool round-tripping in our route.
+2. **Ephemeral prompt caching** on the system prompt (~4500 tokens). Cache reads cost 0.1× input rate. After turn 1 the system prompt is essentially free.
+3. **`<state>` ledger + `<draft>` intent JSON per turn.** Every assistant message ends with two single-line JSON blocks: a running decisions ledger and a structured intent that mirrors the YAML schema 1:1. Server-side `web/lib/onboard/render-yaml.ts` deterministically renders YAML at save time. The sliding window now compresses dropped middle turns into one synthetic assistant turn containing the latest `<state>` block, so the model always sees a complete decision history regardless of how long the conversation gets.
+
+**Consequence**: Phase 14 bench (15-turn session about NC headphones <$300, 7 web searches, slug confirmed at turn 3 and re-confirmed at turn 13):
+- Total cost: $0.1779 (dominated by 2 vendor-discovery turns at $0.04–$0.06 each from search-result tokens being cached at creation rate). Non-search turns averaged $0.007 each.
+- Slug `nc-headphones-under-300` and display_name persisted across all 15 turns including an explicit memory probe at turn 13.
+- Web search worked end-to-end via Anthropic's server-tool path.
+- Cost target (≤30% of GLM-5.1 baseline) is **met on non-search turns only**. On search-heavy turns, cost is dominated by web-search-result token volume which is largely vendor-architecture-independent. Target should be re-stated as "≤30% per non-search turn" in Phase 15+ planning.
+
+The "model dropped a closing brace in YAML" failure class is gone — the only YAML the user sees is what `js-yaml.dump()` produced from a validated JSON object.
+
+**Supersedes**: ADR-015 (Sonnet 4.6 Phase 10 onboarding model). ADR-013's "LLMs only suggest sources, never extract listings" architectural commitment still holds — Haiku's web_search is suggestion-only at onboarding time. ADR-014 is unrelated (it's about `/api/dispatch` auth).
+
+**Open follow-ups for Phase 15+**:
+- Tighten `web_search.max_uses` from 5 → 2 per turn (the bench saw 3+4 searches in two consecutive turns, which is wasteful).
+- Consider running a head-to-head GLM-5.1 bench with the new prompt format if the absolute cost target needs revisiting.
+
+---
+
 ## ADR-033 — Tier-3 vendor fetcher swaps from ScrapFly to AlterLab; supersedes ADR-030
 
 **Status**: ACCEPTED
@@ -1075,7 +1108,7 @@ breakage there is expected and a useful Phase 12 finding.
 
 ## ADR-015 — Phase 10 onboarding model: Anthropic Claude Sonnet 4.6
 
-**Status**: ACCEPTED
+**Status**: SUPERSEDED by ADR-034 (model is now `claude-haiku-4-5` with prompt caching + structured-intent JSON; same Anthropic web_search server-tool path).
 
 **Context**: Phase 10 needs an LLM to drive the onboarding interview, with a
 strong tool-use loop for `web_search` so the model can suggest Tier B/C

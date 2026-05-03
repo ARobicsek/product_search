@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server';
 import { revalidatePath } from 'next/cache';
 import { commitNewProfile } from '@/lib/onboard/commit';
 import { parseAndValidateProfileYaml, ProfileValidationError } from '@/lib/onboard/schema';
+import { renderProfileYaml } from '@/lib/onboard/render-yaml';
 
 export const runtime = 'nodejs';
 export const maxDuration = 30;
@@ -21,19 +22,36 @@ export async function POST(request: NextRequest) {
     return bad('invalid or missing x-web-secret header', 401);
   }
 
-  let body: { yaml?: unknown; originalSlug?: string | null };
+  let body: { yaml?: unknown; draft?: unknown; originalSlug?: string | null };
   try {
     body = await request.json();
   } catch {
     return bad('invalid JSON body');
   }
-  if (typeof body.yaml !== 'string' || body.yaml.trim().length === 0) {
-    return bad('yaml must be a non-empty string');
+
+  // Phase 14: prefer the structured `draft` JSON path. The legacy `yaml`
+  // path stays for any in-flight client that hasn't reloaded since the
+  // chat route was updated.
+  let yamlText: string | null = null;
+  if (body.draft !== undefined && body.draft !== null) {
+    if (typeof body.draft !== 'object' || Array.isArray(body.draft)) {
+      return bad('draft must be a JSON object');
+    }
+    try {
+      yamlText = renderProfileYaml(body.draft as Record<string, unknown>);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'render-yaml failed';
+      return bad(`failed to render YAML from draft: ${msg}`, 422);
+    }
+  } else if (typeof body.yaml === 'string' && body.yaml.trim().length > 0) {
+    yamlText = body.yaml;
+  } else {
+    return bad('either draft (object) or yaml (non-empty string) is required');
   }
 
-  let yamlText = body.yaml;
   if (body.originalSlug && SLUG_RE.test(body.originalSlug)) {
-    // If editing an existing profile, aggressively overwrite whatever slug the LLM hallucinated
+    // Edit mode: aggressively pin the slug to whatever the URL said, even if
+    // the LLM hallucinated a new one in the draft.
     yamlText = yamlText.replace(/^\s*slug\s*:\s*.*$/m, `slug: "${body.originalSlug}"`);
   }
 
@@ -61,7 +79,6 @@ export async function POST(request: NextRequest) {
     return bad(msg, 502);
   }
 
-  // Invalidate the home page so the new product appears once a report lands.
   revalidatePath('/');
 
   return Response.json({ ok: true, ...result });
