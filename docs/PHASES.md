@@ -326,7 +326,7 @@ Each phase is sized to fit one focused dev session (~30-90 min with an AI co-pil
 **Done when**:
 - Deleting `bose-nc-700-headphones` (or any test slug) removes `products/<slug>/` AND `reports/<slug>/` from the repo via a single auto-commit.
 - The home page no longer lists the deleted product.
-- ADR-035 in DECISIONS.md (auth model, what gets deleted, mid-run safety).
+- ADR-036 in DECISIONS.md (auth model, what gets deleted, mid-run safety). (ADR-035 was claimed during the Phase 15 prelude for the Run-now UX wipe + Actions API consistency fix.)
 
 ---
 

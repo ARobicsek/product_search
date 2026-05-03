@@ -8,6 +8,30 @@
 
 See the Phase 15 brief in [PHASES.md](PHASES.md#phase-15--universal-adapter-quality-pass).
 
+## Status as of end of 2026-05-03 session (Phase 15 prelude — stale-run mitigation)
+
+**The "stale report after Run-now" complaint is closed end-to-end. ADR-035 written. Phase 15 proper is up next.**
+
+What landed:
+
+1. **Run-in-flight UI wipe** ([web/app/[product]/ReportSection.tsx](../web/app/[product]/ReportSection.tsx) + [web/app/[product]/runState.ts](../web/app/[product]/runState.ts), commit `ced395b`). Tiny client-only pub/sub store backed by `useSyncExternalStore`. `RunNowButton` publishes its state into the store; `<ReportSection>` wraps the report markdown + `RunInfoFooter` and swaps to a spinner card with "Running a fresh search… previous report is hidden so you don't act on stale numbers." The wipe persists through `dispatching → polling → done`, so the brief window before `window.location.reload()` doesn't show the prior data either. Cleanup on unmount clears the flag, so navigating away mid-run doesn't leak hidden state to a later visit.
+
+2. **Footer timestamp consistency fix** ([web/lib/dispatch.ts](../web/lib/dispatch.ts), commit `a26bffb`). `getLastCompletedRun` was hitting `/runs?event=workflow_dispatch&status=completed&per_page=20`. GitHub's status-filtered index is eventually consistent — for tens of seconds after a workflow completes, the just-finished run is missing from that view. So right after Run-now, the "Last run completed …" footer was rendering the *previous* completed run's timestamp (e.g. an 8:43 AM ET morning run shown after a 1:41 PM ET dispatch — which was the user-reported symptom). Dropped the URL filter; check `status === 'completed'` in code against the unfiltered listing, which updates eagerly. Same pattern `getLatestOnDemandRun` (polling path) has always used — which is why polling never had the lag.
+
+**Verified live**: user confirmed 2026-05-03 PM session that the wipe behavior + footer timestamp both render correctly on a real Run-now click.
+
+**Live state at handoff**:
+- Local commits to push: PROGRESS.md update + ADR-035 in DECISIONS.md + ADR-renumber in PHASES.md (this commit). The two code commits (`ced395b`, `a26bffb`) are already on origin.
+- Build green; tsc clean. No worker tests touched.
+- The "noticed but deferred" stale-run investigation from Phase 14 is now resolved as "mitigated, not root-caused": ADR-032's four-cache stack + ADR-035's UI wipe + ADR-035's API-lag fix together leave no failure mode the user can observe. If the underlying cache layer ever resurfaces (e.g. with a different page or a different user flow), reopen.
+
+**Next session — start here (Phase 15 proper)**:
+1. Read the Phase 15 brief in [PHASES.md](PHASES.md#phase-15--universal-adapter-quality-pass).
+2. **Optional cheap win first** (~2 min): tighten `web_search.max_uses` 5 → 2 in [web/app/api/onboard/chat/route.ts](../web/app/api/onboard/chat/route.ts) per ADR-034 follow-up.
+3. **Phase 15 task 1 — JSON-LD / microdata extraction tier** in [worker/src/product_search/adapters/universal_ai.py](../worker/src/product_search/adapters/universal_ai.py). Highest-leverage step: most modern e-commerce embeds Product/Offer/ItemList JSON-LD for SEO. Walk all `<script type="application/ld+json">` blocks before falling through to anchor heuristics. Zero LLM cost when it works.
+4. **Phase 15 task 2 — `cli probe-url <url> [--render]`** in [worker/src/product_search/cli.py](../worker/src/product_search/cli.py). Useful both for manual diagnosis and for the onboarder integration in task 5.
+5. Tasks 3, 4, 5 per the brief.
+
 ## Status as of end of 2026-05-03 session (Phase 14 closeout)
 
 **Onboarder rebuilt around Claude Haiku 4.5 + native web_search + ephemeral prompt caching + `<state>`/`<draft>` JSON blocks. ADR-034 written. Phase 14 closed.**

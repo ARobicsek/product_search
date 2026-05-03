@@ -9,6 +9,34 @@ Status values:
 
 ---
 
+## ADR-035 — Run-now UX wipe + drop `?status=completed` from Actions API lookup; refines ADR-032
+
+**Status**: ACCEPTED
+
+**Date**: 2026-05-03
+
+**Context**: ADR-032 stacked four cache defenses (Next fetch `no-store`, raw.githubusercontent.com `?_cb=` query buster, `force-dynamic` on the product page, `window.location.reload()` after run completion) so a Run-now click reliably surfaces the just-pushed report. Despite all four, the user kept reporting "stale screen after Run-now." PROGRESS.md flagged this as a "fifth cache layer" investigation queued for Phase 15.
+
+Investigation in this session found two distinct issues wearing the same costume:
+
+1. **The previous report sits on screen for several minutes during the run.** Even when the post-reload page renders fresh content, the user spent the entire workflow-running window staring at numbers from the prior run. That itself is what drives the "is it stale?" anxiety the four cache layers were meant to fix.
+
+2. **GitHub Actions `?status=completed` view is eventually consistent.** `getLastCompletedRun` queried `/runs?event=workflow_dispatch&status=completed&per_page=20`. After a fresh completion, the just-finished run is missing from that filtered index for tens of seconds. The lookup returned the *previous* completed run, and the "Last run completed …" footer showed a stale timestamp — even when the report content above it was the fresh one. From the user's perspective on 2026-05-03: footer showed an 8:43 AM ET morning run right after a 1:41 PM ET dispatch had completed and the report had updated.
+
+**Decision**:
+
+1. **UI wipe while a run is in flight.** New client-only pub/sub store at [web/app/[product]/runState.ts](../web/app/[product]/runState.ts) (backed by `useSyncExternalStore`) and a `<ReportSection>` wrapper at [web/app/[product]/ReportSection.tsx](../web/app/[product]/ReportSection.tsx) around the report markdown + `RunInfoFooter`. `RunNowButton` mirrors its state into the store at every transition; the wrapper swaps the rendered article for a spinner card when running. The wipe stays through the brief `done` state until `window.location.reload()` swaps the whole page. Unmount cleanup clears the flag so navigating away mid-run doesn't leak hidden state to a later visit. Rationale: the user can't act on numbers that aren't on screen — the wipe sidesteps any cache layer the four-layer stack hasn't accounted for, by removing the surface where staleness can be observed at all.
+
+2. **Drop `?status=completed` from `getLastCompletedRun`** in [web/lib/dispatch.ts](../web/lib/dispatch.ts). Query `?event=workflow_dispatch&per_page=20` (no status filter) and check `match.status === 'completed'` in code, with a fallback to the most-recent completed run if the slug-match find misses. The unfiltered listing is updated eagerly; the filtered index is not. Same pattern that `getLatestOnDemandRun` (used by `/api/run-status` polling) already follows — which is why polling never had the lag.
+
+**Consequence**: User verified live on 2026-05-03 PM that Run-now click → report area wipes → workflow runs → page reloads with fresh content + correct footer timestamp. The "stale display after Run-now" class of complaints is closed because there is no longer a window where the user observes previous-run data. The four-cache stack from ADR-032 still does its job; ADR-035 adds belt-and-suspenders against any layer not yet accounted for.
+
+**Lesson**: When GitHub returns a query parameter that "narrows" results, double-check whether it goes through a separately-indexed view. `?status=completed` does. So do many `?state=…`, `?type=…`, and similar filters across GitHub's REST API. Where freshness matters, query unfiltered and narrow in code — the bandwidth savings of a server-side filter are not worth the consistency lag.
+
+**Refines**: ADR-032 (adds a UI-side defense, fixes an orthogonal Actions API consistency bug). Doesn't supersede — the four cache layers in ADR-032 still do load-bearing work.
+
+---
+
 ## ADR-034 — Onboarder swap to Claude Haiku 4.5 + structured-intent JSON; supersedes ADR-015
 
 **Status**: ACCEPTED
