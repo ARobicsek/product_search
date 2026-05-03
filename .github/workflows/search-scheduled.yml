@@ -44,7 +44,7 @@ jobs:
           # Need eBay API credentials for Phase 2 eBay Browse API if configured
           EBAY_CLIENT_ID: ${{ secrets.EBAY_CLIENT_ID }}
           EBAY_CLIENT_SECRET: ${{ secrets.EBAY_CLIENT_SECRET }}
-          SCRAPFLY_API_KEY: ${{ secrets.SCRAPFLY_API_KEY }}
+          ALTERLAB_API_KEY: ${{ secrets.ALTERLAB_API_KEY }}
         run: |
           python -m product_search.cli scheduler-tick
 

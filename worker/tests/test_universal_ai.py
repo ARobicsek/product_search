@@ -206,10 +206,10 @@ def test_fetch_returns_empty_when_no_url(monkeypatch: pytest.MonkeyPatch) -> Non
     assert universal_ai.fetch(query) == []
 
 
-def test_scrapfly_fetch_path_used_when_key_set(monkeypatch: pytest.MonkeyPatch) -> None:
-    """When SCRAPFLY_API_KEY is set, _fetch_html routes through ScrapFly
+def test_alterlab_fetch_path_used_when_key_set(monkeypatch: pytest.MonkeyPatch) -> None:
+    """When ALTERLAB_API_KEY is set, _fetch_html routes through AlterLab
     (not curl_cffi/httpx) and returns the origin HTML from the JSON envelope."""
-    monkeypatch.setenv("SCRAPFLY_API_KEY", "test-key-12345")
+    monkeypatch.setenv("ALTERLAB_API_KEY", "test-key-12345")
 
     captured: dict[str, Any] = {}
 
@@ -234,7 +234,7 @@ def test_scrapfly_fetch_path_used_when_key_set(monkeypatch: pytest.MonkeyPatch) 
                     return None
 
                 def json(self) -> dict[str, Any]:
-                    return {"result": {"content": "<html><body>scrapfly!</body></html>", "status_code": 200}}
+                    return {"result": {"content": "<html><body>alterlab!</body></html>", "status_code": 200}}
 
             return _Resp()
 
@@ -242,23 +242,23 @@ def test_scrapfly_fetch_path_used_when_key_set(monkeypatch: pytest.MonkeyPatch) 
     monkeypatch.setattr(httpx, "Client", _StubClient)
 
     html, status, fetcher = universal_ai._fetch_html("https://example.com/products")
-    assert fetcher == "scrapfly"
+    assert fetcher == "alterlab"
     assert status == 200
-    assert "scrapfly!" in html
-    assert captured["api_url"] == "https://api.scrapfly.io/scrape"
+    assert "alterlab!" in html
+    assert captured["api_url"] == "https://api.alterlab.io/scrape"
     assert captured["params"]["key"] == "test-key-12345"
     assert captured["params"]["url"] == "https://example.com/products"
     assert captured["params"]["render_js"] == "true"
     assert captured["params"]["asp"] == "true"
 
 
-def test_scrapfly_failure_falls_back_to_lower_tier(monkeypatch: pytest.MonkeyPatch) -> None:
-    """ScrapFly outage / 5xx must not zero a run; we fall back to
+def test_alterlab_failure_falls_back_to_lower_tier(monkeypatch: pytest.MonkeyPatch) -> None:
+    """AlterLab outage / 5xx must not zero a run; we fall back to
     curl_cffi/httpx so existing free-fetch sites keep working."""
-    monkeypatch.setenv("SCRAPFLY_API_KEY", "test-key")
+    monkeypatch.setenv("ALTERLAB_API_KEY", "test-key")
 
-    def _scrapfly_explodes(url: str, key: str, *, timeout: float = 60.0) -> Any:
-        raise RuntimeError("scrapfly is down")
+    def _alterlab_explodes(url: str, key: str, *, timeout: float = 60.0) -> Any:
+        raise RuntimeError("alterlab is down")
 
     fallback_called: dict[str, bool] = {"hit": False}
 
@@ -271,7 +271,7 @@ def test_scrapfly_failure_falls_back_to_lower_tier(monkeypatch: pytest.MonkeyPat
 
         return _Resp()
 
-    monkeypatch.setattr(universal_ai, "_fetch_via_scrapfly", _scrapfly_explodes)
+    monkeypatch.setattr(universal_ai, "_fetch_via_alterlab", _alterlab_explodes)
 
     # Fake the curl_cffi import inside _fetch_html.
     import sys
@@ -290,15 +290,15 @@ def test_scrapfly_failure_falls_back_to_lower_tier(monkeypatch: pytest.MonkeyPat
     assert "fallback ok" in html
 
 
-def test_no_scrapfly_key_skips_scrapfly_path(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Without SCRAPFLY_API_KEY, _fetch_via_scrapfly must NOT be called —
+def test_no_alterlab_key_skips_alterlab_path(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Without ALTERLAB_API_KEY, _fetch_via_alterlab must NOT be called —
     we go straight to curl_cffi/httpx so free-only setups don't break."""
-    monkeypatch.delenv("SCRAPFLY_API_KEY", raising=False)
+    monkeypatch.delenv("ALTERLAB_API_KEY", raising=False)
 
     def _should_not_be_called(*_a: object, **_k: object) -> Any:  # pragma: no cover
-        raise AssertionError("ScrapFly path must not run when key is unset")
+        raise AssertionError("AlterLab path must not run when key is unset")
 
-    monkeypatch.setattr(universal_ai, "_fetch_via_scrapfly", _should_not_be_called)
+    monkeypatch.setattr(universal_ai, "_fetch_via_alterlab", _should_not_be_called)
 
     # Stub curl_cffi so the real fetch doesn't try to hit the network.
     import sys

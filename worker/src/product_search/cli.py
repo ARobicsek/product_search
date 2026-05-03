@@ -665,6 +665,13 @@ def _build_sources_searched_md(
     post-check (which forbids fabricated numbers) sees only data we control.
     """
     lines = ["**Sources searched.**", ""]
+    
+    has_api_issue = any("quota" in str(s.get("error", "")).lower() or "auth" in str(s.get("error", "")).lower() for s in source_stats)
+    if has_api_issue:
+        lines.append("> [!WARNING]")
+        lines.append("> **Scraping API Issue:** One or more sources failed due to an API quota or authentication error. Please check your AlterLab or eBay dashboard limits.")
+        lines.append("")
+
     lines.append("| Source | Status | Fetched | Passed |")
     lines.append("|--------|--------|---------|--------|")
     for s in source_stats:

@@ -107,20 +107,24 @@ def _fetch_html(url: str, timeout: float = 20.0) -> tuple[str, int, str]:
     codes are logged but the body is still returned because some sites
     serve a challenge page with status 200 and others 403.
     """
-    scrapfly_key = os.environ.get("SCRAPFLY_API_KEY", "").strip()
-    if scrapfly_key:
-        # ScrapFly needs its own (much longer) timeout: render_js spins up
+    alterlab_key = os.environ.get("ALTERLAB_API_KEY", "").strip()
+    if alterlab_key:
+        # AlterLab needs its own (much longer) timeout: render_js spins up
         # a real Chrome and can take 30-60s on heavy pages (B&H, Crutchfield).
         # The outer `timeout` arg is sized for the cheap raw-HTTP fetchers and
         # would prematurely abort an in-flight render.
         try:
-            return _fetch_via_scrapfly(url, scrapfly_key, timeout=120.0)
+            return _fetch_via_alterlab(url, alterlab_key, timeout=120.0)
         except Exception as exc:
-            # Don't let a ScrapFly outage zero a run — fall through to
+            # Check if quota/auth error and bubble it up instead of fallback
+            if hasattr(exc, "response") and exc.response.status_code in (401, 403, 429):
+                # We raise so fetch() catches it and bubbles up to cli.py
+                raise RuntimeError(f"AlterLab API issue: HTTP {exc.response.status_code} quota or auth error") from exc
+            # Don't let an AlterLab outage zero a run — fall through to
             # the cheap tiers. The worker log captures the failure so
             # repeated outages are debuggable.
             logger.warning(
-                f"[universal_ai] ScrapFly fetch failed ({type(exc).__name__}: "
+                f"[universal_ai] AlterLab fetch failed ({type(exc).__name__}: "
                 f"{exc}); falling back to curl_cffi/httpx."
             )
 
@@ -161,17 +165,17 @@ def _fetch_html(url: str, timeout: float = 20.0) -> tuple[str, int, str]:
         return resp.text or "", resp.status_code, "httpx"
 
 
-def _fetch_via_scrapfly(
+def _fetch_via_alterlab(
     url: str, api_key: str, *, timeout: float = 60.0
 ) -> tuple[str, int, str]:
-    """Fetch ``url`` via the ScrapFly API with JS rendering + ASP.
+    """Fetch ``url`` via the AlterLab API with JS rendering + ASP.
 
-    Returns ``(html, vendor_status_code, "scrapfly")``. The HTTP status
+    Returns ``(html, vendor_status_code, "alterlab")``. The HTTP status
     we return is the ORIGIN site's status (e.g. 200 for the vendor),
-    NOT ScrapFly's API status — that's what the rest of the adapter
-    expects. ScrapFly itself either returns 200 with a JSON envelope
+    NOT AlterLab's API status — that's what the rest of the adapter
+    expects. AlterLab itself either returns 200 with a JSON envelope
     or a non-2xx with an error JSON; both cases raise so the caller's
-    try/except routes to the fallback tiers.
+    try/except routes to the fallback tiers or bubbles up auth/quota errors.
 
     JS rendering can take up to ~20s on heavy pages, so we use a
     longer default timeout than the cheap fetchers.
@@ -185,7 +189,7 @@ def _fetch_via_scrapfly(
         "asp": "true",
         "country": "us",
     }
-    api = "https://api.scrapfly.io/scrape"
+    api = "https://api.alterlab.io/scrape"
     with httpx.Client(timeout=timeout) as client:
         resp = client.get(api, params=params)
     resp.raise_for_status()
@@ -193,7 +197,7 @@ def _fetch_via_scrapfly(
     result = payload.get("result") or {}
     html = result.get("content") or ""
     origin_status = int(result.get("status_code") or 0)
-    return html, origin_status, "scrapfly"
+    return html, origin_status, "alterlab"
 
 
 # --- Candidate extraction --------------------------------------------------
@@ -370,7 +374,9 @@ def fetch(query: AdapterQuery) -> list[Listing]:
         html, status, fetcher = _fetch_html(url)
     except Exception as exc:
         logger.error(f"[universal_ai] Fetch failed: {type(exc).__name__}: {exc}")
-        return []
+        # Bubble up explicit fetch errors (like AlterLab quota/auth) so cli.py
+        # can surface them in the UI.
+        raise
 
     logger.info(
         f"[universal_ai] Fetched via {fetcher}: status={status}, "
