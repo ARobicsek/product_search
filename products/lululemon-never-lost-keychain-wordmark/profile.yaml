@@ -1,0 +1,53 @@
+slug: lululemon-never-lost-keychain-wordmark
+display_name: Lululemon Never Lost Keychain (Wordmark)
+description: Track the cheapest currently-available Lululemon Never Lost Keychain (Wordmark) in muted colors, new condition only
+target:
+  unit: count
+  amount: 1
+  configurations:
+    - module_count: 1
+      module_capacity_gb: 1
+spec_attrs:
+  condition:
+    type: str
+    required: true
+    enum:
+      - new
+spec_filters:
+  - rule: in_stock
+  - rule: title_excludes
+    values:
+      - Non-Working
+      - Damaged
+      - Counterfeit
+spec_flags:
+  - rule: low_seller_feedback
+    flag: low_feedback
+    rating_pct_below: 98
+    count_below: 50
+  - rule: ship_from_country_in
+    flag: ships_internationally
+    values:
+      - CN
+      - HK
+      - SG
+      - IN
+sources:
+  - id: ebay_search
+    queries:
+      - lululemon never lost keychain wordmark
+    max_results_per_query: 50
+  - id: universal_ai_search
+    url: https://shop.lululemon.com/c/keychains/n1rdcizuoxk
+  - id: universal_ai_search
+    url: https://poshmark.com/brand/lululemon_athletica-Women-Accessories-Key_&_Card_Holders
+  - id: universal_ai_search
+    url: https://www.mercari.com/us/brand/9318/1643/
+  - id: universal_ai_search
+    url: https://www.etsy.com/market/lululemon_never_lost_keychain
+  - id: universal_ai_search
+    url: https://www.amazon.com/never-lost-keychain-lululemon/s?k=never+lost+keychain+lululemon
+qvl_file: products/lululemon-never-lost-keychain-wordmark/qvl.yaml
+schedule:
+  cron: 0 8 * * *
+  timezone: UTC
