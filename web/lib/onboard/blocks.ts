@@ -48,7 +48,17 @@ export function extractDraftJson(text: string): Record<string, unknown> | null {
 }
 
 export function stripBlocks(text: string): string {
-  return text.replace(STATE_RE, '').replace(DRAFT_RE, '').replace(/\s+$/g, '').trimEnd();
+  // First pass: remove any complete <state>…</state> / <draft>…</draft>
+  // blocks — these are the steady state once a turn has finished streaming.
+  let out = text.replace(STATE_RE, '').replace(DRAFT_RE, '');
+  // Second pass: while a turn is mid-stream, the closing tag may not have
+  // arrived yet. Per the prompt the blocks always sit at the end of the
+  // assistant message, so anything from the first remaining <state>/<draft>
+  // opening tag onward is hidden. Without this, the user briefly sees the
+  // raw JSON tail flash on screen before it gets replaced.
+  const cutAt = out.search(/<(state|draft)>/i);
+  if (cutAt !== -1) out = out.slice(0, cutAt);
+  return out.replace(/\s+$/g, '');
 }
 
 // Find the most-recent <state> block across an assistant-message history.
