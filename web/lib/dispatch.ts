@@ -106,9 +106,14 @@ export interface LastRunInfo {
 }
 
 export async function getLastCompletedRun(product: string): Promise<LastRunInfo | null> {
+  // Don't pass `status=completed` — GitHub's filtered index lags the
+  // unfiltered listing by tens of seconds after a fresh completion, which
+  // makes the post-Run-now footer show the *previous* run's timestamp.
+  // Filter for completed in code against the unfiltered view, which is
+  // updated eagerly.
   const url =
     `https://api.github.com/repos/${REPO}/actions/workflows/${WORKFLOW_FILE}/runs` +
-    `?event=workflow_dispatch&status=completed&per_page=20`;
+    `?event=workflow_dispatch&per_page=20`;
 
   const res = await fetch(url, { headers: dispatchHeaders(), cache: 'no-store' });
   if (!res.ok) {
@@ -117,9 +122,13 @@ export async function getLastCompletedRun(product: string): Promise<LastRunInfo 
   const data = (await res.json()) as { workflow_runs?: GhRun[] };
   const runs = data.workflow_runs ?? [];
 
-  const match = runs.find(
-    (r) => r.display_title?.includes(product) || r.name?.includes(product),
-  );
+  const matchesProduct = (r: GhRun) =>
+    r.display_title?.includes(product) || r.name?.includes(product);
+  const isCompleted = (r: GhRun) => r.status === 'completed';
+
+  const match =
+    runs.find((r) => isCompleted(r) && matchesProduct(r)) ??
+    runs.find(isCompleted);
   if (!match || !match.run_started_at) return null;
 
   const start = Date.parse(match.run_started_at);
