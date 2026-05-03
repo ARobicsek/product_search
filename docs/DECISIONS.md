@@ -9,6 +9,34 @@ Status values:
 
 ---
 
+## ADR-033 — Tier-3 vendor fetcher swaps from ScrapFly to AlterLab; supersedes ADR-030
+
+**Status**: ACCEPTED
+
+**Context**: ADR-030 picked ScrapFly as the Tier-3 vendor fetcher (`render_js + asp` for the Cloudflare/Datadome class of sites). Operationally, ScrapFly's free credit budget burned out within a few days of normal Bose-700 runs and the universal_ai path silently regressed to curl_cffi (which can't get past Cloudflare on SPAs like backmarket). User decided to swap providers to AlterLab, whose free tier is more generous for the same render_js workload.
+
+A continuation 12 commit (33553f8) renamed the integration from ScrapFly to AlterLab, but **the wire format was inferred from ScrapFly's shape and never exercised against the real AlterLab API**. The accompanying unit test mocked the same fictional shape, so the green test was misleading. Phase 13 verification caught this: every `_fetch_via_alterlab` call returned 404, the silent fallback in `_fetch_html` routed every run through curl_cffi, and the on-demand reports for `bose-nc-700-headphones` quietly went 3→0 listings on backmarket between continuations 10 and 12.
+
+**Decision**:
+1. Tier-3 fetcher is AlterLab. Env gate is `ALTERLAB_API_KEY` (configured in GH Actions secrets and `.env.example`). ScrapFly's `SCRAPFLY_API_KEY` is removed from the adapter.
+2. Wire format (per https://alterlab.io/docs/api/rest):
+   - `POST https://api.alterlab.io/api/v1/scrape`
+   - Header `X-API-Key: <key>`
+   - Body `{"url": <target>, "sync": true, "formats": ["html"], "advanced": {"render_js": true}}`
+   - Response `{"status_code": <origin>, "content": {"html": "..."}, ...}`
+   - `formats: ["html"]` makes `content` deterministically an object (vs a bare string in some sync responses).
+3. Fallback semantics are unchanged from ADR-030: AlterLab failure → log + fall through to curl_cffi → httpx, EXCEPT when AlterLab returns HTTP 401/403/429 (auth/quota), which bubbles up as `RuntimeError("AlterLab API issue: ...")` so cli.py's existing surface displays a "Scraping API Issue" banner in the report.
+4. Per-vendor 0/0 cases are NOT AlterLab failures and must not be misattributed as such — the worker logs the alterlab status_code and body length so extraction-vs-fetch failures are distinguishable from the GHA log alone.
+
+**Consequence**:
+- Fix landed in [worker/src/product_search/adapters/universal_ai.py](worker/src/product_search/adapters/universal_ai.py) (`_fetch_via_alterlab`) and [worker/tests/test_universal_ai.py](worker/tests/test_universal_ai.py) (`test_alterlab_fetch_path_used_when_key_set`). Mock now matches the real wire format; if AlterLab changes their REST shape this test will fail loudly.
+- Live verification (Phase 13): both Bose universal_ai vendors return origin status 200 with non-empty rendered HTML via AlterLab. backmarket returns a Cloudflare "Just a moment…" challenge body (~32KB) — `render_js: true` alone isn't enough for backmarket's anti-bot tier; pursue stronger AlterLab options (proxy mode / tier escalation) in Phase 15. gazelle returns a soft-404 body (~305KB with `<link rel="canonical" href="/404">`); the URL `/collections/headphones` in the profile is wrong — flag for the user to re-onboard.
+- Lesson: a unit test whose mock matches the implementation rather than the upstream API contract is worse than no test, because it lends false confidence. For each future SaaS integration, the integration's first test must be a captured fixture from a real call, not a hand-stubbed envelope.
+
+ADR-030 is **SUPERSEDED** by this ADR.
+
+---
+
 ## ADR-032 — Run-now freshness: `force-dynamic` on the product page + `window.location.reload()` after run completion
 
 **Status**: ACCEPTED
@@ -152,7 +180,7 @@ straightforward future ADR.
 
 ## ADR-030 — ScrapFly as the Tier-3 vendor fetcher (env-gated render_js + asp), curl_cffi/httpx remain the cheap tiers
 
-**Status**: ACCEPTED (extends ADR-029's fetch-priority chain)
+**Status**: SUPERSEDED by ADR-033 (provider switched to AlterLab; same fallback semantics). (extends ADR-029's fetch-priority chain)
 
 **Context**: ADR-029's `_fetch_html` had two tiers — `curl_cffi`
 (Chrome TLS-fingerprint impersonation, free) and `httpx` (plain

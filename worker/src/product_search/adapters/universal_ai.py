@@ -168,7 +168,7 @@ def _fetch_html(url: str, timeout: float = 20.0) -> tuple[str, int, str]:
 def _fetch_via_alterlab(
     url: str, api_key: str, *, timeout: float = 60.0
 ) -> tuple[str, int, str]:
-    """Fetch ``url`` via the AlterLab API with JS rendering + ASP.
+    """Fetch ``url`` via the AlterLab API with JS rendering.
 
     Returns ``(html, vendor_status_code, "alterlab")``. The HTTP status
     we return is the ORIGIN site's status (e.g. 200 for the vendor),
@@ -177,26 +177,42 @@ def _fetch_via_alterlab(
     or a non-2xx with an error JSON; both cases raise so the caller's
     try/except routes to the fallback tiers or bubbles up auth/quota errors.
 
-    JS rendering can take up to ~20s on heavy pages, so we use a
-    longer default timeout than the cheap fetchers.
+    Wire format (per https://alterlab.io/docs/api/rest):
+      POST https://api.alterlab.io/api/v1/scrape
+      Header: X-API-Key: <key>
+      Body:   {"url": ..., "sync": true, "formats": ["html"],
+               "advanced": {"render_js": true}}
+      Resp:   {"status_code": <origin>, "content": {"html": "..."} | "..."}
+
+    ``formats: ["html"]`` makes ``content`` deterministically an object
+    with an ``html`` field (vs a bare string in some sync responses).
     """
     import httpx
 
-    params = {
-        "key": api_key,
+    body = {
         "url": url,
-        "render_js": "true",
-        "asp": "true",
-        "country": "us",
+        "sync": True,
+        "formats": ["html"],
+        "advanced": {"render_js": True},
     }
-    api = "https://api.alterlab.io/scrape"
+    headers = {
+        "X-API-Key": api_key,
+        "Content-Type": "application/json",
+    }
+    api = "https://api.alterlab.io/api/v1/scrape"
     with httpx.Client(timeout=timeout) as client:
-        resp = client.get(api, params=params)
+        resp = client.post(api, json=body, headers=headers)
     resp.raise_for_status()
     payload = resp.json()
-    result = payload.get("result") or {}
-    html = result.get("content") or ""
-    origin_status = int(result.get("status_code") or 0)
+
+    content = payload.get("content")
+    if isinstance(content, dict):
+        html = content.get("html") or ""
+    elif isinstance(content, str):
+        html = content
+    else:
+        html = ""
+    origin_status = int(payload.get("status_code") or 0)
     return html, origin_status, "alterlab"
 
 

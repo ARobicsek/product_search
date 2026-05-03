@@ -4,9 +4,49 @@
 
 ## Active phase
 
-**Phase 13 — Verify & stabilize the AlterLab vendor-render path**
+**Phase 14 — Onboarder cost & memory rebuild** (Phase 13 closed 2026-05-02 continuation 13)
 
-See the Phase 13 brief in [PHASES.md](PHASES.md#phase-13--verify--stabilize-the-alterlab-vendor-render-path). Phases 13–18 were rewritten on 2026-05-02 to address a backlog of issues that surfaced after Phase 12. The old "Phase 12 — Polish & second product proof" is now Phase 18 in revised form.
+See the Phase 14 brief in [PHASES.md](PHASES.md#phase-14--onboarder-cost--memory-rebuild).
+
+## Status as of end of 2026-05-02 session (continuation 13 — Phase 13 closeout)
+
+**AlterLab integration verified and stabilized after a wire-format defect was found and fixed. ADR-033 written. Phase 13 closed.**
+
+What was supposed to be a verify-and-stabilize pass turned into a real bug fix:
+
+1. **Wire-format defect found**. Continuation 12's commit `33553f8` ("phase 13: switch universal_ai vendor-render path from ScrapFly to AlterLab") inferred the AlterLab API shape from ScrapFly's, never exercised it against the real API, and shipped a unit test that mocked the same fictional shape. Live `_fetch_via_alterlab` calls returned **404** for every URL; the silent fallback in `_fetch_html` quietly routed every Bose run through curl_cffi from continuation 12 onward (which is why backmarket regressed from 3 listings → 0 between continuations 10 and 12).
+
+2. **Wire-format fix landed locally** in [worker/src/product_search/adapters/universal_ai.py](worker/src/product_search/adapters/universal_ai.py):
+   - `POST https://api.alterlab.io/api/v1/scrape` (was: `GET /scrape`)
+   - `X-API-Key` header (was: `?key=` query param)
+   - JSON body `{"url": ..., "sync": true, "formats": ["html"], "advanced": {"render_js": true}}` (was: query params with the made-up `asp` and `country`)
+   - Response parser handles `content` as either dict (`content.html`) or bare string.
+   - Test mock in [worker/tests/test_universal_ai.py](worker/tests/test_universal_ai.py) rewritten to the real shape. **144/144 worker tests pass.**
+
+3. **Per-vendor verdicts (Bose; live AlterLab calls 2026-05-02)**:
+   - `backmarket.com` (`/en-us/search?q=bose+nc+700`): AlterLab fetched 32KB at origin status 200 — body is a Cloudflare `<title>Just a moment...</title>` challenge page. `render_js: true` alone doesn't bypass backmarket's anti-bot tier. **Defer to Phase 15** (try AlterLab tier-escalation / proxy options + add JSON-LD extractor; the latter is moot here because the challenge page contains no JSON-LD). Fixture saved at [worker/tests/fixtures/universal_ai/backmarket-bose-nc700-search.html](../worker/tests/fixtures/universal_ai/backmarket-bose-nc700-search.html).
+   - `buy.gazelle.com` (`/collections/headphones`): AlterLab fetched 305KB at origin status 200 — body's `<link rel="canonical">` points at `/404`. The collection URL in the profile is a soft-404 on gazelle's store. **Profile-content issue, not a fetch / extraction issue.** Fixture saved at [worker/tests/fixtures/universal_ai/gazelle-headphones-collection.html](../worker/tests/fixtures/universal_ai/gazelle-headphones-collection.html). User should reconfigure the gazelle URL via onboarder (or remove it).
+
+4. **Phase 13 done-when checklist**:
+   - ✅ AlterLab path now structurally emits `[universal_ai] Fetched via alterlab` for both vendors (verified locally; the GHA-stderr verification could not be done because `gh` CLI is not installed and no `GITHUB_TOKEN` is in `.env`, but the same code + same secret will produce the same log line on the runner — re-confirm visually on the next on-demand run).
+   - ✅ ADR-033 in DECISIONS.md (supersedes ADR-030).
+   - ✅ Per-vendor verdicts above.
+
+5. **Noticed but deferred**:
+   - Bose profile's gazelle URL is a soft-404. Phase 14 onboarder rebuild will likely re-explore vendors anyway; if not, user can edit profile.yaml directly.
+   - PROGRESS.md (continuation 12) said "4 universal_ai_search vendors (backmarket, bhphotovideo, bestbuy, gazelle)". The actual current profile has only 2 (backmarket, gazelle). bhphotovideo and bestbuy were dropped earlier. Not a problem, just noting the drift.
+   - Phase 13 brief step 5 ("verify auth/quota error path on a real failure") wasn't exercised because the live key didn't 401/403/429. Wiring is in place (RuntimeError + cli.py "Scraping API Issue" banner) — verify opportunistically if AlterLab quota ever exhausts.
+
+**Live state at handoff**:
+- Local commits to push (uncommitted): `worker/src/product_search/adapters/universal_ai.py`, `worker/tests/test_universal_ai.py`, two new fixtures under `worker/tests/fixtures/universal_ai/`, `docs/DECISIONS.md` (ADR-033 added, ADR-030 marked SUPERSEDED), `docs/PROGRESS.md` (this update).
+- Tests: 144/144 worker tests pass.
+- Phase 13 → closed. Phase 14 next.
+
+**Next session — start here (Phase 14)**:
+1. Read the Phase 14 brief in [PHASES.md](PHASES.md#phase-14--onboarder-cost--memory-rebuild).
+2. Re-platform `web/app/api/onboard/chat/route.ts` from GLM-5.1 to Anthropic Claude Haiku 4.5 with `web_search` tool + prompt caching.
+3. Implement the `<state>{...}</state>` decisions ledger and `<draft>{...}</draft>` structured-intent JSON pattern; render YAML server-side at save time.
+4. Bench against GLM-5.1 baseline.
 
 ## Status as of end of 2026-05-02 session (continuation 12 — planning reset)
 

@@ -223,9 +223,16 @@ def test_alterlab_fetch_path_used_when_key_set(monkeypatch: pytest.MonkeyPatch) 
         def __exit__(self, *_: object) -> None:
             return None
 
-        def get(self, url: str, params: dict[str, str] | None = None) -> Any:
+        def post(
+            self,
+            url: str,
+            *,
+            json: dict[str, Any] | None = None,
+            headers: dict[str, str] | None = None,
+        ) -> Any:
             captured["api_url"] = url
-            captured["params"] = params
+            captured["json"] = json
+            captured["headers"] = headers
 
             class _Resp:
                 status_code = 200
@@ -234,7 +241,10 @@ def test_alterlab_fetch_path_used_when_key_set(monkeypatch: pytest.MonkeyPatch) 
                     return None
 
                 def json(self) -> dict[str, Any]:
-                    return {"result": {"content": "<html><body>alterlab!</body></html>", "status_code": 200}}
+                    return {
+                        "status_code": 200,
+                        "content": {"html": "<html><body>alterlab!</body></html>"},
+                    }
 
             return _Resp()
 
@@ -245,11 +255,11 @@ def test_alterlab_fetch_path_used_when_key_set(monkeypatch: pytest.MonkeyPatch) 
     assert fetcher == "alterlab"
     assert status == 200
     assert "alterlab!" in html
-    assert captured["api_url"] == "https://api.alterlab.io/scrape"
-    assert captured["params"]["key"] == "test-key-12345"
-    assert captured["params"]["url"] == "https://example.com/products"
-    assert captured["params"]["render_js"] == "true"
-    assert captured["params"]["asp"] == "true"
+    assert captured["api_url"] == "https://api.alterlab.io/api/v1/scrape"
+    assert captured["headers"]["X-API-Key"] == "test-key-12345"
+    assert captured["json"]["url"] == "https://example.com/products"
+    assert captured["json"]["sync"] is True
+    assert captured["json"]["advanced"]["render_js"] is True
 
 
 def test_alterlab_failure_falls_back_to_lower_tier(monkeypatch: pytest.MonkeyPatch) -> None:
