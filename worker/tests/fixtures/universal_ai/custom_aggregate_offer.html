@@ -1,0 +1,53 @@
+<!--
+  Synthetic fixture for a custom-stack vendor that emits a top-level
+  JSON array of Product objects, with AggregateOffer instead of plain
+  Offer (a common pattern when listings span multiple sellers).
+
+  Also exercises:
+    - @type as a list (Schema.org allows ["Product", "Thing"]).
+    - A malformed JSON-LD block that must be skipped without crashing.
+-->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<title>Custom Vendor — Headphones</title>
+
+<script type="application/ld+json">
+[
+  {
+    "@context": "https://schema.org",
+    "@type": ["Product", "Thing"],
+    "name": "CustomBrand Pro NC",
+    "url": "https://customvendor.example.com/listing/123",
+    "offers": {
+      "@type": "AggregateOffer",
+      "lowPrice": "189.00",
+      "highPrice": "229.00",
+      "priceCurrency": "USD",
+      "offerCount": 4,
+      "itemCondition": "https://schema.org/UsedCondition"
+    }
+  },
+  {
+    "@context": "https://schema.org",
+    "@type": "Product",
+    "name": "CustomBrand Lite",
+    "url": "/listing/456",
+    "offers": [
+      { "@type": "Offer", "price": "59.99", "itemCondition": "https://schema.org/NewCondition" },
+      { "@type": "Offer", "price": "49.99", "itemCondition": "https://schema.org/UsedCondition" }
+    ]
+  }
+]
+</script>
+
+<script type="application/ld+json">
+{ this is not valid JSON, should be skipped }
+</script>
+
+</head>
+<body>
+<a href="/listing/123">Pro NC</a>
+<a href="/listing/456">Lite</a>
+</body>
+</html>

@@ -8,7 +8,49 @@
 
 See the Phase 15 brief in [PHASES.md](PHASES.md#phase-15--universal-adapter-quality-pass).
 
-## Status as of end of 2026-05-03 session (Phase 15 prelude — stale-run mitigation)
+## Status as of end of 2026-05-03 session (Phase 15 — tasks 1+2 + cheap win)
+
+**JSON-LD extraction tier and `cli probe-url` shipped. Tasks 1 and 2 of the Phase 15 brief are done. Tasks 3–5 paused pending user input.**
+
+What landed:
+
+1. **Onboarder cheap win** (ADR-034 follow-up): `WEB_SEARCH_MAX_USES` lowered 5 → 2 in [web/app/api/onboard/chat/route.ts](../web/app/api/onboard/chat/route.ts). Bench-time observation was that two consecutive vendor-discovery turns fired 3+4 searches each — wasteful on diminishing-return crosschecks. Kept at 2 (not 1) so the model can still cross-reference one candidate vendor per turn.
+
+2. **JSON-LD / microdata extraction tier** (Phase 15 task 1) in [worker/src/product_search/adapters/universal_ai.py](../worker/src/product_search/adapters/universal_ai.py). New `_jsonld_blocks` / `_walk_jsonld` / `_offer_price_and_condition` / `_extract_jsonld_listings` helpers run BEFORE the anchor-heuristic + LLM tier. When a page exposes `Product` / `ItemList` / `@graph`-of-Products, listings are extracted directly into the `Listing` shape — `attrs.extractor = "jsonld"` — and the LLM is **never called**. Anchor-tier listings now also carry `attrs.extractor = "anchor_llm"` so downstream code can tell the tiers apart from the per-run CSV alone. Handles the Schema.org variations seen in the wild: `@type` as string OR list, `Offer` / `Offer[]` / `AggregateOffer` (with `lowPrice`), `itemCondition` URLs, malformed JSON-LD blocks (skipped without crashing), European decimal commas (`12,99` → 12.99), dedupe on canonical URL.
+
+3. **`cli probe-url <url> [--render]`** (Phase 15 task 2) in [worker/src/product_search/cli.py](../worker/src/product_search/cli.py). Reports fetcher used / origin status / body length / JSON-LD count / anchor candidate count + 3 sample candidates with title and price. Exits nonzero when zero candidates surface, so it's usable as both a manual diagnostic and a programmatic gate (the onboarder hook in task 5 can shell out to it). `--render` requires `ALTERLAB_API_KEY` and errors out (exit 2) if unset OR if AlterLab silently fell through to curl_cffi (exit 1) — so callers can distinguish "rendered fetch returned 0 candidates" (extraction problem) from "raw fetch returned 0 candidates" (probably needs rendering).
+
+4. **Tests + fixtures**: 2 new synthetic fixtures ([shopify_jsonld.html](../worker/tests/fixtures/universal_ai/shopify_jsonld.html), [custom_aggregate_offer.html](../worker/tests/fixtures/universal_ai/custom_aggregate_offer.html)), 5 new JSON-LD tests in [test_universal_ai.py](../worker/tests/test_universal_ai.py), 4 new probe-url tests in [test_cli.py](../worker/tests/test_cli.py). **153/153 worker tests pass** (was 144 baseline).
+
+**Live state at handoff**:
+- All work committed and pushed to `origin/main` (squashed into one commit).
+- Build green, full worker test suite passes. Web tsc/lint not re-run this session because no Next.js routes/types changed — only the one constant `WEB_SEARCH_MAX_USES`.
+- Phase 15 task 1 + 2 done. Task 3 (real-vendor fixtures), task 4 (anchor heuristic tightening), task 5 (onboarder probe_url hook) remain.
+
+**What you can test yourself before next session**:
+
+- **Onboarder cost smoke test**: open `/onboard`, ask for a category that triggers vendor research (e.g. "mechanical keyboards under $200"). Watch the SessionCost panel — search-heavy turns should now max out at 2 web searches instead of 5. Total cost on a long session should drop measurably (rough expectation: 30–50% lower on the first 10 turns vs the Phase 14 bench's $0.1779 / 15 turns, depending on how many turns hit web search).
+- **No live universal_ai test is needed**: the new JSON-LD tier is fully exercised by tests; the anchor + LLM path is unchanged structurally.
+- **Optional**: run `python -m product_search.cli probe-url <a-vendor-url>` against a Shopify store you know (e.g. headphones.com, audio46.com) to see how it behaves on real data. Useful for picking task-3 candidate vendors.
+
+**Open questions for next session — please answer first**:
+
+1. **Task 3 — fixture-capture strategy.** The brief asks for fixtures from 6 real vendors (Shopify, Magento, BigCommerce, custom React, refurb marketplace, big-box). We already have 3 real fixtures from prior phases (`amazon-bose-nc700-search.html`, `backmarket-bose-nc700-search.html`, `gazelle-headphones-collection.html`) and 2 synthetic ones for the JSON-LD tier (`shopify_jsonld.html`, `custom_aggregate_offer.html`). Two options:
+   - **(a)** Live-capture 3 more from real stores (would burn AlterLab credits on render-required ones — bestbuy/bhphotovideo are likely tier-3-only). Higher fidelity, more expensive, may flake when sites redesign.
+   - **(b)** Lean on the existing real fixtures + a couple more carefully-crafted synthetic fixtures targeting specific failure modes (e.g. split-price markup, `data-price` attributes). Cheaper, more durable, potentially less representative.
+   - Default if you don't pick: **(b)**, since CLAUDE.md is explicit about not re-scraping live sites unless required.
+
+2. **Task 4 — anchor heuristic tightening.** This depends on what task 3's fixtures reveal. The brief mentions specifically: split-price markup (`<span>249</span><sup>99</sup>`), `data-price` attributes, possibly raising `max_candidates` or paginating. If you have a specific vendor in mind that currently 0/0s and should work, name it — that's the best forcing function.
+
+3. **Task 5 — onboarder probe_url integration.** This is web-side work in `web/app/api/onboard/`. The brief says: when the AI proposes a `universal_ai_search` URL, it must call `probe_url` first, and 0-candidate URLs must land in `sources_pending` (with `"probe returned 0 candidates"` note) instead of `sources`. Two implementation paths:
+   - **(a)** Add a server-side custom tool to the Anthropic chat route that shells out to `python -m product_search.cli probe-url <url>` from the edge runtime. Edge runtime can't fork subprocesses — would need to move the route to Node runtime. Material refactor.
+   - **(b)** Add a `/api/probe-url` Next.js route that the chat route calls, which in turn calls the worker via a small HTTP shim or by directly running the Python (still subprocess-bound). Same problem.
+   - **(c)** Re-implement the probe logic in TypeScript on the web side (DOM walk + JSON-LD extraction, no LLM). Smaller surface in TS than in Python because the LLM-heavy anchor tier only matters for marginal cases — JSON-LD alone is sufficient for "does this URL yield ≥1 listing for the user's query?". Fastest, no runtime change.
+   - Default if you don't pick: **(c)** — port just `_extract_jsonld_listings` and a thin fetch into TS, since that's what the onboarder actually needs ("does this URL look usable?").
+
+Once those three are answered, the next session can finish Phase 15 and write ADR-037 (JSON-LD tier + probe pattern).
+
+## Status as of end of 2026-05-03 session (Phase 15 prelude — stale-run mitigation) [archived]
 
 **The "stale report after Run-now" complaint is closed end-to-end. ADR-035 written. Phase 15 proper is up next.**
 

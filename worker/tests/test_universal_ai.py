@@ -28,8 +28,13 @@ from product_search.adapters import universal_ai
 from product_search.llm import LLMResponse
 from product_search.models import AdapterQuery
 
-FIXTURE = Path(__file__).parent / "fixtures" / "universal_ai" / "synthetic_vendor.html"
+FIXTURE_DIR = Path(__file__).parent / "fixtures" / "universal_ai"
+FIXTURE = FIXTURE_DIR / "synthetic_vendor.html"
+SHOPIFY_JSONLD_FIXTURE = FIXTURE_DIR / "shopify_jsonld.html"
+CUSTOM_AGGREGATE_FIXTURE = FIXTURE_DIR / "custom_aggregate_offer.html"
 BASE_URL = "https://www.synthvendor.com/collections/headphones"
+SHOPIFY_BASE_URL = "https://shop.synthstore.example.com/collections/headphones"
+CUSTOM_BASE_URL = "https://customvendor.example.com/collections/all"
 
 
 @pytest.fixture(autouse=True)
@@ -329,6 +334,99 @@ def test_no_alterlab_key_skips_alterlab_path(monkeypatch: pytest.MonkeyPatch) ->
 
     _, _, fetcher = universal_ai._fetch_html("https://example.com")
     assert fetcher == "curl_cffi"
+
+
+# --- Phase 15: JSON-LD tier -------------------------------------------------
+
+
+def test_jsonld_extracts_shopify_itemlist() -> None:
+    """Shopify ItemList → ListItem → Product is the dominant collection-page
+    pattern. Extracts name + price + url, drops the priceless pre-order card,
+    skips the Organization block."""
+    html = SHOPIFY_JSONLD_FIXTURE.read_text(encoding="utf-8")
+    listings = universal_ai._extract_jsonld_listings(html, base_url=SHOPIFY_BASE_URL)
+
+    by_url = {item["url"]: item for item in listings}
+    assert len(listings) == 2, f"expected 2, got {len(listings)}: {listings}"
+
+    qc700 = by_url["https://shop.synthstore.example.com/products/qc700"]
+    assert qc700["title"] == "Synthbose QuietComfort 700"
+    assert qc700["price_usd"] == 299.99
+    assert qc700["condition"] == "new"
+
+    refurb = by_url["https://shop.synthstore.example.com/products/qc700-refurb"]
+    assert refurb["price_usd"] == 219.50
+    assert refurb["condition"] == "refurbished"
+
+    # Pre-order Product had no offers → must be dropped (no invented price).
+    assert "qc900-preorder" not in " ".join(by_url.keys())
+
+
+def test_jsonld_handles_aggregate_offer_and_offer_list() -> None:
+    """AggregateOffer → use lowPrice. Offer list → take cheapest. @type
+    can be a list. Malformed JSON-LD blocks must be skipped, not crash."""
+    html = CUSTOM_AGGREGATE_FIXTURE.read_text(encoding="utf-8")
+    listings = universal_ai._extract_jsonld_listings(html, base_url=CUSTOM_BASE_URL)
+
+    by_url = {item["url"]: item for item in listings}
+    assert len(listings) == 2
+
+    pro = by_url["https://customvendor.example.com/listing/123"]
+    assert pro["price_usd"] == 189.00  # lowPrice from AggregateOffer
+    assert pro["condition"] == "used"
+
+    lite = by_url["https://customvendor.example.com/listing/456"]
+    assert lite["price_usd"] == 49.99  # cheapest of the offer list
+
+
+def test_jsonld_returns_empty_for_synthetic_no_jsonld() -> None:
+    """The original synthetic_vendor.html fixture has no JSON-LD blocks;
+    extractor must return [] cleanly so the anchor tier still runs."""
+    html = FIXTURE.read_text(encoding="utf-8")
+    assert universal_ai._extract_jsonld_listings(html, base_url=BASE_URL) == []
+
+
+def test_jsonld_returns_empty_for_organization_only() -> None:
+    """A page with only an Organization JSON-LD block (e.g. gazelle's 404)
+    yields no Product listings — must not falsely emit anything."""
+    html = """
+    <script type="application/ld+json">
+    {"@context": "https://schema.org", "@type": "Organization",
+     "name": "TestStore", "url": "https://test.example.com"}
+    </script>
+    """
+    assert universal_ai._extract_jsonld_listings(html, base_url="https://test.example.com") == []
+
+
+def test_fetch_uses_jsonld_and_skips_llm(monkeypatch: pytest.MonkeyPatch) -> None:
+    """When JSON-LD yields listings, fetch() must NOT call the LLM —
+    that's the whole point of the tier (zero-cost extraction)."""
+    monkeypatch.setattr(
+        universal_ai, "_fetch_html",
+        lambda url, timeout=20.0: (
+            SHOPIFY_JSONLD_FIXTURE.read_text(encoding="utf-8"), 200, "stub",
+        ),
+    )
+
+    def _llm_should_not_be_called(**_: object) -> Any:  # pragma: no cover
+        raise AssertionError("LLM must not run when JSON-LD already yielded listings")
+
+    monkeypatch.setattr(universal_ai, "call_llm", _llm_should_not_be_called)
+
+    query = AdapterQuery(
+        source_id="universal_ai_search",
+        extra={"url": SHOPIFY_BASE_URL},
+    )
+    results = universal_ai.fetch(query)
+
+    assert len(results) == 2
+    urls = {r.url for r in results}
+    assert "https://shop.synthstore.example.com/products/qc700" in urls
+    assert "https://shop.synthstore.example.com/products/qc700-refurb" in urls
+    # The JSON-LD path skips the LLM entirely; LAST_RUN_USAGE stays None.
+    assert universal_ai.LAST_RUN_USAGE is None
+    # Diagnostic tag so downstream code can tell the tiers apart.
+    assert all(r.attrs.get("extractor") == "jsonld" for r in results)
 
 
 def test_fetch_returns_empty_when_html_has_no_anchors(monkeypatch: pytest.MonkeyPatch) -> None:

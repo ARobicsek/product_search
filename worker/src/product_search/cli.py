@@ -106,6 +106,18 @@ def main() -> None:
         help="Run search for all profiles whose cron matches the current UTC hour",
     )
 
+    # Phase 15: probe-url
+    probe_parser = subparsers.add_parser(
+        "probe-url",
+        help="Diagnose a vendor URL through the universal_ai fetch + extraction tiers",
+    )
+    probe_parser.add_argument("url", help="Vendor URL to probe (search/category/collection page)")
+    probe_parser.add_argument(
+        "--render",
+        action="store_true",
+        help="Require AlterLab rendered fetch (errors out if ALTERLAB_API_KEY is unset)",
+    )
+
     args = parser.parse_args()
 
     if args.command is None:
@@ -134,6 +146,9 @@ def main() -> None:
 
     elif args.command == "scheduler-tick":
         _cmd_scheduler_tick()
+
+    elif args.command == "probe-url":
+        _cmd_probe_url(args.url, render=args.render)
 
 
 # ---------------------------------------------------------------------------
@@ -846,6 +861,91 @@ def _cmd_scheduler_tick() -> None:
         sys.exit(1)
     
     print(f"[{now.isoformat()}] scheduler-tick completed successfully.", file=sys.stderr)
+    sys.exit(0)
+
+
+# ---------------------------------------------------------------------------
+# probe-url (Phase 15)
+# ---------------------------------------------------------------------------
+
+
+def _cmd_probe_url(url: str, *, render: bool) -> None:
+    """Diagnose a single vendor URL through the universal_ai pipeline.
+
+    Prints fetcher used, status, body length, JSON-LD count, anchor candidate
+    count, and 3 sample candidates. Exits 0 if at least one product candidate
+    surfaced (anchor OR JSON-LD), nonzero otherwise — so this command is
+    usable as both a manual diagnostic and a programmatic gate (the onboarder
+    integration in Phase 15 task 5 can shell out to it).
+
+    With ``--render`` we require AlterLab so callers can distinguish "rendered
+    fetch returned 0 candidates" (extraction problem) from "raw fetch returned
+    0 candidates" (probably needs rendering). Without ``--render`` the
+    standard fetch tier chain runs (AlterLab if env key set, else curl_cffi).
+    """
+    import os
+
+    from product_search.adapters import universal_ai
+
+    if render and not os.environ.get("ALTERLAB_API_KEY", "").strip():
+        print(
+            "ERROR: --render requires ALTERLAB_API_KEY in the environment.",
+            file=sys.stderr,
+        )
+        sys.exit(2)
+
+    print(f"Probing: {url}", file=sys.stderr)
+    if render:
+        print("  (--render) forcing AlterLab rendered fetch", file=sys.stderr)
+
+    try:
+        html, status, fetcher = universal_ai._fetch_html(url)
+    except Exception as exc:
+        print(f"ERROR: fetch failed: {type(exc).__name__}: {exc}", file=sys.stderr)
+        sys.exit(1)
+
+    if render and fetcher != "alterlab":
+        # ALTERLAB_API_KEY was set but the fetch fell back — that means
+        # AlterLab itself errored. Surface that, since --render is meant
+        # to test the rendered path specifically.
+        print(
+            f"ERROR: --render asked for AlterLab but fetch fell through to "
+            f"{fetcher!r} (AlterLab failed; see worker log).",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
+    jsonld_listings = universal_ai._extract_jsonld_listings(html, base_url=url)
+    candidates = universal_ai._extract_candidates(html, base_url=url)
+
+    print(f"\nFetcher:           {fetcher}")
+    print(f"Origin status:     {status}")
+    print(f"Body length:       {len(html):,} chars")
+    print(f"JSON-LD listings:  {len(jsonld_listings)}")
+    print(f"Anchor candidates: {len(candidates)}")
+
+    if jsonld_listings:
+        print("\nFirst 3 JSON-LD listings:")
+        for item in jsonld_listings[:3]:
+            title = item["title"][:70]
+            print(f"  - {title}  ${item['price_usd']:.2f}  ({item['condition']})")
+
+    if candidates:
+        print("\nFirst 3 anchor candidates:")
+        for c in candidates[:3]:
+            title = (c["anchor_text"] or "")[:70]
+            prices = ", ".join(c["price_hints"][:3]) or "(no price hints)"
+            print(f"  - {title}  [{prices}]")
+
+    total = len(jsonld_listings) + len(candidates)
+    if total == 0:
+        print(
+            "\nNo product candidates extracted. This URL won't yield listings "
+            "with the current tier chain.",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
     sys.exit(0)
 
 

@@ -1,20 +1,21 @@
 """Tests for ``product_search.cli`` helpers that don't need a full CLI run.
 
-Currently scoped to ``_passed_match_key`` — the per-listing key the CLI uses to
-attribute pipeline-passed listings back to a specific source-stats row. The
-direct motivation is the bug where multiple ``universal_ai_search`` source
-entries (one per vendor URL) all shared the same canonical ``source`` field on
-their listings, causing every universal_ai source row to claim the full
-universal_ai_search passed-count (e.g. bhphotovideo showing 0 fetched / 3 passed
-because backmarket's listings got attributed to it too).
+Scoped to ``_passed_match_key`` (the per-listing key for source-stats joins)
+and ``_cmd_probe_url`` (Phase 15's diagnostic command).
 """
 
 from __future__ import annotations
 
 from datetime import UTC, datetime
+from pathlib import Path
 
-from product_search.cli import _passed_match_key
+import pytest
+
+from product_search.adapters import universal_ai
+from product_search.cli import _cmd_probe_url, _passed_match_key
 from product_search.models import Listing
+
+FIXTURE_DIR = Path(__file__).parent / "fixtures" / "universal_ai"
 
 
 def _make_listing(source: str, attrs: dict | None = None) -> Listing:
@@ -75,3 +76,73 @@ def test_passed_match_key_disambiguates_two_universal_vendors() -> None:
     a = _make_listing("universal_ai_search", {"vendor_host": "backmarket.com"})
     b = _make_listing("universal_ai_search", {"vendor_host": "bhphotovideo.com"})
     assert _passed_match_key(a) != _passed_match_key(b)
+
+
+# --- probe-url --------------------------------------------------------------
+
+
+def test_probe_url_exits_zero_on_jsonld_fixture(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """JSON-LD fixture → exit 0, report shows 2 JSON-LD listings."""
+    html = (FIXTURE_DIR / "shopify_jsonld.html").read_text(encoding="utf-8")
+    monkeypatch.setattr(
+        universal_ai, "_fetch_html",
+        lambda url, timeout=20.0: (html, 200, "stub"),
+    )
+
+    with pytest.raises(SystemExit) as exc:
+        _cmd_probe_url("https://shop.synthstore.example.com/", render=False)
+    assert exc.value.code == 0
+
+    captured = capsys.readouterr()
+    assert "JSON-LD listings:  2" in captured.out
+    assert "Synthbose QuietComfort 700" in captured.out
+
+
+def test_probe_url_exits_nonzero_on_no_candidates(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """A page with neither JSON-LD nor anchor candidates → exit 1."""
+    monkeypatch.setattr(
+        universal_ai, "_fetch_html",
+        lambda url, timeout=20.0: (
+            "<html><body><p>Just a Cloudflare challenge.</p></body></html>",
+            200, "stub",
+        ),
+    )
+
+    with pytest.raises(SystemExit) as exc:
+        _cmd_probe_url("https://blocked.example.com/", render=False)
+    assert exc.value.code == 1
+
+
+def test_probe_url_render_requires_alterlab_key(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """--render without ALTERLAB_API_KEY must fail loudly (exit 2)."""
+    monkeypatch.delenv("ALTERLAB_API_KEY", raising=False)
+
+    with pytest.raises(SystemExit) as exc:
+        _cmd_probe_url("https://example.com/", render=True)
+    assert exc.value.code == 2
+
+    captured = capsys.readouterr()
+    assert "--render requires ALTERLAB_API_KEY" in captured.err
+
+
+def test_probe_url_render_errors_when_alterlab_falls_through(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """If --render is set and the fetch falls back to curl_cffi (AlterLab
+    failed), the command must error — otherwise the user can't tell whether
+    the rendered path worked."""
+    monkeypatch.setenv("ALTERLAB_API_KEY", "test-key")
+    monkeypatch.setattr(
+        universal_ai, "_fetch_html",
+        lambda url, timeout=20.0: ("<html></html>", 200, "curl_cffi"),
+    )
+
+    with pytest.raises(SystemExit) as exc:
+        _cmd_probe_url("https://example.com/", render=True)
+    assert exc.value.code == 1

@@ -1,28 +1,29 @@
 """Universal AI adapter for arbitrary vendor URLs.
 
 Pipeline:
-  1. Fetch the page. Prefer ``curl_cffi`` (real Chrome TLS fingerprint)
-     so basic Cloudflare / TLS-fingerprint blocks don't zero a run; fall
-     back to ``httpx`` when ``curl_cffi`` is not installed.
-  2. Walk every ``<a href>`` in the DOM with selectolax. Build a candidate
+  1. Fetch the page. AlterLab (rendered) when ``ALTERLAB_API_KEY`` is set,
+     else ``curl_cffi`` (real Chrome TLS fingerprint), else ``httpx``.
+  2. **JSON-LD tier** (Phase 15). Walk every
+     ``<script type="application/ld+json">`` block. If any contain
+     ``Product`` / ``Offer`` / ``ItemList`` types, extract ``name``,
+     ``offers.price``, ``url`` directly. Most modern e-commerce embeds
+     this for SEO. **Zero LLM cost when it works** — we return early.
+  3. Walk every ``<a href>`` in the DOM with selectolax. Build a candidate
      list of ``{idx, anchor_text, href_abs, price_hints, context}`` where
      ``href_abs`` is the URL exactly as it appears in the HTML (after
      ``urljoin`` normalisation), and ``price_hints`` are ``$X.XX``-style
      tokens from the nearest "card-like" ancestor's text.
-  3. Hand the candidate list to Claude Haiku 4.5 with a tiny "pick real
+  4. Hand the candidate list to Claude Haiku 4.5 with a tiny "pick real
      product listings, return clean title/price/condition keyed by idx"
      prompt. The LLM picks indices from a fixed set; URLs are never
      re-typed by the LLM, so URL hallucination is structurally impossible.
-  4. Map the LLM verdicts back to the original candidates and emit
+  5. Map the LLM verdicts back to the original candidates and emit
      ``Listing`` rows.
 
 Anti-bot story today: TLS impersonation via ``curl_cffi`` is enough for
 most server-rendered storefronts (Shopify, BigCommerce, basic
 WooCommerce, many brand sites). Sites that gate on JS execution
-(full Cloudflare challenge, Akamai, Datadome) still need a rendered
-fetch — that path is intentionally deferred until a profile actually
-requires it; the adapter logs the response status / body length so the
-diagnostic surfaces in the worker log when this happens.
+(full Cloudflare challenge, Akamai, Datadome) need AlterLab.
 """
 
 from __future__ import annotations
@@ -216,6 +217,203 @@ def _fetch_via_alterlab(
     return html, origin_status, "alterlab"
 
 
+# --- JSON-LD / microdata extraction ----------------------------------------
+
+
+_CONDITION_MAP = {
+    "newcondition": "new",
+    "usedcondition": "used",
+    "refurbishedcondition": "refurbished",
+    "damagedcondition": "used",
+}
+
+
+def _jsonld_blocks(html: str) -> list[Any]:
+    """Return parsed JSON values from every ``<script type="application/ld+json">``.
+
+    Skips blocks that fail to parse (vendors occasionally embed broken JSON
+    with comments or trailing commas — we just ignore those).
+    """
+    try:
+        from selectolax.parser import HTMLParser
+    except ImportError:
+        logger.error("selectolax is required for universal_ai extraction.")
+        return []
+
+    tree = HTMLParser(html)
+    blocks: list[Any] = []
+    for node in tree.css('script[type="application/ld+json"]'):
+        raw = (node.text() or "").strip()
+        if not raw:
+            continue
+        try:
+            blocks.append(json.loads(raw))
+        except json.JSONDecodeError:
+            continue
+    return blocks
+
+
+def _walk_jsonld(node: Any) -> Any:
+    """Yield every dict reachable from ``node`` (including ``@graph`` and
+    ``itemListElement`` recursion). We don't filter by ``@type`` here —
+    callers do that — because the same payload often nests Products inside
+    ``ListItem``/``ItemList`` wrappers and we want to see them all."""
+    if isinstance(node, dict):
+        yield node
+        for v in node.values():
+            yield from _walk_jsonld(v)
+    elif isinstance(node, list):
+        for item in node:
+            yield from _walk_jsonld(item)
+
+
+def _has_type(obj: dict[str, Any], type_name: str) -> bool:
+    """``@type`` may be a string OR a list of strings (Schema.org allows both)."""
+    t = obj.get("@type")
+    if isinstance(t, str):
+        return t == type_name
+    if isinstance(t, list):
+        return type_name in t
+    return False
+
+
+def _coerce_price(value: Any) -> float | None:
+    """Coerce a JSON-LD price field to a positive float, else None.
+
+    Real-world prices come in as ``"249.99"``, ``249.99``, ``"$249.99"``,
+    ``"249,99"`` (European), or even ``"From $249"``. Be defensive.
+    """
+    if value is None:
+        return None
+    if isinstance(value, (int, float)):
+        f = float(value)
+        return f if f > 0 else None
+    if isinstance(value, str):
+        # Strip everything except digits, comma, dot, minus.
+        m = re.search(r"\d+(?:[.,]\d+)?", value)
+        if not m:
+            return None
+        s = m.group(0)
+        # Normalize European "1.234,56" → "1234.56" or "12,99" → "12.99":
+        # if there's exactly one comma and no dot, treat comma as decimal.
+        if "," in s and "." not in s:
+            s = s.replace(",", ".")
+        else:
+            s = s.replace(",", "")
+        try:
+            f = float(s)
+            return f if f > 0 else None
+        except ValueError:
+            return None
+    return None
+
+
+def _offer_price_and_condition(offers: Any) -> tuple[float | None, str]:
+    """Extract (price, condition) from a JSON-LD ``offers`` value.
+
+    ``offers`` can be a single Offer dict, a list of Offers, or an
+    AggregateOffer with ``lowPrice`` / ``highPrice``. Returns the
+    cheapest plausible price, defaulting condition to "new".
+    """
+    candidates: list[tuple[float, str]] = []
+
+    def _condition_from(o: dict[str, Any]) -> str:
+        raw = o.get("itemCondition") or ""
+        if isinstance(raw, dict):
+            raw = raw.get("@id") or raw.get("name") or ""
+        if not isinstance(raw, str):
+            return "new"
+        # URL forms: "https://schema.org/NewCondition" → "newcondition"
+        key = raw.rsplit("/", 1)[-1].lower()
+        return _CONDITION_MAP.get(key, "new")
+
+    def _consider(o: dict[str, Any]) -> None:
+        if _has_type(o, "AggregateOffer"):
+            p = _coerce_price(o.get("lowPrice")) or _coerce_price(o.get("price"))
+            if p is not None:
+                candidates.append((p, _condition_from(o)))
+            return
+        # Plain Offer or untyped offer-shaped dict.
+        p = _coerce_price(o.get("price"))
+        if p is not None:
+            candidates.append((p, _condition_from(o)))
+
+    if isinstance(offers, dict):
+        _consider(offers)
+    elif isinstance(offers, list):
+        for o in offers:
+            if isinstance(o, dict):
+                _consider(o)
+
+    if not candidates:
+        return None, "new"
+    candidates.sort(key=lambda t: t[0])
+    return candidates[0]
+
+
+def _extract_jsonld_listings(
+    html: str, base_url: str
+) -> list[dict[str, Any]]:
+    """Extract product listings from JSON-LD blocks.
+
+    Returns a list of ``{title, url, price_usd, condition}`` dicts —
+    the same shape the downstream emitter expects. Empty list if no
+    Product blocks found, or if found Products lack price+url.
+
+    Handles three common patterns:
+      * Single ``Product`` (a product detail page).
+      * ``ItemList`` with ``itemListElement`` of ``ListItem`` → ``Product``
+        (a category / collection page on Shopify, BigCommerce, Magento).
+      * ``@graph`` array containing multiple ``Product`` objects (various
+        custom stacks).
+
+    A Product without resolvable URL+price is dropped — downstream code
+    refuses to invent the missing field.
+    """
+    listings: list[dict[str, Any]] = []
+    seen_urls: set[str] = set()
+
+    for block in _jsonld_blocks(html):
+        for obj in _walk_jsonld(block):
+            if not isinstance(obj, dict) or not _has_type(obj, "Product"):
+                continue
+
+            name = obj.get("name")
+            if not isinstance(name, str) or not name.strip():
+                continue
+            title = name.strip()[:300]
+
+            url_raw = obj.get("url")
+            if not isinstance(url_raw, str) or not url_raw.strip():
+                continue
+            url_abs = urljoin(base_url, url_raw.strip())
+            parsed = urlparse(url_abs)
+            if parsed.scheme not in ("http", "https"):
+                continue
+
+            # Dedupe on scheme+host+path to match anchor-tier behaviour.
+            canonical = (
+                f"{parsed.scheme}://{parsed.netloc.lower()}"
+                f"{parsed.path.rstrip('/')}"
+            )
+            if canonical in seen_urls:
+                continue
+
+            price, condition = _offer_price_and_condition(obj.get("offers"))
+            if price is None:
+                continue
+
+            seen_urls.add(canonical)
+            listings.append({
+                "title": title,
+                "url": url_abs,
+                "price_usd": price,
+                "condition": condition,
+            })
+
+    return listings
+
+
 # --- Candidate extraction --------------------------------------------------
 
 
@@ -402,6 +600,39 @@ def fetch(query: AdapterQuery) -> list[Listing]:
         logger.warning(f"[universal_ai] Empty body for {url}.")
         return []
 
+    fetched_at = datetime.now(tz=UTC)
+    parsed_host = urlparse(url).netloc.lower()
+
+    # Phase 15 tier 1: JSON-LD. Free, deterministic, no LLM call.
+    jsonld_listings = _extract_jsonld_listings(html, base_url=url)
+    if jsonld_listings:
+        logger.info(
+            f"[universal_ai] Extracted {len(jsonld_listings)} listing(s) from "
+            f"JSON-LD on {url}; skipping anchor/LLM tier."
+        )
+        return [
+            Listing(
+                source="universal_ai_search",
+                url=item["url"],
+                title=item["title"],
+                fetched_at=fetched_at,
+                brand=None,
+                mpn=None,
+                attrs={"vendor_host": parsed_host, "extractor": "jsonld"},
+                condition=item["condition"],
+                is_kit=False,
+                kit_module_count=1,
+                unit_price_usd=item["price_usd"],
+                kit_price_usd=None,
+                quantity_available=None,
+                seller_name=parsed_host,
+                seller_rating_pct=None,
+                seller_feedback_count=None,
+                ship_from_country=None,
+            )
+            for item in jsonld_listings
+        ]
+
     candidates = _extract_candidates(html, base_url=url)
     if not candidates:
         logger.warning(
@@ -463,8 +694,6 @@ def fetch(query: AdapterQuery) -> list[Listing]:
         logger.error(f"[universal_ai] Unexpected JSON shape: {str(parsed)[:300]}")
         return []
 
-    fetched_at = datetime.now(tz=UTC)
-    parsed_host = urlparse(url).netloc.lower()
     results: list[Listing] = []
 
     for v in verdicts:
@@ -504,7 +733,7 @@ def fetch(query: AdapterQuery) -> list[Listing]:
             fetched_at=fetched_at,
             brand=None,
             mpn=None,
-            attrs={"vendor_host": parsed_host},
+            attrs={"vendor_host": parsed_host, "extractor": "anchor_llm"},
             condition=condition,
             is_kit=False,
             kit_module_count=1,

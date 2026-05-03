@@ -1,0 +1,86 @@
+<!--
+  Synthetic Shopify-style collection page fixture.
+  Exercises the JSON-LD ItemList → ListItem → Product pattern that most
+  Shopify "Online Store 2.0" collection templates emit for SEO.
+
+  Three products on the page; one priceless "Pre-order" card whose Product
+  block has no offers — JSON-LD extractor must drop it because we refuse
+  to invent missing prices.
+-->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<title>Shopify Synthstore — Headphones</title>
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Organization",
+  "name": "Shopify Synthstore",
+  "url": "https://shop.synthstore.example.com"
+}
+</script>
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "ItemList",
+  "itemListElement": [
+    {
+      "@type": "ListItem",
+      "position": 1,
+      "item": {
+        "@type": "Product",
+        "name": "Synthbose QuietComfort 700",
+        "url": "/products/qc700",
+        "image": "https://cdn.synthstore.example.com/qc700.jpg",
+        "brand": { "@type": "Brand", "name": "Synthbose" },
+        "offers": {
+          "@type": "Offer",
+          "price": "299.99",
+          "priceCurrency": "USD",
+          "itemCondition": "https://schema.org/NewCondition",
+          "availability": "https://schema.org/InStock"
+        }
+      }
+    },
+    {
+      "@type": "ListItem",
+      "position": 2,
+      "item": {
+        "@type": "Product",
+        "name": "Synthbose QC700 — Refurbished",
+        "url": "https://shop.synthstore.example.com/products/qc700-refurb",
+        "offers": {
+          "@type": "Offer",
+          "price": 219.50,
+          "priceCurrency": "USD",
+          "itemCondition": "https://schema.org/RefurbishedCondition"
+        }
+      }
+    },
+    {
+      "@type": "ListItem",
+      "position": 3,
+      "item": {
+        "@type": "Product",
+        "name": "Synthbose QC900 (pre-order)",
+        "url": "/products/qc900-preorder",
+        "image": "https://cdn.synthstore.example.com/qc900.jpg"
+      }
+    }
+  ]
+}
+</script>
+
+</head>
+<body>
+<main>
+  <h1>Headphones</h1>
+  <p>Visible HTML doesn't matter for JSON-LD — the data is in the head.</p>
+  <a href="/products/qc700">QuietComfort 700</a>
+  <a href="/products/qc700-refurb">QC700 Refurb</a>
+  <a href="/products/qc900-preorder">QC900 Pre-order</a>
+</main>
+</body>
+</html>
