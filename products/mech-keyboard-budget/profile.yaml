@@ -1,4 +1,4 @@
-slug: mech-keyboard-budget
+slug: "mech-keyboard-budget"
 display_name: Mechanical Keyboard Under $200
 description: Find the cheapest available new full-size wired mechanical keyboards with banana switches under $200.
 target:
@@ -24,6 +24,10 @@ spec_flags:
     flag: low_feedback
     rating_pct_below: 98
     count_below: 50
+  - rule: title_mentions
+    flag: no_banana_mention
+    values:
+      - banana
 sources:
   - id: ebay_search
     queries:
