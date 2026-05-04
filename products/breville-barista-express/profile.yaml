@@ -1,0 +1,43 @@
+slug: breville-barista-express
+display_name: Breville Barista Express Espresso Machine
+description: Track the cheapest currently-available Breville Barista Express espresso machines (new condition only).
+target:
+  unit: count
+  amount: 1
+  configurations:
+    - module_count: 1
+      module_capacity_gb: 1
+spec_attrs:
+  condition:
+    type: str
+    required: false
+spec_filters:
+  - rule: in_stock
+  - rule: title_excludes
+    values:
+      - used
+      - refurbished
+      - open box
+      - damaged
+      - parts
+spec_flags:
+  - rule: low_seller_feedback
+    flag: low_feedback
+    rating_pct_below: 98
+    count_below: 50
+sources:
+  - id: ebay_search
+    queries:
+      - breville barista express
+    max_results_per_query: 50
+  - id: universal_ai_search
+    url: https://www.amazon.com/s?k=breville+barista+express
+  - id: universal_ai_search
+    url: https://www.target.com/s?searchTerm=breville+barista+express
+  - id: universal_ai_search
+    url: https://remanufactured.brevilleusa.com/collections/espresso
+sources_pending: []
+qvl_file: products/breville-barista-express/qvl.yaml
+schedule:
+  cron: 0 8 * * *
+  timezone: UTC
