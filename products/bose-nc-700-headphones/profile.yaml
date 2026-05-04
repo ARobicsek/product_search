@@ -58,18 +58,30 @@ sources:
       - Bose NCH700 headphones
     max_results_per_query: 20
   - id: universal_ai_search
-    url: https://www.backmarket.com/en-us/search?q=bose+nc+700
-  - id: universal_ai_search
-    url: https://buy.gazelle.com/collections/headphones
-  - id: universal_ai_search
     url: https://www.amazon.com/bose-700-headphones/s?k=bose+700+headphones
   - id: universal_ai_search
-    url: https://www.bestbuy.com/site/searchpage.jsp?_dyncharset=UTF-8&browsedCategory=pcmcat168900050019&id=pcat17071&iht=n&ks=960&list=y&qp=modelfamily_facet%3Dname~Headphones+700&sc=Global&st=pcmcat144700050019_categoryid$pcmcat144700050004&type=page&usc=All+Categories
-  - id: universal_ai_search
-    url: https://www.walmart.com/browse/electronics/noise-cancelling-headphones/bose
+    url: https://www.bose.com/c/refurbished
 sources_pending:
   - id: newegg_search
     note: Newegg search adapter not yet available; add when built
+  - id: universal_ai_search
+    url: https://www.backmarket.com/en-us/search?q=bose+nc+700
+    note: "probe returned 0 candidates: fetch returned HTTP 403"
+  - id: universal_ai_search
+    url: https://buy.gazelle.com/collections/headphones
+    note: "probe returned 0 candidates: fetch returned HTTP 404"
+  - id: universal_ai_search
+    url: https://www.bestbuy.com/site/searchpage.jsp?_dyncharset=UTF-8&browsedCategory=pcmcat168900050019&id=pcat17071&iht=n&ks=960&list=y&qp=modelfamily_facet%3Dname~Headphones+700&sc=Global&st=pcmcat144700050019_categoryid$pcmcat144700050004&type=page&usc=All+Categories
+    note: "probe returned 0 candidates: fetch failed: This operation was aborted"
+  - id: universal_ai_search
+    url: https://www.walmart.com/browse/electronics/noise-cancelling-headphones/bose
+    note: "probe returned 0 candidates: probe returned 0 candidates"
+  - id: universal_ai_search
+    url: https://www.crutchfield.com/p_135NC700/Bose-Noise-Cancelling-Headphones-700.html
+    note: "probe returned 0 candidates: fetch returned HTTP 403"
+  - id: universal_ai_search
+    url: https://reebelo.com/collections/bose-headphones
+    note: "probe returned 0 candidates: probe returned 0 candidates"
 qvl_file: products/bose-nc-700-headphones/qvl.yaml
 brand_candidates:
   - Bose
