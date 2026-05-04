@@ -39,7 +39,7 @@ In this exact order:
 
    <bullet list of what changed and why>
    ```
-6. **Do not push** unless the user explicitly asked. Note in your closing message that the commit is local and ask whether to push.
+6. **Push** unless the user explicitly asked not to. 
 
 ## How to brief a new session
 
