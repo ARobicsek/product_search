@@ -4,9 +4,62 @@
 
 ## Active phase
 
-**Phase 15 — Universal adapter quality pass** ✅ closed 2026-05-03 (PM session) with one same-day follow-up (2026-05-04 AM): probe-gate policy relaxed + Amazon split-price extraction. Phase 16 — Slug deletion is up next.
+**Next: Phase 19 — Universal adapter accuracy & vendor reach (NEW, urgent).** Phase 15 closed structurally (heuristic v2 + JSON-LD tier + probe gate shipped), but the first two live runs through the full pipeline (Bose + Breville, 2026-05-04) surfaced two correctness problems that block any further roadmap progress: **wrong prices in Amazon listings** and **near-total vendor bot-blocking**. Phases 16–18 (slug deletion, schedule editor, polish) are deferred until Phase 19 lands. See the Phase 19 brief in [PHASES.md](PHASES.md#phase-19--universal-adapter-accuracy--vendor-reach-urgent).
 
-## Status as of 2026-05-04 (Phase 15 follow-up — gate policy revision + Amazon split-price)
+## Status as of 2026-05-04 PM (Phase 15 closeout + live-run diagnosis)
+
+**Two live runs through the new pipeline. Both found things the test suite couldn't surface.**
+
+### Run 1 — Breville Barista Express (pre-2e19afa push, ~04:00 UTC 2026-05-04)
+
+Extraction worked structurally — 38 fetched / 3 passed from amazon.com, 23 fetched / 3 passed from target.com — but the **Amazon prices are wrong**.
+
+- User example: BES876BSS Impress recorded as **$489.50** in the per-run CSV; the actual Amazon page shows **$649.95**.
+- All 3 Amazon Breville listings are suspect (other recorded prices: $421.63 for BES870XL — Barista Express MSRP ~$700; $469.29 for BES870BSXL — Black Stainless variant). Target's prices for the same models on its own pages came back at $549.99 / $649.99, matching real retail.
+- Likely root cause: Amazon's search-result cards inline both a "From:" / used-condition price AND the new-condition price; our 1500-char ancestor walk pulls every visible `$` token into `price_hints`, and the LLM picks the cheapest plausible one. Pre-Phase-15 this rarely surfaced because the old 600-char walk often missed prices entirely; now we get prices, but sometimes the wrong ones.
+- This is a CORRECTNESS bug, not a coverage bug. Wrong prices → wrong rankings → user makes wrong decisions. Top priority for Phase 19.
+
+### Run 2 — Bose NC 700 (post all 3 push commits, ~12:00 UTC 2026-05-04)
+
+Restoring the 5 demoted universal_ai sources put them back in `sources` per ADR-038, but **none of them produced any NC 700 listings**:
+
+| Source | Fetched | Passed | LLM input tokens | Notes |
+|---|---|---|---|---|
+| ebay_search | 44 | 40 | (n/a) | Same as before, healthy |
+| amazon.com | 0 | 0 | (no LLM call) | 0 anchor candidates — different page than the 12-fetched May 4 AM run |
+| bose.com /c/refurbished | 17 | 0 | 6,700 in / 1,032 out | Right page but Bose discontinued the NC 700; LLM emits 17 wrong-product listings, ai_filter rejects all |
+| backmarket.com | 0 | 0 | (no LLM call) | 0 anchor candidates from rendered fetch |
+| bestbuy.com | 0 | 0 | 2,902 in / 13 out | LLM saw a few candidates, rejected them all |
+| walmart.com | 0 | 0 | 622 in / 13 out | Almost-empty candidate list (anti-bot stripped DOM) |
+| crutchfield.com | 0 | 0 | (no LLM call) | 0 anchor candidates (Cloudflare turnstile) |
+| reebelo.com | 0 | 0 | 508 in / 13 out | Almost-empty candidate list |
+
+**Net result**: 7 of 8 universal_ai sources contributed zero listings. The one that DID contribute (bose.com) only contributed wrong-product noise that ai_filter correctly threw out, costing $0.012 in LLM tokens for nothing.
+
+**Diagnosis**:
+- Amazon's 12 → 0 regression between morning and afternoon runs is Amazon serving different DOM to different sessions/IPs (likely AlterLab's outbound IPs got flagged). Not a code regression; we can't reproduce it deterministically.
+- backmarket / crutchfield / amazon (this run): rendered fetch returns a body, but the body has no extractable product anchors. AlterLab's Cloudflare bypass works inconsistently.
+- walmart / reebelo: `_extract_candidates` returns ~0 candidates, suggesting the rendered DOM doesn't contain product cards.
+- bose.com /c/refurbished: this URL needs to be removed from the profile entirely. Bose discontinued the NC 700 product line; no amount of extraction quality will surface NC 700 listings on a refurb page that doesn't carry it.
+
+### Cumulative cost picture
+
+This run's universal_ai LLM spend was **$0.016** for 0 listings shipped. Onboarder will still propose universal_ai URLs for new products, and many of them will fall into this same "fetches OK, extracts wrong / extracts nothing" trap. The economic argument for universal_ai_search depends on hit rate ≥30%; today on bose-nc-700 it's effectively 0%, on breville-barista-express it's 6/61 = 10% with quality concerns.
+
+## Live state at handoff
+- All Phase 15 work + the same-day follow-up (gate relaxation, Amazon split-price, Bose profile restore, push-policy flip) committed and pushed. Latest pushed SHAs: `06a1de4` (bose restore), `cfa1956` (push policy), `2e19afa` (gate + split-price).
+- Test suite: 161/161 worker, web tsc + next build green.
+- No uncommitted changes.
+
+## Next session — start here (Phase 19, urgent)
+
+1. Read the Phase 19 brief in [PHASES.md](PHASES.md#phase-19--universal-adapter-accuracy--vendor-reach-urgent).
+2. **Top priority: Amazon price attribution** — either tighten `_ancestor_card_text` to per-card boundaries (smaller hops + smarter container detection) or add an Amazon-specific price selector that prefers `data-a-color="base"` + `<span class="a-offscreen">` on the same product card. Re-run the breville-barista-express search and confirm BES876BSS now records $649.95 (not $489.50).
+3. **Second: bose.com URL** — remove `/c/refurbished` from the Bose profile (or replace with a working NC 700-specific URL if one exists). Stop burning $0.012/run on guaranteed-rejection listings.
+4. **Third: vendor bot-blocking diagnosis** — for each 0-candidate-yielding source (amazon, backmarket, crutchfield, walmart, reebelo, bestbuy on Bose), capture the AlterLab response body to a fixture. Decide per vendor: keep in `sources`, demote to `sources_pending`, or remove entirely.
+5. After Phase 19, return to Phase 16 (slug deletion).
+
+## Status as of 2026-05-04 AM (Phase 15 follow-up — gate policy revision + Amazon split-price) [archived]
 
 **Two fixes after the first live save through the new gate:**
 

@@ -358,3 +358,39 @@ Each phase is sized to fit one focused dev session (~30-90 min with an AI co-pil
 
 **Done when**:
 - Three products onboarded, one deleted, two run scheduled for a full week with daily reports committed.
+
+---
+
+## Phase 19 — Universal adapter accuracy & vendor reach (urgent)
+
+**Goal**: stop emitting wrong prices, and decide what to do with universal_ai sources that bot-block. The first two live runs through the Phase-15 pipeline (Bose + Breville, 2026-05-04) showed Phase 15 fixed coverage but introduced an accuracy problem and didn't fix the vendor-reach problem at all.
+
+**Why this jumps ahead of Phases 16–18**: Phase 18 (polish + second-product proof) requires runs to produce reliable data for a week. Today's universal_ai output is unreliable (wrong Amazon prices) and incomplete (most vendors return 0). Both undermine the value proposition of universal_ai_search and cost real LLM tokens for nothing. Slug deletion and schedule editor are features; this is correctness, and correctness comes first.
+
+**Concrete observations driving the brief** (full data in PROGRESS.md "Run 1" / "Run 2" sections):
+- Breville Amazon: 3 listings shipped, all 3 with prices materially different from the live page. User-reported example: BES876BSS recorded as $489.50; live page is $649.95. Likely root cause: 1500-char ancestor walk pulls in "From: $X" / used-condition prices alongside the new price; LLM picks the cheapest.
+- Bose run, 7 universal_ai sources: 0 fetched / 0 passed for amazon, backmarket, bestbuy, walmart, crutchfield, reebelo. Bose.com /c/refurbished: 17 fetched / 0 passed because Bose discontinued the NC 700 — that URL will never yield NC 700 listings.
+- Run cost on the 0-yield Bose run: $0.016 spent on universal_ai LLM calls that produced nothing usable.
+
+**Tasks**:
+
+1. **Diagnose Amazon price attribution.** Read the breville-barista-express CSV and compare each Amazon `unit_price_usd` against the live page. Quantify: 1 of 3 wrong, 3 of 3 wrong, etc. Then either (a) tighten `_ancestor_card_text` to stop at smaller per-card containers (heuristic: stop when ancestor text length first exceeds 800 chars OR when ancestor's tag is `<li>`/`<article>` AND the parent has multiple siblings of the same tag — i.e. we've reached the card list), or (b) add an Amazon-specific selector that prefers the first `<span class="a-offscreen">` inside the same `s-result-item`/`a-card-container` as the title anchor. Pin against a real Amazon search-result fixture.
+
+2. **Per-vendor body-fixture capture for the 0-yield sources** in the bose profile. Run `cli probe-url` on each of {amazon, backmarket, bestbuy, walmart, crutchfield, reebelo} URL and save the `--render` body to `worker/tests/fixtures/universal_ai/<vendor>-bose-2026-05-04.html`. For each: classify "AlterLab can't bypass the bot tier" vs "AlterLab gets through but the page doesn't carry NC 700" vs "extractor genuinely missed candidates." Document one-line verdict per vendor.
+
+3. **Remove or replace dead URLs in the bose profile.** `bose.com/c/refurbished` is the prime candidate — Bose discontinued the NC 700, so the URL will never carry the target product. Decide whether the onboarder should be smarter at vendor-discovery time (only suggest vendors that currently sell the product, not just match the brand) or whether the user manually curates after the first run. Document the decision.
+
+4. **Vendor-reach policy.** For URLs that AlterLab can't bypass, decide systemically: keep them in `sources` (run them every day, accept 0 yield, hope rendering improves) vs auto-demote to `sources_pending` after N consecutive 0-yield runs. The latter would be a small change to the worker pipeline (track per-source 0-yield streaks in the SQLite store; surface in the next-run cli output).
+
+5. **Re-run Bose + Breville and verify**:
+   - Breville BES876BSS records the correct $649.95 (or matches Target's page price).
+   - Bose run cost drops to ≤$0.005 (no token waste on bose.com /c/refurbished).
+   - Sources panel shows ≥1 universal_ai vendor producing real listings (target on Breville, ideally backmarket on Bose if AlterLab cooperates that day).
+
+**Done when**:
+- Amazon price recorded for at least one popular product matches the live new-condition price within $5 (tolerance for tax/discount drift).
+- Bose profile is free of guaranteed-zero URLs (`bose.com /c/refurbished` removed or replaced).
+- Per-vendor verdict document committed to docs/ explaining each 0-yield vendor's status.
+- ADR-039 documenting the price-attribution fix and the vendor-reach policy.
+
+**Out of scope**: writing native per-vendor adapters (still Tier-A, separate work). Replacing AlterLab with another fetch tier (separate evaluation if Phase 19 conclusions warrant it).
