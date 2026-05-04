@@ -117,6 +117,12 @@ def main() -> None:
         action="store_true",
         help="Require AlterLab rendered fetch (errors out if ALTERLAB_API_KEY is unset)",
     )
+    probe_parser.add_argument(
+        "--save-body",
+        metavar="PATH",
+        default=None,
+        help="Write the fetched HTML body to PATH (useful for capturing fixtures)",
+    )
 
     args = parser.parse_args()
 
@@ -148,7 +154,7 @@ def main() -> None:
         _cmd_scheduler_tick()
 
     elif args.command == "probe-url":
-        _cmd_probe_url(args.url, render=args.render)
+        _cmd_probe_url(args.url, render=args.render, save_body=args.save_body)
 
 
 # ---------------------------------------------------------------------------
@@ -869,7 +875,7 @@ def _cmd_scheduler_tick() -> None:
 # ---------------------------------------------------------------------------
 
 
-def _cmd_probe_url(url: str, *, render: bool) -> None:
+def _cmd_probe_url(url: str, *, render: bool, save_body: str | None = None) -> None:
     """Diagnose a single vendor URL through the universal_ai pipeline.
 
     Prints fetcher used, status, body length, JSON-LD count, anchor candidate
@@ -917,6 +923,13 @@ def _cmd_probe_url(url: str, *, render: bool) -> None:
 
     jsonld_listings = universal_ai._extract_jsonld_listings(html, base_url=url)
     candidates = universal_ai._extract_candidates(html, base_url=url)
+
+    if save_body:
+        from pathlib import Path
+
+        Path(save_body).parent.mkdir(parents=True, exist_ok=True)
+        Path(save_body).write_text(html, encoding="utf-8")
+        print(f"Wrote body to:     {save_body}", file=sys.stderr)
 
     print(f"\nFetcher:           {fetcher}")
     print(f"Origin status:     {status}")

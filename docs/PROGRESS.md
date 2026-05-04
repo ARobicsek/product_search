@@ -4,9 +4,57 @@
 
 ## Active phase
 
-**Phase 19 — Universal adapter accuracy & vendor reach (urgent).** Task 1 (Amazon price attribution) **done** this session; ADR-039 written. Tasks 2–5 (vendor body-fixture capture, dead-URL removal, vendor-reach policy, end-to-end re-run + verification) remain. See the Phase 19 brief in [PHASES.md](PHASES.md#phase-19--universal-adapter-accuracy--vendor-reach-urgent).
+**Phase 19 — Universal adapter accuracy & vendor reach (urgent). CLOSED 2026-05-04 night.** All 5 tasks shipped: Amazon price attribution (ADR-039), per-vendor verdict capture (`docs/VENDOR_REACH.md` + 6 body fixtures), dead-URL removal (`bose.com/c/refurbished` out of Bose profile), vendor-reach policy (ADR-040; implementation deferred), end-to-end live verification on both Breville and Bose. Next session resumes Phase 16 (slug deletion).
 
-## Status as of 2026-05-04 evening (Phase 19 task 1 — Amazon price attribution)
+## Status as of 2026-05-04 night (Phase 19 tasks 2-5 — closeout)
+
+**Phase 19 done. All four done-when criteria from the brief are met live, on real product runs:**
+
+| Done-when | Result |
+|---|---|
+| Amazon price for popular product matches live within $5 | All 3 originally-wrong Breville Amazon listings now match live ($0 delta): BES876BSS Impress $489.50 → $649.95; BES870XL $421.63 → $549.95; BES870BSXL Black Sesame $469.29 → $549.95. |
+| Bose profile free of guaranteed-zero URLs | `bose.com/c/refurbished` moved from `sources` to `sources_pending` with note. |
+| Per-vendor verdict document committed to `docs/` | [docs/VENDOR_REACH.md](VENDOR_REACH.md) + 6 body fixtures committed under `worker/tests/fixtures/universal_ai/<vendor>-bose-2026-05-04.html`. |
+| ADR-039 + vendor-reach ADR | ADR-039 (Amazon selector, last session) + ADR-040 (vendor-reach policy, this session). |
+
+What landed this session:
+
+1. **`probe-url --save-body PATH` flag** in [worker/src/product_search/cli.py](../worker/src/product_search/cli.py). Tiny addition (5 lines) so the documented Phase 19 task 2 workflow ("save the body to a fixture") actually works end-to-end. Body is written before the candidate-summary print so even 0-candidate fixtures still land on disk.
+
+2. **Per-vendor body-fixture capture (Phase 19 task 2)** — 6 vendors probed with `--render` (and httpx fallback when AlterLab returned 5xx). Bodies committed under `worker/tests/fixtures/universal_ai/<vendor>-bose-2026-05-04.html`. Verdicts in [docs/VENDOR_REACH.md](VENDOR_REACH.md):
+   - **amazon.com** — alterlab 200, 1.1 MB, 78 anchor candidates. Healthy. Keep in `sources`.
+   - **backmarket.com** — alterlab 200, 32 KB Cloudflare Turnstile challenge page. AlterLab can't bypass.
+   - **bestbuy.com** — alterlab 200, 6.9 KB "Best Buy International / Select your Country" splash. AlterLab IPs are geo-routed to the international gateway, not the US site.
+   - **walmart.com** — alterlab consistently 503/504; httpx fallback gets 15 KB stripped bot-block shell.
+   - **crutchfield.com** — alterlab consistently 503/504; httpx fallback returns explicit 403.
+   - **reebelo.com** — alterlab 200, 134 KB shell with 0 product cards in the SSR (products are JS-rendered against the vendor's API).
+
+3. **Bose profile cleanup (Phase 19 task 3)** in [products/bose-nc-700-headphones/profile.yaml](../products/bose-nc-700-headphones/profile.yaml). `bose.com/c/refurbished` moved from `sources` to `sources_pending` with explanatory note (Bose discontinued the NC 700; the refurb collection page can never carry it; was costing ~$0.012/run for 17 wrong-product candidates that ai_filter rejected). All other URLs unchanged.
+
+4. **Vendor-reach policy (Phase 19 task 4)** — [ADR-040](DECISIONS.md#adr-040--vendor-reach-policy-auto-demote-universal_ai-sources-after-3-consecutive-0-yield-runs). **Policy is ACCEPTED**: track per-source 0-yield streaks in a new `source_runs` SQLite table; auto-demote `universal_ai_search` URLs to `sources_pending` after 3 consecutive 0-yield runs; reversible by re-saving the profile. **Implementation is deferred** as a follow-up task — the policy is settled but the code (new table + write hook in `_cmd_search` + ruamel YAML round-trip rewrite + tests) is its own piece of work.
+
+5. **End-to-end verification (Phase 19 task 5)** — both products re-run live:
+   - Breville: 11 Amazon Breville listings recorded, all with correct prices ($1199.95 → $249.95 spread, all matching live Amazon to the cent including the previously-broken BES876BSS / BES870XL / BES870BSXL trio).
+   - Bose: 40 passing listings (was ~30 ebay-only in the PM run). Amazon now contributes 2 Renewed listings ($119.32, $147.98). Total run cost $0.0567 vs ~$0.05 in the PM run, but the composition flipped: wasted spend (walmart + reebelo + bestbuy + bose.com) dropped from $0.016 → $0.0013 (well under the ≤$0.005 target); the new $0.0209 universal_ai-Amazon cost is *productive* spend on real candidates.
+
+**Tests**: 163/163 worker tests pass. CLI `--save-body` change is plumbing-only (no test added — it's a passthrough to `Path.write_text`). Web unchanged this session.
+
+**Live state at handoff**:
+- Local commit pending: `--save-body` flag + 6 vendor fixtures + Bose profile edit + VENDOR_REACH.md + ADR-040 + this PROGRESS update.
+- Build green; 163/163 worker tests pass.
+- No web changes this session.
+
+**Next session — start here (Phase 16 + ADR-040 follow-up)**:
+1. **ADR-040 implementation** is the most natural follow-up: new `source_runs` SQLite table, write hook in `_cmd_search`, ruamel-yaml round-trip rewrite when streak hits 3, tests. Roughly a phase-sized piece of work; could be Phase 19.5 or folded into Phase 16.
+2. **Phase 16 (slug deletion)** is the originally-scheduled next phase — read its brief in [PHASES.md](PHASES.md#phase-16--slug-deletion-hard-delete) before starting.
+3. Decide order: if ADR-040 implementation is folded into Phase 16's work surface (both touch storage + onboarder UI), do them together. Otherwise close ADR-040 first since the policy is fresh.
+
+**Noticed but deferred**:
+- AlterLab is intermittently 503/504 on walmart and crutchfield (consistent across two retries each, this session). Worth a separate observability follow-up to track AlterLab-side error-rate over time. Out of scope for Phase 19's vendor-reach question (which is "what to do when fetch returns 0 candidates", not "why does the fetch fail").
+- The Bose run still spent $0.0007 on walmart and $0.0006 on reebelo — token "waste" on URLs that returned 0/0 fetched/passed. ADR-040's auto-demoter will handle this once implemented. Until then, manual demotion is fine.
+- The new fixtures (6 of them) are ~190 KB total; they're not pinned by any test yet. They exist as evidence behind VENDOR_REACH.md's verdicts. If/when we decide to extend universal_ai to handle Cloudflare Turnstile or geofencing, these become regression fixtures.
+
+## Status as of 2026-05-04 evening (Phase 19 task 1 — Amazon price attribution) [archived]
 
 **The Breville run's 3-of-3 wrong Amazon prices ($489.50 vs live $649.95, etc.) are root-caused and fixed at extraction time, not at the LLM-prompt level. ADR-039 written.**
 

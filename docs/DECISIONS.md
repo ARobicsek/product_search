@@ -9,6 +9,51 @@ Status values:
 
 ---
 
+## ADR-040 — Vendor-reach policy: auto-demote universal_ai sources after 3 consecutive 0-yield runs
+
+**Status**: ACCEPTED (policy); implementation deferred to a follow-up task.
+
+**Date**: 2026-05-04
+
+**Context**: Phase 19's per-vendor body capture (task 2, results in [docs/VENDOR_REACH.md](VENDOR_REACH.md)) confirmed that 6 of the 7 universal_ai_search URLs on the bose-nc-700-headphones profile produce 0 listings per run. The failure modes vary — Cloudflare Turnstile (backmarket), AlterLab geo-routing to a country-selector splash (bestbuy), AlterLab 503/504 plus httpx-fallback bot-block (walmart, crutchfield), and JS-only product cards (reebelo). None of them are extractor bugs. They're all "the page is fetched, the universal_ai pipeline runs, and 0 candidates fall out the back."
+
+The cost of doing nothing: the 2026-05-04 PM Bose run spent **$0.016 on universal_ai LLM calls that produced zero usable listings**. Multiplied across daily runs and a future second product, that's small in absolute terms but unbounded in growth and ugly as a per-run telemetry signal (most of the spend is going to do nothing).
+
+The cost of being too aggressive: AlterLab is intermittent. A single run's 0-yield is not a confident signal that the URL is dead; it could be transient. Demoting on the first failure would whipsaw vendors in and out of `sources` and undermine the on-demand re-evaluation flow.
+
+**Decision**:
+
+1. **Track per-source 0-yield streaks** in the SQLite store. New table `source_runs(slug TEXT, source_url TEXT, fetched_at TEXT, listings_yielded INTEGER, fetcher TEXT)` with a composite PK on `(slug, source_url, fetched_at)`. Recorded by the search command after each run regardless of outcome.
+
+2. **Auto-demote on 3 consecutive 0-yield runs.** When the most recent 3 entries for a `(slug, source_url)` all have `listings_yielded == 0`, the search command moves that URL from `profile.sources` to `profile.sources_pending` with an automated note: `"Auto-demoted YYYY-MM-DD after 3 consecutive 0-yield runs (last fetcher: <fetcher>). Re-save the profile to re-evaluate."` The YAML edit happens as a profile-write step at the end of `_cmd_search`.
+
+3. **Demotion is reversible.** Re-saving the profile through the onboarder runs the relaxed save-time gate (ADR-038), which evaluates each URL afresh. If AlterLab cooperates that day and the URL produces ≥1 candidate during the gate's structural probe, the URL goes back to `sources`. The 0-yield streak counter is keyed on `(slug, source_url)` and wipes when the URL leaves `sources_pending`.
+
+4. **Three is a deliberate floor, not a tunable.** It's small enough to recover infra cost quickly (3 daily runs ≈ 3 days of waste = ~$0.05 on Bose's case), large enough to absorb single AlterLab outages, and matches the same thresholding feel as `_PROBE_GATE_MIN_BYTES` in ADR-038 (one knob, one threshold, no per-vendor tuning).
+
+5. **Hand-edits are honoured.** A user who manually moves a URL back into `sources` resets the streak counter; the auto-demoter only fires after 3 *new* consecutive 0-yields after the manual edit.
+
+**Consequence**:
+- Bose run cost on a steady-state schedule drops from ~$0.016 to ~$0.005 within 3 days of the auto-demoter being live. The 5 demoted URLs (backmarket, bestbuy, walmart, crutchfield, reebelo) move to `sources_pending`; only ebay_search + amazon (the one universal_ai source actually working today) stay in the active rotation.
+- Future products onboarded by `OnboardChat` will go through the same lifecycle: optimistic addition at save-time (ADR-038's relaxed gate), pruning at runtime by ADR-040's streak counter. The two together form the full vendor lifecycle.
+- The new `source_runs` table is small (one row per source per run, ≤10 sources × 1 run/day per product). No retention policy needed in the short term; a 90-day rolling delete can come later if the table grows past a few thousand rows.
+- A future `cli source-status <slug>` diagnostic can read the table to surface "X URLs at streak Y/3" so the user can hand-intervene before auto-demote fires if they want to.
+
+**Trade-offs**:
+- **Implementation deferred.** The policy is settled, but the code change (new `source_runs` table + write hook in `_cmd_search` + YAML-rewrite logic + tests) is its own follow-up task. Tracked in PROGRESS.md as "Phase 19 task 4 follow-up: implement ADR-040 streak tracking and auto-demote." Until that lands, the user manually demotes by editing `profile.yaml`.
+- **YAML rewrite during search is novel.** Today `_cmd_search` only writes to the SQLite DB and reports. Mutating `profile.yaml` mid-run is a new class of side effect and needs to preserve formatting, comments, and `sources_pending` notes. The implementation should use ruamel.yaml (round-trip preserving), not PyYAML.
+- **The 3-run threshold is calendar-day-coupled.** With the default daily cron, "3 consecutive runs" is "3 days." If a product is on a non-default schedule (hourly, weekly), the calendar feel of demotion changes. Acceptable for now — onboarder defaults to daily.
+- **No early-warning notification.** The user finds out a URL was demoted by reading the next-run report or grepping for the auto-demote note in `profile.yaml`. A push notification could come later if streak management gets noisy.
+
+**Out of scope**:
+- Auto-promotion of `sources_pending` URLs back to `sources` without a re-save. Demotion is mechanical; promotion needs the onboarder's structural probe to confirm the URL works.
+- Per-vendor structural extractors (the ADR-039 pattern for Amazon, then per other big-box site). Vendor reach is the wrong layer to spend that effort against until the fetch tier is sorted.
+- Replacing or augmenting AlterLab. ADR-040 reduces the symptom (wasted spend on dead URLs), not the root cause (AlterLab's intermittent failures). A separate evaluation should consider Bright Data / Scrapfly residential / direct headless once Phase 19 closes.
+
+**Refines**: ADR-038 (which set the save-time gate as a *one-shot* relaxed check). ADR-040 adds the runtime streak-based half of the lifecycle.
+
+---
+
 ## ADR-039 — Amazon-specific primary-price selector for the universal_ai adapter
 
 **Status**: ACCEPTED
