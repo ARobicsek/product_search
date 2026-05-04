@@ -9,6 +9,45 @@ Status values:
 
 ---
 
+## ADR-037 — Universal adapter quality pass: JSON-LD tier, anchor heuristic fixes, save-time probe gate
+
+**Status**: ACCEPTED
+
+**Date**: 2026-05-03
+
+**Context**: Going into Phase 15, the universal adapter only worked on backmarket. Every other live URL the onboarder added to a Bose profile (bhphotovideo, bestbuy, gazelle, walmart) returned 0/0 fetched/passed. Three failure modes, three different fixes — captured here as one ADR because they were planned and shipped together.
+
+**Decision**:
+
+1. **JSON-LD tier added to `_extract_html` pipeline** in [worker/src/product_search/adapters/universal_ai.py](../worker/src/product_search/adapters/universal_ai.py). Walks every `<script type="application/ld+json">` block, recurses through `@graph` / `itemListElement`, extracts `name` + `offers.price` + `url` from any `Product` (single, list-of-Offers, or AggregateOffer with `lowPrice`). Runs BEFORE the anchor + LLM tier; when it yields ≥1 listing, the adapter returns immediately and the LLM is **not called**. Listings carry `attrs.extractor = "jsonld"` for observability. Handles malformed JSON-LD blocks (skipped), `@type` as string OR list, European decimal commas, condition URLs (`schema.org/UsedCondition` → `"used"`). Already shipped earlier in Phase 15 (commit `46e42eb`).
+
+2. **Anchor heuristic redesigned around per-canonical-URL merging** in the same file. Pre-Phase-15 the extractor walked anchors top-to-bottom and dropped any whose canonical URL had already been seen — which broke the dominant Shopify card pattern where the title-anchor and price-anchor are siblings pointing at the same product URL but in DIFFERENT subtrees. Concrete fixes:
+   - **Two-pass design**: collect raw anchors first into `Map<canonical, [raw, ...]>`, then merge each group — best title (longest non-empty), union of price hints, longest context. The dropped anchor's price hints survive into the kept candidate.
+   - **Image-alt fallback** in `_anchor_title`: when an anchor's text is empty (Target's `<a><img alt="..."></a>` shape), check descendant `<img>` alt, then aria-label, then title. Recovers ~90% of Target's product titles.
+   - **Wider ancestor walk**: `_ancestor_card_text` bumped from 4 hops / 600 chars to 6 hops / 1500 chars. Lets the headphones.com Shopify card find the price in a sibling `card__content` 5 hops up that the old walk couldn't reach.
+   - **Path-prefix nav filter** in new `_looks_like_nav_path`: Shopify's `/pages/contact-us`, `/blogs/buying-guides`, big-box `/store-locator`, `/account`, etc. all get disqualified by URL — the bare `_looks_like_product_url` heuristic was passing them because their last segment happens to be hyphenated and ≥6 chars.
+   - **`_UI_CHROME_TEXTS` expanded** with the high-frequency nav strings observed in fixtures: "contact us", "about us", "buying guides", "ranking lists", "weekly ad", "registry & wish list", "track order", "find stores".
+
+3. **TypeScript probe + save-time gate**: [web/lib/onboard/probe-url.ts](../web/lib/onboard/probe-url.ts) ports just the JSON-LD extractor and a coarse product-URL anchor count from the Python adapter — no LLM call, no `selectolax` (regex-based block extraction is enough for JSON-LD; URL-pattern matching is enough for the anchor count). [web/lib/onboard/gate-universal-ai.ts](../web/lib/onboard/gate-universal-ai.ts) wraps the probe and is called from [web/app/api/onboard/save/route.ts](../web/app/api/onboard/save/route.ts) on the structured-`draft` save path. For each `universal_ai_search` source on the draft, we probe in parallel (8s per-URL timeout). 0-candidate URLs are MOVED to `sources_pending` with the original source body intact plus a `note` containing the failure reason. Probe reports flow back to the client in the response so `OnboardChat.tsx` can surface them on the error path; the success path logs them to console and proceeds (the user will see them in the committed YAML's `sources_pending` block).
+
+**Consequence**: Phase 15 done-when checklist:
+- JSON-LD tier ✅ (5 tests in `test_universal_ai.py` pin Shopify ItemList, AggregateOffer, malformed-block tolerance).
+- `cli probe-url` ✅ (4 tests in `test_cli.py`; supports `--render` for AlterLab-required pages).
+- Anchor heuristic ✅: against the new headphones.com fixture the extractor now yields **25 candidates with 24 carrying price hints and 25 carrying titles** (was 35 candidates, 0 prices, mostly nav). Against target.com it yields **47 candidates with 46 prices and 47 titles** (was 50 candidates, 0 prices, ~95% empty titles).
+- Real-vendor fixtures ✅: 3 new committed (headphones-com-shopify-collection, target-search-bose, bhphotovideo-search-bose) plus 3 prior (amazon, backmarket, gazelle). 4-of-6 yield ≥3 listings via the offline test.
+- Onboarder gate ✅: `gateUniversalAiUrls` → `/api/onboard/save` → demoted URLs land in `sources_pending` with the failure note.
+- 159/159 worker tests pass; web `tsc` + `next build` green.
+
+**Trade-offs noted**:
+
+- The TS probe is a STRICT SUBSET of the Python adapter — JSON-LD detection works correctly, but the production anchor + LLM tier can extract listings the TS probe will miss (because the TS port doesn't run an LLM). Net effect: some URLs that would work fine in production get demoted to `sources_pending` at save time. The user can manually promote them later if they know the URL works. This is conservative-fail rather than permissive-fail, which is the right default — onboarder shouldn't ship dead URLs.
+- The wider ancestor walk (1500 chars) does pull noisy prices into candidate context on small pages where the entire content fits in 1500 chars. The synthetic test fixture demonstrates this (every candidate gets all four section-level prices). Real fixtures (headphones.com, target.com) don't suffer because their per-card text exceeds 1500 chars before the walk crosses card boundaries. The downstream LLM is the backstop that picks the right price for each title — this hasn't regressed in any fixture-pinned test.
+- B&H Photo Video, Best Buy, Crutchfield, Walmart, Newegg, Adorama, Sweetwater all fail rendered AlterLab probes (geofence / fully client-rendered React shell / Cloudflare turnstile / 504 from AlterLab itself). These are out of reach for both the Python adapter and the TS probe today. Documented as known-blocked in the test fixture set (`bhphotovideo-search-bose.html` is the regression fixture).
+
+**Out of scope**: Per-vendor adapters (would be Tier-A native work, separate phase). Onboarder tool-call pattern where the assistant invokes `probe_url` mid-conversation (the save-time gate satisfies the brief's "URLs scoring 0 land in `sources_pending`" requirement with materially less complexity than tool-call plumbing in the chat route).
+
+---
+
 ## ADR-035 — Run-now UX wipe + drop `?status=completed` from Actions API lookup; refines ADR-032
 
 **Status**: ACCEPTED

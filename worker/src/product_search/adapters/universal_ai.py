@@ -427,13 +427,31 @@ _SKIP_HREF_PREFIXES = (
 )
 
 # Anchors whose text looks like UI chrome rather than a product title.
+# Path-prefix filtering (``_looks_like_nav_path``) handles most nav links by
+# URL — this list is the backstop for sites with weird URL shapes.
 _UI_CHROME_TEXTS = {
     "add to cart", "add to bag", "add to wishlist", "quick view", "compare",
     "sign in", "login", "log in", "register", "create account", "menu",
     "search", "view cart", "checkout", "next", "previous", "more", "less",
     "view all", "see all", "shop all", "home", "back", "close", "skip",
     "filter", "sort", "share", "print", "save", "wishlist", "account",
+    "contact us", "about us", "buying guides", "ranking lists",
+    "find stores", "weekly ad", "registry & wish list", "track order",
 }
+
+# Path prefixes that almost always mean nav / CMS / chrome rather than a
+# product detail page. Compared as exact match OR `<prefix>/...` so e.g.
+# ``/about`` and ``/about/our-story`` both match, but ``/about-us-bose-x``
+# (a hypothetical product slug) does not.
+_NAV_PATHS = (
+    "/about", "/contact", "/blog", "/blogs", "/news", "/press",
+    "/pages", "/page", "/articles", "/article", "/help", "/support",
+    "/policies", "/policy", "/guides", "/guide", "/legal", "/faq",
+    "/learn", "/community", "/locations", "/store-locator", "/find-stores",
+    "/stores", "/account", "/wishlist", "/cart", "/checkout", "/login",
+    "/signin", "/sign-in", "/register", "/track-order", "/orders",
+    "/careers", "/jobs", "/feedback", "/reviews",
+)
 
 _PRICE_PATTERN = re.compile(
     r"(?:US\s*\$|USD\s*\$|\$|\bUSD\s+)\s*(\d{1,4}(?:,\d{3})*(?:\.\d{2})?)",
@@ -467,12 +485,58 @@ def _is_search_or_category_url(href: str) -> bool:
     ))
 
 
-def _ancestor_card_text(node: Any, max_hops: int = 4) -> str:
+def _looks_like_nav_path(href: str) -> bool:
+    """Disqualify hrefs whose path is a CMS / chrome nav path.
+
+    Phase 15: catches common Shopify ``/pages/contact-us``,
+    ``/blogs/buying-guides``, big-box ``/store-locator``, etc., which the
+    bare ``_looks_like_product_url`` heuristic was passing because their
+    last path segment happens to be hyphenated and >=6 chars.
+    """
+    path = urlparse(href).path.lower().rstrip("/")
+    if path in ("", "/"):
+        return True  # home / root link
+    for nav in _NAV_PATHS:
+        if path == nav or path.startswith(nav + "/"):
+            return True
+    return False
+
+
+def _anchor_title(node: Any) -> str:
+    """Extract a usable title from an anchor.
+
+    Prefer the anchor's own text. When that's empty (an anchor wrapping just
+    an image, common on big-box stores), fall back in order:
+      1. descendant ``<img alt="...">`` — the most common pattern
+      2. ``aria-label`` on the anchor itself
+      3. ``title`` attribute on the anchor itself
+    """
+    txt = (node.text(separator=" ", strip=True) or "").strip()
+    if txt:
+        return txt
+    # selectolax doesn't bind ``css`` directly to nodes in older versions —
+    # iter via traverse() and pick the first <img> with a non-empty alt.
+    if hasattr(node, "css"):
+        for img in node.css("img"):
+            alt = (img.attributes.get("alt") or "").strip()
+            if alt:
+                return alt
+    aria = (node.attributes.get("aria-label") or "").strip()
+    if aria:
+        return aria
+    return (node.attributes.get("title") or "").strip()
+
+
+def _ancestor_card_text(node: Any, max_hops: int = 6, max_text: int = 1500) -> str:
     """Walk up to ``max_hops`` parents and return the card-like ancestor's text.
 
-    We stop early when we've climbed into a container so wide it's clearly
-    no longer "this product card" — heuristically, when the ancestor's
-    plain text exceeds ~600 chars (a card is typically smaller than a page).
+    Phase 15 bumped from (4 hops, 600 chars) to (6 hops, 1500 chars) after
+    fixtures like headphones.com showed product cards where the price lives
+    in a sibling ``<div>`` that's 5 hops up from the title anchor — the old
+    walk stopped at the anchor's immediate ``card__inner`` and never reached
+    the price-bearing sibling. The wider window risks pulling in stray
+    prices from neighbouring cards on tight grids; the LLM tier is the
+    backstop that decides which price actually belongs to which title.
     """
     cur = node
     last_text = node.text(separator=" ", strip=True) if hasattr(node, "text") else ""
@@ -481,7 +545,7 @@ def _ancestor_card_text(node: Any, max_hops: int = 4) -> str:
         if parent is None:
             break
         text = parent.text(separator=" ", strip=True)
-        if len(text) > 600:
+        if len(text) > max_text:
             return last_text
         last_text = text
         cur = parent
@@ -497,6 +561,14 @@ def _extract_candidates(
     with ``href`` resolved to an absolute URL via ``urljoin``. The idx
     field is a stable integer the LLM echoes back — no URL ever round-trips
     through the LLM.
+
+    Two-pass design (Phase 15): walk every anchor first into per-canonical
+    URL groups, THEN merge and emit. This way a product card with TWO
+    anchors at the same URL — one wrapping just the title (no price in its
+    ancestor's text), one wrapping just the price — collapses into a single
+    candidate that has both the title AND the price hints, instead of the
+    old behaviour which kept whichever anchor came first in DOM order and
+    dropped the other.
     """
     try:
         from selectolax.parser import HTMLParser
@@ -508,14 +580,13 @@ def _extract_candidates(
     if tree.body is None:
         return []
 
-    seen_canonical: set[str] = set()
-    candidates: list[dict[str, Any]] = []
+    # canonical_url -> {"href_abs": ..., "raw": [{title, context, prices}, ...]}
+    groups: dict[str, dict[str, Any]] = {}
+    order: list[str] = []  # preserve DOM order of first encounter
 
     for a in tree.css("a"):
         href = (a.attributes.get("href") or "").strip()
-        if not href:
-            continue
-        if href.startswith(_SKIP_HREF_PREFIXES):
+        if not href or href.startswith(_SKIP_HREF_PREFIXES):
             continue
 
         href_abs = urljoin(base_url, href)
@@ -525,39 +596,75 @@ def _extract_candidates(
 
         if _is_search_or_category_url(href_abs):
             continue
-
-        # Dedupe on scheme+host+path (drop query/fragment) so the same
-        # product linked from multiple cards collapses to one candidate.
-        canonical = f"{parsed.scheme}://{parsed.netloc.lower()}{parsed.path.rstrip('/')}"
-        if canonical in seen_canonical:
+        if _looks_like_nav_path(href_abs):
             continue
 
-        anchor_text = (a.text(separator=" ", strip=True) or "").strip()
-        if anchor_text.lower() in _UI_CHROME_TEXTS:
+        title = _anchor_title(a)
+        if title.lower() in _UI_CHROME_TEXTS:
             continue
 
         context = _ancestor_card_text(a)
+        prices = _PRICE_PATTERN.findall(context)
+
+        canonical = (
+            f"{parsed.scheme}://{parsed.netloc.lower()}"
+            f"{parsed.path.rstrip('/')}"
+        )
+        if canonical not in groups:
+            groups[canonical] = {"href_abs": href_abs, "raw": []}
+            order.append(canonical)
+        groups[canonical]["raw"].append({
+            "title": title,
+            "context": context,
+            "prices": prices,
+        })
+
+    # Merge per-canonical groups into final candidates.
+    candidates: list[dict[str, Any]] = []
+    for canonical in order:
+        bucket = groups[canonical]
+        raw = bucket["raw"]
+        href_abs = bucket["href_abs"]
+
+        # Pick the longest non-empty title — wins over empty (image-only)
+        # anchors and over very short labels like "View".
+        non_empty_titles = [r["title"].strip() for r in raw if r["title"].strip()]
+        best_title = max(non_empty_titles, key=len) if non_empty_titles else ""
+
+        # Merge price hints across all anchors in the group, dedupe, preserve order.
+        merged_prices: list[str] = []
+        seen_prices: set[str] = set()
+        for r in raw:
+            for p in r["prices"]:
+                if p not in seen_prices:
+                    seen_prices.add(p)
+                    merged_prices.append(p)
+
+        # Use the longest context — typically the one whose ancestor
+        # encloses both title and price subtrees.
+        best_context = max((r["context"] for r in raw), key=len, default="")
 
         # An anchor needs SOME signal that it's a product:
         # either the URL itself looks product-like, or there's a price nearby.
-        has_price = bool(_PRICE_PATTERN.search(context))
-        if not (_looks_like_product_url(href_abs) or has_price):
+        if not (_looks_like_product_url(href_abs) or merged_prices):
             continue
 
-        seen_canonical.add(canonical)
+        # Drop entirely-empty rows (no title, no price, near-empty context):
+        # nothing for the LLM to act on.
+        if not best_title and not merged_prices and len(best_context) < 20:
+            continue
 
-        price_hints = _PRICE_PATTERN.findall(context)
         # Trim context aggressively for token economy; the LLM doesn't
         # need the whole card, just enough to read title + price.
-        if len(context) > 400:
-            context = context[:400] + "…"
+        if len(best_context) > 400:
+            best_context = best_context[:400] + "…"
 
         candidates.append({
             "idx": len(candidates),
-            "anchor_text": anchor_text[:240],
+            "anchor_text": best_title[:240],
             "href": href_abs,
-            "price_hints": [f"${p}" for p in price_hints[:5]],
-            "context": context,
+            "price_hints": [f"${p}" for p in merged_prices[:5]],
+            "context": best_context,
         })
 
         if len(candidates) >= max_candidates:

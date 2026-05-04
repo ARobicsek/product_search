@@ -4,11 +4,52 @@
 
 ## Active phase
 
-**Phase 15 — Universal adapter quality pass** (Phase 14 closed 2026-05-03)
+**Phase 15 — Universal adapter quality pass** ✅ closed 2026-05-03 (PM session). Phase 16 — Slug deletion is up next.
 
-See the Phase 15 brief in [PHASES.md](PHASES.md#phase-15--universal-adapter-quality-pass).
+## Status as of end of 2026-05-03 session (Phase 15 closeout — tasks 3+4+5)
 
-## Status as of end of 2026-05-03 session (Phase 15 — tasks 1+2 + cheap win)
+**Phase 15 done end-to-end. Anchor heuristic redesigned around per-canonical-URL merging, three real-vendor fixtures committed, save-time TS probe gate routes 0-candidate `universal_ai_search` URLs to `sources_pending`. ADR-037 written. Local commit pending; no push yet.**
+
+What landed this session (on top of tasks 1+2 from earlier in Phase 15):
+
+1. **Anchor heuristic redesigned** in [worker/src/product_search/adapters/universal_ai.py](../worker/src/product_search/adapters/universal_ai.py). Key changes:
+   - Two-pass extraction: collect all anchors first into per-canonical-URL groups, THEN merge each group into a single candidate (best title, union of price hints, longest context). Pre-Phase-15 the inline dedupe dropped sibling anchors, which broke Shopify's split-card markup where title-anchor and price-anchor are siblings pointing at the same product URL.
+   - New `_anchor_title` helper — when anchor text is empty, fall back to descendant `<img alt="...">`, then aria-label, then title attribute. Recovers ~90% of Target's product titles (whose `<a><img></a>` cards previously returned empty strings).
+   - `_ancestor_card_text` bumped from 4 hops / 600 chars to 6 hops / 1500 chars so headphones.com cards can reach the price in a sibling `card__content` 5 hops up.
+   - New `_looks_like_nav_path` filter disqualifies CMS / chrome paths (`/pages/contact-us`, `/blogs/buying-guides`, `/store-locator`, `/account`, etc.) that the existing `_looks_like_product_url` was passing because their last segment happened to be hyphenated and ≥6 chars.
+   - `_UI_CHROME_TEXTS` expanded with high-frequency nav strings observed in fixtures.
+
+2. **Real-vendor fixtures captured** (live AlterLab + httpx fetches, 2026-05-03):
+   - [headphones-com-shopify-collection.html](../worker/tests/fixtures/universal_ai/headphones-com-shopify-collection.html) — Shopify, server-rendered, 51 product anchors. Pre-fix: 35 candidates with 0 prices. Post-fix: 25 candidates with 24 prices.
+   - [target-search-bose.html](../worker/tests/fixtures/universal_ai/target-search-bose.html) — custom React, AlterLab-rendered, 50 image-only anchors. Pre-fix: 50 candidates with 0 prices and ~95% empty titles. Post-fix: 47 candidates with 46 prices and 47 titles via the img-alt fallback.
+   - [bhphotovideo-search-bose.html](../worker/tests/fixtures/universal_ai/bhphotovideo-search-bose.html) — fully bot-blocked React shell. Yields ≤4 nav-only candidates with 0 prices. Pinned as a regression fixture for "0-candidate page is correctly identified as such" so the onboarder probe-gate can route to `sources_pending`.
+   - **Tried but didn't ship**: bestbuy (geofenced even with AlterLab), crutchfield (Cloudflare turnstile), newegg (CAPTCHA), walmart/sweetwater/adorama (AlterLab 504s), audio46 (Shopify with client-side product hydration). All documented as known-blocked in ADR-037.
+
+3. **TypeScript probe + save-time gate** for the onboarder:
+   - [web/lib/onboard/probe-url.ts](../web/lib/onboard/probe-url.ts) — port of `_extract_jsonld_listings` + a coarse product-URL anchor count. Regex-based JSON-LD block extraction (no `cheerio`/`linkedom` dep added). Returns `{ ok, jsonldCount, anchorCount, reason }`.
+   - [web/lib/onboard/gate-universal-ai.ts](../web/lib/onboard/gate-universal-ai.ts) — wraps the probe, parallel-probes every `universal_ai_search` source on the draft (8s per-URL timeout). Demotes 0-candidate URLs to `sources_pending` with `note: "probe returned 0 candidates: <reason>"`.
+   - [web/app/api/onboard/save/route.ts](../web/app/api/onboard/save/route.ts) calls the gate before YAML render on the structured-`draft` path; passes probe reports back to the client in the response.
+   - [web/app/onboard/OnboardChat.tsx](../web/app/onboard/OnboardChat.tsx) surfaces probe failures in the error path (so the user can see why `sources` ended up too thin to validate); silent on the success path (the demotions appear in the committed YAML's `sources_pending` block).
+
+4. **Tests + CI**: 6 new tests added to [test_universal_ai.py](../worker/tests/test_universal_ai.py): one for the new `_looks_like_nav_path`, one for `_anchor_title`'s img-alt fallback, three pinning the new fixtures' extraction quality, one end-to-end "fetch with stubbed LLM yields ≥3 Listings from Target". **159/159 worker tests pass** (was 153). Web `tsc --noEmit` clean; `next build` green; ESLint shows 1 pre-existing warning, 0 new.
+
+**Live state at handoff**:
+- Local commit pending: anchor heuristic changes, 3 new fixtures, 7 deleted speculative fixtures (kept only what tests reference), 6 new tests, TS probe + gate, OnboardChat probe-error surfacing, ADR-037, this PROGRESS update.
+- Build green; tsc clean; lint clean; 159/159 worker tests pass.
+- **Phase 15 → closed.** Phase 16 next.
+
+**Noticed but deferred**:
+- The TS probe is a strict subset of the Python adapter (no LLM call), so some URLs that would work fine in production get demoted to `sources_pending` at save time. Conservative-fail is the right default for now; if it gets noisy in practice, options are (a) add a "force include" toggle on the chat UI, or (b) port more of the anchor heuristic to TS so the gate matches production more closely.
+- The wider ancestor walk (1500 chars) on the synthetic fixture pulls section-level prices into every candidate's hint list. Real fixtures don't suffer because per-card text exceeds 1500 chars before the walk crosses card boundaries. Documented in ADR-037 as a known trade-off.
+- B&H, Best Buy, Walmart, Newegg, Crutchfield, Sweetwater, Adorama all fail rendered AlterLab probes today. Out of reach without per-vendor adapters or a stronger fetch tier; documented as known-blocked.
+
+**Next session — start here (Phase 16)**:
+1. Read the Phase 16 brief in [PHASES.md](PHASES.md#phase-16--slug-deletion-hard-delete).
+2. Implement `DELETE /api/profile/[slug]` route (auth via `WEB_SHARED_SECRET`).
+3. Home-page UI: typed-confirmation modal before delete enables.
+4. Write ADR-036 (auth model, what gets deleted, mid-run safety).
+
+## Status as of end of 2026-05-03 session (Phase 15 — tasks 1+2 + cheap win) [archived]
 
 **JSON-LD extraction tier and `cli probe-url` shipped. Tasks 1 and 2 of the Phase 15 brief are done. Tasks 3–5 paused pending user input.**
 

@@ -235,14 +235,36 @@ export function OnboardChat({ initialProfile, initialSlug }: { initialProfile?: 
         commitUrl?: string | null;
         error?: string;
         details?: string[];
+        probeReports?: Array<{
+          url: string;
+          ok: boolean;
+          jsonldCount: number;
+          anchorCount: number;
+          reason: string | null;
+        }>;
       };
+      // Phase 15: surface probe failures in the error path (so the user
+      // can see why ``sources`` ended up too thin to validate). On the
+      // success path, demotions are silent — they're recorded in the
+      // committed YAML's ``sources_pending`` block and the user will see
+      // them when they read the saved profile.
+      const demotions = (data.probeReports ?? []).filter((r) => !r.ok);
       if (!res.ok || !data.ok || !data.slug) {
+        const probeMessages = demotions.map(
+          (r) => `${r.url}: ${r.reason ?? 'probe returned 0 candidates'}`,
+        );
         setSaveState({
           kind: 'error',
           message: data.error ?? `Save failed (${res.status})`,
-          details: data.details,
+          details: [...(data.details ?? []), ...probeMessages],
         });
         return;
+      }
+      if (demotions.length > 0) {
+        console.warn(
+          `[onboard/save] ${demotions.length} universal_ai URL(s) demoted to sources_pending:`,
+          demotions,
+        );
       }
       setSaveState({ kind: 'success', slug: data.slug, commitUrl: data.commitUrl ?? null });
       setTimeout(() => router.push(`/${data.slug}`), 800);
