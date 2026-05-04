@@ -1,0 +1,119 @@
+<!--
+  Phase 19 fixture: Amazon search-result cards with the multi-price pattern
+  that broke the 2026-05-04 Breville run.
+
+  Each ``s-result-item`` has more than one price visible. The standard
+  ``_PRICE_PATTERN`` sweep over the flattened card text grabs ALL of them;
+  the LLM picks the cheapest, which is wrong (e.g. picks a "From: $489.95"
+  used-condition price over the $649.95 buy-now price).
+
+  This fixture exercises three real Amazon DOM patterns:
+    1. BES876BSS Impress: buy-now $649.95 + ``a-text-price`` strikethrough
+       List $799.95 + ``From: $489.95`` used-condition sub-link.
+       (The actual Breville BES876BSS card on amazon.com 2026-05-04.)
+    2. BES870XL: buy-now $549.95, no extras. Sanity check that single-price
+       cards still work.
+    3. BES870BSXL Black Sesame: buy-now $469.29 + Subscribe-and-Save
+       $445.83 secondary callout. Should pick $469.29.
+
+  The DOM is deliberately stripped to the minimum needed to exercise the
+  Amazon-specific path: the ``s-result-item`` boundary, the title anchor
+  to ``/dp/<asin>``, and the price spans with their ``a-offscreen``
+  accessibility text. Everything else (images, ratings, delivery, ATC) is
+  omitted so the file stays small and the failure modes are obvious.
+-->
+<!DOCTYPE html>
+<html lang="en">
+<head><title>Amazon — breville barista express</title></head>
+<body>
+
+<div class="s-main-slot s-result-list">
+
+  <!-- Card 1: BES876BSS Impress with strikethrough List + From: used-condition.
+       Expected primary price: $649.95 (NOT $799.95 list, NOT $489.95 from-used). -->
+  <div data-asin="B0BBYNPV33" data-component-type="s-search-result"
+       class="sg-col s-result-item s-asin">
+    <div class="sg-col-inner">
+      <a class="a-link-normal s-line-clamp-2 s-link-style a-text-normal"
+         href="/Breville-Express%C2%AE-Espresso-Stainless-BES876BSS/dp/B0BBYNPV33/ref=sr_1_28">
+        <h2><span>Breville Barista Express Impress Espresso Machine BES876BSS, Brushed Stainless Steel</span></h2>
+      </a>
+      <div class="a-row a-size-base a-color-base">
+        <span class="a-price" data-a-size="xl" data-a-color="base">
+          <span class="a-offscreen">$649.95</span>
+          <span aria-hidden="true">
+            <span class="a-price-symbol">$</span>
+            <span class="a-price-whole">649<span class="a-price-decimal">.</span></span>
+            <span class="a-price-fraction">95</span>
+          </span>
+        </span>
+        <span class="a-price a-text-price" data-a-size="b" data-a-strike="true" data-a-color="secondary">
+          <span class="a-offscreen">$799.95</span>
+          <span aria-hidden="true">$799.95</span>
+        </span>
+      </div>
+      <div class="a-row a-size-base">
+        <a class="a-size-base a-link-normal s-underline-text"
+           href="/gp/offer-listing/B0BBYNPV33/ref=sr_used">
+          From: $489.95
+        </a>
+        <span class="a-size-base a-color-secondary">Used &amp; new (12 offers)</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Card 2: BES870XL single-price card. Sanity check. Expected: $549.95. -->
+  <div data-asin="B00CH9QWOU" data-component-type="s-search-result"
+       class="sg-col s-result-item s-asin">
+    <div class="sg-col-inner">
+      <a class="a-link-normal s-line-clamp-2 s-link-style a-text-normal"
+         href="/Breville-BES870XL-Barista-Express-Espresso/dp/B00CH9QWOU/ref=sr_1_27">
+        <h2><span>Breville Barista Express Espresso Machine BES870XL, Brushed Stainless Steel</span></h2>
+      </a>
+      <div class="a-row a-size-base a-color-base">
+        <span class="a-price" data-a-size="xl" data-a-color="base">
+          <span class="a-offscreen">$549.95</span>
+          <span aria-hidden="true">
+            <span class="a-price-symbol">$</span>
+            <span class="a-price-whole">549<span class="a-price-decimal">.</span></span>
+            <span class="a-price-fraction">95</span>
+          </span>
+        </span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Card 3: BES870BSXL Black Sesame with Subscribe-and-Save callout.
+       Expected primary: $469.29. The S&S price ($445.83) is a separate
+       secondary <span class="a-price"> further down the card. -->
+  <div data-asin="B00DS4767K" data-component-type="s-search-result"
+       class="sg-col s-result-item s-asin">
+    <div class="sg-col-inner">
+      <a class="a-link-normal s-line-clamp-2 s-link-style a-text-normal"
+         href="/Breville-BES870BSXL-Barista-Express-Machine/dp/B00DS4767K/ref=sr_1_29">
+        <h2><span>Breville Barista Express Espresso Machine BES870BSXL, Black Sesame</span></h2>
+      </a>
+      <div class="a-row a-size-base a-color-base">
+        <span class="a-price" data-a-size="xl" data-a-color="base">
+          <span class="a-offscreen">$469.29</span>
+          <span aria-hidden="true">
+            <span class="a-price-symbol">$</span>
+            <span class="a-price-whole">469<span class="a-price-decimal">.</span></span>
+            <span class="a-price-fraction">29</span>
+          </span>
+        </span>
+      </div>
+      <div class="a-row a-size-small a-color-secondary">
+        <span>Save 5% on Subscribe &amp; Save:</span>
+        <span class="a-price" data-a-size="b" data-a-color="base">
+          <span class="a-offscreen">$445.83</span>
+          <span aria-hidden="true">$445.83</span>
+        </span>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+</body>
+</html>

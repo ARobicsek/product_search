@@ -551,6 +551,60 @@ def _anchor_title(node: Any) -> str:
     return (node.attributes.get("title") or "").strip()
 
 
+def _amazon_card_primary_price(node: Any) -> str | None:
+    """For Amazon search-result cards, return the buy-now price digits.
+
+    Amazon emits multiple prices per card: the primary new-condition price,
+    a strikethrough List/MSRP, often a "From: $X" used/marketplace price,
+    sometimes a Subscribe-and-Save discount. The generic
+    ``_PRICE_PATTERN`` sweep over the card's flattened text grabs ALL of
+    them, then the LLM picks the cheapest — recording the wrong number.
+
+    Phase 19 fix (Breville BES876BSS Impress recorded as $489.50 in the
+    2026-05-04 run; actual page price $649.95): when the anchor sits inside
+    an ``s-result-item`` card on amazon.<tld>, walk to the card boundary and
+    pick the FIRST ``<span class="a-price">`` that is NOT a strikethrough
+    list-price variant. Its ``<span class="a-offscreen">`` carries a
+    fully-formed ``$NNN.NN`` accessibility string; that's the buy-now price.
+
+    Returns the price digits (e.g. ``"649.95"``) without the leading ``$``.
+    Returns None when no card boundary is found or no qualifying price
+    exists in the card — in which case the caller falls back to the
+    generic regex sweep.
+    """
+    cur = node
+    card = None
+    for _ in range(10):
+        parent = getattr(cur, "parent", None)
+        if parent is None:
+            break
+        cls = (parent.attributes.get("class") or "")
+        dct = (parent.attributes.get("data-component-type") or "")
+        if "s-result-item" in cls or dct == "s-search-result":
+            card = parent
+            break
+        cur = parent
+    if card is None or not hasattr(card, "css"):
+        return None
+
+    for span in card.css("span.a-price"):
+        cls = (span.attributes.get("class") or "")
+        # Strikethrough variants: ``a-text-price`` is Amazon's class for
+        # "List Price" displays; ``data-a-strike="true"`` is the explicit
+        # marker. Either disqualifies this span as the buy-now price.
+        if "a-text-price" in cls:
+            continue
+        if (span.attributes.get("data-a-strike") or "").lower() == "true":
+            continue
+        for off in span.css("span.a-offscreen"):
+            text = (off.text(separator=" ", strip=True) or "").strip()
+            text = text.replace(" ", " ")
+            m = re.search(r"\$\s*(\d{1,4}(?:,\d{3})*(?:\.\d{2})?)", text)
+            if m:
+                return m.group(1)
+    return None
+
+
 def _ancestor_card_text(node: Any, max_hops: int = 6, max_text: int = 1500) -> str:
     """Walk up to ``max_hops`` parents and return the card-like ancestor's text.
 
@@ -604,6 +658,8 @@ def _extract_candidates(
     if tree.body is None:
         return []
 
+    base_host_is_amazon = "amazon." in urlparse(base_url).netloc.lower()
+
     # canonical_url -> {"href_abs": ..., "raw": [{title, context, prices}, ...]}
     groups: dict[str, dict[str, Any]] = {}
     order: list[str] = []  # preserve DOM order of first encounter
@@ -629,6 +685,15 @@ def _extract_candidates(
 
         context = _canonicalize_prices(_ancestor_card_text(a))
         prices = _PRICE_PATTERN.findall(context)
+
+        # Amazon: override hints with the card's primary buy-now price
+        # (first non-strikethrough <span class="a-price"> > a-offscreen).
+        # Stops the LLM picking up "List:" strikethrough or "From: $X"
+        # used-condition sub-prices that the wide ancestor walk drags in.
+        if base_host_is_amazon:
+            az_price = _amazon_card_primary_price(a)
+            if az_price is not None:
+                prices = [az_price]
 
         canonical = (
             f"{parsed.scheme}://{parsed.netloc.lower()}"

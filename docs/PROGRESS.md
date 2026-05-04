@@ -4,9 +4,44 @@
 
 ## Active phase
 
-**Next: Phase 19 — Universal adapter accuracy & vendor reach (NEW, urgent).** Phase 15 closed structurally (heuristic v2 + JSON-LD tier + probe gate shipped), but the first two live runs through the full pipeline (Bose + Breville, 2026-05-04) surfaced two correctness problems that block any further roadmap progress: **wrong prices in Amazon listings** and **near-total vendor bot-blocking**. Phases 16–18 (slug deletion, schedule editor, polish) are deferred until Phase 19 lands. See the Phase 19 brief in [PHASES.md](PHASES.md#phase-19--universal-adapter-accuracy--vendor-reach-urgent).
+**Phase 19 — Universal adapter accuracy & vendor reach (urgent).** Task 1 (Amazon price attribution) **done** this session; ADR-039 written. Tasks 2–5 (vendor body-fixture capture, dead-URL removal, vendor-reach policy, end-to-end re-run + verification) remain. See the Phase 19 brief in [PHASES.md](PHASES.md#phase-19--universal-adapter-accuracy--vendor-reach-urgent).
 
-## Status as of 2026-05-04 PM (Phase 15 closeout + live-run diagnosis)
+## Status as of 2026-05-04 evening (Phase 19 task 1 — Amazon price attribution)
+
+**The Breville run's 3-of-3 wrong Amazon prices ($489.50 vs live $649.95, etc.) are root-caused and fixed at extraction time, not at the LLM-prompt level. ADR-039 written.**
+
+What landed:
+
+1. **`_amazon_card_primary_price` helper** in [worker/src/product_search/adapters/universal_ai.py](../worker/src/product_search/adapters/universal_ai.py). Walks ancestors of each anchor up to the `s-result-item` / `data-component-type="s-search-result"` boundary, then picks the FIRST `<span class="a-price">` whose class doesn't contain `a-text-price` and whose `data-a-strike` isn't `"true"`. Returns the digits inside that span's `<span class="a-offscreen">` accessibility text. The Amazon-specific path is gated on `"amazon." in urlparse(base_url).netloc.lower()`. When the helper finds a price, it overrides the candidate's `price_hints` with that single value — the LLM never sees "List: $799.95" or "From: $489.95" sub-prices.
+
+2. **New fixture** [amazon-breville-multi-price.html](../worker/tests/fixtures/universal_ai/amazon-breville-multi-price.html) pinning three real Amazon DOM patterns in the smallest possible markup:
+   - Card 1 (BES876BSS Impress): buy-now $649.95 + `a-text-price data-a-strike` strikethrough $799.95 + "From: $489.95" anchor sub-link. Reproduces the actual Breville BES876BSS card from the 2026-05-04 run.
+   - Card 2 (BES870XL): single-price baseline $549.95.
+   - Card 3 (BES870BSXL): buy-now $469.29 + Subscribe-and-Save secondary $445.83 (which IS a `span.a-price` but appears second in DOM; the helper still picks the first).
+
+3. **Two new tests** in [test_universal_ai.py](../worker/tests/test_universal_ai.py) — `test_amazon_card_primary_price_skips_strikethrough_and_used` (asserts each card's `price_hints == ["$<buy-now>"]`, no list/used/S&S leakage) and `test_amazon_card_primary_price_returns_none_outside_card` (defensive: helper returns None when no `s-result-item` ancestor exists, so generic regex fallback runs).
+
+**Tests**: 163/163 worker tests pass (was 161). Existing `test_extract_handles_amazon_split_price_markup` still passes — the synthetic split-price fixture from ADR-037 has only one `span.a-price` per card, so the new selector picks the same value the canonicaliser-only path produced.
+
+**Live state at handoff**:
+- Local commit pending: helper + fixture + 2 tests + ADR-039 + this PROGRESS update.
+- Build green; 163/163 worker tests pass.
+- No web changes this session (the fix is worker-only).
+
+**Next session — start here (Phase 19 tasks 2-5)**:
+1. Re-read the Phase 19 brief in [PHASES.md](PHASES.md#phase-19--universal-adapter-accuracy--vendor-reach-urgent).
+2. **Task 5 (verification, can run first)**: Run-now Breville and confirm BES876BSS records ~$649.95 and BES870XL records ~$549.95. If either is still wrong, the helper missed a real-world DOM variant; capture the response body to a fixture and tighten the helper before continuing.
+3. **Task 2**: Per-vendor body-fixture capture for Bose's 0-yield universal_ai sources (amazon, backmarket, bestbuy, walmart, crutchfield, reebelo). Use `python -m product_search.cli probe-url --render <url>` and save bodies to `worker/tests/fixtures/universal_ai/<vendor>-bose-2026-05-04.html`. One-line verdict per vendor: "AlterLab can't bypass" / "page doesn't carry NC 700" / "extractor missed candidates".
+4. **Task 3**: Remove `bose.com/c/refurbished` from `products/bose-nc-700-headphones/profile.yaml` (Bose discontinued the NC 700; that URL will never carry the product). Decide whether the onboarder should be smarter at vendor-discovery time.
+5. **Task 4**: Vendor-reach policy. For URLs AlterLab can't bypass, decide systemically: keep / auto-demote after N consecutive 0-yield runs / remove. Document in ADR-039 follow-up or a new ADR.
+6. After Phase 19 closes, return to Phase 16 (slug deletion).
+
+**Noticed but deferred**:
+- The "From: $489.95" sub-anchor in the multi-price fixture still becomes its own candidate (separate canonical URL: `/gp/offer-listing/<asin>/...`). My helper assigns it the SAME $649.95 as the title anchor — so the LLM either drops it (anchor text doesn't read like a product) or merges it. Not worth filtering today; revisit if the LLM ever outputs a From-link as a real Listing.
+- The German-EUR `amazon-bose-nc700-search.html` fixture (single product, EUR pricing) isn't pinned by the new test — the helper's `$\s*` regex returns None on EUR text, so the generic path runs unchanged. That fixture stays a regression smoke test for the rest of the extractor.
+- Per-vendor structural selectors for Target / Walmart / Best Buy are out of scope until Phase 19 task 2 tells us which ones AlterLab can even reach.
+
+## Status as of 2026-05-04 PM (Phase 15 closeout + live-run diagnosis) [archived]
 
 **Two live runs through the new pipeline. Both found things the test suite couldn't surface.**
 

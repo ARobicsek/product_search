@@ -657,6 +657,54 @@ def test_extract_handles_amazon_split_price_markup() -> None:
     assert any("398.00" in p for p in sony["price_hints"])
 
 
+def test_amazon_card_primary_price_skips_strikethrough_and_used() -> None:
+    """Phase 19: Amazon's multi-price cards yield ONLY the buy-now price.
+
+    The 2026-05-04 Breville run recorded BES876BSS Impress at $489.50 —
+    the "From: $489.95" used-condition price — when the actual buy-now
+    price was $649.95. Pin the fix: the new Amazon-specific helper picks
+    the first non-strikethrough <span class="a-price"> > a-offscreen, so
+    "List: $799.95" (strikethrough) and "From: $489.95" (a separate
+    sub-link, not inside an a-price) are ignored.
+    """
+    html = (FIXTURE_DIR / "amazon-breville-multi-price.html").read_text(encoding="utf-8")
+    cands = universal_ai._extract_candidates(
+        html, base_url="https://www.amazon.com/s?k=breville+barista+express"
+    )
+
+    by_href_substr = {}
+    for c in cands:
+        for asin in ("B0BBYNPV33", "B00CH9QWOU", "B00DS4767K"):
+            if asin in c["href"] and "/dp/" in c["href"]:
+                by_href_substr[asin] = c
+
+    impress = by_href_substr["B0BBYNPV33"]
+    # Buy-now price wins; strikethrough $799.95 and "From: $489.95" are out.
+    assert impress["price_hints"] == ["$649.95"], impress["price_hints"]
+
+    bes870xl = by_href_substr["B00CH9QWOU"]
+    assert bes870xl["price_hints"] == ["$549.95"], bes870xl["price_hints"]
+
+    # Subscribe-and-Save price ($445.83) is also a span.a-price — but it's
+    # the SECOND one in the card, so the helper still picks the first
+    # (the buy-now $469.29).
+    sesame = by_href_substr["B00DS4767K"]
+    assert sesame["price_hints"] == ["$469.29"], sesame["price_hints"]
+
+
+def test_amazon_card_primary_price_returns_none_outside_card() -> None:
+    """The helper bails when no s-result-item ancestor exists, so the
+    generic regex fallback runs instead. Sites that aren't Amazon-shaped
+    keep their existing extraction behavior even if the host happens to be
+    amazon.<tld> (defensive — a future amazon subpage could ship without
+    s-result-item containers, and we don't want to silently drop prices)."""
+    from selectolax.parser import HTMLParser
+    html = '<div><a href="/dp/X"><h2>Some Title</h2></a><p>$25.00</p></div>'
+    tree = HTMLParser(html)
+    a = tree.css_first("a")
+    assert universal_ai._amazon_card_primary_price(a) is None
+
+
 def test_fetch_extracts_listings_offline_from_target_fixture(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

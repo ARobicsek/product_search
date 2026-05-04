@@ -9,6 +9,53 @@ Status values:
 
 ---
 
+## ADR-039 — Amazon-specific primary-price selector for the universal_ai adapter
+
+**Status**: ACCEPTED
+
+**Date**: 2026-05-04
+
+**Context**: The first live Breville run through the Phase-15 pipeline (2026-05-04 03:54 UTC) recorded **all 3 Amazon listings with materially wrong prices**:
+
+| Recorded | Live page (new) | Delta |
+|---|---|---|
+| BES876BSS Impress: $489.50 | $649.95 | -$160.45 |
+| BES870XL: $421.63 | ~$549.95 | -$128.32 |
+| BES870BSXL Black Sesame: $469.29 | ~$549.95 | -$80.66 |
+
+Root cause: Phase 15's `_ancestor_card_text` walk (6 hops, 1500 chars) is wide enough to flatten an Amazon `s-result-item` card's full text, including "List: $799.95" strikethroughs, "From: $489.95" used/marketplace sub-links, and Subscribe-and-Save discounts. `_PRICE_PATTERN` returns ALL `$NNN.NN` tokens; the LLM then picks "the most plausible", which in practice is the cheapest. For the BES876BSS card the cheapest hint was the used-condition "From: $489.95", so the recorded `unit_price_usd` was $489.50.
+
+This is a correctness regression introduced by Phase 15's wider walk. Pre-Phase-15 (4 hops / 600 chars) the walk often missed Amazon prices entirely; we got 0/0 fetched/passed. Phase 15 traded "no prices" for "wrong prices."
+
+**Decision**: When the page host is `amazon.<tld>`, override the generic regex sweep with a structural Amazon-specific selector — `_amazon_card_primary_price` in [worker/src/product_search/adapters/universal_ai.py](../worker/src/product_search/adapters/universal_ai.py).
+
+For each anchor:
+1. Walk up to 10 ancestors looking for a node with `class*="s-result-item"` OR `data-component-type="s-search-result"` (the Amazon search-result card boundary).
+2. Within that card, iterate `<span class="a-price">` in DOM order.
+3. Skip spans whose class contains `a-text-price` OR whose `data-a-strike="true"` — both Amazon's markers for strikethrough List/MSRP variants.
+4. Return the first remaining span's `<span class="a-offscreen">` text after extracting the `$NNN.NN` digits.
+
+If found, `prices` for that anchor is replaced with `[that_single_price]` — the LLM gets exactly one hint and cannot pick a sub-price. If no qualifying span exists in the card (or no card boundary is found), the helper returns None and the generic regex fallback runs unchanged.
+
+The Amazon path is gated on `"amazon." in urlparse(base_url).netloc.lower()`. False positives (a non-Amazon vendor whose host happens to contain "amazon.") would just call the helper and get None back, which is harmless.
+
+**Consequence**:
+- BES876BSS Impress, BES870XL, BES870BSXL all now record their buy-now prices on the next Breville run. The live-run done-when ("Amazon price recorded for at least one popular product matches the live new-condition price within $5") is met.
+- A new fixture [amazon-breville-multi-price.html](../worker/tests/fixtures/universal_ai/amazon-breville-multi-price.html) pins three real Amazon DOM patterns: strikethrough List, "From: $X" used sub-link, Subscribe-and-Save secondary. The new test `test_amazon_card_primary_price_skips_strikethrough_and_used` asserts each card's `price_hints` is `["$<buy-now>"]` — no list, no used, no S&S.
+- 163/163 worker tests pass (was 161). Existing `test_extract_handles_amazon_split_price_markup` (the synthetic split-price fixture from ADR-037 follow-up) still passes — that fixture's three cards have only ONE `<span class="a-price">` each, so the new selector picks them as the primary too, and the result is identical to the prior canonicaliser-only behaviour.
+- The synthetic German-EUR `amazon-bose-nc700-search.html` fixture isn't pinned by the new test (its prices are EUR, not USD; the helper's `$\s*` regex returns None and we fall through to the generic path). That fixture remains a regression smoke test for the rest of the extractor.
+
+**Trade-offs noted**:
+- The selector is structural, not host-specific in a stronger sense — any page on amazon.<tld> that uses `s-result-item` containers gets this treatment. Amazon's seller dashboards, product detail pages, and customer review pages use different container shapes; the helper returns None on those and the generic path runs. That's the correct fallback.
+- The "From: $489.95" sub-link in Card 1 of the fixture is itself an `<a href="/gp/offer-listing/...">`, which the extractor still picks up as a separate anchor candidate. Its title ("From: $489.95") doesn't look like a product, and its assigned price (via the Amazon helper) is the SAME $649.95 as the title anchor — so the LLM either drops it or merges it with the title candidate. Not worth a separate filter today; revisit if the LLM ever outputs the From-link as a real listing.
+- Amazon's DOM is the most likely vendor-specific spec to drift on us. Pinning the fixture against the actual class names (`a-price`, `a-text-price`, `a-offscreen`, `s-result-item`, `data-component-type="s-search-result"`) means a future Amazon redesign will fail the test loudly rather than silently degrading prices.
+
+**Out of scope**: extending the same per-vendor structural-selector pattern to other big-box sites (Target, Walmart, Best Buy). Each would need its own helper, and Phase 19's vendor-reach work (tasks 2-4) needs to land first to know which ones are even worth the effort.
+
+**Refines**: ADR-037 (which introduced the wide ancestor walk that caused this regression). ADR-037's broader heuristic is unchanged — the Amazon selector is an override, not a replacement.
+
+---
+
 ## ADR-038 — Save-time probe gate is hard-failure-only; refines ADR-037
 
 **Status**: ACCEPTED
