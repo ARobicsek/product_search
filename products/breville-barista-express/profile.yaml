@@ -1,4 +1,4 @@
-slug: breville-barista-express
+slug: "breville-barista-express"
 display_name: Breville Barista Express Espresso Machine
 description: Track the cheapest currently-available Breville Barista Express espresso machines (new condition only).
 target:
@@ -36,7 +36,15 @@ sources:
     url: https://www.target.com/s?searchTerm=breville+barista+express
   - id: universal_ai_search
     url: https://remanufactured.brevilleusa.com/collections/espresso
-sources_pending: []
+  - id: universal_ai_search
+    url: https://www.seattlecoffeegear.com/products/breville-barista-express-espresso-machine
+sources_pending:
+  - id: universal_ai_search
+    url: https://www.williams-sonoma.com/products/breville-barista-express-espresso-maker/
+    note: "probe returned 0 candidates: fetch returned HTTP 403"
+  - id: universal_ai_search
+    url: https://www.bestbuy.com/site/breville-the-barista-express-espresso-machine-with-15-bars-of-pressure-milk-frother-and-intergrated-grinder-stainless-steel/6291169.p?skuId=6291169
+    note: "probe returned 0 candidates: fetch failed: This operation was aborted"
 qvl_file: products/breville-barista-express/qvl.yaml
 schedule:
   cron: 0 8 * * *
