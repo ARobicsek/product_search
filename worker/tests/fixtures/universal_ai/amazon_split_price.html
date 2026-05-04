@@ -1,0 +1,51 @@
+<!--
+  Synthetic Amazon-style price markup fixture (Phase 15 follow-up).
+  Exercises the split-price canonicaliser: <a-price-symbol>$</a-price-symbol>
+  + <a-price-whole>329</a-price-whole> + <a-price-fraction>99</a-price-fraction>
+  reads through selectolax's text(separator=" ") as "$ 329 99" — without
+  canonicalisation the standard price regex captures only "$329" (wrong cents).
+
+  Three product cards:
+    1. NC700 with both a-offscreen AND split markup (typical Amazon DOM).
+    2. QuietComfort with split-only (no a-offscreen, e.g. a stripped Sponsored render).
+    3. Different brand competitor with full text price (control).
+-->
+<!DOCTYPE html>
+<html lang="en">
+<head><title>Amazon — Bose 700 Headphones</title></head>
+<body>
+
+<div class="s-result-list">
+
+  <div class="s-result-item">
+    <a href="/dp/B07Q9MJKBV"><h2>Bose Noise Cancelling Headphones 700 — Black</h2></a>
+    <span class="a-price" data-a-size="xl">
+      <span class="a-offscreen">$329.99</span>
+      <span aria-hidden="true">
+        <span class="a-price-symbol">$</span>
+        <span class="a-price-whole">329<span class="a-price-decimal">.</span></span>
+        <span class="a-price-fraction">99</span>
+      </span>
+    </span>
+  </div>
+
+  <div class="s-result-item">
+    <a href="/dp/B0CCZ265TF"><h2>Bose QuietComfort Ultra Headphones</h2></a>
+    <span class="a-price" data-a-size="xl">
+      <span aria-hidden="true">
+        <span class="a-price-symbol">$</span>
+        <span class="a-price-whole">429<span class="a-price-decimal">.</span></span>
+        <span class="a-price-fraction">00</span>
+      </span>
+    </span>
+  </div>
+
+  <div class="s-result-item">
+    <a href="/dp/B0BXZ9MJKB"><h2>Sony WH-1000XM5 Wireless Headphones</h2></a>
+    <p class="price">$398.00</p>
+  </div>
+
+</div>
+
+</body>
+</html>

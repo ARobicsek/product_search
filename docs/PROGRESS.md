@@ -4,7 +4,22 @@
 
 ## Active phase
 
-**Phase 15 — Universal adapter quality pass** ✅ closed 2026-05-03 (PM session). Phase 16 — Slug deletion is up next.
+**Phase 15 — Universal adapter quality pass** ✅ closed 2026-05-03 (PM session) with one same-day follow-up (2026-05-04 AM): probe-gate policy relaxed + Amazon split-price extraction. Phase 16 — Slug deletion is up next.
+
+## Status as of 2026-05-04 (Phase 15 follow-up — gate policy revision + Amazon split-price)
+
+**Two fixes after the first live save through the new gate:**
+
+1. **Save-time probe gate is now hard-failure-only** (ADR-038, refines ADR-037). The first save through Phase 15's gate demoted backmarket — our one known-working universal_ai vendor — because the TS-side raw `fetch` got Cloudflare-challenged and the gate concluded "0 candidates". But production uses AlterLab, which renders backmarket fine. The gate is now a sanity check (404 / network error / sub-500-byte body), not a correctness gate. The user's existing Bose profile still has 6 URLs in `sources_pending` from the old gate; they won't auto-migrate.
+
+2. **Amazon split-price extraction** in [worker/src/product_search/adapters/universal_ai.py](../worker/src/product_search/adapters/universal_ai.py). Amazon's `<span class="a-price-symbol">$</span><span class="a-price-whole">329</span><span class="a-price-decimal">.</span><span class="a-price-fraction">99</span>` markup flattens through selectolax as `$ 329 . 99` — the standard regex captured only `$329` (wrong cents). New `_canonicalize_prices` rewrites the split form to `$329.99` before the standard pattern runs, so both joined and split markup yield the same result. New synthetic `amazon_split_price.html` fixture pins three cards (with a-offscreen, split-only, and joined markup); 2 new tests.
+
+**Tests**: 161/161 worker tests pass (was 159). web `tsc` clean.
+
+**Open question for the user**: the Bose profile's 6 demoted URLs (backmarket, gazelle, bestbuy, walmart, crutchfield, reebelo) are still in `sources_pending` from the pre-revision gate run. Path forward:
+- Hand-edit `products/bose-nc-700-headphones/profile.yaml` to move all except gazelle (which is a real 404) back into `sources`.
+- OR re-save the profile through the onboarder, which now runs the relaxed gate.
+- Doing nothing leaves the profile in its current state (ebay-only) until next manual edit.
 
 ## Status as of end of 2026-05-03 session (Phase 15 closeout — tasks 3+4+5)
 

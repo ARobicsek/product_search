@@ -9,6 +9,40 @@ Status values:
 
 ---
 
+## ADR-038 — Save-time probe gate is hard-failure-only; refines ADR-037
+
+**Status**: ACCEPTED
+
+**Date**: 2026-05-04
+
+**Context**: ADR-037 introduced a save-time probe at `/api/onboard/save` that demoted any `universal_ai_search` URL with 0 JSON-LD listings AND <3 product-URL anchors to `sources_pending`. The first live save through the new gate (Bose profile, 2026-05-04 03:33 UTC) demoted backmarket — the one universal_ai vendor we knew worked in production — because the TS-side raw `fetch` got the same Cloudflare challenge that Python `httpx` hits, then concluded "no JSON-LD, no anchors." But the production worker uses AlterLab, which renders backmarket fine. Same fate for walmart, crutchfield, reebelo. Net effect: a working profile lost every universal_ai source that the conservative gate didn't recognise, leaving only ebay_search.
+
+The conservative gate was correct in intent (don't ship dead URLs to production) but wrong in practice (it can't see the production fetch tier).
+
+**Decision**: The probe is now **hard-failure-only**. It demotes a URL only when:
+
+1. **Network error** — DNS failure, connection refused, abort/timeout (8s).
+2. **HTTP ≥ 400** — explicit 4xx/5xx from origin (the URL doesn't resolve to a real page anywhere).
+3. **Body < 500 bytes** — there's no real content to extract from regardless of fetch tier.
+
+What we no longer demote on:
+- 200 status with empty / Cloudflare-challenge / React-shell body. The production AlterLab + anchor + LLM tier may extract listings the TS probe can't see.
+- 0 JSON-LD listings AND 0 product-URL anchors. Same reason — JSON-LD coverage is sparse on collection pages and the production anchor + LLM tier handles the rest.
+
+The probe still records `jsonldCount` and `anchorCount` on the result object; they're now diagnostics surfaced in the `probeReports` response, not gate inputs.
+
+**Consequence**:
+- Backmarket-class URLs (Cloudflare-challenged but production-renderable) stay in `sources` instead of getting demoted.
+- The gate becomes a sanity check (404 catcher / typo catcher) rather than a correctness gate.
+- The user is trusted to not add dead URLs; if a URL in `sources` truly can't extract in production, the worker run will record `fetched: 0` for that source and the user can demote manually. We've decided that's a better outcome than auto-demoting URLs the user already approved.
+- The ADR-037 description of the gate is now accurate ONLY for the decision history — the actual code behaviour is what this ADR describes.
+
+**Migration note** (Bose profile, 2026-05-04): the existing bose-nc-700-headphones profile has 6 universal_ai_search URLs in `sources_pending` that the old gate demoted. Those won't auto-promote — the user has to either re-save through the onboarder (which re-runs the now-relaxed gate) or hand-edit profile.yaml to move them back. There's no auto-migration step; the design is "gate runs at save-time only".
+
+**Refines**: ADR-037 (the JSON-LD tier and anchor heuristic v2 from that ADR are unchanged; only the gate policy is revised).
+
+---
+
 ## ADR-037 — Universal adapter quality pass: JSON-LD tier, anchor heuristic fixes, save-time probe gate
 
 **Status**: ACCEPTED

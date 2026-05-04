@@ -605,6 +605,58 @@ def test_extract_bhphoto_blocked_react_shell_yields_few_candidates() -> None:
     )
 
 
+def test_canonicalize_prices_joins_split_amazon_markup() -> None:
+    """``$ 329 99`` (selectolax flattening of Amazon's a-price-symbol +
+    a-price-whole + a-price-fraction spans, with text separator=" ") must
+    canonicalise to ``$329.99`` so the standard price regex captures the
+    full price including cents.
+
+    The pattern requires whitespace AFTER the ``$`` — i.e. the symbol must
+    be in its own span, separated from the dollar digits. This is the
+    Amazon shape; sites that emit ``$329`` together aren't transformed."""
+    raw = "Bose 700 Headphones $ 329 99 Other $ 1,299 50 done"
+    out = universal_ai._canonicalize_prices(raw)
+    assert "$329.99" in out, out
+    assert "$1,299.50" in out, out
+
+    # Normal joined markup is left untouched.
+    assert universal_ai._canonicalize_prices("Already $329.99 there") == \
+        "Already $329.99 there"
+
+    # ``$5 70`` (no space after $) is NOT split-shape; left alone — the
+    # whitespace-after-$ requirement keeps random digit pairs from being
+    # mistaken for prices. Pinned so the behaviour is explicit.
+    assert universal_ai._canonicalize_prices("$5 70") == "$5 70"
+
+
+def test_extract_handles_amazon_split_price_markup() -> None:
+    """Amazon-shape product cards yield real prices through the
+    canonicaliser — both via a-offscreen accessibility text AND via the
+    a-price-whole + a-price-fraction split markup."""
+    html = (FIXTURE_DIR / "amazon_split_price.html").read_text(encoding="utf-8")
+    cands = universal_ai._extract_candidates(
+        html, base_url="https://www.amazon.com/s?k=bose+700"
+    )
+
+    by_href = {c["href"]: c for c in cands}
+
+    nc700 = by_href["https://www.amazon.com/dp/B07Q9MJKBV"]
+    # Either a-offscreen OR split markup yields $329.99.
+    assert any("329.99" in p for p in nc700["price_hints"]), (
+        f"NC700 missing $329.99 in {nc700['price_hints']}"
+    )
+
+    qc_ultra = by_href["https://www.amazon.com/dp/B0CCZ265TF"]
+    # Split-only card (no a-offscreen) — the canonicaliser is the only
+    # path that surfaces the full price.
+    assert any("429.00" in p for p in qc_ultra["price_hints"]), (
+        f"QC Ultra missing $429.00 in {qc_ultra['price_hints']}"
+    )
+
+    sony = by_href["https://www.amazon.com/dp/B0BXZ9MJKB"]
+    assert any("398.00" in p for p in sony["price_hints"])
+
+
 def test_fetch_extracts_listings_offline_from_target_fixture(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

@@ -458,6 +458,30 @@ _PRICE_PATTERN = re.compile(
     re.IGNORECASE,
 )
 
+# Amazon and similar SPAs render prices as
+#   <span class="a-price-symbol">$</span>
+#   <span class="a-price-whole">329</span>
+#   <span class="a-price-fraction">99</span>
+# When selectolax flattens that to text with `separator=" "`, we get
+# ``$ 329 99`` — the standard ``_PRICE_PATTERN`` matches only ``$329``
+# (capturing the integer half and stopping at the space), giving us a
+# wrong price. Pre-canonicalise these split prices into ``$329.99`` BEFORE
+# running the standard pattern so both the joined and split markup yield
+# the same result.
+_SPLIT_PRICE_RE = re.compile(
+    # Allow ``.`` in the gap because Amazon emits a literal
+    # <span class="a-price-decimal">.</span> between the whole and
+    # fraction spans — selectolax surfaces that as " . " in the flattened
+    # text, not just whitespace.
+    r"\$\s+(\d{1,4}(?:,\d{3})*)[\s.]+(\d{2})\b",
+)
+
+
+def _canonicalize_prices(text: str) -> str:
+    """Rewrite ``$ N NN`` split-price runs into ``$N.NN`` so the standard
+    price regex sees a single contiguous token."""
+    return _SPLIT_PRICE_RE.sub(r"$\1.\2", text)
+
 
 def _looks_like_product_url(href: str) -> bool:
     """Heuristic: does ``href`` look like a product detail page URL?"""
@@ -603,7 +627,7 @@ def _extract_candidates(
         if title.lower() in _UI_CHROME_TEXTS:
             continue
 
-        context = _ancestor_card_text(a)
+        context = _canonicalize_prices(_ancestor_card_text(a))
         prices = _PRICE_PATTERN.findall(context)
 
         canonical = (

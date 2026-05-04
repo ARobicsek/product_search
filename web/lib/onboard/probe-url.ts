@@ -9,20 +9,29 @@ import 'server-only';
 // avoids adding a worker-deployment dependency to the web app.
 //
 // What we DON'T port: the anchor + LLM tier from
-// worker/src/product_search/adapters/universal_ai.py. The TS probe is
-// deliberately a subset — we only detect URLs that yield JSON-LD Product
-// blocks OR contain enough product-URL-shaped anchors to be plausibly
-// extractable in production. Anything else gets routed to
-// ``sources_pending`` with the "probe returned 0 candidates" note so the
-// user can review before the worker tries to run them.
+// worker/src/product_search/adapters/universal_ai.py.
+//
+// Probe pass/fail policy (post-2026-05-04 revision): the gate is a
+// HARD-FAILURE-ONLY filter, not a correctness gate. The first pass of this
+// probe demoted backmarket — the one universal_ai vendor we knew worked in
+// production — because the TS-side raw ``fetch`` got the same Cloudflare
+// challenge the Python ``httpx`` path gets, and we then concluded "no
+// JSON-LD, no anchors". But the production worker uses AlterLab, which DOES
+// render backmarket. So a URL that looks dead to ``fetch`` may be very much
+// alive in production. The probe now demotes only:
+//   - network errors (timeout, DNS fail)
+//   - hard 4xx (404 / 410 — URL doesn't exist anywhere)
+//   - sub-500-byte bodies (clearly an empty / error page, not a real site)
+// "Cloudflare-challenge-shaped 200 with no products visible" is no longer
+// a demotion signal. The reported jsonldCount / anchorCount fields are
+// kept on the result for diagnostics but don't influence ok=true/false.
 //
 // Mirrors:
 //   - _extract_jsonld_listings (worker/src/product_search/adapters/universal_ai.py)
 //   - _looks_like_product_url and _looks_like_nav_path (same file)
 
 const FETCH_TIMEOUT_MS = 8000;
-const MIN_BODY_LENGTH = 1000;
-const MIN_ANCHOR_CANDIDATES = 3;
+const MIN_BODY_LENGTH = 500;
 
 const NAV_PATHS: ReadonlyArray<string> = [
   '/about', '/contact', '/blog', '/blogs', '/news', '/press',
@@ -317,22 +326,20 @@ export async function probeUrl(url: string): Promise<ProbeResult> {
   try {
     const { html, status } = await fetchHtml(url);
     result = { ...result, fetchStatus: status, bodyLength: html.length };
-    if (status < 200 || status >= 400) {
+    // Hard failures only — see the policy comment at the top of the file.
+    // Anything in the 2xx/3xx range with a non-trivial body passes; we
+    // record JSON-LD / anchor counts as diagnostics but they don't gate.
+    if (status >= 400) {
       result.reason = `fetch returned HTTP ${status}`;
       return result;
     }
     if (html.length < MIN_BODY_LENGTH) {
-      result.reason = `response body too short (${html.length} chars; likely a challenge page)`;
+      result.reason = `response body too short (${html.length} chars)`;
       return result;
     }
     const listings = extractJsonldListings(html, url);
     const anchors = countProductAnchors(html, url);
-    result = { ...result, jsonldCount: listings.length, anchorCount: anchors };
-    if (listings.length >= 1 || anchors >= MIN_ANCHOR_CANDIDATES) {
-      result.ok = true;
-      return result;
-    }
-    result.reason = 'probe returned 0 candidates';
+    result = { ...result, jsonldCount: listings.length, anchorCount: anchors, ok: true };
     return result;
   } catch (err) {
     result.reason = `fetch failed: ${err instanceof Error ? err.message : String(err)}`;
