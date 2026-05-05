@@ -28,9 +28,9 @@ function getHeaders() {
 
 async function listDirSlugs(dirPath: string): Promise<string[]> {
   try {
-    const res = await fetch(`https://api.github.com/repos/${REPO}/contents/${dirPath}?ref=${BRANCH}`, {
+    const res = await fetch(`https://api.github.com/repos/${REPO}/contents/${dirPath}?ref=${BRANCH}&_cb=${Date.now()}`, {
       headers: getHeaders(),
-      next: { revalidate: 3600 },
+      cache: 'no-store',
     });
 
     if (!res.ok) {
@@ -61,8 +61,8 @@ export async function getProducts(): Promise<string[]> {
 export async function getProductProfileExists(slug: string): Promise<boolean> {
   try {
     const res = await fetch(
-      `https://api.github.com/repos/${REPO}/contents/products/${slug}/profile.yaml?ref=${BRANCH}`,
-      { headers: getHeaders(), next: { revalidate: 3600 } },
+      `https://api.github.com/repos/${REPO}/contents/products/${slug}/profile.yaml?ref=${BRANCH}&_cb=${Date.now()}`,
+      { headers: getHeaders(), cache: 'no-store' },
     );
     if (res.status === 200) return true;
     if (res.status === 404) return false;
@@ -78,7 +78,7 @@ export async function getProductReports(product: string): Promise<string[]> {
     // No-store: a Run-now click commits a new report and the user expects to
     // see it on the next page render. The 1-hour data cache silently masked
     // the first prod-data success in Phase 12 wave 4.
-    const res = await fetch(`https://api.github.com/repos/${REPO}/contents/reports/${product}?ref=${BRANCH}`, {
+    const res = await fetch(`https://api.github.com/repos/${REPO}/contents/reports/${product}?ref=${BRANCH}&_cb=${Date.now()}`, {
       headers: getHeaders(),
       cache: 'no-store',
     });
@@ -102,28 +102,23 @@ export async function getProductReports(product: string): Promise<string[]> {
 
 export async function getReportContent(product: string, date: string): Promise<string | null> {
   try {
-    // raw.githubusercontent.com has its own edge cache that ignores `cache: 'no-store'`.
-    // After Run-now commits a new report, the page can re-render against the stale edge
-    // copy. A query-string cache-buster forces the CDN to revalidate against origin.
-    const url = `https://raw.githubusercontent.com/${REPO}/${BRANCH}/reports/${product}/${date}.md?_cb=${Date.now()}`;
-    const headers: Record<string, string> = {
-      'User-Agent': 'Product-Search-PWA',
-    };
-    if (process.env.GITHUB_TOKEN) {
-      headers['Authorization'] = `token ${process.env.GITHUB_TOKEN}`;
-    }
-
+    // Use the strongly consistent REST API instead of raw.githubusercontent.com.
+    // The raw CDN caches branch ref resolution for ~5 minutes at the origin server,
+    // which ignores our cache buster. The REST API reads directly from the Git database.
+    const url = `https://api.github.com/repos/${REPO}/contents/reports/${product}/${date}.md?ref=${BRANCH}&_cb=${Date.now()}`;
+    
     const res = await fetch(url, {
-      headers,
+      headers: getHeaders(),
       cache: 'no-store',
     });
     
     if (!res.ok) {
       if (res.status === 404) return null;
-      throw new Error(`GitHub raw fetch error: ${res.status} ${res.statusText}`);
+      throw new Error(`GitHub contents fetch error: ${res.status} ${res.statusText}`);
     }
     
-    return await res.text();
+    const data = await res.json();
+    return Buffer.from(data.content, 'base64').toString('utf8');
   } catch (err) {
     console.error(`Failed to fetch content for ${product}/${date}:`, err);
     return null;
@@ -132,25 +127,20 @@ export async function getReportContent(product: string, date: string): Promise<s
 
 export async function getProductProfileContent(slug: string): Promise<string | null> {
   try {
-    const url = `https://raw.githubusercontent.com/${REPO}/${BRANCH}/products/${slug}/profile.yaml`;
-    const headers: Record<string, string> = {
-      'User-Agent': 'Product-Search-PWA',
-    };
-    if (process.env.GITHUB_TOKEN) {
-      headers['Authorization'] = `token ${process.env.GITHUB_TOKEN}`;
-    }
-
+    const url = `https://api.github.com/repos/${REPO}/contents/products/${slug}/profile.yaml?ref=${BRANCH}&_cb=${Date.now()}`;
+    
     const res = await fetch(url, {
-      headers,
+      headers: getHeaders(),
       cache: 'no-store',
     });
     
     if (!res.ok) {
       if (res.status === 404) return null;
-      throw new Error(`GitHub raw fetch error: ${res.status} ${res.statusText}`);
+      throw new Error(`GitHub contents fetch error: ${res.status} ${res.statusText}`);
     }
     
-    return await res.text();
+    const data = await res.json();
+    return Buffer.from(data.content, 'base64').toString('utf8');
   } catch (err) {
     console.error(`Failed to fetch profile content for ${slug}:`, err);
     return null;

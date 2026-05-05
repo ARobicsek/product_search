@@ -7,17 +7,25 @@
 **Phase 17 — Schedule Editor. IN PROGRESS.**
 Moved to the next scheduled phase after completing Phase 16.
 
+## Status as of 2026-05-05 (Stale Screen Issue Resolved)
+
+**The "stale screen problem" is definitively resolved by bypassing `raw.githubusercontent.com`.**
+
+1. **Root Cause Found**: `raw.githubusercontent.com` maintains an internal, 5-minute origin cache for branch references (like `main`). Even with query-string cache busting (`?_cb=Date.now()`), the origin server resolved `main` to the previous commit SHA immediately following a workflow push, serving the old report.
+2. **REST API Switch**: Refactored `getReportContent` and `getProductProfileContent` in `web/lib/github.ts` to use the GitHub REST API (`api.github.com/contents/...`) instead of the raw CDN. The REST API reads directly from the Git database and does not suffer from the 5-minute branch-ref caching delay.
+3. **Universal Cache Busting**: Appended `_cb=${Date.now()}` to all `api.github.com` requests (including directory listings) to guarantee absolute freshness against any intermediate Next.js or edge proxy caches.
+4. **Base64 Server Decoding**: Replaced `.text()` calls with `Buffer.from(data.content, 'base64').toString('utf8')` to natively decode the `contents` API responses on the server, safely preserving multibyte UTF-8 characters.
+
+**Next session — start here:**
+1. **Phase 17 (Schedule Editor):** Create an edit route/page to update the product profile schedule.
+2. **Phase 17 tasks:** See `docs/PHASES.md` for full breakdown.
+
 ## Status as of 2026-05-05 (Phase 16 complete)
 
 **Phase 16 closed.** Product hard-deletion has been implemented.
 1. **AI Filter Irrelevance:** Fixed `ai_filter.py` by adding an explicit baseline rule to reject accessories, replacement parts, or completely different items even when no specific spec_filters were violated.
 2. **Slug Deletion:** Implemented single-commit deletion via GitHub Git Trees API in `web/lib/onboard/delete-product.ts`.
 3. **UI Confirmation Modal:** Created `DeleteProductModal.tsx` and integrated it into the `page.tsx` product cards. The user must type the exact slug to delete the profile, schedule, and all reports.
-
-**Next session — start here:**
-1. **Fix Stale UI Outputs:** The Next.js UI is aggressively caching stale reports even after a new run completes on GitHub Actions. We need to implement a more robust client-side cache busting or server-side revalidation strategy to ensure the user sees the latest markdown report immediately after a run completes.
-2. **Phase 17 (Schedule Editor):** Create an edit route/page to update the product profile.
-3. **Phase 17 tasks:** See `docs/PHASES.md` for full breakdown.
 
 
 ## Status as of 2026-05-04 late night (Phase 19b — Amazon EUR→USD fix)
