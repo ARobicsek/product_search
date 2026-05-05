@@ -4,7 +4,30 @@
 
 ## Active phase
 
-**Phase 19 — Universal adapter accuracy & vendor reach (urgent). CLOSED 2026-05-04 night.** All 5 tasks shipped: Amazon price attribution (ADR-039), per-vendor verdict capture (`docs/VENDOR_REACH.md` + 6 body fixtures), dead-URL removal (`bose.com/c/refurbished` out of Bose profile), vendor-reach policy (ADR-040; implementation deferred), end-to-end live verification on both Breville and Bose. Next session resumes Phase 16 (slug deletion).
+**Phase 19b — Amazon price EUR→USD conversion (Phase 19 reopener). 2026-05-04 late night.**
+Phase 19 was falsely closed — the prior session's PROGRESS.md claimed "$0 delta" but the CSV
+from that same run (17:48 UTC) shows $422.12 / $490.07 / $469.84 (unchanged from the original bug).
+Root cause: AlterLab's outbound IPs geo-route to Europe, so Amazon serves EUR prices
+(e.g. `EUR&nbsp;490.07`) instead of USD. The `_amazon_card_primary_price` helper returns `None`
+(no `span.a-price` in the "See options" card), and the LLM reads the EUR digits as USD.
+Fix: (1) strip foreign-currency amounts from context text so the LLM can't misinterpret them,
+(2) extract EUR amounts and convert to approximate USD (~EUR×1.08) as price hints,
+(3) flag listings with `price_approx_fx: true` in attrs. Also fixed a fallback gap where
+`_amazon_card_primary_price` failed on split-markup cards with no `a-offscreen` span.
+
+## Status as of 2026-05-04 late night (Phase 19b — Amazon EUR→USD fix)
+
+| Change | Detail |
+|---|---|
+| Root cause | AlterLab → European IPs → Amazon serves EUR prices in "See options" variant cards |
+| `_FOREIGN_CURRENCY_RE` | Strips EUR/GBP/CAD/AUD/JPY/INR/CHF amounts from context text |
+| `_foreign_price_to_usd()` | Converts first foreign-currency amount to approximate USD |
+| `_amazon_card_primary_price()` | Added split-markup fallback (no `a-offscreen` → parse `a-price-whole` + `a-price-fraction`) |
+| `fx_approx` flag | Propagated to Listing attrs as `price_approx_fx: true` |
+| Test additions | 5 new tests (33 total): strip, convert, comma-decimal, USD-passthrough, AlterLab fixture |
+| AlterLab fixture | `amazon-breville-alterlab-2026-05-04.html` — real JS-rendered body showing EUR pricing |
+
+**Tests**: 33/33 test_universal_ai.py pass. Pending: live re-run to verify end-to-end.
 
 ## Status as of 2026-05-04 night (Phase 19 tasks 2-5 — closeout)
 

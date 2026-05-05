@@ -758,3 +758,95 @@ def test_fetch_extracts_listings_offline_from_target_fixture(
         assert r.url.startswith("https://www.target.com/")
         assert r.unit_price_usd > 0
         assert r.attrs.get("extractor") == "anchor_llm"
+
+
+# --- Phase 19b: foreign currency handling ------------------------------------
+
+
+def test_strip_foreign_currencies_removes_eur_amounts() -> None:
+    """AlterLab's European exit IPs cause Amazon to embed EUR prices.
+    _strip_foreign_currencies must remove them so the LLM can't confuse
+    EUR amounts for USD."""
+    raw = "See options No featured offers available EUR\u20ac490.07 (16 used & new offers)"
+    cleaned = universal_ai._strip_foreign_currencies(raw)
+    assert "490.07" not in cleaned
+    assert "EUR" not in cleaned
+    # Non-currency text preserved.
+    assert "See options" in cleaned
+    assert "16 used" in cleaned
+
+    # Bare € symbol.
+    assert "329" not in universal_ai._strip_foreign_currencies("Price \u20ac329.99 only")
+
+    # GBP.
+    assert "249" not in universal_ai._strip_foreign_currencies("Only \u00a3249.00 left")
+
+    # USD amounts must NOT be stripped.
+    assert "549.95" in universal_ai._strip_foreign_currencies("Buy now $549.95 today")
+
+
+def test_foreign_price_to_usd_converts_eur() -> None:
+    """EUR→USD conversion produces a plausible approximate price."""
+    usd = universal_ai._foreign_price_to_usd("EUR\u20ac490.07 (16 offers)")
+    assert usd is not None
+    # EUR 490.07 × 1.08 ≈ 529.28
+    assert 500.0 < usd < 560.0, f"unexpected converted price: {usd}"
+
+
+def test_foreign_price_to_usd_handles_comma_decimal() -> None:
+    """European locales use comma as decimal separator: EUR€490,07."""
+    usd = universal_ai._foreign_price_to_usd("EUR\u20ac490,07")
+    assert usd is not None
+    assert 500.0 < usd < 560.0
+
+
+def test_foreign_price_to_usd_returns_none_for_usd() -> None:
+    """USD text must NOT match the foreign price extractor."""
+    assert universal_ai._foreign_price_to_usd("$549.95 buy now") is None
+    assert universal_ai._foreign_price_to_usd("No currency at all") is None
+
+
+def test_amazon_alterlab_eur_cards_get_approximate_usd_prices() -> None:
+    """Phase 19b: AlterLab-rendered Amazon body shows 'See options' cards
+    with EUR prices instead of USD. The extractor must convert EUR→USD
+    and produce approximate price hints rather than dropping the listings.
+
+    Pinned against the real AlterLab-captured body from 2026-05-04."""
+    fixture = FIXTURE_DIR / "amazon-breville-alterlab-2026-05-04.html"
+    if not fixture.exists():
+        pytest.skip("AlterLab Amazon fixture not available")
+
+    html = fixture.read_text(encoding="utf-8")
+    cands = universal_ai._extract_candidates(
+        html, base_url="https://www.amazon.com/s?k=breville+barista+express"
+    )
+
+    # Find the BES876BSS Impress card (ASIN B0BBYNPV33) — it had EUR€490.07
+    # in the AlterLab body.
+    impress_cands = [
+        c for c in cands
+        if "B0BBYNPV33" in c["href"] and "/dp/" in c["href"]
+    ]
+    assert impress_cands, "BES876BSS Impress not found in candidates"
+
+    # At least one of the collapsed candidates should have a converted price.
+    prices_for_impress = []
+    for c in impress_cands:
+        prices_for_impress.extend(c["price_hints"])
+
+    if prices_for_impress:
+        # EUR€490.07 × 1.08 ≈ $529.28 — should be within a plausible range.
+        price_val = float(prices_for_impress[0].lstrip("$").replace(",", ""))
+        assert 480.0 < price_val < 600.0, (
+            f"converted price {price_val} outside plausible range for EUR€490.07"
+        )
+
+    # Context must NOT contain raw EUR currency amounts (stripped for LLM
+    # safety).  Our own "[price approx. from EUR]" tag is fine — it's the
+    # raw "EUR\xa0490.07" pattern we need to block.
+    import re as _re
+    for c in impress_cands:
+        assert not _re.search(r"EUR[\s\xa0]*\d", c["context"]), (
+            f"Raw EUR price leaked into context: {c['context'][:100]}"
+        )
+

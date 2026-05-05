@@ -458,6 +458,29 @@ _PRICE_PATTERN = re.compile(
     re.IGNORECASE,
 )
 
+# Phase 19b: strip non-USD currency amounts from card context text.
+# AlterLab's outbound IPs geo-route to Europe, so Amazon shows EUR prices
+# in the rendered DOM (e.g. ``EUR\u20ac490.07``, ``\u00a3329.99``). The generic
+# ``_PRICE_PATTERN`` requires ``$`` so these don't produce price_hints, but
+# they leak into the LLM context and the LLM reads the digits as a USD price.
+# Stripping them from the context before it reaches the LLM is the cleanest
+# fix — we can't control AlterLab's exit geography.
+_FOREIGN_CURRENCY_RE = re.compile(
+    r"(?:"
+    r"EUR\s*\u20ac|"                 # EUR€
+    r"\bEUR[\s\u00a0]+(?=\d)|"       # EUR followed by whitespace (AlterLab: EUR&nbsp;490)
+    r"\u20ac|"                       # bare €
+    r"GBP\s*\u00a3|"                 # GBP£
+    r"\u00a3|"                       # bare £
+    r"CA?\$|"                        # C$ or CA$ (Canadian)
+    r"A\$|"                          # A$ (Australian)
+    r"\u00a5|"                       # ¥ (Yen / Yuan)
+    r"\u20b9|"                       # ₹ (Indian Rupee)
+    r"\bCHF\s+"                      # Swiss Franc
+    r")\s*\d{1,6}(?:[.,]\d{2,3})*",
+    re.IGNORECASE,
+)
+
 # Amazon and similar SPAs render prices as
 #   <span class="a-price-symbol">$</span>
 #   <span class="a-price-whole">329</span>
@@ -475,6 +498,92 @@ _SPLIT_PRICE_RE = re.compile(
     # text, not just whitespace.
     r"\$\s+(\d{1,4}(?:,\d{3})*)[\s.]+(\d{2})\b",
 )
+
+
+def _strip_foreign_currencies(text: str) -> str:
+    """Remove non-USD currency amounts so the LLM can't misinterpret them.
+
+    AlterLab's European exit IPs cause Amazon (and other vendors) to embed
+    EUR / GBP / etc. prices in the rendered HTML. These leak into the
+    flattened card context and the LLM reads them as if they were USD,
+    producing wrong prices (e.g. EUR€490.07 → $490.07).
+    """
+    return _FOREIGN_CURRENCY_RE.sub("", text)
+
+
+# Phase 19b: rough exchange rates for converting foreign-currency prices to
+# approximate USD.  These are ballpark figures updated infrequently — exact
+# accuracy isn't critical because the listing is already flagged with
+# ``price_approx_fx`` when this path fires.  Better to show a ~5% imprecise
+# price than to drop the listing entirely.
+_FX_TO_USD: dict[str, float] = {
+    "EUR": 1.08,
+    "GBP": 1.27,
+    "CAD": 0.73,
+    "AUD": 0.65,
+    "JPY": 0.0067,
+    "INR": 0.012,
+    "CHF": 1.13,
+}
+
+_FOREIGN_PRICE_EXTRACT_RE = re.compile(
+    r"(?P<cur>"
+    r"EUR\s*\u20ac|"                   # EUR€
+    r"\bEUR[\s\u00a0]+(?=\d)|"         # EUR + whitespace (AlterLab: EUR&nbsp;490)
+    r"\u20ac|"                         # bare €
+    r"GBP\s*\u00a3|\u00a3|"           # GBP / £
+    r"CA?\$|"                         # C$ / CA$
+    r"A\$|"                           # A$
+    r"\u00a5|"                        # ¥
+    r"\u20b9|"                        # ₹
+    r"\bCHF\s+"                       # CHF
+    r")\s*(?P<amt>\d{1,6}(?:[.,]\d{2,3})*)",
+    re.IGNORECASE,
+)
+
+
+def _foreign_price_to_usd(raw_text: str) -> float | None:
+    """Extract the first foreign-currency amount from ``raw_text`` and
+    return an approximate USD equivalent, else None.
+
+    Used when AlterLab's European exit IPs cause Amazon to show EUR/GBP
+    prices instead of USD.  Better to report an approximate price than
+    to drop the listing.
+    """
+    m = _FOREIGN_PRICE_EXTRACT_RE.search(raw_text)
+    if not m:
+        return None
+    cur_token = m.group("cur").strip().upper()
+    # Normalise the token to a 3-letter code.
+    if "\u20ac" in cur_token or cur_token.startswith("EUR"):
+        code = "EUR"
+    elif "\u00a3" in cur_token or cur_token.startswith("GBP"):
+        code = "GBP"
+    elif cur_token in ("C$", "CA$"):
+        code = "CAD"
+    elif cur_token == "A$":
+        code = "AUD"
+    elif "\u00a5" in cur_token:
+        code = "JPY"
+    elif "\u20b9" in cur_token:
+        code = "INR"
+    elif cur_token.startswith("CHF"):
+        code = "CHF"
+    else:
+        return None
+    rate = _FX_TO_USD.get(code)
+    if rate is None:
+        return None
+    amt_str = m.group("amt")
+    # Normalise European "490,07" → "490.07".
+    if "," in amt_str and "." not in amt_str:
+        amt_str = amt_str.replace(",", ".")
+    else:
+        amt_str = amt_str.replace(",", "")
+    try:
+        return round(float(amt_str) * rate, 2)
+    except ValueError:
+        return None
 
 
 def _canonicalize_prices(text: str) -> str:
@@ -596,12 +705,21 @@ def _amazon_card_primary_price(node: Any) -> str | None:
             continue
         if (span.attributes.get("data-a-strike") or "").lower() == "true":
             continue
+        # Preferred path: ``a-offscreen`` carries fully-formed ``$NNN.NN``.
         for off in span.css("span.a-offscreen"):
             text = (off.text(separator=" ", strip=True) or "").strip()
-            text = text.replace(" ", " ")
+            text = text.replace("\xa0", " ")
             m = re.search(r"\$\s*(\d{1,4}(?:,\d{3})*(?:\.\d{2})?)", text)
             if m:
                 return m.group(1)
+        # Fallback: no a-offscreen (stripped Sponsored render). Read split
+        # markup directly: ``$ 429 . 00`` → ``429.00`` after canonicalising.
+        raw = _canonicalize_prices(
+            (span.text(separator=" ", strip=True) or "").strip()
+        )
+        m = re.search(r"\$\s*(\d{1,4}(?:,\d{3})*(?:\.\d{2})?)", raw)
+        if m:
+            return m.group(1)
     return None
 
 
@@ -683,17 +801,37 @@ def _extract_candidates(
         if title.lower() in _UI_CHROME_TEXTS:
             continue
 
-        context = _canonicalize_prices(_ancestor_card_text(a))
+        # Save raw (pre-stripped) context for foreign currency detection.
+        raw_context = _canonicalize_prices(_ancestor_card_text(a))
+        context = _strip_foreign_currencies(raw_context)
         prices = _PRICE_PATTERN.findall(context)
 
         # Amazon: override hints with the card's primary buy-now price
         # (first non-strikethrough <span class="a-price"> > a-offscreen).
         # Stops the LLM picking up "List:" strikethrough or "From: $X"
         # used-condition sub-prices that the wide ancestor walk drags in.
+        #
+        # Phase 19b: when the helper returns None (no span.a-price in the
+        # card — e.g. "See options" variant cards from Amazon's European
+        # locale), try to convert any foreign-currency amount in the raw
+        # context to approximate USD.  Better to show an approximate price
+        # than to drop the listing entirely.
         if base_host_is_amazon:
             az_price = _amazon_card_primary_price(a)
             if az_price is not None:
                 prices = [az_price]
+                fx_approx = False
+            else:
+                fx_usd = _foreign_price_to_usd(raw_context)
+                if fx_usd is not None:
+                    prices = [f"{fx_usd:.2f}"]
+                    fx_approx = True
+                    # Mark the context so downstream can flag it.
+                    context = context.rstrip() + " [price approx. from EUR]"
+                else:
+                    fx_approx = False
+        else:
+            fx_approx = False
 
         canonical = (
             f"{parsed.scheme}://{parsed.netloc.lower()}"
@@ -706,6 +844,7 @@ def _extract_candidates(
             "title": title,
             "context": context,
             "prices": prices,
+            "fx_approx": fx_approx,
         })
 
     # Merge per-canonical groups into final candidates.
@@ -754,6 +893,7 @@ def _extract_candidates(
             "href": href_abs,
             "price_hints": [f"${p}" for p in merged_prices[:5]],
             "context": best_context,
+            "fx_approx": any(r.get("fx_approx") for r in raw),
         })
 
         if len(candidates) >= max_candidates:
@@ -922,6 +1062,10 @@ def fetch(query: AdapterQuery) -> list[Listing]:
         if condition not in ("new", "used", "refurbished"):
             condition = "new"
 
+        attrs = {"vendor_host": parsed_host, "extractor": "anchor_llm"}
+        if cand.get("fx_approx"):
+            attrs["price_approx_fx"] = True
+
         results.append(Listing(
             source="universal_ai_search",
             url=cand["href"],
@@ -929,7 +1073,7 @@ def fetch(query: AdapterQuery) -> list[Listing]:
             fetched_at=fetched_at,
             brand=None,
             mpn=None,
-            attrs={"vendor_host": parsed_host, "extractor": "anchor_llm"},
+            attrs=attrs,
             condition=condition,
             is_kit=False,
             kit_module_count=1,

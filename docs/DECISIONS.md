@@ -9,6 +9,27 @@ Status values:
 
 ---
 
+## ADR-041 — AlterLab European geo-routing: strip foreign currencies, convert to approximate USD
+
+**Status**: ACCEPTED
+
+**Date**: 2026-05-04
+
+**Context**: Phase 19's Amazon price-selector fix (ADR-039, `_amazon_card_primary_price`) was verified against a hand-crafted fixture but never against the real AlterLab-rendered DOM. Investigation revealed that AlterLab's outbound IPs geo-route through Europe, causing Amazon to serve European-locale pages with EUR prices instead of USD. The cards show "See options" (no `span.a-price`, no inline USD price), and EUR amounts appear as plain text (e.g. `EUR&nbsp;490.07`). The LLM reads the EUR digits as USD, producing wrong prices ($490.07 instead of ~$529 USD or the actual US price of $649.95).
+
+**Decision**:
+
+1. **Strip foreign-currency amounts from context text** (`_strip_foreign_currencies`) so the LLM cannot misinterpret them. Covers EUR, GBP, CAD, AUD, JPY, INR, CHF.
+2. **Convert to approximate USD** (`_foreign_price_to_usd`) using hardcoded ballpark exchange rates. When `_amazon_card_primary_price` returns `None` but foreign currencies are found, use the converted price as the hint. ~5% imprecision is acceptable — better than dropping the listing.
+3. **Flag with `price_approx_fx: true`** in Listing attrs so downstream reporting can identify approximate prices.
+4. **Do not use ScrapFly** for geo-targeted fetching (cost-prohibitive at scale).
+
+**Exchange rates** are hardcoded (EUR×1.08, GBP×1.27, etc.) and updated infrequently. This is acceptable because the FX path is a fallback for when AlterLab can't deliver USD prices; when it can (US exit IP or future geo-targeting support), `_amazon_card_primary_price` fires first and the FX path is never reached.
+
+**Lesson**: test fixtures must be captured from the **production rendering path** (AlterLab), not hand-crafted or fetched via httpx. The httpx body (US-facing, with `span.a-price`) works perfectly — but production uses AlterLab which gets a different DOM.
+
+---
+
 ## ADR-040 — Vendor-reach policy: auto-demote universal_ai sources after 3 consecutive 0-yield runs
 
 **Status**: ACCEPTED (policy); implementation deferred to a follow-up task.
