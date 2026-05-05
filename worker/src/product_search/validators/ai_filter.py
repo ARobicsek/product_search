@@ -200,7 +200,7 @@ How each rule type works (only the ones present above apply):
   title (case-insensitive substring match). Otherwise pass.
 
 Decision rules:
-- "pass": true means NO rule above is clearly violated.
+- "pass": true means the listing is ACTUALLY the requested product (not an accessory, replacement part, or unrelated item) AND NO rule above is clearly violated. Reject if the item is an accessory (e.g. water filters, cases) or a completely different product.
 - Unknown is NOT the same as failed. Apply each rule to the data you actually have
   (attrs, title, url, quantity_available). If a rule depends on an attribute that
   isn't present and isn't implied by the title, treat that rule as passed.

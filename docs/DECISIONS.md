@@ -9,6 +9,27 @@ Status values:
 
 ---
 
+## ADR-042 — Single-commit Product Deletion via Git Trees API
+
+**Status**: ACCEPTED
+
+**Date**: 2026-05-05
+
+**Context**: Phase 16 required a feature to hard-delete a product's entire history and profile in a single commit. The existing GitHub integration (`web/lib/onboard/commit.ts`) used the higher-level GitHub Contents API via `PUT`, which inherently processes one file at a time, resulting in multiple commits for deleting a directory with multiple files (`products/<slug>` and `reports/<slug>`).
+
+**Decision**: 
+To satisfy the single-commit requirement ("chore: delete product <slug>"), the deletion process now uses the lower-level Git Database API (Trees and Commits):
+1. Fetch the `HEAD` commit and its associated tree.
+2. Create a new tree referencing the `HEAD` tree as its base but setting `{ path: "products/<slug>", mode: "040000", sha: null }` and similarly for `reports/<slug>`. This effectively deletes the entire sub-tree for those directories.
+3. Create a new commit referencing the new tree and update the branch reference.
+
+**Consequence**:
+- The product deletion is perfectly atomic.
+- The Git history remains clean with a single `chore: delete product <slug>` commit.
+- The Next.js API route (`/api/profile/[slug]`) invokes this new helper and triggers a UI revalidation.
+
+---
+
 ## ADR-041 — AlterLab European geo-routing: strip foreign currencies, convert to approximate USD
 
 **Status**: ACCEPTED

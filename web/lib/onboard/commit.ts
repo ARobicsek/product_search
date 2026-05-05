@@ -119,3 +119,80 @@ export async function commitNewProfile(
     qvlCreated,
   };
 }
+
+export async function deleteProductTree(slug: string): Promise<boolean> {
+  const headers = contentsHeaders();
+  delete (headers as Record<string, string>)['Content-Type'];
+
+  // 1. Get HEAD commit SHA
+  const refUrl = `https://api.github.com/repos/${REPO}/git/ref/heads/${BRANCH}`;
+  const refRes = await fetch(refUrl, { headers, cache: 'no-store' });
+  if (!refRes.ok) throw new Error(`GitHub GET ref failed: ${refRes.status}`);
+  const refData = await refRes.json();
+  const commitSha = refData.object.sha;
+
+  // 2. Get commit object to find the base tree
+  const commitRes = await fetch(`https://api.github.com/repos/${REPO}/git/commits/${commitSha}`, { headers, cache: 'no-store' });
+  if (!commitRes.ok) throw new Error(`GitHub GET commit failed: ${commitRes.status}`);
+  const commitData = await commitRes.json();
+  const baseTreeSha = commitData.tree.sha;
+
+  // 3. Create a new tree with the directories removed
+  const postHeaders = contentsHeaders();
+  const treePayload = {
+    base_tree: baseTreeSha,
+    tree: [
+      { path: `products/${slug}`, mode: '040000', sha: null },
+      { path: `reports/${slug}`, mode: '040000', sha: null }
+    ]
+  };
+  const treeRes = await fetch(`https://api.github.com/repos/${REPO}/git/trees`, {
+    method: 'POST',
+    headers: postHeaders,
+    body: JSON.stringify(treePayload),
+    cache: 'no-store'
+  });
+  if (!treeRes.ok) {
+    const errText = await treeRes.text().catch(()=>'');
+    throw new Error(`GitHub POST tree failed: ${treeRes.status} ${errText}`);
+  }
+  const treeData = await treeRes.json();
+  const newTreeSha = treeData.sha;
+
+  // 4. Create new commit
+  const newCommitPayload = {
+    message: `chore: delete product ${slug}`,
+    tree: newTreeSha,
+    parents: [commitSha]
+  };
+  const newCommitRes = await fetch(`https://api.github.com/repos/${REPO}/git/commits`, {
+    method: 'POST',
+    headers: postHeaders,
+    body: JSON.stringify(newCommitPayload),
+    cache: 'no-store'
+  });
+  if (!newCommitRes.ok) {
+    const errText = await newCommitRes.text().catch(()=>'');
+    throw new Error(`GitHub POST commit failed: ${newCommitRes.status} ${errText}`);
+  }
+  const newCommitData = await newCommitRes.json();
+  const newCommitSha = newCommitData.sha;
+
+  // 5. Update reference
+  const updateRefPayload = {
+    sha: newCommitSha,
+    force: false
+  };
+  const updateRefRes = await fetch(`https://api.github.com/repos/${REPO}/git/refs/heads/${BRANCH}`, {
+    method: 'PATCH',
+    headers: postHeaders,
+    body: JSON.stringify(updateRefPayload),
+    cache: 'no-store'
+  });
+  if (!updateRefRes.ok) {
+    const errText = await updateRefRes.text().catch(()=>'');
+    throw new Error(`GitHub PATCH ref failed: ${updateRefRes.status} ${errText}`);
+  }
+
+  return true;
+}

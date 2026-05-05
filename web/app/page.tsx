@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { Plus } from 'lucide-react';
 import { getProducts, getProductReports, getReportContent } from '@/lib/github';
+import { DeleteProductModal } from '@/components/DeleteProductModal';
 
 // Helper to extract a summary from markdown (e.g., first non-heading line)
 function extractBottomLine(markdown: string) {
@@ -61,25 +62,34 @@ export default async function Home() {
       ) : (
         <div className="grid gap-4">
           {productData.map((data) => (
-            <Link
+            <div
               key={data.product}
-              href={`/${data.product}`}
-              className="block p-6 bg-white dark:bg-gray-950 rounded-xl shadow-sm border border-gray-100 dark:border-gray-800 hover:shadow-md transition-shadow focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="relative group block p-6 bg-white dark:bg-gray-950 rounded-xl shadow-sm border border-gray-100 dark:border-gray-800 hover:shadow-md transition-shadow"
             >
               <div className="flex justify-between items-start mb-3">
                 <h2 className="text-xl font-semibold capitalize">
-                  {data.product.replace(/-/g, ' ')}
+                  <Link 
+                    href={`/${data.product}`}
+                    className="focus:outline-none rounded focus:ring-2 focus:ring-blue-500 before:absolute before:inset-0 z-0"
+                  >
+                    {data.product.replace(/-/g, ' ')}
+                  </Link>
                 </h2>
-                {data.latestDate && (
-                  <span className="text-xs font-medium text-gray-500 bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded-full whitespace-nowrap">
-                    {data.latestDate}
-                  </span>
-                )}
+                <div className="flex items-center gap-2 relative z-10">
+                  {data.latestDate && (
+                    <span className="text-xs font-medium text-gray-500 bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded-full whitespace-nowrap pointer-events-none">
+                      {data.latestDate}
+                    </span>
+                  )}
+                  <div className="opacity-0 group-hover:opacity-100 transition-opacity focus-within:opacity-100 -mr-2">
+                    <DeleteProductModal productSlug={data.product} webSecret={process.env.WEB_SHARED_SECRET || ''} />
+                  </div>
+                </div>
               </div>
-              <p className="text-gray-600 dark:text-gray-400 text-sm line-clamp-2">
+              <p className="text-gray-600 dark:text-gray-400 text-sm line-clamp-2 relative z-10 pointer-events-none">
                 {data.summary}
               </p>
-            </Link>
+            </div>
           ))}
         </div>
       )}

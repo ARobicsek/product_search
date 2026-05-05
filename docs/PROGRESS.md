@@ -4,24 +4,19 @@
 
 ## Active phase
 
-**Phase 16 — Slug deletion (hard delete). IN PROGRESS.**
-Moved to the next scheduled phase after closing out the Phase 19b investigation.
+**Phase 17 — Schedule Editor. IN PROGRESS.**
+Moved to the next scheduled phase after completing Phase 16.
 
-## Status as of 2026-05-05 (Phase 19b closeout — Root cause identified)
+## Status as of 2026-05-05 (Phase 16 complete)
 
-**Phase 19b closed.** The "incorrect" USD prices are actually accurate conversions of the *only* prices Amazon serves to European IPs. The root cause is a fundamental proxy geo-blocking issue, not a regex/extraction bug.
-
-1. **The Discrepancy (Task 4):** AlterLab's European IPs trigger Amazon to hide the "Buy Box" entirely for bulky items that can't ship to Europe (the card explicitly says "No featured offers available"). The *only* price on the card is the starting price for "used & new offers" from third-party sellers. Our pipeline correctly extracts this EUR amount and accurately converts it to USD via Frankfurter API. The resulting USD price appears "wrong" because it's a used/third-party price, not the MSRP.
-2. **FX Indicator (User request):** Updated `worker/src/product_search/synthesizer/synthesizer.py`. The final output table's `Price (unit)` and `Total for target` columns now explicitly append `(fx)` to the price when `price_approx_fx` is true, so the user can see at a glance when a currency conversion was used.
-3. **Test suite:** 33/33 tests pass in `worker/tests/test_synthesizer.py`. 
-
-**Live state at handoff:**
-- Local commit pending: `synthesizer.py` update, `amazon-breville-alterlab-latest.html` fixture added, and this `PROGRESS.md` update.
-- AlterLab still returns European locales. We cannot force US prices without AlterLab supporting `proxy_country="us"` (which currently hits `browser_pool_exhausted` when attempted).
+**Phase 16 closed.** Product hard-deletion has been implemented.
+1. **AI Filter Irrelevance:** Fixed `ai_filter.py` by adding an explicit baseline rule to reject accessories, replacement parts, or completely different items even when no specific spec_filters were violated.
+2. **Slug Deletion:** Implemented single-commit deletion via GitHub Git Trees API in `web/lib/onboard/delete-product.ts`.
+3. **UI Confirmation Modal:** Created `DeleteProductModal.tsx` and integrated it into the `page.tsx` product cards. The user must type the exact slug to delete the profile, schedule, and all reports.
 
 **Next session — start here:**
-1. **Unpack AI Filter irrelevance:** Debug the most recent `breville-barista-express` run to figure out why `ai_filter` let through completely irrelevant products (e.g., "possiave 12-Pack Charcoal Water Filters", "Kismile Espresso Machine"). Check the prompt and validator logic.
-2. **Phase 16 (slug deletion):** Implement `DELETE /api/profile/[slug]` route and home-page UI confirmation modal (deferred).
+1. **Phase 17 (Schedule Editor):** Create an edit route/page to update the product profile.
+2. **Phase 17 tasks:** See `docs/PHASES.md` for full breakdown.
 
 
 ## Status as of 2026-05-04 late night (Phase 19b — Amazon EUR→USD fix)
