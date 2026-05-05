@@ -171,9 +171,10 @@ Description: {profile.description}
 {target_desc}
 
 Rules to apply (each rule is a dict with a "rule" type and its parameters):
-{json.dumps(rules_full, indent=2)}
+{json.dumps([{"rule": "relevance_check", "description": "Must be the actual requested product, not an accessory or alternative."}] + rules_full, indent=2)}
 
 How each rule type works (only the ones present above apply):
+- relevance_check: reject if the item is clearly an accessory (e.g. water filters, cases, replacement parts), a completely different product, or incompatible.
 - form_factor_in {{values:[...]}}: pass if attrs.form_factor is in values, OR if neither
   attrs.form_factor nor the title indicates a specific form factor. Reject only when
   attrs.form_factor is set to something not in values, OR the title clearly contains a
@@ -200,7 +201,7 @@ How each rule type works (only the ones present above apply):
   title (case-insensitive substring match). Otherwise pass.
 
 Decision rules:
-- "pass": true means the listing is ACTUALLY the requested product (not an accessory, replacement part, or unrelated item) AND NO rule above is clearly violated. Reject if the item is an accessory (e.g. water filters, cases) or a completely different product.
+- "pass": true means NO rule above is clearly violated.
 - Unknown is NOT the same as failed. Apply each rule to the data you actually have
   (attrs, title, url, quantity_available). If a rule depends on an attribute that
   isn't present and isn't implied by the title, treat that rule as passed.

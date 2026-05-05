@@ -15,8 +15,9 @@ Moved to the next scheduled phase after completing Phase 16.
 3. **UI Confirmation Modal:** Created `DeleteProductModal.tsx` and integrated it into the `page.tsx` product cards. The user must type the exact slug to delete the profile, schedule, and all reports.
 
 **Next session — start here:**
-1. **Phase 17 (Schedule Editor):** Create an edit route/page to update the product profile.
-2. **Phase 17 tasks:** See `docs/PHASES.md` for full breakdown.
+1. **Fix Stale UI Outputs:** The Next.js UI is aggressively caching stale reports even after a new run completes on GitHub Actions. We need to implement a more robust client-side cache busting or server-side revalidation strategy to ensure the user sees the latest markdown report immediately after a run completes.
+2. **Phase 17 (Schedule Editor):** Create an edit route/page to update the product profile.
+3. **Phase 17 tasks:** See `docs/PHASES.md` for full breakdown.
 
 
 ## Status as of 2026-05-04 late night (Phase 19b — Amazon EUR→USD fix)
