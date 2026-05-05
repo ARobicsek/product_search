@@ -9,6 +9,27 @@ Status values:
 
 ---
 
+## ADR-043 — Abandon raw.githubusercontent.com for dynamic data to bypass origin caching
+
+**Status**: ACCEPTED
+
+**Date**: 2026-05-05
+
+**Context**: Despite multiple layers of caching defenses (Next.js `no-store`, `?_cb=` query string busters, `force-dynamic` page config, and `window.location.reload()`), the Next.js UI continued to serve stale reports immediately after a GitHub Action run completed. The root cause was identified as `raw.githubusercontent.com`'s internal origin cache. While the `?_cb=` cache buster successfully bypassed the Fastly CDN, the underlying origin server maintains its own ~5-minute cache resolving branch references (like `main`) to commit SHAs. Consequently, the origin server resolved `main` to the previous commit SHA and served the old file.
+
+**Decision**:
+1. Completely abandon the `raw.githubusercontent.com` domain for fetching dynamic repository content (`profile.yaml` and `.md` reports).
+2. Switch to the authenticated GitHub REST API (`api.github.com/contents/...`). The REST API reads directly from the Git database replicas and does not suffer from the 5-minute branch-ref caching delay.
+3. Apply `?_cb=${Date.now()}` to *all* GitHub REST API requests, including directory listings, to guarantee absolute freshness against any intermediate Next.js or edge proxy caches.
+4. Natively decode the base64 `contents` API payload on the Node.js server using `Buffer.from(data.content, 'base64').toString('utf8')` to properly preserve multibyte UTF-8 characters without data corruption.
+
+**Consequence**:
+- The "stale screen" problem is definitively resolved. Users see the latest report immediately after a run completes.
+- No additional API round-trips are required, keeping latency identical to the previous implementation.
+- `docs/PROGRESS.md` is updated to reflect this fix.
+
+---
+
 ## ADR-042 — Single-commit Product Deletion via Git Trees API
 
 **Status**: ACCEPTED
