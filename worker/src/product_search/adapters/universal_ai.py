@@ -511,12 +511,11 @@ def _strip_foreign_currencies(text: str) -> str:
     return _FOREIGN_CURRENCY_RE.sub("", text)
 
 
-# Phase 19b: rough exchange rates for converting foreign-currency prices to
-# approximate USD.  These are ballpark figures updated infrequently — exact
-# accuracy isn't critical because the listing is already flagged with
-# ``price_approx_fx`` when this path fires.  Better to show a ~5% imprecise
-# price than to drop the listing entirely.
-_FX_TO_USD: dict[str, float] = {
+# Phase 19b: exchange rates for converting foreign-currency prices to USD.
+# Live rates fetched from the Frankfurter API (free, no key, ECB-backed),
+# cached for the lifetime of the process.  Hardcoded fallbacks used only
+# when the API is unreachable (e.g. no internet in a test runner).
+_FX_FALLBACK: dict[str, float] = {
     "EUR": 1.08,
     "GBP": 1.27,
     "CAD": 0.73,
@@ -525,6 +524,47 @@ _FX_TO_USD: dict[str, float] = {
     "INR": 0.012,
     "CHF": 1.13,
 }
+
+_fx_cache: dict[str, float] | None = None
+
+
+def _get_fx_rates() -> dict[str, float]:
+    """Return a ``{currency_code: rate_to_usd}`` dict.
+
+    Fetches live rates from ``api.frankfurter.dev`` on first call and
+    caches for the rest of the process.  Falls back to ``_FX_FALLBACK``
+    if the network call fails.
+    """
+    global _fx_cache
+    if _fx_cache is not None:
+        return _fx_cache
+
+    try:
+        import httpx
+        resp = httpx.get(
+            "https://api.frankfurter.dev/v1/latest?base=USD",
+            timeout=5.0,
+        )
+        resp.raise_for_status()
+        data = resp.json()
+        # The API returns rates relative to USD=1, so we invert them:
+        # if EUR rate is 0.926, then 1 EUR = 1/0.926 = 1.0799 USD.
+        raw_rates = data.get("rates", {})
+        _fx_cache = {}
+        for code, rate_from_usd in raw_rates.items():
+            if rate_from_usd and rate_from_usd > 0:
+                _fx_cache[code] = round(1.0 / rate_from_usd, 6)
+        logger.debug(
+            f"[universal_ai] Fetched live FX rates for {len(_fx_cache)} currencies."
+        )
+        return _fx_cache
+    except Exception as exc:
+        logger.warning(
+            f"[universal_ai] FX rate fetch failed ({type(exc).__name__}: {exc}); "
+            f"using hardcoded fallback rates."
+        )
+        _fx_cache = dict(_FX_FALLBACK)
+        return _fx_cache
 
 _FOREIGN_PRICE_EXTRACT_RE = re.compile(
     r"(?P<cur>"
@@ -571,7 +611,7 @@ def _foreign_price_to_usd(raw_text: str) -> float | None:
         code = "CHF"
     else:
         return None
-    rate = _FX_TO_USD.get(code)
+    rate = _get_fx_rates().get(code)
     if rate is None:
         return None
     amt_str = m.group("amt")

@@ -786,18 +786,18 @@ def test_strip_foreign_currencies_removes_eur_amounts() -> None:
 
 
 def test_foreign_price_to_usd_converts_eur() -> None:
-    """EUR→USD conversion produces a plausible approximate price."""
+    """EUR→USD conversion produces a plausible USD price via live rates."""
     usd = universal_ai._foreign_price_to_usd("EUR\u20ac490.07 (16 offers)")
     assert usd is not None
-    # EUR 490.07 × 1.08 ≈ 529.28
-    assert 500.0 < usd < 560.0, f"unexpected converted price: {usd}"
+    # EUR 490.07 at any reasonable EUR→USD rate (0.95–1.30) → $465–$637.
+    assert 450.0 < usd < 650.0, f"unexpected converted price: {usd}"
 
 
 def test_foreign_price_to_usd_handles_comma_decimal() -> None:
     """European locales use comma as decimal separator: EUR€490,07."""
     usd = universal_ai._foreign_price_to_usd("EUR\u20ac490,07")
     assert usd is not None
-    assert 500.0 < usd < 560.0
+    assert 450.0 < usd < 650.0
 
 
 def test_foreign_price_to_usd_returns_none_for_usd() -> None:
@@ -835,9 +835,9 @@ def test_amazon_alterlab_eur_cards_get_approximate_usd_prices() -> None:
         prices_for_impress.extend(c["price_hints"])
 
     if prices_for_impress:
-        # EUR€490.07 × 1.08 ≈ $529.28 — should be within a plausible range.
+        # EUR€490.07 at live rate → plausible USD range.
         price_val = float(prices_for_impress[0].lstrip("$").replace(",", ""))
-        assert 480.0 < price_val < 600.0, (
+        assert 450.0 < price_val < 650.0, (
             f"converted price {price_val} outside plausible range for EUR€490.07"
         )
 
