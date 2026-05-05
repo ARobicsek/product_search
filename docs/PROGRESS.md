@@ -20,8 +20,8 @@ Moved to the next scheduled phase after closing out the Phase 19b investigation.
 - AlterLab still returns European locales. We cannot force US prices without AlterLab supporting `proxy_country="us"` (which currently hits `browser_pool_exhausted` when attempted).
 
 **Next session — start here:**
-1. **Decide how to handle Amazon Europe variant cards:** Do we keep extracting the "used & new offers" FX prices (which are now marked with `(fx)` in the report), or do we drop Amazon candidates that say "No featured offers available"?
-2. **Phase 16 (slug deletion):** Implement `DELETE /api/profile/[slug]` route and home-page UI confirmation modal.
+1. **Unpack AI Filter irrelevance:** Debug the most recent `breville-barista-express` run to figure out why `ai_filter` let through completely irrelevant products (e.g., "possiave 12-Pack Charcoal Water Filters", "Kismile Espresso Machine"). Check the prompt and validator logic.
+2. **Phase 16 (slug deletion):** Implement `DELETE /api/profile/[slug]` route and home-page UI confirmation modal (deferred).
 
 
 ## Status as of 2026-05-04 late night (Phase 19b — Amazon EUR→USD fix)
