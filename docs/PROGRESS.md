@@ -4,16 +4,31 @@
 
 ## Active phase
 
-**Phase 19b — Amazon price EUR→USD conversion (Phase 19 reopener). 2026-05-04 late night.**
+**Phase 19b — Amazon price EUR→USD conversion (Phase 19 reopener). IN PROGRESS.**
 Phase 19 was falsely closed — the prior session's PROGRESS.md claimed "$0 delta" but the CSV
 from that same run (17:48 UTC) shows $422.12 / $490.07 / $469.84 (unchanged from the original bug).
 Root cause: AlterLab's outbound IPs geo-route to Europe, so Amazon serves EUR prices
 (e.g. `EUR&nbsp;490.07`) instead of USD. The `_amazon_card_primary_price` helper returns `None`
 (no `span.a-price` in the "See options" card), and the LLM reads the EUR digits as USD.
-Fix: (1) strip foreign-currency amounts from context text so the LLM can't misinterpret them,
-(2) extract EUR amounts and convert to approximate USD (~EUR×1.08) as price hints,
-(3) flag listings with `price_approx_fx: true` in attrs. Also fixed a fallback gap where
-`_amazon_card_primary_price` failed on split-markup cards with no `a-offscreen` span.
+
+### What shipped this session
+1. `_strip_foreign_currencies()` — removes EUR/GBP/CAD/AUD/JPY/INR/CHF amounts from LLM context
+2. `_foreign_price_to_usd()` — converts foreign-currency amounts to USD via live Frankfurter API (ECB rates, free, no key, cached per-process; hardcoded fallback if offline)
+3. `_amazon_card_primary_price()` — added split-markup fallback (no `a-offscreen` → reads `a-price-whole` + `a-price-fraction` directly)
+4. `fx_approx` flag propagated to Listing attrs as `price_approx_fx: true`
+5. 5 new tests (33 total pass), real AlterLab-captured fixture
+6. ADR-041 documenting the fix
+
+### Live test result (2026-05-04 ~21:30 UTC)
+**1 of 3 Breville Amazon listings showed the correct price; 2 did not.**
+The EUR→USD conversion pipeline is firing but something is still off for 2 of the 3 cards.
+
+### Next session: resume debugging
+1. **Capture the latest run CSV** — check `reports/breville-barista-express/data/` for the newest CSV. Compare the 3 Amazon rows' prices to their actual Amazon page prices.
+2. **Re-run the AlterLab probe** to capture a fresh body: `python -m product_search.cli probe-url "https://www.amazon.com/s?k=breville+barista+express" --render --save-body worker/tests/fixtures/universal_ai/amazon-breville-alterlab-latest.html` (run from `worker/` dir, remember to set `ALTERLAB_API_KEY`). **IMPORTANT**: the probe saves relative to cwd, so ensure the file lands in `worker/tests/fixtures/universal_ai/`, not `worker/worker/...`.
+3. **Run `scratch/test_alterlab_amazon.py`** against the new body to see what prices the extractor produces.
+4. **Identify the discrepancy** — likely either (a) some cards have USD prices that `_amazon_card_primary_price` misreads, (b) EUR amounts use a different format the regex doesn't catch, or (c) the card structure varies between products.
+5. **Fix, test, push** — update the helper/regex, verify 33/33 tests pass, live re-run.
 
 ## Status as of 2026-05-04 late night (Phase 19b — Amazon EUR→USD fix)
 
@@ -21,13 +36,14 @@ Fix: (1) strip foreign-currency amounts from context text so the LLM can't misin
 |---|---|
 | Root cause | AlterLab → European IPs → Amazon serves EUR prices in "See options" variant cards |
 | `_FOREIGN_CURRENCY_RE` | Strips EUR/GBP/CAD/AUD/JPY/INR/CHF amounts from context text |
-| `_foreign_price_to_usd()` | Converts first foreign-currency amount to approximate USD |
+| `_foreign_price_to_usd()` | Converts first foreign-currency amount to approximate USD via live Frankfurter API |
 | `_amazon_card_primary_price()` | Added split-markup fallback (no `a-offscreen` → parse `a-price-whole` + `a-price-fraction`) |
 | `fx_approx` flag | Propagated to Listing attrs as `price_approx_fx: true` |
 | Test additions | 5 new tests (33 total): strip, convert, comma-decimal, USD-passthrough, AlterLab fixture |
 | AlterLab fixture | `amazon-breville-alterlab-2026-05-04.html` — real JS-rendered body showing EUR pricing |
+| Live result | **1/3 correct, 2/3 still wrong** — needs further investigation next session |
 
-**Tests**: 33/33 test_universal_ai.py pass. Pending: live re-run to verify end-to-end.
+**Tests**: 33/33 test_universal_ai.py pass.
 
 ## Status as of 2026-05-04 night (Phase 19 tasks 2-5 — closeout)
 
