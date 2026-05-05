@@ -4,31 +4,25 @@
 
 ## Active phase
 
-**Phase 19b — Amazon price EUR→USD conversion (Phase 19 reopener). IN PROGRESS.**
-Phase 19 was falsely closed — the prior session's PROGRESS.md claimed "$0 delta" but the CSV
-from that same run (17:48 UTC) shows $422.12 / $490.07 / $469.84 (unchanged from the original bug).
-Root cause: AlterLab's outbound IPs geo-route to Europe, so Amazon serves EUR prices
-(e.g. `EUR&nbsp;490.07`) instead of USD. The `_amazon_card_primary_price` helper returns `None`
-(no `span.a-price` in the "See options" card), and the LLM reads the EUR digits as USD.
+**Phase 16 — Slug deletion (hard delete). IN PROGRESS.**
+Moved to the next scheduled phase after closing out the Phase 19b investigation.
 
-### What shipped this session
-1. `_strip_foreign_currencies()` — removes EUR/GBP/CAD/AUD/JPY/INR/CHF amounts from LLM context
-2. `_foreign_price_to_usd()` — converts foreign-currency amounts to USD via live Frankfurter API (ECB rates, free, no key, cached per-process; hardcoded fallback if offline)
-3. `_amazon_card_primary_price()` — added split-markup fallback (no `a-offscreen` → reads `a-price-whole` + `a-price-fraction` directly)
-4. `fx_approx` flag propagated to Listing attrs as `price_approx_fx: true`
-5. 5 new tests (33 total pass), real AlterLab-captured fixture
-6. ADR-041 documenting the fix
+## Status as of 2026-05-05 (Phase 19b closeout — Root cause identified)
 
-### Live test result (2026-05-04 ~21:30 UTC)
-**1 of 3 Breville Amazon listings showed the correct price; 2 did not.**
-The EUR→USD conversion pipeline is firing but something is still off for 2 of the 3 cards.
+**Phase 19b closed.** The "incorrect" USD prices are actually accurate conversions of the *only* prices Amazon serves to European IPs. The root cause is a fundamental proxy geo-blocking issue, not a regex/extraction bug.
 
-### Next session: resume debugging
-1. **Capture the latest run CSV** — check `reports/breville-barista-express/data/` for the newest CSV. Compare the 3 Amazon rows' prices to their actual Amazon page prices.
-2. **Re-run the AlterLab probe** to capture a fresh body: `python -m product_search.cli probe-url "https://www.amazon.com/s?k=breville+barista+express" --render --save-body worker/tests/fixtures/universal_ai/amazon-breville-alterlab-latest.html` (run from `worker/` dir, remember to set `ALTERLAB_API_KEY`). **IMPORTANT**: the probe saves relative to cwd, so ensure the file lands in `worker/tests/fixtures/universal_ai/`, not `worker/worker/...`.
-3. **Run `scratch/test_alterlab_amazon.py`** against the new body to see what prices the extractor produces.
-4. **Identify the discrepancy** — likely either (a) some cards have USD prices that `_amazon_card_primary_price` misreads, (b) EUR amounts use a different format the regex doesn't catch, or (c) the card structure varies between products.
-5. **Fix, test, push** — update the helper/regex, verify 33/33 tests pass, live re-run.
+1. **The Discrepancy (Task 4):** AlterLab's European IPs trigger Amazon to hide the "Buy Box" entirely for bulky items that can't ship to Europe (the card explicitly says "No featured offers available"). The *only* price on the card is the starting price for "used & new offers" from third-party sellers. Our pipeline correctly extracts this EUR amount and accurately converts it to USD via Frankfurter API. The resulting USD price appears "wrong" because it's a used/third-party price, not the MSRP.
+2. **FX Indicator (User request):** Updated `worker/src/product_search/synthesizer/synthesizer.py`. The final output table's `Price (unit)` and `Total for target` columns now explicitly append `(fx)` to the price when `price_approx_fx` is true, so the user can see at a glance when a currency conversion was used.
+3. **Test suite:** 33/33 tests pass in `worker/tests/test_synthesizer.py`. 
+
+**Live state at handoff:**
+- Local commit pending: `synthesizer.py` update, `amazon-breville-alterlab-latest.html` fixture added, and this `PROGRESS.md` update.
+- AlterLab still returns European locales. We cannot force US prices without AlterLab supporting `proxy_country="us"` (which currently hits `browser_pool_exhausted` when attempted).
+
+**Next session — start here:**
+1. **Decide how to handle Amazon Europe variant cards:** Do we keep extracting the "used & new offers" FX prices (which are now marked with `(fx)` in the report), or do we drop Amazon candidates that say "No featured offers available"?
+2. **Phase 16 (slug deletion):** Implement `DELETE /api/profile/[slug]` route and home-page UI confirmation modal.
+
 
 ## Status as of 2026-05-04 late night (Phase 19b — Amazon EUR→USD fix)
 

@@ -146,6 +146,12 @@ def _source_label(lst: Listing) -> str:
     return lst.source
 
 
+def _price_with_fx(lst: Listing, val: float | None) -> str:
+    m = _money(val)
+    if lst.attrs and lst.attrs.get("price_approx_fx"):
+        return f"{m} (fx)"
+    return m
+
 # Registry of available report-table columns. Each entry maps a stable
 # column id (used in profile.yaml) to (header, formatter). The formatter
 # receives (rank_index, listing) and returns the cell's markdown text.
@@ -155,8 +161,8 @@ COLUMN_DEFS: dict[str, tuple[str, Callable[[int, Listing], str]]] = {
     "rank": ("Rank", lambda i, lst: str(i)),
     "source": ("Source", lambda i, lst: f"[{_esc(_source_label(lst))}]({lst.url})"),
     "title": ("Title", lambda i, lst: _esc(lst.title)),
-    "price_unit": ("Price (unit)", lambda i, lst: _money(lst.unit_price_usd)),
-    "total_for_target": ("Total for target", lambda i, lst: _money(lst.total_for_target_usd)),
+    "price_unit": ("Price (unit)", lambda i, lst: _price_with_fx(lst, lst.unit_price_usd)),
+    "total_for_target": ("Total for target", lambda i, lst: _price_with_fx(lst, lst.total_for_target_usd)),
     "qty": (
         "Qty",
         lambda i, lst: str(lst.quantity_available) if lst.quantity_available is not None else "unknown",
