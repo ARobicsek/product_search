@@ -787,17 +787,21 @@ def test_strip_foreign_currencies_removes_eur_amounts() -> None:
 
 def test_foreign_price_to_usd_converts_eur() -> None:
     """EUR→USD conversion produces a plausible USD price via live rates."""
-    usd = universal_ai._foreign_price_to_usd("EUR\u20ac490.07 (16 offers)")
-    assert usd is not None
+    res = universal_ai._foreign_price_to_usd("EUR\u20ac490.07 (16 offers)")
+    assert res is not None
+    usd, code = res
     # EUR 490.07 at any reasonable EUR→USD rate (0.95–1.30) → $465–$637.
     assert 450.0 < usd < 650.0, f"unexpected converted price: {usd}"
+    assert code == "EUR"
 
 
 def test_foreign_price_to_usd_handles_comma_decimal() -> None:
     """European locales use comma as decimal separator: EUR€490,07."""
-    usd = universal_ai._foreign_price_to_usd("EUR\u20ac490,07")
-    assert usd is not None
+    res = universal_ai._foreign_price_to_usd("EUR\u20ac490,07")
+    assert res is not None
+    usd, code = res
     assert 450.0 < usd < 650.0
+    assert code == "EUR"
 
 
 def test_foreign_price_to_usd_returns_none_for_usd() -> None:

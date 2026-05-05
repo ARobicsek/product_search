@@ -149,6 +149,9 @@ def _source_label(lst: Listing) -> str:
 def _price_with_fx(lst: Listing, val: float | None) -> str:
     m = _money(val)
     if lst.attrs and lst.attrs.get("price_approx_fx"):
+        code = lst.attrs.get("price_approx_fx")
+        if isinstance(code, str) and code != "True":
+            return f"{m} ({code})"
         return f"{m} (fx)"
     return m
 

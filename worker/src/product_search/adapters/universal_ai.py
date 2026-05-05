@@ -582,9 +582,9 @@ _FOREIGN_PRICE_EXTRACT_RE = re.compile(
 )
 
 
-def _foreign_price_to_usd(raw_text: str) -> float | None:
+def _foreign_price_to_usd(raw_text: str) -> tuple[float, str] | None:
     """Extract the first foreign-currency amount from ``raw_text`` and
-    return an approximate USD equivalent, else None.
+    return an approximate USD equivalent and the currency code, else None.
 
     Used when AlterLab's European exit IPs cause Amazon to show EUR/GBP
     prices instead of USD.  Better to report an approximate price than
@@ -621,7 +621,7 @@ def _foreign_price_to_usd(raw_text: str) -> float | None:
     else:
         amt_str = amt_str.replace(",", "")
     try:
-        return round(float(amt_str) * rate, 2)
+        return round(float(amt_str) * rate, 2), code
     except ValueError:
         return None
 
@@ -862,12 +862,13 @@ def _extract_candidates(
                 prices = [az_price]
                 fx_approx = False
             else:
-                fx_usd = _foreign_price_to_usd(raw_context)
-                if fx_usd is not None:
+                fx_res = _foreign_price_to_usd(raw_context)
+                if fx_res is not None:
+                    fx_usd, fx_code = fx_res
                     prices = [f"{fx_usd:.2f}"]
-                    fx_approx = True
+                    fx_approx = fx_code
                     # Mark the context so downstream can flag it.
-                    context = context.rstrip() + " [price approx. from EUR]"
+                    context = context.rstrip() + f" [price approx. from {fx_code}]"
                 else:
                     fx_approx = False
         else:
@@ -1104,7 +1105,7 @@ def fetch(query: AdapterQuery) -> list[Listing]:
 
         attrs = {"vendor_host": parsed_host, "extractor": "anchor_llm"}
         if cand.get("fx_approx"):
-            attrs["price_approx_fx"] = True
+            attrs["price_approx_fx"] = cand["fx_approx"]
 
         results.append(Listing(
             source="universal_ai_search",
