@@ -11,7 +11,7 @@ function bad(reason: string, status = 400, extra?: Record<string, unknown>) {
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { slug: string } }
+  { params }: { params: Promise<{ slug: string }> }
 ) {
   const expected = process.env.WEB_SHARED_SECRET;
   if (!expected) {
@@ -21,7 +21,7 @@ export async function DELETE(
     return bad('invalid or missing x-web-secret header', 401);
   }
 
-  const { slug } = params;
+  const { slug } = await params;
   if (!/^[a-z0-9][a-z0-9-]{0,63}$/.test(slug)) {
     return bad('invalid slug format');
   }
