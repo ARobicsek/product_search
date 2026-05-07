@@ -9,6 +9,26 @@ Status values:
 
 ---
 
+## ADR-044 — Enable Local OpenAI-Compatible Models (LM Studio) for Synthesizer
+
+**Status**: ACCEPTED
+
+**Date**: 2026-05-07
+
+**Context**: The Synthesizer generates a qualitative context paragraph summarizing the report's numeric and tabular data. This is an entirely prose-generation task, decoupled from the rigid schema requirements of `ai_filter` and `universal_ai_search`. To reduce API costs without sacrificing quality, the user wanted to route Synthesizer LLM calls to a locally hosted open-weight model (Qwen 3.6 running via LM Studio). Because LM Studio offers an OpenAI-compatible API, we can use the existing `openai` SDK to interface with it. However, instruct/reasoning models like Qwen often generate chain-of-thought internal monologue alongside the final response.
+
+**Decision**:
+1. Added a `"local"` provider configuration in the LLM abstraction (`worker/src/product_search/llm/_openai.py`). This initializes the `openai.OpenAI` client pointing to the user's LM Studio base URL.
+2. Updated `worker/src/product_search/config.py` to use `local` and `qwen-3.6` as the default `SYNTH_PROVIDER` and `SYNTH_MODEL`.
+3. Increased `max_tokens` in `worker/src/product_search/synthesizer/synthesizer.py` from 1024 to 4096. This ensures reasoning models are not cut off mid-thought, allowing the server (LM Studio) to cleanly strip the reasoning from the final returned content.
+
+**Consequence**:
+- The Synthesizer successfully runs locally via LM Studio without incurring external API costs.
+- The extended token limit allows LM Studio to successfully strip out the internal monologue, producing clean final prose for the report.
+- The pipeline remains provider-agnostic; users can still switch back to cloud providers via environment variables.
+
+---
+
 ## ADR-043 — Abandon raw.githubusercontent.com for dynamic data to bypass origin caching
 
 **Status**: ACCEPTED

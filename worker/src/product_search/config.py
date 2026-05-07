@@ -10,8 +10,8 @@ from __future__ import annotations
 import os
 from dataclasses import dataclass
 
-DEFAULT_SYNTH_PROVIDER = "glm"
-DEFAULT_SYNTH_MODEL = "glm-4.5-flash"
+DEFAULT_SYNTH_PROVIDER = "local"
+DEFAULT_SYNTH_MODEL = "qwen-3.6"
 
 
 @dataclass(frozen=True)

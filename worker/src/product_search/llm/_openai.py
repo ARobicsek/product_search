@@ -73,6 +73,12 @@ def call(
             api_key=api_key,
             base_url="https://open.bigmodel.cn/api/paas/v4/",
         )
+    elif provider == "local":
+        base_url = os.environ.get("LOCAL_LLM_BASE_URL", "http://192.168.68.78:1234/v1")
+        client = openai.OpenAI(
+            api_key="lm-studio",
+            base_url=base_url,
+        )
     else:
         api_key = os.environ.get("OPENAI_API_KEY")
         if not api_key:

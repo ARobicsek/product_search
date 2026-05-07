@@ -1,0 +1,24 @@
+{
+  "env": {
+    "ANTHROPIC_AUTH_TOKEN": "21f1b9aabf5e45b2aa775e1240baf5dc.FUhY1QG2PA62kn1r",
+    "ANTHROPIC_BASE_URL": "https://api.z.ai/api/anthropic",
+    "API_TIMEOUT_MS": "3000000"
+  },
+  "permissions": {
+    "allow": [
+      "Bash(git push:*)",
+      "Bash(mkdir:*)",
+      "Bash(python:*)",
+      "Bash(timeout 600 cmd:*)",
+      "Bash(dir:*)",
+      "Bash(echo:*)",
+      "Bash(powershell.exe:*)",
+      "Bash(cmd:*)",
+      "Bash(where:*)",
+      "Bash(copy:*)",
+      "Bash(del:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

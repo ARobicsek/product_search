@@ -27,7 +27,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Literal
 
-ProviderName = Literal["anthropic", "openai", "gemini", "glm"]
+ProviderName = Literal["anthropic", "openai", "gemini", "glm", "local"]
 
 _CallFn = Callable[..., "LLMResponse"]
 
@@ -63,7 +63,7 @@ def call_llm(
     """Call the specified LLM provider.
 
     Args:
-        provider: One of ``"anthropic"``, ``"openai"``, ``"gemini"``, ``"glm"``.
+        provider: One of ``"anthropic"``, ``"openai"``, ``"gemini"``, ``"glm"``, ``"local"``.
         model: Model identifier as the provider understands it.
         system: System prompt string.
         messages: Conversation turns (role + content).
@@ -80,7 +80,7 @@ def call_llm(
     _call: _CallFn
     if provider == "anthropic":
         from product_search.llm._anthropic import call as _call
-    elif provider in ("openai", "glm"):
+    elif provider in ("openai", "glm", "local"):
         from product_search.llm._openai import call as _call
     elif provider == "gemini":
         from product_search.llm._gemini import call as _call
