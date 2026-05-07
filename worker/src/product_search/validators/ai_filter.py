@@ -138,8 +138,7 @@ def ai_filter(listings: list[Listing], profile: Profile) -> list[Listing]:
     if not listings:
         return []
 
-    if os.environ.get("WORKER_USE_FIXTURES", "").strip() in ("1", "true", "yes"):
-        return listings
+
 
     # Dump FULL rule definitions (rule type + values/value/etc.) — not just the
     # rule names. Earlier revisions stripped extras and sent only `r.rule`, which
@@ -235,11 +234,14 @@ ONLY output the JSON object.
     # first character. Haiku 4.5 honors json mode reliably (it's already
     # the synth model per ADR-019). Cost is fine — ~$0.005/run for ~100
     # listings vs essentially free for GLM, but correctness > cost here.
-    logger.info("Calling Claude Haiku 4.5 for filtering...")
+    from product_search.config import filter_config
+    cfg = filter_config()
+
+    logger.info(f"Calling {cfg.provider}/{cfg.model} for filtering...")
     try:
         resp = call_llm(
-            provider="anthropic",
-            model="claude-haiku-4-5",
+            provider=cfg.provider, # type: ignore
+            model=cfg.model,
             system=system_prompt,
             messages=[Message(role="user", content=json.dumps(payload_for_llm, indent=2))],
             max_tokens=8192,
@@ -248,8 +250,8 @@ ONLY output the JSON object.
         LAST_RUN_RAW_RESPONSE = resp.text or ""
         LAST_RUN_USAGE = {
             "step": "ai_filter",
-            "provider": "anthropic",
-            "model": "claude-haiku-4-5",
+            "provider": cfg.provider,
+            "model": cfg.model,
             "input_tokens": resp.input_tokens,
             "output_tokens": resp.output_tokens,
         }

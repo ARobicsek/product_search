@@ -19,6 +19,11 @@ class SynthConfig:
     provider: str
     model: str
 
+@dataclass(frozen=True)
+class FilterConfig:
+    provider: str
+    model: str
+
 
 def synth_config() -> SynthConfig:
     """Resolve the synthesizer's (provider, model) from environment.
@@ -28,4 +33,11 @@ def synth_config() -> SynthConfig:
     return SynthConfig(
         provider=os.environ.get("LLM_SYNTH_PROVIDER", DEFAULT_SYNTH_PROVIDER),
         model=os.environ.get("LLM_SYNTH_MODEL", DEFAULT_SYNTH_MODEL),
+    )
+
+def filter_config() -> FilterConfig:
+    """Resolve the ai_filter's (provider, model) from environment."""
+    return FilterConfig(
+        provider=os.environ.get("LLM_FILTER_PROVIDER", "local"),
+        model=os.environ.get("LLM_FILTER_MODEL", "qwen-3.6"),
     )

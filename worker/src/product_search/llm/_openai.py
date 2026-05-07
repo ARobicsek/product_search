@@ -101,7 +101,7 @@ def call(
             )
 
     kwargs: dict[str, object] = {"max_tokens": max_tokens}
-    if response_format == "json":
+    if response_format == "json" and provider != "local":
         kwargs["response_format"] = {"type": "json_object"}
 
     try:
