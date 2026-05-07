@@ -1,0 +1,1 @@
+{"timestamp": "2026-05-07T22:05:30.981543+00:00", "product": "breville-barista-express", "index": -1, "pass": false, "reason": "ai_filter exception: LLMError('LOCAL connection error: Request timed out.')", "title": "(filter call failed)", "price": null, "url": null, "source": null}
