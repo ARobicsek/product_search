@@ -7,20 +7,6 @@
 **Phase 17 — Schedule Editor. IN PROGRESS.**
 Moved to the next scheduled phase after completing Phase 16.
 
-## Status as of 2026-05-07 (Local LM Studio for Synthesizer)
-
-**Added support for using a local model (Qwen 3.6 via LM Studio) for the Synthesizer.**
-
-1. Added `local` provider mapping in `product_search.llm`.
-2. Initialized `openai.OpenAI` client pointing to `http://192.168.68.78:1234/v1` (with override via `LOCAL_LLM_BASE_URL`).
-3. Set the default Synthesizer config (`DEFAULT_SYNTH_PROVIDER`) to `local` and model to `qwen-3.6`.
-4. Verified connectivity via `cli.py llm-ping local qwen-3.6`.
-
-**Next session — start here:**
-1. Try running a `search` locally (`python -m product_search.cli search <slug>`) to see the new Synthesizer Context output from the local model.
-2. If Qwen 3.6 outputs chain-of-thought tokens instead of purely prose, consider updating the `post_check` or prompt to handle it.
-3. Once satisfied, resume Phase 17 (Schedule Editor).
-
 ## Status as of 2026-05-05 (Stale Screen Issue Resolved)
 
 **The "stale screen problem" is definitively resolved by bypassing `raw.githubusercontent.com`.**

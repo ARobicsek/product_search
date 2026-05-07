@@ -431,7 +431,7 @@ def synthesize(
     provider: str,
     model: str,
     snapshot_date: _date | None = None,
-    max_tokens: int = 4096,
+    max_tokens: int = 1024,
 ) -> SynthesisResult:
     """Build the payload, ask the LLM for a Context paragraph, assemble the report.
 

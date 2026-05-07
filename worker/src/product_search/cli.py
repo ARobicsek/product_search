@@ -62,7 +62,7 @@ def main() -> None:
     )
     ping_parser.add_argument(
         "provider",
-        choices=["anthropic", "openai", "gemini", "glm", "local"],
+        choices=["anthropic", "openai", "gemini", "glm"],
         help="LLM provider name",
     )
     ping_parser.add_argument(

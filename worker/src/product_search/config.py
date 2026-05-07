@@ -10,17 +10,12 @@ from __future__ import annotations
 import os
 from dataclasses import dataclass
 
-DEFAULT_SYNTH_PROVIDER = "local"
-DEFAULT_SYNTH_MODEL = "qwen-3.6"
+DEFAULT_SYNTH_PROVIDER = "glm"
+DEFAULT_SYNTH_MODEL = "glm-4.5-flash"
 
 
 @dataclass(frozen=True)
 class SynthConfig:
-    provider: str
-    model: str
-
-@dataclass(frozen=True)
-class FilterConfig:
     provider: str
     model: str
 
@@ -33,11 +28,4 @@ def synth_config() -> SynthConfig:
     return SynthConfig(
         provider=os.environ.get("LLM_SYNTH_PROVIDER", DEFAULT_SYNTH_PROVIDER),
         model=os.environ.get("LLM_SYNTH_MODEL", DEFAULT_SYNTH_MODEL),
-    )
-
-def filter_config() -> FilterConfig:
-    """Resolve the ai_filter's (provider, model) from environment."""
-    return FilterConfig(
-        provider=os.environ.get("LLM_FILTER_PROVIDER", "local"),
-        model=os.environ.get("LLM_FILTER_MODEL", "qwen-3.6"),
     )
