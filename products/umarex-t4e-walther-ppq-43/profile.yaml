@@ -1,0 +1,54 @@
+slug: umarex-t4e-walther-ppq-43
+display_name: Umarex T4E Walther PPQ .43 Caliber Training Pistol
+description: Track the cheapest currently-available listings for the Umarex T4E Walther PPQ .43 caliber training pistol.
+target:
+  unit: count
+  amount: 1
+  configurations:
+    - module_count: 1
+      module_capacity_gb: 1
+spec_attrs:
+  condition:
+    type: str
+    required: false
+spec_filters:
+  - rule: in_stock
+  - rule: min_quantity_for_target
+spec_flags:
+  - rule: low_seller_feedback
+    flag: low_feedback
+    rating_pct_below: 95
+    count_below: 50
+  - rule: title_mentions
+    flag: suspicious_condition
+    values:
+      - as-is
+      - parts
+      - not working
+      - damaged
+      - non-working
+sources:
+  - id: ebay_search
+    queries:
+      - Umarex T4E Walther PPQ .43
+      - T4E paintball pistol
+    max_results_per_query: 50
+  - id: universal_ai_search
+    url: https://www.airsoftmegastore.com/index.php?route=product/category&path=148_387
+  - id: universal_ai_search
+    url: https://airsoftstation.com/airsoft-pistols/
+  - id: universal_ai_search
+    url: https://www.evike.com/shop/21/839/837/997/34/
+sources_pending: []
+qvl_file: products/umarex-t4e-walther-ppq-43/qvl.yaml
+report_columns:
+  - rank
+  - source
+  - title
+  - price_unit
+  - seller
+  - seller_rating
+  - flags
+schedule:
+  cron: 0 8 * * *
+  timezone: UTC
