@@ -319,7 +319,7 @@ Each phase is sized to fit one focused dev session (~30-90 min with an AI co-pil
    - `products/<slug>/qvl.yaml` (if present)
    - Every file under `reports/<slug>/` (markdown reports + per-run CSVs under `data/`)
    - Issues a single commit: `chore: delete product <slug>`.
-2. **Home-page UI**: small delete button per product card. Opens a typed-confirmation modal — user must type the slug verbatim before the Delete button enables. On success, `revalidatePath('/')` and the card disappears.
+2. **Home-page UI**: small delete button per product card. Opens a confirmation modal with destructive-styled red Delete button (no typed-slug confirmation — see round-3 paper-cuts cleanup, 2026-05-10). On success, `revalidatePath('/')` and the card disappears.
 3. **Edge cases**: deletion mid-Run-now must not break — the in-flight workflow run will commit a report into a now-empty directory; that's tolerable (orphaned report, no profile to read it). Document this in the ADR.
 4. **Tests**: a unit test for the delete handler that mocks the Contents API and asserts the right files are deleted; manual test that deleting the bose profile actually removes the directory tree.
 
