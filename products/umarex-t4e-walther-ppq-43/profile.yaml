@@ -1,0 +1,40 @@
+slug: umarex-t4e-walther-ppq-43
+display_name: Umarex T4E Walther PPQ 43
+description: Track cheapest new Umarex T4E Walther PPQ 43 paintball training pistol listings
+target:
+  unit: count
+  amount: 1
+spec_attrs: {}
+spec_filters:
+  - rule: in_stock
+spec_flags:
+  - rule: low_seller_feedback
+    flag: low_feedback
+    rating_pct_below: 98
+    count_below: 50
+sources:
+  - id: ebay_search
+    queries:
+      - umarex t4e walther ppq 43
+    max_results_per_query: 50
+  - id: universal_ai_search
+    url: https://www.umarexusa.com/ppq
+  - id: universal_ai_search
+    url: https://airsoftstation.com/umarex-t4e-walther-ppq-43-cal-co2-blowback-paintball-pistol-black/
+  - id: universal_ai_search
+    url: https://www.amazon.com/s?k=T4E+Walther+PPQ+43
+  - id: universal_ai_search
+    url: https://pbsports.com/search?q=T4E+Walther+PPQ+43
+sources_pending:
+  - id: universal_ai_search
+    url: https://www.eliteforceairsoft.com/t4e
+    note: "probe returned 0 candidates: fetch returned HTTP 500"
+report_columns:
+  - rank
+  - source
+  - title
+  - price_unit
+  - condition
+  - seller
+  - seller_rating
+  - flags
