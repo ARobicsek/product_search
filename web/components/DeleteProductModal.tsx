@@ -10,7 +10,6 @@ interface DeleteProductModalProps {
 
 export function DeleteProductModal({ productSlug, webSecret }: DeleteProductModalProps) {
   const [isOpen, setIsOpen] = useState(false);
-  const [inputValue, setInputValue] = useState('');
   const [isDeleting, setIsDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -21,13 +20,10 @@ export function DeleteProductModal({ productSlug, webSecret }: DeleteProductModa
 
   const handleClose = () => {
     setIsOpen(false);
-    setInputValue('');
     setError(null);
   };
 
   const handleDelete = async () => {
-    if (inputValue !== productSlug) return;
-    
     setIsDeleting(true);
     setError(null);
     
@@ -87,21 +83,6 @@ export function DeleteProductModal({ productSlug, webSecret }: DeleteProductModa
               <p className="text-gray-600 dark:text-gray-300 mb-4 text-sm leading-relaxed">
                 This action cannot be undone. This will permanently delete the profile, schedule, and all historical price tracking reports for <strong className="text-gray-900 dark:text-white">{productSlug}</strong>.
               </p>
-              
-              <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
-                  Please type <span className="font-mono font-bold select-all bg-gray-100 dark:bg-gray-800 px-1 rounded">{productSlug}</span> to confirm.
-                </label>
-                <input
-                  type="text"
-                  value={inputValue}
-                  onChange={(e) => setInputValue(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-white font-mono text-sm"
-                  placeholder={productSlug}
-                  autoComplete="off"
-                  disabled={isDeleting}
-                />
-              </div>
 
               {error && (
                 <div className="p-3 mb-4 text-sm text-red-700 bg-red-50 dark:bg-red-900/30 dark:text-red-400 rounded-lg">
@@ -119,11 +100,11 @@ export function DeleteProductModal({ productSlug, webSecret }: DeleteProductModa
                 </button>
                 <button
                   onClick={handleDelete}
-                  disabled={inputValue !== productSlug || isDeleting}
+                  disabled={isDeleting}
                   className="flex items-center px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 disabled:opacity-50 disabled:cursor-not-allowed transition"
                 >
                   {isDeleting && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-                  I understand, delete this product
+                  Delete
                 </button>
               </div>
             </div>

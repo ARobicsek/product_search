@@ -7,6 +7,37 @@
 **Phase 17 — Schedule Editor. IN PROGRESS.**
 Moved to the next scheduled phase after completing Phase 16.
 
+## Status as of 2026-05-10 (UX paper-cuts cleanup, round 3 — between Phase 16 and 17)
+
+Re-onboarded `umarex-t4e-walther-ppq-43` again (transcript: `dialog_with_onboarder3.txt`). Three of the four round-2 fault classes held; two new failure modes surfaced and were fixed in this round.
+
+| Issue | Cause | Fix |
+|---|---|---|
+| 5. Onboarder picked `airsoftstation.com/<long-product-slug>/` — a Shopify-style single-product page served from the root path (no `/products/` prefix) | Round-2 single-product heuristics only matched `/dp/`, `/itm/`, `/products/<slug>`, `/p/<id>` literally. A bare kebab-slug at the root slipped through | Extended the "Single-product" heuristic in [onboard_v1.txt](../worker/src/product_search/onboarding/prompts/onboard_v1.txt) §5: a final path segment of 3+ kebab-case tokens containing brand+product words is now flagged as single-product (e.g. `/umarex-t4e-walther-ppq-43-cal-...-black/`). Added one-token-segment paths (`/ppq`, `/walther`, `/headphones`) to the explicit Category bucket. Added: "A URL without [search markers] is NOT a search URL, no matter how narrow it looks." Re-pushed via `web/scripts/sync-prompt.js` |
+| 6. Onboarder recommended dropping T4E Guns based on inferred shared corporate ownership with Umarex USA — even though user said "let's do ALL" | Round-2 "never silently drop a vendor" rule didn't cover dedup-via-corporate-relationship (the onboarder framed it as a recommendation, not a silent drop) | Added a new instruction block in [onboard_v1.txt](../worker/src/product_search/onboarding/prompts/onboard_v1.txt) §5: "Never recommend dropping a vendor based on inferred corporate ownership or shared contact info." Two domains under the same parent can still surface different inventory and pricing |
+| 7. Slug-deletion modal required typing the full slug to confirm — overkill for the actual blast radius | Defensive UX inherited from GitHub-style "type the repo name" patterns; the modal already has a destructive-styled confirm button | Removed the typing requirement entirely from [DeleteProductModal.tsx](../web/components/DeleteProductModal.tsx). Click red button to delete; explanatory copy unchanged |
+
+**Tests**: web `tsc --noEmit` clean. Worker unaffected (prompt-only change in worker).
+
+**Live state at handoff** (2026-05-10, round 3):
+- Three working-tree leftovers from prior rounds are still present (`dialog_with_onboarder.txt`, `dialog_with_onboarder2.txt`, `dialog_with_onboarder3.txt`, deleted `REPO_WALKTHROUGH.md`). Not committed.
+- This round's changes: `onboard_v1.txt` (+ synced `promptText.ts`), `DeleteProductModal.tsx`, this PROGRESS update.
+
+**Round-2 fixes that DID hold up in dialog_with_onboarder3.txt** (no regression):
+- `target.configurations` correctly omitted for non-RAM (no degenerate placeholder).
+- `qvl_file` correctly omitted for non-RAM.
+- USA-subsidiary discovery — picked `umarexusa.com`, not `umarex.com`.
+- Schedule cleanly omitted on user's "no routine" request.
+- `report_columns` rendered the consumer-goods preset (the round-2 deferred item is now confirmed working).
+- Save-time probe demoted Elite Force Airsoft to `sources_pending` with `HTTP 500` note (probe + AlterLab-known-good allowlist working as intended).
+
+**Next session — start here**:
+1. **Phase 17 (Schedule editor UI)** is still the active phase. Brief: [PHASES.md](PHASES.md#phase-17--schedule-editor-ui).
+2. **Re-onboarding verification (still deferred manual test)** — these prompt changes are not unit-tested. Worth one more pass against a non-RAM, non-airgun product to confirm the bare-slug Shopify detection and dedup-override rules hold across product domains.
+
+**Deferred / not done this round**:
+- Same two items still deferred from round 2: (a) Phase 5-era synth benchmark drift; (b) AI-filter token-overlap pre-filter for trivially-matching eBay candidates (~70% of run cost on the umarex run). Both still wait for a phase with bandwidth.
+
 ## Status as of 2026-05-10 (UX paper-cuts cleanup, round 2 — between Phase 16 and 17)
 
 Re-onboarded `umarex-t4e-walther-ppq-43` against the post-2026-05-09 prompt and saw four new fault classes worth fixing in one batch. Phase 17 is still the next scheduled work.
