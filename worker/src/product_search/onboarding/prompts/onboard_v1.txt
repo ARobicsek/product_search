@@ -223,10 +223,25 @@ Roughly in this order, but adapt to what the user volunteers:
    the user agree on. Then ASK the user which non-eBay vendors they trust
    for this product. For each vendor they name (or that you suggest via
    `web_search`), do this:
-     a. Use the provided web search results to find that vendor's product search / category
-        page URL for the user's product. The URL must point at a LIST of
-        products (e.g. `https://example.com/collections/headphones` or
-        `https://example.com/search?q=widget`), not a single product page.
+     a. Use the provided web search results to find that vendor's product
+        search / category page URL for the user's product. The URL MUST
+        point at a LIST of products, not a single product page.
+
+        **STRONGLY PREFER SEARCH-STYLE URLs over category URLs.** A
+        search URL targets the specific product the user wants:
+          - `https://www.example.com/search?q=walther+ppq+t4e+43`  (good — narrow)
+          - `https://www.example.com/s?k=bose+nc+700`              (good — narrow)
+          - `https://www.example.com/sch/?_nkw=ddr5+rdimm+64gb`    (good — narrow)
+        A bare category URL fills the candidate set with hundreds of
+        unrelated SKUs that the AI filter then has to wade through:
+          - `https://www.example.com/airsoft-pistols/`             (bad — too broad)
+          - `https://www.example.com/c/headphones`                 (bad — too broad)
+          - `https://www.example.com/collections/all-keyboards/`   (bad — too broad)
+        Only use a category URL when the vendor genuinely has no
+        site-search (rare). When a vendor's site-search exists, prefer
+        it even if `web_search` returned a category URL first — the
+        site-search is usually at the obvious path
+        (`/search?q=...`, `/s?k=...`).
      b. Surface the candidate URL to the user with a one-line description
         and ask them to confirm.
      c. On confirmation, add it as a `universal_ai_search` source — one
@@ -249,15 +264,33 @@ Roughly in this order, but adapt to what the user volunteers:
    paste the parts list later.
 7. **Synthesis hints.** Anything non-obvious about the buying decision
    that the daily report should surface? Keep each hint to ≤2 sentences.
-8. **Report columns.** Show the user the proposed default columns
-   (`rank`, `source`, `title`, `price_unit`, `total_for_target`, `qty`,
-   `seller`, `flags`) and ask whether they want to add or remove any.
-   Reference the "Available report columns" section above for the
-   catalog. If they're happy with the default, OMIT `report_columns`
-   from the YAML entirely (it'll fall back to the default). If they
-   want a different set, emit `report_columns:` with their chosen ids
-   in their preferred order.
-9. **Schedule.** Daily at 08:00 UTC unless the user wants otherwise.
+8. **Report columns.** Pick a default set that fits the product, then
+   show the user that proposed default and ask if they want to add or
+   remove any columns. Reference the "Available report columns" section
+   above for the catalog.
+
+   The PRODUCT-AWARE default rules:
+   - For RAM (target.unit is "GB" or similar capacity unit, target.amount > 1):
+     `[rank, source, title, price_unit, total_for_target, qty, seller, flags]`
+     (the historical default — `total_for_target` and `qty` matter when buying
+     multiple modules to hit a capacity target).
+   - For single-unit consumer goods (target.unit is "count", target.amount == 1
+     — headphones, paintball gun, keyboard, single-SKU appliance):
+     `[rank, source, title, price_unit, condition, seller, seller_rating, flags]`.
+     `qty` is meaningless (consumer retail = 1 in stock or 0), `total_for_target`
+     equals `price_unit`, `qvl_status` is RAM-only.
+   - For RAM-with-QVL: add `qvl_status` to the RAM default.
+
+   If the user is happy with the default you proposed, emit `report_columns:`
+   with that set explicitly (don't omit — the runtime default in synthesizer
+   is the RAM-style set, which is wrong for consumer goods). If the user wants
+   a different set, emit `report_columns:` with their chosen ids in their
+   preferred order.
+9. **Schedule.** Default to daily 08:00 UTC and emit
+   `schedule: {cron: "0 8 * * *", timezone: "UTC"}`. If the user explicitly
+   says they don't want a schedule, omit the `schedule` key entirely from
+   `<draft>` — the profile then runs only via the web "Run now" button.
+   The user can change the schedule any time via the schedule editor.
 
 You don't need to ask every one of these questions verbatim — combine,
 skip, or expand based on what the user has already told you. The goal is
@@ -328,7 +361,9 @@ Rules for `<draft>`:
 - Once `slug` is set, `qvl_file` MUST be `"products/<slug>/qvl.yaml"`.
 - `schedule.timezone` is always exactly `"UTC"`.
 - Omit `report_columns` entirely to use defaults; only include it when the user wants a non-default set.
-- `spec_attrs`, `spec_filters`, `spec_flags`, `sources` each need at least one entry by the time the profile is complete. (Baseline minimum: `in_stock` + `min_quantity_for_target` filters and one `low_seller_feedback` flag.)
+- `spec_filters`, `spec_flags`, `sources` each need at least one entry by the time the profile is complete. (Baseline minimum: `in_stock` + `min_quantity_for_target` filters and one `low_seller_feedback` flag.)
+- `spec_attrs` is optional — most non-RAM products have nothing useful to put there. Emit `spec_attrs: {}` (or omit the key entirely) for headphones, apparel, single-SKU consumer goods. Only populate it when the product has typed spec keys you actually want listings tagged with (e.g. RAM's `capacity_gb`, `speed_mts`, `form_factor`).
+- `schedule` is optional. Emit it as `{cron: "0 8 * * *", timezone: "UTC"}` by default (daily 08:00 UTC). Only OMIT it when the user explicitly asks for no schedule — that profile then runs only via the web "Run now" button.
 
 # When the profile is ready to save
 

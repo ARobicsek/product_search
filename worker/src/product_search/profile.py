@@ -209,7 +209,11 @@ class Profile(BaseModel):
     description: str
 
     target: Target
-    spec_attrs: dict[str, SpecAttrDef] = Field(min_length=1)
+    # ``spec_attrs`` declares the typed attribute keys listings may carry.
+    # Most non-RAM domains (headphones, apparel, single-SKU consumer goods)
+    # have nothing useful to put here; the validator pipeline does not require
+    # any keys to be present, so the default is an empty dict.
+    spec_attrs: dict[str, SpecAttrDef] = Field(default_factory=dict)
     spec_filters: list[FilterRule] = Field(min_length=1)
     spec_flags: list[FlagRule] = Field(min_length=1)
 
@@ -235,7 +239,10 @@ class Profile(BaseModel):
     # populate ``brand`` for non-RAM categories (e.g. headphones).
     brand_candidates: list[str] | None = None
 
-    schedule: Schedule
+    # ``schedule`` is optional: a profile without a schedule is run only via the
+    # web "Run now" button (or manually). The hourly scheduler skips profiles
+    # whose schedule is None.
+    schedule: Schedule | None = None
 
     @field_validator("brand_candidates")
     @classmethod

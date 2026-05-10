@@ -153,8 +153,9 @@ function validateTarget(target: unknown, ctx: ValidationContext) {
 function validateSpecAttrs(specAttrs: unknown, ctx: ValidationContext) {
   const sa = asObject(specAttrs, 'spec_attrs', ctx);
   if (!sa) return;
+  // ``spec_attrs`` may be empty — most non-RAM products carry no typed attrs.
+  // Mirrors profile.py:Profile.spec_attrs (default_factory=dict).
   const keys = Object.keys(sa);
-  if (keys.length < 1) ctx.errors.push('spec_attrs: needs at least one attribute');
   for (const k of keys) {
     const def = asObject(sa[k], `spec_attrs.${k}`, ctx);
     if (!def) continue;
@@ -220,6 +221,9 @@ function validateSources(
 }
 
 function validateSchedule(schedule: unknown, ctx: ValidationContext) {
+  // ``schedule`` is optional — a profile without one runs only via the
+  // web "Run now" button. Mirrors profile.py:Profile.schedule (Optional).
+  if (schedule === undefined || schedule === null) return;
   const s = asObject(schedule, 'schedule', ctx);
   if (!s) return;
   const cron = asString(s.cron, 'schedule.cron', ctx);

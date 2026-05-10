@@ -33,6 +33,35 @@ import 'server-only';
 const FETCH_TIMEOUT_MS = 8000;
 const MIN_BODY_LENGTH = 500;
 
+// Hosts known to AlterLab-render fine in production even when the bare TS
+// ``fetch`` from a Vercel datacenter IP gets a 5xx or a bot-block. Production
+// uses AlterLab (see worker/.../universal_ai.py + docs/VENDOR_REACH.md), so
+// demoting these hosts based on a 503 from the save-time probe would be a
+// false negative. The probe still surfaces the failure as a *warning* in
+// reports[].reason but does not move the source to ``sources_pending``.
+//
+// Keep this list aligned with the verdicts in docs/VENDOR_REACH.md. Add a host
+// when both (a) AlterLab can reach it and (b) the universal_ai adapter has
+// extracted real candidates from it in a production run.
+const ALTERLAB_KNOWN_GOOD_HOSTS: ReadonlySet<string> = new Set([
+  'amazon.com',
+  'www.amazon.com',
+  'walmart.com',
+  'www.walmart.com',
+  'ebay.com',
+  'www.ebay.com',
+  'backmarket.com',
+  'www.backmarket.com',
+]);
+
+function hostOf(url: string): string | null {
+  try {
+    return new URL(url).host.toLowerCase();
+  } catch {
+    return null;
+  }
+}
+
 const NAV_PATHS: ReadonlyArray<string> = [
   '/about', '/contact', '/blog', '/blogs', '/news', '/press',
   '/pages', '/page', '/articles', '/article', '/help', '/support',
@@ -323,6 +352,9 @@ export async function probeUrl(url: string): Promise<ProbeResult> {
     anchorCount: 0,
     reason: null,
   };
+  const host = hostOf(url);
+  const isAlterlabKnownGood = host !== null && ALTERLAB_KNOWN_GOOD_HOSTS.has(host);
+
   try {
     const { html, status } = await fetchHtml(url);
     result = { ...result, fetchStatus: status, bodyLength: html.length };
@@ -330,10 +362,24 @@ export async function probeUrl(url: string): Promise<ProbeResult> {
     // Anything in the 2xx/3xx range with a non-trivial body passes; we
     // record JSON-LD / anchor counts as diagnostics but they don't gate.
     if (status >= 400) {
+      // AlterLab-known-good hosts: 5xx / bot-block from the bare-fetch probe
+      // is expected (Amazon serves 503 to datacenter IPs, etc.); production
+      // AlterLab handles these fine. Record the status as a diagnostic but
+      // pass the probe so the source is not demoted to sources_pending.
+      if (isAlterlabKnownGood && status >= 500) {
+        result = { ...result, ok: true, reason: `bare-fetch HTTP ${status} (host is AlterLab-known-good; not demoting)` };
+        return result;
+      }
       result.reason = `fetch returned HTTP ${status}`;
       return result;
     }
     if (html.length < MIN_BODY_LENGTH) {
+      // Same exemption: a tiny body from Amazon/Walmart is almost certainly
+      // a bot-block stub, not a dead URL.
+      if (isAlterlabKnownGood) {
+        result = { ...result, ok: true, reason: `bare-fetch body ${html.length} chars (host is AlterLab-known-good; not demoting)` };
+        return result;
+      }
       result.reason = `response body too short (${html.length} chars)`;
       return result;
     }
@@ -342,6 +388,11 @@ export async function probeUrl(url: string): Promise<ProbeResult> {
     result = { ...result, jsonldCount: listings.length, anchorCount: anchors, ok: true };
     return result;
   } catch (err) {
+    if (isAlterlabKnownGood) {
+      result.ok = true;
+      result.reason = `bare-fetch failed (${err instanceof Error ? err.message : String(err)}); host is AlterLab-known-good — not demoting`;
+      return result;
+    }
     result.reason = `fetch failed: ${err instanceof Error ? err.message : String(err)}`;
     return result;
   }

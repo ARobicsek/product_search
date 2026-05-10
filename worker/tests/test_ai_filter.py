@@ -108,6 +108,67 @@ def test_returns_empty_on_invalid_json(profile: Profile, monkeypatch: pytest.Mon
     assert out == []
 
 
+def test_rejects_truncated_inner_eval_object(profile: Profile, monkeypatch: pytest.MonkeyPatch) -> None:
+    """A truncated outer envelope (the response cut off mid-array) used to
+    leak the first complete inner evaluation object, silently dropping every
+    listing. The hardened parser rejects ``{"index":..., "pass":...}`` shapes
+    when they aren't wrapped by ``evaluations``/``indices``.
+    """
+    listings = [_make_listing(), _make_listing(title="other")]
+    # The response starts with the outer envelope but cuts off before the
+    # closing brace — only the first inner eval object is fully present.
+    truncated = (
+        '{"evaluations": [\n'
+        '  {"index": 0, "pass": true, "reason": "exact match"},\n'
+        '  {"index": 1, "pass": fa'  # cut off mid-token
+    )
+    monkeypatch.setattr(ai_filter_mod, "call_llm", _stub_response(truncated))
+    out = ai_filter_mod.ai_filter(listings, profile)
+    # No listings pass — the parse failure short-circuits to empty.
+    assert out == []
+    # Sentinel diagnostic recorded so the report shows why.
+    assert any(e.get("index") == -1 for e in ai_filter_mod.LAST_RUN_LOG)
+
+
+def test_batches_large_listing_set(profile: Profile, monkeypatch: pytest.MonkeyPatch) -> None:
+    """100 listings get split into multiple LLM calls (batch size 50). Each
+    batch's response uses LOCAL indices (0..N-1 for that batch), and the
+    public function maps them back to global indices before returning.
+    """
+    listings = [_make_listing(title=f"listing-{i}") for i in range(100)]
+
+    call_count = {"n": 0}
+
+    def stubbed(**kw: object) -> LLMResponse:
+        # Each batch has up to 50 entries; we pass every odd local index.
+        user_msg = kw["messages"][0].content  # type: ignore[index, attr-defined]
+        import json as _json
+        batch = _json.loads(user_msg)
+        evals = [
+            {"index": item["index"], "pass": item["index"] % 2 == 1, "reason": "ok"}
+            for item in batch
+        ]
+        call_count["n"] += 1
+        return LLMResponse(
+            provider="anthropic", model="claude-haiku-4-5",
+            text=_json.dumps({"evaluations": evals}),
+            input_tokens=10, output_tokens=20,
+        )
+
+    monkeypatch.setattr(ai_filter_mod, "call_llm", stubbed)
+    out = ai_filter_mod.ai_filter(listings, profile)
+
+    # Two LLM calls (50 + 50).
+    assert call_count["n"] == 2
+    # Odd global indices passed.
+    expected_titles = [f"listing-{i}" for i in range(100) if i % 2 == 1]
+    assert [lst.title for lst in out] == expected_titles
+    # Usage is summed across batches.
+    assert ai_filter_mod.LAST_RUN_USAGE is not None
+    assert ai_filter_mod.LAST_RUN_USAGE["input_tokens"] == 20
+    assert ai_filter_mod.LAST_RUN_USAGE["output_tokens"] == 40
+
+
 def test_tolerates_prose_preamble_before_json(profile: Profile, monkeypatch: pytest.MonkeyPatch) -> None:
     """A prose preamble before the JSON object must not zero out the run.
 

@@ -23,19 +23,39 @@ def _loud(msg: str) -> None:
     print(f"[ai_filter] {msg}", file=sys.stderr, flush=True)
 
 
-def _extract_json(text: str) -> object | None:
-    """Return the first valid JSON object/array embedded in ``text``, else None.
+def _looks_like_inner_eval(obj: object) -> bool:
+    """True when ``obj`` is a single evaluation entry, not an outer envelope.
 
-    First tries to parse the whole string. If that fails, walks from the first
-    ``{`` or ``[`` and uses ``json.JSONDecoder.raw_decode`` to find the longest
-    valid JSON value at that position. Tolerates models that prepend a prose
-    preamble like "Let me analyze the products..." before the structured JSON
-    (observed with GLM-4.5-Flash on 2026-04-30 even with response_format=json).
+    A truncated outer envelope causes the walking parser to fall through to
+    the first complete inner ``{"index":..., "pass":..., "reason":...}``
+    object and return that — silently dropping every listing. We use this
+    predicate to reject those false positives: the outer envelope is either
+    a dict with ``evaluations``/``indices`` or a top-level array.
+    """
+    if not isinstance(obj, dict):
+        return False
+    keys = set(obj.keys())
+    return "index" in keys and ("pass" in keys or "reason" in keys) and "evaluations" not in keys
+
+
+def _extract_json(text: str) -> object | None:
+    """Return the outer JSON envelope embedded in ``text``, else None.
+
+    First tries to parse the whole string. If that fails, walks from each
+    ``{``/``[`` boundary and uses ``json.JSONDecoder.raw_decode`` to find
+    valid JSON at that position. Skips matches that look like a single
+    inner evaluation entry — those are the symptom of a truncated outer
+    array, not a usable result. Tolerates models that prepend a prose
+    preamble like "Let me analyze the products..." (observed with
+    GLM-4.5-Flash, 2026-04-30) before the structured JSON.
     """
     try:
-        return json.loads(text)
+        parsed = json.loads(text)
     except json.JSONDecodeError:
-        pass
+        parsed = None
+
+    if parsed is not None and not _looks_like_inner_eval(parsed):
+        return parsed
 
     decoder = json.JSONDecoder()
     for i, ch in enumerate(text):
@@ -44,6 +64,8 @@ def _extract_json(text: str) -> object | None:
         try:
             obj, _end = decoder.raw_decode(text, i)
         except json.JSONDecodeError:
+            continue
+        if _looks_like_inner_eval(obj):
             continue
         return obj
     return None
@@ -123,12 +145,23 @@ def _write_filter_log(slug: str, entries: list[dict]) -> None:
         logger.warning(f"Failed to write per-product filter log: {e}")
 
 
+# Per-call batch size. Each batch is one LLM round-trip; results are merged
+# in the public entry point. Sized so 50 evaluations × ~120 chars each fit
+# comfortably under ``_AI_FILTER_MAX_TOKENS`` even with verbose reasons.
+# Pre-batching, a 144-listing run truncated the response mid-array and
+# silently dropped every listing (2026-05-10 paintball-pistol incident).
+_AI_FILTER_BATCH_SIZE = 50
+_AI_FILTER_MAX_TOKENS = 16384
+
+
 def ai_filter(listings: list[Listing], profile: Profile) -> list[Listing]:
     """Filter listings using an LLM to evaluate strict rules.
 
     Asks the model to return a verdict (pass/fail) and a short reason for every
     listing, persists those verdicts to ``worker/data/filter_logs/<date>.jsonl``
-    for inspection, and returns the subset that passed.
+    for inspection, and returns the subset that passed. Listings are split
+    into ``_AI_FILTER_BATCH_SIZE`` chunks so the response stays well under the
+    model's output token limit; per-batch usage is summed into LAST_RUN_USAGE.
     """
     global LAST_RUN_LOG, LAST_RUN_RAW_RESPONSE, LAST_RUN_USAGE
     LAST_RUN_LOG = []
@@ -150,20 +183,6 @@ def ai_filter(listings: list[Listing], profile: Profile) -> list[Listing]:
     target_desc = f"Target: {profile.target.amount} {profile.target.unit}"
     if profile.target.configurations:
         target_desc += f" (Need exactly one of these configs: {[c.model_dump() for c in profile.target.configurations]})"
-
-    payload_for_llm = []
-    for i, lst in enumerate(listings):
-        payload_for_llm.append({
-            "index": i,
-            "title": lst.title,
-            "url": lst.url,
-            "price": lst.unit_price_usd,
-            "condition": lst.condition,
-            "is_kit": lst.is_kit,
-            "kit_module_count": lst.kit_module_count,
-            "quantity_available": lst.quantity_available,
-            "attrs": lst.attrs,
-        })
 
     system_prompt = f"""You are a product filter.
 The user wants: {profile.display_name}
@@ -235,26 +254,70 @@ ONLY output the JSON object.
     # first character. Haiku 4.5 honors json mode reliably (it's already
     # the synth model per ADR-019). Cost is fine — ~$0.005/run for ~100
     # listings vs essentially free for GLM, but correctness > cost here.
-    logger.info("Calling Claude Haiku 4.5 for filtering...")
-    try:
-        resp = call_llm(
-            provider="anthropic",
-            model="claude-haiku-4-5",
-            system=system_prompt,
-            messages=[Message(role="user", content=json.dumps(payload_for_llm, indent=2))],
-            max_tokens=8192,
-            response_format="json",
-        )
-        LAST_RUN_RAW_RESPONSE = resp.text or ""
-        LAST_RUN_USAGE = {
-            "step": "ai_filter",
-            "provider": "anthropic",
-            "model": "claude-haiku-4-5",
-            "input_tokens": resp.input_tokens,
-            "output_tokens": resp.output_tokens,
-        }
+    n = len(listings)
+    batches = [
+        list(range(start, min(start + _AI_FILTER_BATCH_SIZE, n)))
+        for start in range(0, n, _AI_FILTER_BATCH_SIZE)
+    ]
+    logger.info(
+        f"Calling Claude Haiku 4.5 for filtering ({n} listings in "
+        f"{len(batches)} batch(es) of up to {_AI_FILTER_BATCH_SIZE})..."
+    )
 
-        raw_text = resp.text.strip()
+    evaluations_by_index: dict[int, dict] = {}
+    raw_responses: list[str] = []
+    total_in = 0
+    total_out = 0
+
+    for batch_no, batch in enumerate(batches, start=1):
+        payload_for_llm = []
+        for local_i, listing_idx in enumerate(batch):
+            lst = listings[listing_idx]
+            payload_for_llm.append({
+                # Local index — the prompt/response use 0..len(batch); we map
+                # back to the global ``listing_idx`` after parsing.
+                "index": local_i,
+                "title": lst.title,
+                "url": lst.url,
+                "price": lst.unit_price_usd,
+                "condition": lst.condition,
+                "is_kit": lst.is_kit,
+                "kit_module_count": lst.kit_module_count,
+                "quantity_available": lst.quantity_available,
+                "attrs": lst.attrs,
+            })
+
+        try:
+            resp = call_llm(
+                provider="anthropic",
+                model="claude-haiku-4-5",
+                system=system_prompt,
+                messages=[Message(role="user", content=json.dumps(payload_for_llm, indent=2))],
+                max_tokens=_AI_FILTER_MAX_TOKENS,
+                response_format="json",
+            )
+        except Exception as e:
+            _loud(f"Filtering LLM call failed (batch {batch_no}/{len(batches)}): {e!r}")
+            sentinel = [{
+                "index": -1, "pass": False, "reason": f"ai_filter exception: {e!r}",
+                "title": "(filter call failed)", "price": None, "url": None, "source": None,
+            }]
+            _write_filter_log(profile.slug, sentinel)
+            LAST_RUN_LOG = sentinel
+            LAST_RUN_USAGE = {
+                "step": "ai_filter",
+                "provider": "anthropic",
+                "model": "claude-haiku-4-5",
+                "input_tokens": total_in,
+                "output_tokens": total_out,
+            }
+            return []
+
+        raw_responses.append(resp.text or "")
+        total_in += resp.input_tokens or 0
+        total_out += resp.output_tokens or 0
+
+        raw_text = (resp.text or "").strip()
         if raw_text.startswith("```"):
             raw_text = raw_text.split("\n", 1)[-1]
             if raw_text.endswith("```"):
@@ -263,80 +326,118 @@ ONLY output the JSON object.
 
         parsed = _extract_json(raw_text)
         if parsed is None:
-            _loud(f"JSON parse failed. Raw response (first 1000 chars):\n{resp.text[:1000]}")
+            _loud(
+                f"JSON parse failed (batch {batch_no}/{len(batches)}). "
+                f"Raw response (first 1000 chars):\n{(resp.text or '')[:1000]}"
+            )
             sentinel = [{
                 "index": -1, "pass": False,
-                "reason": f"ai_filter parse failure: {resp.text[:200]!r}",
+                "reason": f"ai_filter parse failure (batch {batch_no}): {(resp.text or '')[:200]!r}",
                 "title": "(filter call failed)", "price": None, "url": None, "source": None,
             }]
             _write_filter_log(profile.slug, sentinel)
             LAST_RUN_LOG = sentinel
+            LAST_RUN_RAW_RESPONSE = "\n\n--- batch boundary ---\n\n".join(raw_responses)
+            LAST_RUN_USAGE = {
+                "step": "ai_filter",
+                "provider": "anthropic",
+                "model": "claude-haiku-4-5",
+                "input_tokens": total_in,
+                "output_tokens": total_out,
+            }
             return []
 
         # GLM-5.1 (and GLM 4.5 Flash before it) often emit a bare list even when the
         # prompt asks for an object. Accept several shapes so we don't silently drop
         # everything on a stylistic difference. Documented post-mortem: yesterday's
         # local trace showed GLM returning `[0]` for an `{"indices": [...]}` prompt.
-        evaluations: list[dict] = []
+        batch_evals: list[dict] = []
         bare_indices: list[int] | None = None
 
         if isinstance(parsed, dict) and isinstance(parsed.get("evaluations"), list):
-            evaluations = parsed["evaluations"]
+            batch_evals = parsed["evaluations"]
         elif isinstance(parsed, dict) and isinstance(parsed.get("indices"), list):
             bare_indices = [int(i) for i in parsed["indices"] if str(i).lstrip("-").isdigit()]
         elif isinstance(parsed, list) and parsed and isinstance(parsed[0], dict):
             # Bare array of evaluation objects.
-            evaluations = parsed
+            batch_evals = parsed
         elif isinstance(parsed, list):
             # Bare array of integers (legacy indices-only).
             bare_indices = [int(i) for i in parsed if str(i).lstrip("-").isdigit()]
         else:
-            _loud(f"Unexpected JSON structure: {str(parsed)[:500]}")
+            _loud(f"Unexpected JSON structure (batch {batch_no}): {str(parsed)[:500]}")
             sentinel = [{
                 "index": -1, "pass": False,
-                "reason": f"ai_filter unexpected JSON structure: {str(parsed)[:200]!r}",
+                "reason": f"ai_filter unexpected JSON structure (batch {batch_no}): {str(parsed)[:200]!r}",
                 "title": "(filter call failed)", "price": None, "url": None, "source": None,
             }]
             _write_filter_log(profile.slug, sentinel)
             LAST_RUN_LOG = sentinel
+            LAST_RUN_RAW_RESPONSE = "\n\n--- batch boundary ---\n\n".join(raw_responses)
+            LAST_RUN_USAGE = {
+                "step": "ai_filter",
+                "provider": "anthropic",
+                "model": "claude-haiku-4-5",
+                "input_tokens": total_in,
+                "output_tokens": total_out,
+            }
             return []
 
         if bare_indices is not None:
             passed_set = set(bare_indices)
-            evaluations = [
-                {"index": i, "pass": i in passed_set, "reason": "(legacy indices-only response)"}
-                for i in range(len(listings))
+            batch_evals = [
+                {"index": local_i, "pass": local_i in passed_set, "reason": "(legacy indices-only response)"}
+                for local_i in range(len(batch))
             ]
 
-    except Exception as e:
-        _loud(f"Filtering LLM call failed: {e!r}")
-        sentinel = [{
-            "index": -1, "pass": False, "reason": f"ai_filter exception: {e!r}",
-            "title": "(filter call failed)", "price": None, "url": None, "source": None,
-        }]
-        _write_filter_log(profile.slug, sentinel)
-        LAST_RUN_LOG = sentinel
-        return []
+        # Map local indices back to global indices and merge.
+        for ev in batch_evals:
+            if not isinstance(ev, dict):
+                continue
+            try:
+                local_i = int(ev.get("index"))
+            except (TypeError, ValueError):
+                continue
+            if not (0 <= local_i < len(batch)):
+                continue
+            global_idx = batch[local_i]
+            if global_idx in evaluations_by_index:
+                continue
+            evaluations_by_index[global_idx] = {
+                "pass": bool(ev.get("pass")),
+                "reason": str(ev.get("reason", "")).strip(),
+            }
+
+    LAST_RUN_RAW_RESPONSE = "\n\n--- batch boundary ---\n\n".join(raw_responses)
+    LAST_RUN_USAGE = {
+        "step": "ai_filter",
+        "provider": "anthropic",
+        "model": "claude-haiku-4-5",
+        "input_tokens": total_in,
+        "output_tokens": total_out,
+    }
 
     # Build log entries (one per listing the model evaluated) and pick the survivors.
     log_entries: list[dict] = []
     passed_listings: list[Listing] = []
-    seen_indices: set[int] = set()
 
-    for ev in evaluations:
-        if not isinstance(ev, dict):
-            continue
-        try:
-            idx = int(ev.get("index"))
-        except (TypeError, ValueError):
-            continue
-        if not (0 <= idx < len(listings)) or idx in seen_indices:
-            continue
-        seen_indices.add(idx)
-
-        passed = bool(ev.get("pass"))
-        reason = str(ev.get("reason", "")).strip() or ("passed all rules" if passed else "no reason given")
+    for idx in range(len(listings)):
         lst = listings[idx]
+        ev = evaluations_by_index.get(idx)
+        if ev is None:
+            log_entries.append({
+                "index": idx,
+                "pass": False,
+                "reason": "no verdict returned by model",
+                "title": lst.title,
+                "price": lst.unit_price_usd,
+                "url": lst.url,
+                "source": lst.source,
+            })
+            continue
+
+        passed = ev["pass"]
+        reason = ev["reason"] or ("passed all rules" if passed else "no reason given")
         log_entries.append({
             "index": idx,
             "pass": passed,
@@ -348,22 +449,6 @@ ONLY output the JSON object.
         })
         if passed:
             passed_listings.append(lst)
-
-    # Mark any listings the model dropped from its response as failures with an explicit reason
-    # so the log is exhaustive and the user can see exactly what was evaluated.
-    for idx in range(len(listings)):
-        if idx in seen_indices:
-            continue
-        lst = listings[idx]
-        log_entries.append({
-            "index": idx,
-            "pass": False,
-            "reason": "no verdict returned by model",
-            "title": lst.title,
-            "price": lst.unit_price_usd,
-            "url": lst.url,
-            "source": lst.source,
-        })
 
     _write_filter_log(profile.slug, log_entries)
     LAST_RUN_LOG = list(log_entries)

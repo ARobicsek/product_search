@@ -56,6 +56,85 @@ class SynthesisResult:
 
 SYNTH_MAX_LISTINGS = 30
 
+# Reserve up to this many of the cheapest listings PER SOURCE before filling
+# the rest of the table by global cheapest. This guarantees vendors that
+# return only a few candidates (e.g. Amazon's 3 listings vs 39 from eBay) get
+# representation in the ranked table even when their prices sit above the 30
+# cheapest eBay rows. Setting to 0 reverts to pure-cheapest ranking.
+SYNTH_RESERVED_PER_SOURCE = 3
+
+
+def _rank_listings(listings: list[Listing], limit: int) -> list[Listing]:
+    """Return up to ``limit`` listings ranked for display.
+
+    Strategy: take the cheapest ``SYNTH_RESERVED_PER_SOURCE`` from each
+    distinct ``(source, vendor_host)`` tuple to guarantee multi-source
+    coverage, then fill the remaining slots from the global cheapest of what's
+    left. Output is then re-sorted globally by total-for-target so the rank
+    column still reads cheapest-first.
+
+    The grouping key tracks the universal_ai per-vendor identity (each
+    universal_ai_search URL has a different ``vendor_host``) so a profile
+    with three vendor URLs gets up to 3×N reserved slots, not N total.
+    """
+
+    def _key(lst: Listing) -> tuple[int, float]:
+        if lst.total_for_target_usd is not None:
+            return (0, lst.total_for_target_usd)
+        if lst.unit_price_usd is not None:
+            return (1, lst.unit_price_usd)
+        return (2, 0.0)
+
+    def _group_key(lst: Listing) -> tuple[str, str | None]:
+        host: str | None = None
+        if lst.source == "universal_ai_search":
+            host = (lst.attrs or {}).get("vendor_host")
+            if not host:
+                from urllib.parse import urlparse
+                host = urlparse(lst.url).netloc.lower() or None
+        return (lst.source, host)
+
+    if limit <= 0 or not listings:
+        return []
+
+    sorted_all = sorted(listings, key=_key)
+    if SYNTH_RESERVED_PER_SOURCE <= 0 or limit >= len(sorted_all):
+        return sorted_all[:limit]
+
+    # Bucket by (source, host). Within each bucket the order is preserved
+    # from sorted_all, which is global-cheapest-first — so taking the first
+    # K is the per-source-cheapest K.
+    buckets: dict[tuple[str, str | None], list[Listing]] = {}
+    for lst in sorted_all:
+        buckets.setdefault(_group_key(lst), []).append(lst)
+
+    selected: list[Listing] = []
+    seen: set[int] = set()
+    for bucket in buckets.values():
+        for lst in bucket[:SYNTH_RESERVED_PER_SOURCE]:
+            if id(lst) not in seen:
+                seen.add(id(lst))
+                selected.append(lst)
+
+    # If reserved-per-source already overflows, trim to the global cheapest
+    # within the selected set.
+    if len(selected) >= limit:
+        return sorted(selected, key=_key)[:limit]
+
+    # Fill remaining slots from the global cheapest listings not already
+    # selected.
+    remaining = limit - len(selected)
+    for lst in sorted_all:
+        if id(lst) in seen:
+            continue
+        selected.append(lst)
+        seen.add(id(lst))
+        remaining -= 1
+        if remaining == 0:
+            break
+
+    return sorted(selected, key=_key)
+
 
 def build_input_payload(
     listings: list[Listing],
@@ -67,13 +146,7 @@ def build_input_payload(
 ) -> dict[str, Any]:
     """Shape the JSON payload the LLM sees."""
 
-    def _key(lst: Listing) -> tuple[int, float]:
-        if lst.total_for_target_usd is None:
-            return (1, 0.0)
-        return (0, lst.total_for_target_usd)
-
-    sorted_listings = sorted(listings, key=_key)
-    truncated = sorted_listings[:max_listings]
+    truncated = _rank_listings(listings, max_listings)
     listings_json = [lst.to_dict() for lst in truncated]
 
     diff_json: dict[str, Any] | None
@@ -225,14 +298,9 @@ def build_listings_table_md(
     lines.append("| " + " | ".join(headers) + " |")
     lines.append("|" + "|".join(["---"] * len(headers)) + "|")
 
-    def _key(lst: Listing) -> tuple[int, float]:
-        if lst.total_for_target_usd is None:
-            return (1, 0.0)
-        return (0, lst.total_for_target_usd)
+    ranked = _rank_listings(listings, SYNTH_MAX_LISTINGS)
 
-    sorted_listings = sorted(listings, key=_key)[:SYNTH_MAX_LISTINGS]
-
-    for i, lst in enumerate(sorted_listings, 1):
+    for i, lst in enumerate(ranked, 1):
         cells = [COLUMN_DEFS[c][1](i, lst) for c in cols]
         lines.append("| " + " | ".join(cells) + " |")
 

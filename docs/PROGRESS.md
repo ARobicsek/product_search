@@ -7,6 +7,26 @@
 **Phase 17 — Schedule Editor. IN PROGRESS.**
 Moved to the next scheduled phase after completing Phase 16.
 
+## Status as of 2026-05-09 (UX paper-cuts cleanup — between Phase 16 and 17)
+
+Six unrelated UX bugs surfaced from a paintball-pistol onboarding session + Bose Amazon-row visibility complaint. All six fixed in one batch; Phase 17 (Schedule editor UI) is still the next scheduled work.
+
+| Issue | Cause | Fix |
+|---|---|---|
+| 1. Reports display literal `universal_ai (https://...)` and `universal_ai_search` strings | Adapter id leaked into Sources/Pending/Run-cost panels | Use vendor host (`amazon.com`) everywhere user-facing in [cli.py](../worker/src/product_search/cli.py); listing-table `Source` column was already correct via `_source_label` |
+| 2. Onboarder picked broad category URLs (`/airsoft-pistols/`) over narrow search URLs | Prompt didn't distinguish | Updated [onboard_v1.txt](../worker/src/product_search/onboarding/prompts/onboard_v1.txt) §5 with explicit good/bad examples and a "STRONGLY PREFER search URLs" rule; re-synced via `web/scripts/sync-prompt.js` |
+| 3. New profile saves fail with `spec_attrs: needs at least one attribute` and `schedule: expected object` | Schema required both; non-RAM products and "no schedule" requests legitimately omit them | Made both optional in [profile.py](../worker/src/product_search/profile.py) and [schema.ts](../web/lib/onboard/schema.ts); scheduler skips profiles with no schedule |
+| 3 (Amazon 503) | Save-time probe demoted `amazon.com` on bare-fetch HTTP 503 even though production AlterLab handles Amazon fine | Added AlterLab-known-good host allowlist in [probe-url.ts](../web/lib/onboard/probe-url.ts) — Amazon/Walmart/eBay/Backmarket bypass 5xx demotion |
+| 4. Run produced 0 listings; report says "ai_filter unexpected JSON structure: `{'index':0,'pass':True,...}`" | LLM response was truncated mid-array; parser fell through to first complete inner eval object | Two-part fix in [ai_filter.py](../worker/src/product_search/validators/ai_filter.py): (a) batch listings into chunks of 50 so each response stays well under max_tokens; (b) hardened `_extract_json` to reject single-eval-shaped inner objects |
+| 5. Bose Amazon listings (3 of 42 passing) never appeared in the top-30 ranked table | Pure cheapest-first sort meant 30 used eBay rows filled every slot | Added `_rank_listings` in [synthesizer.py](../worker/src/product_search/synthesizer/synthesizer.py) — reserves up to `SYNTH_RESERVED_PER_SOURCE = 3` rows per `(source, vendor_host)` then fills with global cheapest |
+| 6. Onboarder always proposes RAM-style default columns | Prompt had a single static default | Onboard prompt §8 now picks defaults by `target.unit`/`target.amount`: single-unit consumer goods get `[rank, source, title, price_unit, condition, seller, seller_rating, flags]` (drops `qty`, `total_for_target`, `qvl_status`); RAM keeps the historical default |
+
+**Tests**: 172/172 worker tests pass (was 168 — added 2 ai_filter tests for batching + truncated-envelope rejection, 2 synthesizer tests for top-N-per-source reservation). Web `tsc --noEmit` and `eslint` clean.
+
+**Next session — start here**:
+1. Phase 17 (Schedule editor UI) is still the active phase. Brief: [PHASES.md](PHASES.md#phase-17--schedule-editor-ui).
+2. The schedule-optional change means the editor should support clearing the schedule (set `null`), not just changing the cron string.
+
 ## Status as of 2026-05-05 (Stale Screen Issue Resolved)
 
 **The "stale screen problem" is definitively resolved by bypassing `raw.githubusercontent.com`.**

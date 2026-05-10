@@ -322,7 +322,14 @@ def _cmd_search(
                         or query.storefront_url
                         or "?"
                     )
-                    usage["step"] = f"universal_ai ({src_url})"
+                    # Use the vendor host for the cost panel's Step column —
+                    # the literal adapter id and full URL are noise; the host
+                    # uniquely identifies the vendor for users.
+                    from urllib.parse import urlparse as _urlparse
+                    host_for_step = _urlparse(src_url).netloc.lower()
+                    if host_for_step.startswith("www."):
+                        host_for_step = host_for_step[4:]
+                    usage["step"] = host_for_step or src_url
                     universal_ai_usage.append(usage)
             else:
                 error_msg = "no adapter wired"
@@ -332,8 +339,9 @@ def _cmd_search(
             print(f"ERROR ({source.id} fetch): {exc}", file=sys.stderr)
         # Disambiguate multiple universal_ai_search rows in the Sources
         # panel by the vendor host so the user can tell which vendor
-        # returned what (e.g. "universal_ai (audio46.com)" vs
-        # "universal_ai (headphones.com)" instead of three identical rows).
+        # returned what (e.g. "audio46.com" vs "headphones.com" instead of
+        # three identical rows). Drop the literal adapter id from the
+        # display label — users don't care that it's the universal adapter.
         display_source = source.id
         match_host: str | None = None
         if source.id == "universal_ai_search":
@@ -345,7 +353,7 @@ def _cmd_search(
                     host = host[4:]
                 if host:
                     match_host = host
-                    display_source = f"universal_ai ({host})"
+                    display_source = host
         source_stats.append({
             "source": source.id,
             # ``match_host`` is the per-source-entry tiebreaker for the
@@ -709,7 +717,25 @@ def _build_sources_searched_md(
 
     pending = getattr(profile, "sources_pending", []) or []
     if pending:
-        names = ", ".join(getattr(p, "id", "?") for p in pending)
+        # Render each pending entry by its most descriptive label: a
+        # universal_ai_search demotion shows the vendor host (e.g.
+        # ``bestbuy.com``), an unwired adapter shows its id (e.g.
+        # ``newegg_search``). Falls back to ``?`` only when nothing useful
+        # is available.
+        from urllib.parse import urlparse as _urlparse_pending
+
+        def _pending_label(p: object) -> str:
+            pid = getattr(p, "id", None)
+            extra = getattr(p, "model_extra", None) or {}
+            url = extra.get("url") if isinstance(extra, dict) else None
+            if pid == "universal_ai_search" and isinstance(url, str) and url:
+                host = _urlparse_pending(url).netloc.lower()
+                if host.startswith("www."):
+                    host = host[4:]
+                return host or url
+            return pid or "?"
+
+        names = ", ".join(_pending_label(p) for p in pending)
         lines.append("")
         lines.append(f"_Pending (not yet wired): {names}._")
     return "\n".join(lines)
@@ -846,6 +872,10 @@ def _cmd_scheduler_tick() -> None:
             profile = load_profile(slug)
         except Exception as exc:
             print(f"Skipping {slug} (invalid profile): {exc}", file=sys.stderr)
+            continue
+
+        if profile.schedule is None:
+            print(f"[{now.isoformat()}] Skipping {slug} (no schedule — run-now only)", file=sys.stderr)
             continue
 
         cron = profile.schedule.cron

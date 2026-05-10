@@ -542,3 +542,121 @@ def test_synthesize_propagates_error_when_retry_also_fabricates() -> None:
             synthesize(
                 [listing], None, profile, provider="glm", model="glm-4.5-flash"
             )
+
+
+# ---------------------------------------------------------------------------
+# Top-N-per-source ranking (issue #5: 2026-05-09 Bose run had 0 of 3 Amazon
+# listings in the top 30 because used eBay listings filled every slot).
+# ---------------------------------------------------------------------------
+
+
+def _listing_for_source(
+    source: str,
+    url: str,
+    *,
+    total_for_target_usd: float,
+    vendor_host: str | None = None,
+    title: str | None = None,
+) -> Listing:
+    attrs: dict = {"capacity_gb": 32, "speed_mts": 4800, "form_factor": "RDIMM"}
+    if vendor_host:
+        attrs["vendor_host"] = vendor_host
+    return Listing(
+        source=source,
+        url=url,
+        title=title or f"{source} {url}",
+        fetched_at=datetime(2026, 4, 28, 12, 0, tzinfo=UTC),
+        brand="Samsung",
+        mpn="M321",
+        attrs=attrs,
+        condition="new",
+        is_kit=False,
+        kit_module_count=1,
+        unit_price_usd=total_for_target_usd / 8,
+        kit_price_usd=None,
+        quantity_available=10,
+        seller_name="seller",
+        seller_rating_pct=99.0,
+        seller_feedback_count=100,
+        ship_from_country="US",
+        qvl_status="qvl",
+        flags=[],
+        total_for_target_usd=total_for_target_usd,
+    )
+
+
+def test_rank_listings_reserves_top_n_per_source():
+    """Even when one source has many cheap listings, every distinct source
+    gets at least SYNTH_RESERVED_PER_SOURCE rows in the top-N output."""
+    from product_search.synthesizer.synthesizer import (
+        SYNTH_RESERVED_PER_SOURCE,
+        _rank_listings,
+    )
+
+    # 30 cheap eBay listings ($100..$129 totals) and 3 expensive Amazon
+    # listings ($200..$220 totals). Pre-fix, the Amazon listings would never
+    # appear in the top 30. Post-fix, the top 3 from Amazon are reserved.
+    ebay = [
+        _listing_for_source("ebay_search", f"https://e/{i}", total_for_target_usd=100.0 + i)
+        for i in range(30)
+    ]
+    amazon = [
+        _listing_for_source(
+            "universal_ai_search",
+            f"https://www.amazon.com/{i}",
+            total_for_target_usd=200.0 + i * 10,
+            vendor_host="amazon.com",
+        )
+        for i in range(3)
+    ]
+
+    ranked = _rank_listings(ebay + amazon, 30)
+    assert len(ranked) == 30
+
+    sources = [(lst.source, (lst.attrs or {}).get("vendor_host")) for lst in ranked]
+    amazon_count = sum(1 for s, h in sources if s == "universal_ai_search" and h == "amazon.com")
+    assert amazon_count >= min(SYNTH_RESERVED_PER_SOURCE, 3), (
+        f"Expected ≥{SYNTH_RESERVED_PER_SOURCE} Amazon rows reserved; got {amazon_count}. "
+        f"Sources in output: {sources}"
+    )
+
+    # Output is still sorted globally by total-for-target so the Rank column
+    # reads cheapest-first.
+    totals = [lst.total_for_target_usd for lst in ranked]
+    assert totals == sorted(totals)
+
+
+def test_rank_listings_distinguishes_universal_ai_vendors():
+    """Two different universal_ai_search URLs (different vendor_host) get
+    treated as separate sources for the per-source reservation."""
+    from product_search.synthesizer.synthesizer import _rank_listings
+
+    ebay = [
+        _listing_for_source("ebay_search", f"https://e/{i}", total_for_target_usd=100.0 + i)
+        for i in range(28)
+    ]
+    amazon = [
+        _listing_for_source(
+            "universal_ai_search",
+            f"https://www.amazon.com/{i}",
+            total_for_target_usd=300.0 + i,
+            vendor_host="amazon.com",
+        )
+        for i in range(2)
+    ]
+    walmart = [
+        _listing_for_source(
+            "universal_ai_search",
+            f"https://www.walmart.com/{i}",
+            total_for_target_usd=350.0 + i,
+            vendor_host="walmart.com",
+        )
+        for i in range(2)
+    ]
+
+    ranked = _rank_listings(ebay + amazon + walmart, 30)
+    assert len(ranked) == 30
+    hosts = [(lst.attrs or {}).get("vendor_host") for lst in ranked if lst.source == "universal_ai_search"]
+    assert "amazon.com" in hosts and "walmart.com" in hosts, (
+        f"Both Amazon and Walmart should appear in top 30; got hosts={hosts}"
+    )
