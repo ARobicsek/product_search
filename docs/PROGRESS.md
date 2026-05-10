@@ -7,6 +7,33 @@
 **Phase 17 — Schedule Editor. IN PROGRESS.**
 Moved to the next scheduled phase after completing Phase 16.
 
+## Status as of 2026-05-10 (UX paper-cuts cleanup, round 2 — between Phase 16 and 17)
+
+Re-onboarded `umarex-t4e-walther-ppq-43` against the post-2026-05-09 prompt and saw four new fault classes worth fixing in one batch. Phase 17 is still the next scheduled work.
+
+| Issue | Cause | Fix |
+|---|---|---|
+| 1. Onboarder still emitted RAM-shaped `target.configurations: [{module_count: 1, module_capacity_gb: 1}]` for a non-RAM product | Schema required `min_length=1` so the prompt taught the LLM to emit a degenerate placeholder | Made `Target.configurations` default to `[]` in [profile.py](../worker/src/product_search/profile.py); mirrored in [schema.ts](../web/lib/onboard/schema.ts); rewrote [onboard_v1.txt](../worker/src/product_search/onboarding/prompts/onboard_v1.txt) §"target" + `<draft>` rules to OMIT `configurations` for non-RAM products entirely |
+| 2. Onboarder emitted `qvl_file: products/<slug>/qvl.yaml` for a non-RAM product, then `cli.py` required the empty stub file to exist | Schema required `qvl_file: str`; `cli.py` called `load_qvl()` unconditionally | Made `Profile.qvl_file: str \| None = None` in [profile.py](../worker/src/product_search/profile.py); validator only enforces slug-in-path when set; [cli.py](../worker/src/product_search/cli.py) skips `load_qvl` when qvl_file is None; mirrored in TS schema; prompt §"Reference data" + step 6 + `<draft>` rules now say "RAM only — omit for everything else" |
+| 3. Onboarder picked `umarex.com` (German parent) when the user named "Umarex USA"; `airsoftstation.com/<product-slug>/` (single-product page) instead of a search URL; silently dropped T4E Guns with "I ran out of search capacity" | Prompt didn't enumerate these failure modes | Added 3 new instruction blocks in [onboard_v1.txt](../worker/src/product_search/onboarding/prompts/onboard_v1.txt) §5: (a) URL classification heuristics by path (`/dp/` `/itm/` `/products/<slug>` are single-product, NOT search); (b) USA-subsidiary discovery (try `<brand>usa.com` before falling back to parent); (c) "never silently drop a vendor" rule — always retry or add to `sources_pending` with an explicit user-facing note |
+| 4. Amazon B076DFQYGH card recorded as $180.28 — but `price_hints` actually leaked the $219.99 strikethrough List price and a $168.76 sibling-card price | `_amazon_card_primary_price` walked at most 10 ancestors; rating-link anchor was at depth 10, helper returned None, generic regex sweep grabbed every `$` token in the card text | [universal_ai.py:724](../worker/src/product_search/adapters/universal_ai.py#L724): bumped walk depth 10 → 25; pinned by [test_amazon_card_primary_price_picks_buy_now_over_list_strikethrough](../worker/tests/test_universal_ai.py) using new fixture [amazon-umarex-t4e-walther-2026-05-09.html](../worker/tests/fixtures/universal_ai/amazon-umarex-t4e-walther-2026-05-09.html) |
+
+**Note on issue #4 / "European VPN" theory.** The captured fixture has a "Delivering to Napoleon" header (US data center), no EUR markers anywhere, and the `<span class="a-price">` shows USD `$180.28` with a strikethrough `<span class="a-text-price" data-a-strike="true">List: $219.99</span>`. So the system was extracting Amazon's actual displayed buy-now price for that AlterLab session — *not* a EUR/FX issue. The remaining ~$10 gap between $180.28 (system) and $189.95 (user-visible page) is Amazon's session-specific dynamic pricing, which we can't correct from the extractor. The new fixture pins the buy-now-vs-strikethrough discrimination as a regression test.
+
+**Tests**: 176/176 worker tests pass (was 172 — added 3 schema tests for non-RAM optionality + 1 Amazon strikethrough regression). Web `tsc --noEmit` clean; `eslint` errors that remain are all in pre-existing files I didn't touch (`public/sw.js`, `scripts/sync-prompt.js`, `scripts/test-delete.ts`).
+
+**Live state at handoff** (2026-05-10):
+- New committed fixture: `worker/tests/fixtures/universal_ai/amazon-umarex-t4e-walther-2026-05-09.html` (1.2 MB).
+- One leftover artefact in working tree: `dialog_with_onboarder2.txt` (the failing-onboarding transcript used as the diagnostic input).
+
+**Next session — start here**:
+1. **Phase 17 (Schedule editor UI)** is still the active phase. Brief: [PHASES.md](PHASES.md#phase-17--schedule-editor-ui).
+2. **Re-onboarding verification (deferred manual test)** — the 4 fixes above should let the user (or a fresh onboarding run) edit the umarex profile, drop the RAM placeholders, and re-confirm vendors using the prompt's new URL-classification + USA-subsidiary + never-silently-drop rules.
+
+**Deferred / not done this session (item 5 from the UX critique)**:
+- **Report-column preset still doesn't match the prompt's preset.** Today's umarex run rendered `[Rank, Source, Title, Price (unit), Total for target, Qty, Seller, Flags]` — not the `[rank, source, title, price_unit, condition, seller, seller_rating, flags]` preset that issue #6 in the 2026-05-09 paper-cuts cleanup tried to apply for single-unit consumer goods. Three possibilities: (a) the prompt change for issue #6 didn't survive the synth model's output, (b) the synth runtime default is the RAM-style set and overriding it requires the onboarder to emit `report_columns:` explicitly, or (c) profile.report_columns was emitted but the synth report rendered with the wrong list. Worth a focused dive next session.
+- **AI-filter spends ~70% of run cost validating obviously-correct eBay listings.** The umarex run's `ai_filter` step cost $0.0741 (44K input tokens) for ~110 candidates whose titles already match the profile slug verbatim. A token-overlap pre-filter (reject only listings with no overlap with the display name's tokens) could short-circuit ~80% of those calls without changing acceptance shape. Defer until a phase has bandwidth.
+
 ## Status as of 2026-05-09 (UX paper-cuts cleanup — between Phase 16 and 17)
 
 Six unrelated UX bugs surfaced from a paintball-pistol onboarding session + Bose Amazon-row visibility complaint. All six fixed in one batch; Phase 17 (Schedule editor UI) is still the next scheduled work.

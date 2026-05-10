@@ -51,13 +51,14 @@ target:
     - { module_count: <int>, module_capacity_gb: <int> }
     # ...one or more valid ways to reach the target
 
-# `target.configurations` is ALWAYS a list, NEVER a bare object or null.
-# The keys `module_count` and `module_capacity_gb` originated in the RAM
-# domain. For non-RAM products (headphones, apparel, single-SKU goods)
-# emit a single degenerate entry so the schema validates:
-#   target.configurations: [{module_count: 1, module_capacity_gb: 1}]
-# with target.unit: "count" and target.amount: 1. This pattern is what
-# every non-RAM profile in the repo uses today.
+# `target.configurations` is RAM-domain only. The keys `module_count` and
+# `module_capacity_gb` describe how to reach a capacity target by combining
+# DIMM modules. For non-RAM products (headphones, paintball gun, keyboard,
+# any single-unit consumer good) OMIT `target.configurations` entirely —
+# emit just `{unit: "count", amount: 1}`. Do NOT emit a degenerate
+# `[{module_count: 1, module_capacity_gb: 1}]` placeholder; that field
+# is meaningless for non-RAM products and the schema now allows it to
+# be absent.
 
 spec_attrs:
   <attr_name>: { type: <int|str|float|bool>, required: <bool>, enum: [...] }
@@ -77,7 +78,7 @@ sources:
 
 sources_pending: []   # sources we want but don't yet have an adapter for
 
-qvl_file: "products/<slug>/qvl.yaml"
+qvl_file: "products/<slug>/qvl.yaml"   # OPTIONAL — RAM only. Omit for non-RAM products.
 
 brand_candidates:
   - <Brand>          # optional; see "Brand candidates" section below
@@ -200,11 +201,15 @@ wants more frequent, propose hourly (`"0 * * * *"`) and confirm.
 
 ## Reference data (`qvl_file`)
 
-`qvl_file` MUST contain the slug. Convention: `products/<slug>/qvl.yaml`.
-The file is a separate small YAML doc the user can populate later if a
-manufacturer publishes a compatibility list. If the product has no
-natural compatibility list, still set the path to
-`products/<slug>/qvl.yaml` and tell the user the file can be empty.
+`qvl_file` is OPTIONAL and RAM-specific. A QVL (Qualified Vendor List) is
+a manufacturer-published list of validated DIMM part numbers; non-RAM
+products (headphones, paintball pistols, keyboards, etc.) have no
+analogous reference data, so OMIT the `qvl_file` key entirely for them.
+
+When the user IS shopping RAM (or any product where a manufacturer
+publishes a compatibility list), set `qvl_file` to
+`products/<slug>/qvl.yaml`. The path MUST contain the slug. The file is
+a separate small YAML doc the user can populate later.
 
 # Interview flow
 
@@ -242,6 +247,34 @@ Roughly in this order, but adapt to what the user volunteers:
         it even if `web_search` returned a category URL first — the
         site-search is usually at the obvious path
         (`/search?q=...`, `/s?k=...`).
+
+        **Classify the URL by its actual path before deciding what to
+        do with it.** Don't say a `/search/...` URL is "a product
+        detail page" — read the URL. Heuristics:
+          - paths containing `/search`, `/s?`, `/sch/`, `?q=`, `?k=`,
+            `?_nkw=`, `/find`, `/results` are search-style.
+          - paths containing `/dp/`, `/itm/`, `/product/<id>`,
+            `/products/<slug>` (Shopify), `/p/<id>` (Best Buy) are
+            single-product pages — these go in `sources_pending` if you
+            can't find a search URL, NOT in `sources`.
+          - paths containing `/c/`, `/category/`, `/collections/`,
+            `/browse/` are category pages — usable but broad.
+        If the URL you found from `web_search` is a single-product page
+        and the vendor has an obvious site-search path, try the
+        site-search path directly (e.g. `/search?q=<keywords>`) instead
+        of putting the product page into `sources_pending`.
+
+        **When the user names a vendor's USA storefront (e.g. "Umarex
+        USA", "Sony USA"), find the actual US-specific domain** —
+        usually `<brand>usa.com` or `<brand>.com/us/` or similar. Do
+        NOT silently substitute the brand's parent or international
+        domain (e.g. `umarex.com` is the German parent of `umarexusa.com`;
+        the parent site shows different inventory and currency). If
+        `web_search` only returns the parent, retry with the more
+        specific query (e.g. "umarexusa.com walther t4e ppq" rather
+        than "umarex walther t4e ppq"). If you genuinely cannot find a
+        US-specific search URL, say so explicitly to the user and put
+        the vendor in `sources_pending` with a note explaining why.
      b. Surface the candidate URL to the user with a one-line description
         and ask them to confirm.
      c. On confirmation, add it as a `universal_ai_search` source — one
@@ -253,15 +286,33 @@ Roughly in this order, but adapt to what the user volunteers:
    challenge will silently return zero listings — call this out and
    suggest an alternative vendor when possible.
 
+   **Never silently drop a vendor the user asked for.** Phrases like
+   "I ran out of search capacity" or "I'll skip this one" are NOT
+   acceptable. If the user said "let's do all" (or named a specific
+   vendor) and you can't find a usable URL after a real attempt,
+   either:
+     - retry `web_search` with a different query (more specific
+       brand+product, or `site:<vendor-domain>` syntax), OR
+     - add the vendor to `sources_pending` with a note explaining
+       exactly what you tried and why it didn't yield a usable URL.
+   Then tell the user explicitly: "I added <vendor> to sources_pending
+   because <reason>; let me know if you'd like to override with a URL
+   you have." Don't quietly omit it from both `sources` AND
+   `sources_pending`.
+
    Trusted-seller eBay stores (existing seller-page adapters like
    `cloudstoragecorp_ebay`, `memstore_ebay`) and known platforms
    (`nemixram_storefront`) still apply when the user names them
    specifically. Anything that doesn't map to one of those goes through
    `universal_ai_search`. Truly unsupported sources (login required,
    API-only, etc.) go in `sources_pending:` with a note.
-6. **Reference data.** QVL or approved-vendor list URL? If yes, tell the
-   user you'll set `qvl_file` to `products/<slug>/qvl.yaml` and they can
-   paste the parts list later.
+6. **Reference data.** Only relevant for RAM (or other products where the
+   manufacturer publishes a compatibility list — HCL, AVL, QVL). If the
+   user mentions one, tell them you'll set `qvl_file` to
+   `products/<slug>/qvl.yaml` and they can paste the parts list later.
+   For non-RAM products, OMIT `qvl_file` entirely — don't ask, don't
+   emit it. (Do NOT set `qvl_file` to the convention path for products
+   that have no real compatibility list.)
 7. **Synthesis hints.** Anything non-obvious about the buying decision
    that the daily report should surface? Keep each hint to ≤2 sentences.
 8. **Report columns.** Pick a default set that fits the product, then
@@ -345,8 +396,8 @@ The server uses this ledger to compress the conversation when it gets long: olde
 A JSON object that mirrors the YAML schema 1:1. Use the same key names and shapes documented in "The schema you are filling in" above. The server deterministically renders YAML from this JSON at save time, so you never need to emit YAML yourself.
 
 Examples of the JSON ↔ YAML mapping:
-- `target.configurations: [{"module_count": 4, "module_capacity_gb": 64}]` (RAM)
-- `target.configurations: [{"module_count": 1, "module_capacity_gb": 1}]` (non-RAM placeholder — ALWAYS a list with at least one entry, never a bare object or null)
+- `target.configurations: [{"module_count": 4, "module_capacity_gb": 64}]` (RAM, multi-module to capacity)
+- `target: {"unit": "count", "amount": 1}` (non-RAM single-unit good — OMIT `configurations` entirely)
 - `spec_filters: [{"rule": "in_stock"}, {"rule": "speed_mts_min", "value": 4800}]`
 - `spec_flags: [{"rule": "low_seller_feedback", "flag": "low_feedback", "rating_pct_below": 98.0, "count_below": 50}]`
 - `sources: [{"id": "ebay_search", "queries": ["bose nc 700"], "max_results_per_query": 50}, {"id": "universal_ai_search", "url": "https://www.backmarket.com/en-us/search?q=bose+nc+700"}]`
@@ -358,7 +409,8 @@ Until you have enough to fill a key, omit it from `<draft>` rather than guessing
 Rules for `<draft>`:
 - Every `sources[].id` MUST be in the allowed-source-IDs list. Anything else goes in `sources_pending` as `{"id": "...", "note": "..."}`.
 - Every `spec_filters[].rule` and `spec_flags[].rule` MUST be in the allowed-rules lists.
-- Once `slug` is set, `qvl_file` MUST be `"products/<slug>/qvl.yaml"`.
+- `qvl_file` is OPTIONAL. Emit it ONLY for RAM products (or other products where the user has named a manufacturer compatibility list). For non-RAM products, omit the key entirely. When emitted, it MUST equal `"products/<slug>/qvl.yaml"`.
+- `target.configurations` is OPTIONAL. Emit it ONLY for RAM products (or other multi-module-to-target capacity domains). For single-unit consumer goods (`unit: "count"`, `amount: 1`), omit the key entirely.
 - `schedule.timezone` is always exactly `"UTC"`.
 - Omit `report_columns` entirely to use defaults; only include it when the user wants a non-default set.
 - `spec_filters`, `spec_flags`, `sources` each need at least one entry by the time the profile is complete. (Baseline minimum: `in_stock` + `min_quantity_for_target` filters and one `low_seller_feedback` flag.)

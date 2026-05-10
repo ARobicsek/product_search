@@ -721,9 +721,18 @@ def _amazon_card_primary_price(node: Any) -> str | None:
     exists in the card — in which case the caller falls back to the
     generic regex sweep.
     """
+    # Walk up until we find the card boundary OR exhaust parents.  The
+    # original cap of 10 hops was too tight: deeply-nested anchors (rating
+    # widgets, nested icons) can sit 10+ levels under ``s-result-item``,
+    # and when the helper returns None the caller falls through to the
+    # generic regex sweep — which then leaks the strikethrough List price
+    # and any sibling-card prices into ``price_hints``.  Pinned by the
+    # 2026-05-09 paintball-pistol fixture (rating anchor at depth 10
+    # yielded a 3-element price list including $219.99 List + $168.76
+    # neighbour-card price).
     cur = node
     card = None
-    for _ in range(10):
+    for _ in range(25):
         parent = getattr(cur, "parent", None)
         if parent is None:
             break

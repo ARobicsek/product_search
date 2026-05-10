@@ -256,6 +256,57 @@ def test_rejects_blank_brand_candidate() -> None:
 
 
 # ---------------------------------------------------------------------------
+# Non-RAM optional fields (target.configurations + qvl_file)
+# ---------------------------------------------------------------------------
+
+
+def test_target_configurations_is_optional_for_non_ram() -> None:
+    """Non-RAM profiles can omit `target.configurations` entirely.
+
+    Pinned because the onboarder used to emit a degenerate
+    [{module_count: 1, module_capacity_gb: 1}] placeholder for
+    single-unit consumer goods (paintball pistols, headphones, etc.).
+    The placeholder is meaningless and noisy — the schema now allows
+    the list to be empty (or omitted, defaulting to []).
+    """
+    import copy
+
+    p = copy.deepcopy(VALID_PROFILE)
+    p["target"] = {"unit": "count", "amount": 1}  # No `configurations` key.
+    p["spec_attrs"] = {}
+    p["spec_filters"] = [{"rule": "in_stock"}]
+    profile = Profile.model_validate(p)
+    assert profile.target.configurations == []
+
+
+def test_qvl_file_is_optional_for_non_ram() -> None:
+    """Non-RAM profiles can omit `qvl_file` entirely.
+
+    Pinned because QVL is RAM-specific (manufacturer-published DIMM
+    compatibility lists). A paintball pistol or pair of headphones has
+    no analogous reference data, so emitting a path to an empty
+    qvl.yaml is pure noise.
+    """
+    import copy
+
+    p = copy.deepcopy(VALID_PROFILE)
+    del p["qvl_file"]
+    profile = Profile.model_validate(p)
+    assert profile.qvl_file is None
+
+
+def test_qvl_file_when_set_must_still_contain_slug() -> None:
+    """Optional doesn't mean unchecked: a stale qvl_file path still rejects."""
+    import copy
+
+    bad = copy.deepcopy(VALID_PROFILE)
+    bad["qvl_file"] = "products/some-other-product/qvl.yaml"
+    with pytest.raises(ValidationError) as exc_info:
+        Profile.model_validate(bad)
+    assert "test-product" in str(exc_info.value)
+
+
+# ---------------------------------------------------------------------------
 # CLI integration test
 # ---------------------------------------------------------------------------
 

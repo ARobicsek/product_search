@@ -692,6 +692,38 @@ def test_amazon_card_primary_price_skips_strikethrough_and_used() -> None:
     assert sesame["price_hints"] == ["$469.29"], sesame["price_hints"]
 
 
+def test_amazon_card_primary_price_picks_buy_now_over_list_strikethrough() -> None:
+    """Real Amazon body: card with a "$180.28" buy-now + "List: $219.99"
+    strikethrough must yield only the buy-now in price_hints.
+
+    This pins the 2026-05-09 paintball-pistol diagnosis: the umarex T4E
+    card's $180.28 was the actual displayed buy-now (Amazon's dynamic
+    pricing for that AlterLab session), and the strikethrough $219.99
+    was correctly skipped. Captured live so the helper continues to
+    handle Amazon's `<span class="a-price"> ... <span class="a-price
+    a-text-price" data-a-strike="true"> ... </span>` ordering.
+    """
+    html = (
+        FIXTURE_DIR / "amazon-umarex-t4e-walther-2026-05-09.html"
+    ).read_text(encoding="utf-8")
+    cands = universal_ai._extract_candidates(
+        html, base_url="https://www.amazon.com/s?k=umarex+t4e+walther+ppq+.43"
+    )
+
+    # The Best-Seller B076DFQYGH card is the rank-1 result in this fixture.
+    target = None
+    for c in cands:
+        if "B076DFQYGH" in c["href"] and "/dp/" in c["href"]:
+            target = c
+            break
+    assert target is not None, "B076DFQYGH card not extracted from Amazon fixture"
+
+    # Buy-now $180.28 wins; List: $219.99 (data-a-strike="true") must be ignored.
+    assert target["price_hints"] == ["$180.28"], target["price_hints"]
+    # Defensive: $219.99 must not leak into the hint list under any path.
+    assert "$219.99" not in target["price_hints"]
+
+
 def test_amazon_card_primary_price_returns_none_outside_card() -> None:
     """The helper bails when no s-result-item ancestor exists, so the
     generic regex fallback runs instead. Sites that aren't Amazon-shaped

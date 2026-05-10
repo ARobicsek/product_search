@@ -183,15 +183,18 @@ def _cmd_validate(slug: str) -> None:
 
     print(f"[ok] profile.yaml  ({profile.display_name})")
 
-    try:
-        qvl = load_qvl(slug)
-        print(f"[ok] qvl.yaml      ({len(qvl.qvl)} entries)")
-    except FileNotFoundError:
-        print("[warn] qvl.yaml not found -- skipping QVL check")
-    except ValidationError as exc:
-        print(f"INVALID qvl.yaml for {slug!r}:", file=sys.stderr)
-        print(exc, file=sys.stderr)
-        sys.exit(1)
+    if profile.qvl_file is None:
+        print("[ok] qvl_file       (not set; QVL is RAM-only and skipped)")
+    else:
+        try:
+            qvl = load_qvl(slug)
+            print(f"[ok] qvl.yaml      ({len(qvl.qvl)} entries)")
+        except FileNotFoundError:
+            print("[warn] qvl.yaml not found -- skipping QVL check")
+        except ValidationError as exc:
+            print(f"INVALID qvl.yaml for {slug!r}:", file=sys.stderr)
+            print(exc, file=sys.stderr)
+            sys.exit(1)
 
     print(f"\nProfile {slug!r} is valid.")
     sys.exit(0)
@@ -252,7 +255,7 @@ def _cmd_search(
     from typing import Any
 
     from product_search.models import AdapterQuery
-    from product_search.profile import load_profile, load_qvl
+    from product_search.profile import QVL, load_profile, load_qvl
 
     # --- Load profile ---------------------------------------------------------
     if not no_validate:
@@ -260,7 +263,7 @@ def _cmd_search(
 
         try:
             profile = load_profile(slug)
-            qvl = load_qvl(slug)
+            qvl = load_qvl(slug) if profile.qvl_file is not None else QVL(qvl=[])
         except FileNotFoundError as exc:
             print(f"ERROR: {exc}", file=sys.stderr)
             sys.exit(1)
@@ -270,7 +273,7 @@ def _cmd_search(
             sys.exit(1)
     else:
         profile = load_profile(slug)
-        qvl = load_qvl(slug)
+        qvl = load_qvl(slug) if profile.qvl_file is not None else QVL(qvl=[])
 
     use_fixtures = os.environ.get("WORKER_USE_FIXTURES", "").strip() in ("1", "true", "yes")
     mode = "fixture" if use_fixtures else "live"

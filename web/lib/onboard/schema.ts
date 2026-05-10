@@ -66,7 +66,7 @@ export interface ParsedProfile {
   slug: string;
   display_name: string;
   description: string;
-  qvl_file: string;
+  qvl_file?: string;
   // ...rest of the fields are validated structurally but not exposed.
   [key: string]: unknown;
 }
@@ -139,9 +139,12 @@ function validateTarget(target: unknown, ctx: ValidationContext) {
   if (!t) return;
   asString(t.unit, 'target.unit', ctx);
   asInt(t.amount, 'target.amount', ctx, { gt: 0 });
+  // ``configurations`` is RAM-domain (how to reach the capacity target).
+  // Non-RAM products may omit it entirely or pass an empty list. When
+  // present, each entry must still be well-formed.
+  if (t.configurations === undefined || t.configurations === null) return;
   const configs = asArray(t.configurations, 'target.configurations', ctx);
   if (!configs) return;
-  if (configs.length < 1) ctx.errors.push('target.configurations: needs at least one entry');
   configs.forEach((c, i) => {
     const co = asObject(c, `target.configurations[${i}]`, ctx);
     if (!co) return;
@@ -261,9 +264,13 @@ export function parseAndValidateProfileYaml(text: string): ParsedProfile {
     validateSources(obj.sources_pending, 'sources_pending', true, 0, ctx);
   }
 
-  const qvlFile = asString(obj.qvl_file, 'qvl_file', ctx);
-  if (slug !== null && qvlFile !== null && !qvlFile.includes(slug)) {
-    ctx.errors.push(`qvl_file: must contain slug ${JSON.stringify(slug)}`);
+  // ``qvl_file`` is optional. RAM-domain reference data; non-RAM products
+  // omit it. When present, it must still reference the slug.
+  if (obj.qvl_file !== undefined && obj.qvl_file !== null) {
+    const qvlFile = asString(obj.qvl_file, 'qvl_file', ctx);
+    if (slug !== null && qvlFile !== null && !qvlFile.includes(slug)) {
+      ctx.errors.push(`qvl_file: must contain slug ${JSON.stringify(slug)}`);
+    }
   }
 
   if (obj.synthesis_hints !== undefined) {

@@ -106,7 +106,14 @@ class TargetConfiguration(BaseModel):
 class Target(BaseModel):
     unit: str
     amount: int = Field(gt=0)
-    configurations: list[TargetConfiguration] = Field(min_length=1)
+    # ``configurations`` is the RAM-domain mechanism for "how to reach the
+    # target capacity" (e.g. 8x32GB or 4x64GB to reach 256GB). Non-RAM
+    # products (single-unit consumer goods like headphones, paintball
+    # pistols) have nothing meaningful to put here, so the list defaults
+    # to empty. The ``min_quantity_for_target`` filter rule and the
+    # ``total_for_target_usd`` synthesizer column both no-op when the
+    # list is empty.
+    configurations: list[TargetConfiguration] = Field(default_factory=list)
 
 
 class SpecAttrDef(BaseModel):
@@ -220,7 +227,11 @@ class Profile(BaseModel):
     sources: list[Source] = Field(min_length=1)
     sources_pending: list[PendingSource] = Field(default_factory=list)
 
-    qvl_file: str
+    # ``qvl_file`` is the path to a Qualified Vendor List YAML — a RAM-domain
+    # concept (manufacturer-published lists of validated DIMM part numbers).
+    # Non-RAM products have no analogous reference data, so this is optional.
+    # When None, the run pipeline skips QVL annotation entirely.
+    qvl_file: str | None = None
 
     synthesis_hints: list[str] = Field(default_factory=list)
 
@@ -277,8 +288,8 @@ class Profile(BaseModel):
 
     @model_validator(mode="after")
     def slug_matches_qvl_path(self) -> Profile:
-        """qvl_file must contain the profile's own slug."""
-        if self.slug not in self.qvl_file:
+        """qvl_file (when set) must contain the profile's own slug."""
+        if self.qvl_file is not None and self.slug not in self.qvl_file:
             raise ValueError(
                 f"qvl_file {self.qvl_file!r} does not reference slug {self.slug!r}"
             )
