@@ -23,9 +23,21 @@ Six unrelated UX bugs surfaced from a paintball-pistol onboarding session + Bose
 
 **Tests**: 172/172 worker tests pass (was 168 — added 2 ai_filter tests for batching + truncated-envelope rejection, 2 synthesizer tests for top-N-per-source reservation). Web `tsc --noEmit` and `eslint` clean.
 
+**Live state at handoff** (2026-05-09):
+- Pushed: `4d9e0a6` (which contains `35b6886 fix: six UX paper-cuts...` — the substantive commit). Origin and local are in sync.
+- Rebase note: my new fix commit was patch-identical to a pre-existing local-only commit (`35b6886`), so `git pull --rebase` auto-deduplicated and no new SHA was produced. Final tree state is correct; only surprising thing is the missing reflog entry for "my" commit. Mentioned in case the same pattern recurs.
+- Working tree leftovers (not committed, not yours to worry about): `REPO_WALKTHROUGH.md` deleted locally, `dialog_with_onboarder.txt` untracked. Both are pre-existing local state from before this session.
+
 **Next session — start here**:
-1. Phase 17 (Schedule editor UI) is still the active phase. Brief: [PHASES.md](PHASES.md#phase-17--schedule-editor-ui).
-2. The schedule-optional change means the editor should support clearing the schedule (set `null`), not just changing the cron string.
+1. **Phase 17 (Schedule editor UI)** is the active phase. Brief: [PHASES.md](PHASES.md#phase-17--schedule-editor-ui).
+2. **Schedule-optional follow-through** — the editor must now support *clearing* the schedule (writing `schedule: null` / removing the key), not just rewriting the cron. This is a small but real new requirement for the editor's data model.
+3. **Onboarder verification (deferred)** — the prompt changes for issues #2 and #6 are not unit-tested. Worth a manual onboarding session against a fresh non-RAM product (e.g. a different paintball gun, a coffee grinder) to confirm: (a) the picked vendor URLs are search-style, (b) the proposed default columns match the consumer-goods preset, (c) `spec_attrs: {}` and the daily schedule both appear in the draft.
+4. **Re-run paintball pistol** — the [umarex-t4e-walther-ppq-43](../products/umarex-t4e-walther-ppq-43/profile.yaml) profile is now ready to validate the ai_filter batching fix against real data (its 144-listing run was the original repro of issue #4).
+
+**Deferred / not done this session**:
+- ADR-040 implementation (auto-demote universal_ai sources after 3 consecutive 0-yield runs). Policy is settled; code is the next-natural follow-up. See [DECISIONS.md ADR-040](DECISIONS.md#adr-040--vendor-reach-policy-auto-demote-universal_ai-sources-after-3-consecutive-0-yield-runs).
+- Live probe-at-chat-time for the onboarder (was option (b) for issue #2). The prompt change should be enough; revisit if onboarders still surface dead URLs.
+- ADRs for the six fixes shipped here. Each is small enough to live in PROGRESS.md alone, but a single bundled "ADR-041 — UX paper-cut cleanup batch" would document the rationale (especially #5's per-source reservation, which changes the visible report shape).
 
 ## Status as of 2026-05-05 (Stale Screen Issue Resolved)
 
