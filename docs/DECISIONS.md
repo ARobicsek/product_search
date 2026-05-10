@@ -9,6 +9,28 @@ Status values:
 
 ---
 
+## ADR-044 — Profile schema: `target.configurations` and `qvl_file` are RAM-domain-only and optional
+
+**Status**: ACCEPTED
+
+**Date**: 2026-05-10
+
+**Context**: Both `target.configurations` (a list of `{module_count, module_capacity_gb}`) and `qvl_file` (path to a Qualified Vendor List YAML) originate in the RAM domain — they describe how to combine DIMM modules to reach a capacity target and which manufacturer-validated part numbers exist. Non-RAM products (paintball pistols, headphones, keyboards, single-SKU consumer goods) have no analogue for either concept. Until this ADR, the schema required both: `configurations: list[...] = Field(min_length=1)` and `qvl_file: str`. The onboarder prompt taught the LLM to emit a degenerate `[{module_count: 1, module_capacity_gb: 1}]` placeholder and to set `qvl_file: "products/<slug>/qvl.yaml"` with a stub empty `qvl: []` file. This was pure noise — visible in every non-RAM `profile.yaml` in the repo, requiring a stub `qvl.yaml` to exist on disk so `cli.py:load_qvl()` wouldn't fail, and obscuring the fact that those keys are RAM-specific.
+
+**Decision**:
+1. `Target.configurations` defaults to `[]` (no `min_length` constraint). The `min_quantity_for_target` filter and the `total_for_target_usd` synthesizer column already handled the empty-list case correctly (they no-op when `capacity_gb` is None on the listing); no downstream change required.
+2. `Profile.qvl_file: str | None = None`. The slug-in-path validator only fires when `qvl_file is not None`. `cli.py` skips `load_qvl()` and passes an empty `QVL(qvl=[])` to the pipeline when `qvl_file` is None; `validators/qvl.py:annotate_qvl` already handled `qvl=None`.
+3. The TS schema mirror in `web/lib/onboard/schema.ts` is updated to match (both keys optional; `configurations` allows undefined or empty list; `qvl_file` only validated when present).
+4. The onboarder prompt (`worker/src/product_search/onboarding/prompts/onboard_v1.txt`) is rewritten to OMIT both keys for non-RAM products — no degenerate placeholder, no stub QVL path. The historical "ALWAYS a list with at least one entry" rule is removed.
+
+**Consequence**:
+- Non-RAM profiles are smaller and more honest about which fields apply to them.
+- Existing RAM profiles (DDR5-RDIMM-256GB) continue to validate unchanged — they still emit both keys with real values.
+- Existing non-RAM profiles (Bose NC 700, paintball pistol) still validate even with the stub placeholders left in place — old data is forward-compatible. A future onboarder pass to clean them up is a follow-up.
+- New `test_profile.py` cases pin: configurations omitted → `[]`; `qvl_file` omitted → `None`; `qvl_file` set but with the wrong slug → validation error.
+
+---
+
 ## ADR-043 — Abandon raw.githubusercontent.com for dynamic data to bypass origin caching
 
 **Status**: ACCEPTED
