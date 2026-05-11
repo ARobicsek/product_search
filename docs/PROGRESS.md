@@ -4,8 +4,42 @@
 
 ## Active phase
 
-**Phase 17 — Schedule Editor + Alerts. IN PROGRESS.**
+**Phase 17 — Schedule Editor + Alerts. UI/save paths VERIFIED end-to-end; fire-path partially blocked.**
 Scope expanded 2026-05-11: in addition to the original cron editor, Phase 17 now also covers user-configurable price/vendor alerts (NOT handled by the onboarder — UI-only).
+
+## Status as of 2026-05-11 mid-morning (Phase 17 — Part E partial)
+
+**Part E manual end-to-end via Chrome DevTools MCP — UI/save fully verified; fire-path verification blocked by unrelated workflow failure.**
+
+What was verified end-to-end on production (`ari-product-search.vercel.app/homelabs-beverage-cooler`):
+1. **Toolbar bug fix landed** — `<ScheduleEditorButton />` was missing from the report-branch of [page.tsx](../web/app/[product]/page.tsx) (only in empty-state branch). Parts A+B PROGRESS note "wired into both report and empty-state views" was incorrect. Fixed in commit `e71cb34`.
+2. **Add rule via UI** — opened the popover, added `price_below` threshold $400, observed describeRule output ("Cheapest drops below $400"), saved → committed as `24f45af`. Live YAML on origin/main contains the rule.
+3. **Subscribe-state nudge banner** — appeared in the popover when alerts ≥1 AND no local PWA subscription (Chrome DevTools MCP spawns a fresh Chromium with no subscriptions, so the nudge always triggers there — exactly the intended path).
+4. **Edit rule + add second rule round-trip** — re-opened popover (rule loaded from server-side YAML), edited threshold $400→$500, added a `vendor_seen` rule for `walmart.com`, saved both in one POST → committed as `fa2a3ad`. YAML on origin/main contains both rules; rule-count badge "2" displays on the toolbar button after reload.
+5. **Delete-all-rules round-trip** — opened popover, deleted both rules, saved → committed as `8dada7c`. YAML on origin/main now has `alerts: []` (the surgical mutator preserves the key when transitioning away from a non-empty list, which is correct).
+6. **Schedule editor next-run time** — popover correctly shows "Next run: 5/12/2026, 4:00:00 AM (2026-05-12 08:00:00Z)" — UTC→local conversion working.
+
+**Blocker for the fire-path verification (no `## Alerts fired` panel observed live):**
+- Both run-now triggers (workflow runs `25674789302` and `25675275320`) **completed the search step successfully** and uploaded run-diagnostics artifacts, but the workflow's final **"Commit and Push changes"** step failed both times. No new report was pushed to git, so the `## Alerts fired` panel content (if any) is only inside the run-diagnostics artifact (would require a GitHub PAT to download).
+- Root cause is not in the alerts code path — the search and synth/render-with-audit-panel steps ran to completion. Logs not directly accessible without a PAT; the production page even briefly returned `500 Internal Server Error` during the same window (`git fetch` failed with `error: 500`), suggesting GitHub-side flakiness around 13:55-14:15 UTC today. The first 2 attempts both failed at the push step; cron-tick on 5/12 should pick up cleanly.
+- **The fire path itself is well-covered by 23 unit tests** in [test_alerts.py](../worker/tests/test_alerts.py) (transition semantics, condition filter, www-stripping, attrs.vendor_host preference, CSV round-trip). The notify pipeline is the same one Phase 11 wired up and is independently exercised. Pragmatic position: UI + save + worker-evaluator + notify are each verified in their own seam; only the live "see the push arrive on a subscribed PWA" gap remains.
+
+**Test-plan inversion noticed (corrected in next-session block below):**
+The Part D handoff's test plan said "lower threshold below current cheapest → fires" — that's the inverse of `_evaluate_price_below` semantics in [alerts.py](../worker/src/product_search/alerts.py): the rule fires when *current < threshold* AND *previous-cheapest ≥ threshold* (or no previous run). So with a static market and a previous CSV on disk, the only way to force a transition fire is either (a) move the previous CSV aside so `previous=None`, or (b) edit the previous CSV's prices to exceed the new threshold. The original PROGRESS plan as written wouldn't actually fire — keep this in mind.
+
+**CI status (noticed but deferred — pre-existing, NOT Phase 17 fallout):**
+The web and worker CI lint jobs have been failing on every recent commit (including my toolbar fix). Local run of `ruff check` flags `worker/scratch/ai_filter_test.py` and `worker/scratch/synth_test.py` for unsorted imports + unused `json` import — these files have been tracked since commit `a9c8edf` (phase 12). Local `eslint` flags 10 errors across `OnboardChat.tsx`, `commit.ts`, `next.config.ts`, `sw.js`, `scripts/sync-prompt.js`, `scripts/test-delete.ts` — all `@typescript-eslint/no-explicit-any` / `prefer-const` / `no-require-imports` from pre-Phase 17 code. Either the lint configs got stricter recently or these were always broken. Not blocking Phase 17 closure but should be tackled before merging more PRs.
+
+**Live state at handoff** (2026-05-11 mid-morning):
+- Committed this session: `e71cb34` (toolbar fix), plus three save-pipeline commits via the UI (`24f45af`, `fa2a3ad`, `8dada7c`) — the last leaves homelabs profile with `alerts: []` so no residual test-rules pollute the repo.
+- Pre-existing working-tree leftovers from earlier rounds still present (`dialog_with_onboarder*.txt`, deleted `REPO_WALKTHROUGH.md`, modified `web/lib/onboard/promptText.ts`). Not mine.
+- Screenshots saved at `phase17e_01_popover_open.png` and `phase17e_02_rule_added.png` (local-only, not committed).
+
+**Next session — start here**:
+1. **Investigate the on-demand workflow's `Commit and Push changes` step.** Two consecutive runs failed at that step on 2026-05-11. The search/upload steps succeed, then the final `git push` (after `git pull --rebase origin main` and commit with `[skip ci]`) fails. Could be (a) GitHub auth token quirk, (b) push race with another concurrent action, (c) something rejected the commit. Pull the workflow log to confirm. If it's transient, the next 5/12 cron tick will show whether scheduled runs hit the same issue.
+2. **Force a real fire end-to-end** to close the Part E "exactly one push per rule per transition" criterion. Easiest path: add a rule via the UI with threshold above current cheapest, then on the worker host move the most-recent CSV under `reports/<slug>/data/` aside before run-now → `previous=None` → first-observation fires per the alerts.py semantics. Or set a `vendor_seen` rule for a host known to *now* return a passing listing where last run had zero. Requires push-subscribed PWA to observe the notification end-to-end.
+3. **CI lint cleanup** — pre-existing tech debt blocking green CI. Either fix the offending files or add `scratch/` and the legacy scripts to lint exclusion lists. The web `any` errors in `commit.ts` and `onboarderEditor.tsx` look like real types that would benefit from being narrowed rather than excluded.
+4. **Phase 17 closeout decision** — once the fire-path lands cleanly, decide whether to also flip on `.github/workflows/search-scheduled.yml`'s `schedule:` block (currently commented out) so the scheduled cron actually runs. Out of scope for Phase 17 per the original brief, but it's the natural follow-up — without it, the "next scheduled-run tick picks up the new cron" done-when criterion is permanently dormant.
 
 ## Status as of 2026-05-11 late night (tooling — Chrome DevTools MCP installed for Part E)
 
