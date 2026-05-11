@@ -330,19 +330,55 @@ Each phase is sized to fit one focused dev session (~30-90 min with an AI co-pil
 
 ---
 
-## Phase 17 — Schedule editor UI
+## Phase 17 — Schedule editor + alerts UI
 
-**Goal**: change a product's schedule from the web UI without editing YAML by hand. (Was Phase 12c in the old plan.)
+**Goal**: change a product's schedule from the web UI, and let the user configure price/vendor alerts that fire push notifications to the PWA. No YAML hand-editing. (Was Phase 12c in the old plan; scope expanded 2026-05-11 to include alerts.)
+
+**Scope notes**:
+- Alerts are configured in the editor UI **only**. The LLM onboarder must NOT ask about alerts during onboarding — it's purely user-driven post-onboarding config.
+- The PWA push pipeline already exists end-to-end: [SubscribeButton.tsx](../web/app/[product]/SubscribeButton.tsx) opts the user in (PWA standalone only); [api/push/subscribe](../web/app/api/push/subscribe/route.ts) stores VAPID subscriptions in Upstash Redis; [api/push/notify](../web/app/api/push/notify/route.ts) fans out a `{ product, headline, url }` payload; [public/sw.js](../web/public/sw.js) handles the push event. We're wiring alerts into this existing pipeline, not building push from scratch.
 
 **Tasks**:
-1. **Inline schedule editor** on `/[product]`. Common-case picker (radio): daily 08:00 UTC / hourly / every 6h / every 12h / custom cron. The picker writes to `profile.yaml.schedule.cron`.
+
+### Part A — Schedule editor
+1. **Inline schedule editor** on `/[product]`. Common-case picker (radio): daily 08:00 UTC / hourly / every 6h / every 12h / custom cron. Picker writes to `profile.yaml.schedule.cron`. Must also support **clearing** the schedule (no scheduled runs; run-now only) — writes `schedule: null` or removes the key (per round-2 schema change in [profile.py](../worker/src/product_search/profile.py)).
 2. **Local-time display**: show "next scheduled run: <user's local time>" computed from the cron string + current UTC. Use the same client-component pattern as RunInfoFooter.
-3. **Save flow**: reuse `/api/onboard/save` (it already commits profile.yaml deltas) — just need a new "schedule-only" entry point or extend the existing surgical mutator pattern in [web/lib/report-columns.ts](web/lib/report-columns.ts) to schedule.
-4. **Test**: change Bose's schedule from daily 08:00 → every 6h, verify the next `scheduler-tick` workflow invocation picks up the new cron.
+3. **Save flow**: extend the surgical-mutator pattern in [web/lib/report-columns.ts](../web/lib/report-columns.ts) with `applyScheduleToYaml(yamlText, scheduleOrNull)` and `readScheduleFromYaml(yamlText)`. Reuse the `/api/profile/[slug]` PUT path (analogous to the existing DELETE in [api/profile/[slug]/route.ts](../web/app/api/profile/[slug]/route.ts)), or add a sibling route. Whichever path lands files via the same `commit.ts` plumbing.
+4. **Client-side cron validation** — reject invalid 5-field crons before save.
+
+### Part B — Alert rules schema
+5. **Add `alerts:` block to `Profile`** in [worker/src/product_search/profile.py](../worker/src/product_search/profile.py) and mirror in [web/lib/onboard/schema.ts](../web/lib/onboard/schema.ts). Default `[]`. Onboarder prompt is NOT updated — the LLM does not propose alerts. Two rule kinds:
+   - `{ kind: "price_below", threshold_usd: float, condition?: "new"|"used"|"refurbished" }` — fires when the cheapest passing listing's `price_unit` is below threshold (filtered by condition if set).
+   - `{ kind: "vendor_seen", host: str }` — fires when ≥1 passing listing has its vendor host matching `host` (canonical match per ADR-020).
+
+### Part C — Worker-side evaluator
+6. **After `synth` produces the ranked listings**, evaluate each alert rule against the run's listings + the previous run's listings (loaded from the prior day's `.csv` under `reports/<slug>/data/`). Fire on **transitions**, not on every matching run:
+   - `price_below` fires when the current-run cheapest crosses *below* threshold and the previous-run cheapest was at or above (or there was no previous run).
+   - `vendor_seen` fires when the current run has ≥1 passing listing for `host` and the previous run had 0 (or no previous run).
+   This avoids notification fatigue and matches the user-intuitive "something happened" framing.
+7. **Fire notifications** by POSTing to `/api/push/notify` with a Bearer token (`PUSH_NOTIFY_SECRET`). Payload: `{ product: <slug>, headline: <human-readable summary>, url: /<slug> }`. One POST per fired rule. Log fired-rule audit trail to the run output (existing run-cost panel pattern).
+
+### Part D — Alerts UI
+8. **"Alerts" section in the editor** (sibling to the schedule picker). Lists current rules with edit/delete buttons; "+ Add alert" opens a small inline form. Surgical-mutator: `applyAlertsToYaml(yamlText, rules)` / `readAlertsFromYaml(yamlText)` in a new `web/lib/alerts.ts`.
+9. **Subscribe-state nudge**: if the user adds an alert but has not opted in to push (no Upstash subscription for this PWA), show an inline prompt: "Tap 'Enable Alerts' above to receive push notifications." Don't auto-trigger the subscribe flow — the user opts in explicitly.
+
+### Part E — Verification
+10. **Test schedule editor**: change a product's schedule from daily 08:00 → every 6h, verify the next `scheduler-tick` workflow invocation picks up the new cron. Also test clearing the schedule.
+11. **Test alerts**: add a `price_below` rule with a threshold above the current cheapest (should NOT fire — already below); set threshold above and have the next run pass through it (should fire). Add a `vendor_seen` rule for a vendor that didn't return listings last run; trigger a run-now and verify the push fires once. Verify no re-fire on the next run when the condition persists.
 
 **Done when**:
 - Editing a product's schedule from the UI is reflected in the next scheduled-run workflow tick.
-- Cron strings the user can input are validated client-side (reject invalid 5-field crons before save).
+- Clearing the schedule from the UI causes the scheduler to skip that profile.
+- The user can add/remove price-threshold and vendor-seen alert rules from the UI; rules persist to `profile.yaml`.
+- A scheduled run that triggers an alert fires exactly one push notification per rule per transition (no spam across consecutive same-state runs).
+- Cron strings validated client-side; alert threshold/host strings validated client-side.
+- `tsc --noEmit` clean; worker tests stay green with new alerts-evaluator tests added.
+
+**Out of scope**:
+- Onboarder-time alert suggestions (explicitly NOT wanted).
+- Notification grouping/digest (single push per fired rule is fine for v1).
+- Email / SMS fallback (PWA push only; matches existing infra).
+- Per-user alert preferences (alerts are per-product, not per-subscriber — every subscribed device gets every fired alert).
 
 ---
 
