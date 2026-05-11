@@ -162,8 +162,8 @@ def _fetch_html(url: str, timeout: float = 20.0) -> tuple[str, int, str]:
     import httpx
 
     with httpx.Client(follow_redirects=True, headers=headers, timeout=timeout) as client:
-        resp = client.get(url)
-        return resp.text or "", resp.status_code, "httpx"
+        httpx_resp = client.get(url)
+        return httpx_resp.text or "", httpx_resp.status_code, "httpx"
 
 
 def _fetch_via_alterlab(
