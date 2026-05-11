@@ -120,9 +120,31 @@ export async function commitNewProfile(
   };
 }
 
+async function dirExists(path: string): Promise<boolean> {
+  const headers = contentsHeaders();
+  delete (headers as Record<string, string>)['Content-Type'];
+  const url = `https://api.github.com/repos/${REPO}/contents/${path}?ref=${BRANCH}`;
+  const res = await fetch(url, { headers, cache: 'no-store' });
+  if (res.status === 200) return true;
+  if (res.status === 404) return false;
+  const txt = await res.text().catch(() => '');
+  throw new Error(`GitHub GET ${path} failed: ${res.status} ${res.statusText} ${txt}`);
+}
+
 export async function deleteProductTree(slug: string): Promise<boolean> {
   const headers = contentsHeaders();
   delete (headers as Record<string, string>)['Content-Type'];
+
+  // Only include paths that actually exist — GitHub's Git Trees API returns
+  // 422 GitRPC::BadObjectState when asked to delete a path that's not in the
+  // base tree (e.g. a product onboarded but never run has no reports/ dir).
+  const candidates = [`products/${slug}`, `reports/${slug}`];
+  const existing = (
+    await Promise.all(candidates.map(async (p) => ((await dirExists(p)) ? p : null)))
+  ).filter((p): p is string => p !== null);
+  if (existing.length === 0) {
+    throw new Error(`Nothing to delete: neither products/${slug} nor reports/${slug} exists`);
+  }
 
   // 1. Get HEAD commit SHA
   const refUrl = `https://api.github.com/repos/${REPO}/git/ref/heads/${BRANCH}`;
@@ -141,10 +163,7 @@ export async function deleteProductTree(slug: string): Promise<boolean> {
   const postHeaders = contentsHeaders();
   const treePayload = {
     base_tree: baseTreeSha,
-    tree: [
-      { path: `products/${slug}`, mode: '040000', sha: null },
-      { path: `reports/${slug}`, mode: '040000', sha: null }
-    ]
+    tree: existing.map((path) => ({ path, mode: '040000', sha: null })),
   };
   const treeRes = await fetch(`https://api.github.com/repos/${REPO}/git/trees`, {
     method: 'POST',

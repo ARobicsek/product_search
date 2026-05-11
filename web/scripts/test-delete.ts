@@ -25,6 +25,12 @@ async function runTests() {
       fetchedBodies.push(JSON.parse(options.body as string));
     }
 
+    if (urlStr.includes('/contents/products/test-slug')) {
+      return new Response(JSON.stringify({ type: 'dir' }), { status: 200 });
+    }
+    if (urlStr.includes('/contents/reports/test-slug')) {
+      return new Response(JSON.stringify({ type: 'dir' }), { status: 200 });
+    }
     if (urlStr.includes('/git/ref/heads/main')) {
       return new Response(JSON.stringify({ object: { sha: 'commit-sha-123' } }), { status: 200 });
     }
@@ -46,9 +52,9 @@ async function runTests() {
   try {
     process.env.GITHUB_DISPATCH_TOKEN = 'test-token';
     const result = await deleteProductTree('test-slug');
-    
+
     console.assert(result === true, 'Expected deleteProductTree to return true');
-    console.assert(fetchedUrls.length === 5, `Expected 5 fetch calls, got ${fetchedUrls.length}`);
+    console.assert(fetchedUrls.length === 7, `Expected 7 fetch calls, got ${fetchedUrls.length}`);
     
     // Check tree payload
     const treePayload = fetchedBodies[0];

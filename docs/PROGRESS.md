@@ -4,8 +4,31 @@
 
 ## Active phase
 
-**Phase 17 — Schedule Editor. IN PROGRESS.**
-Moved to the next scheduled phase after completing Phase 16.
+**Phase 17 — Schedule Editor + Alerts. IN PROGRESS.**
+Scope expanded 2026-05-11: in addition to the original cron editor, Phase 17 now also covers user-configurable price/vendor alerts (NOT handled by the onboarder — UI-only).
+
+## Status as of 2026-05-11 (Phase 16 follow-up: empty-reports delete bug)
+
+Two items between sessions, both addressed:
+
+1. **Reviewed the 2026-05-10 umarex run** (`reports/umarex-t4e-walther-ppq-43/2026-05-10.md`). All round-2 / round-3 fixes are holding live:
+   - Report columns match the consumer-goods preset `[rank, source, title, price_unit, condition, seller, seller_rating, flags]` — the one item still deferred from round 2 ("report-column preset still doesn't match") is now confirmed working live.
+   - Source labels are clean host names (no `universal_ai (https://…)` adapter-id leakage).
+   - USA-subsidiary discovery worked (picked `umarexusa.com`, not parent `umarex.com`).
+   - Top-N-per-source reservation is visibly doing its job — amazon.com gets 3 rows of the top-30, airsoftstation.com gets 1, alongside 26 eBay rows. Pre-fix, eBay's 39 passing rows would have filled every slot.
+   - ai_filter batching held up — 47 passing listings, no truncated-envelope failures.
+   - Amazon $180.28 for B076DFQYGH matches the round-2 explanation: strikethrough/sub-link sweep fixed; residual ~$10 gap vs $189.95 user-visible is Amazon's session-specific dynamic pricing.
+
+2. **Bug: deleting a never-run product threw 422 `GitRPC::BadObjectState`.** Repro: tried to delete `supermicro-mbd-h13ssl-nt-o`, which has [products/supermicro-mbd-h13ssl-nt-o/](../products/supermicro-mbd-h13ssl-nt-o/) but no `reports/<slug>/` (the product was onboarded but never ran a report). `deleteProductTree` in [web/lib/onboard/commit.ts](../web/lib/onboard/commit.ts) was unconditionally posting tree deletions for both `products/<slug>` AND `reports/<slug>`; GitHub's Git Trees API returns `GitRPC::BadObjectState` (422) when asked to delete a path that isn't in the base tree. **Fix:** added a `dirExists` pre-check via `GET /repos/.../contents/<path>?ref=main` and only include paths that exist in the tree payload; throw a clean "nothing to delete" error if neither exists. Updated the manual test harness in [web/scripts/test-delete.ts](../web/scripts/test-delete.ts) to mock the new lookups (fetch count 5 → 7).
+
+**Tests**: `tsc --noEmit` clean. The manual `tsx scripts/test-delete.ts` harness still cannot run because of a pre-existing `Cannot find module 'server-only'` resolution issue under tsx/ESM — that breakage exists on `main` independent of this change. Not in scope to fix here.
+
+**Live state at handoff** (2026-05-11):
+- Pre-existing working-tree leftovers from earlier rounds are still present (`dialog_with_onboarder*.txt`, deleted `REPO_WALKTHROUGH.md`). Not mine to commit.
+- This round's changes: `web/lib/onboard/commit.ts`, `web/scripts/test-delete.ts`, this PROGRESS update.
+
+**Next session — start here**:
+1. **Phase 17 (Schedule editor + alerts)** — see expanded brief in [PHASES.md](PHASES.md#phase-17--schedule-editor-ui). New scope per user request 2026-05-11: alerts on (a) price below threshold, (b) at least-one listing seen at a named vendor host. Alert configuration lives in the schedule-editor UI, NOT in the onboarder.
 
 ## Status as of 2026-05-10 (UX paper-cuts cleanup, round 3 — between Phase 16 and 17)
 
