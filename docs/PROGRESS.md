@@ -7,6 +7,20 @@
 **Phase 17 — Schedule Editor + Alerts. IN PROGRESS.**
 Scope expanded 2026-05-11: in addition to the original cron editor, Phase 17 now also covers user-configurable price/vendor alerts (NOT handled by the onboarder — UI-only).
 
+## Status as of 2026-05-11 late night (tooling — Chrome DevTools MCP installed for Part E)
+
+Tooling-only interlude. No code changes.
+
+Installed [`chrome-devtools-mcp`](https://github.com/ChromeDevTools/chrome-devtools-mcp) (from Google's Chrome DevTools team) at user scope via `claude mcp add chrome-devtools --scope user -- npx chrome-devtools-mcp@latest`. `claude mcp list` shows `✓ Connected`. Flavor A (no `--browser-url`) — the MCP spawns its own Chromium per invocation; no shared session with the user's Chrome. That's fine because `ari-product-search.vercel.app` is public.
+
+**Why**: Phase 17 Part E (next task) is browser-UI manual end-to-end testing — adding alerts via the popover, observing the `## Alerts fired` panel, verifying no-re-fire on subsequent runs. Previously the assistant had no browser tool and would have had to either ask the user to drive Chrome or fall back to API-level verification. Now drivable directly.
+
+**Next-session bootstrap**: after Claude Code restart, deferred tools `mcp__chrome-devtools__navigate` / `click` / `screenshot` etc. appear and can be used immediately. No additional setup.
+
+**Next session — start here** (unchanged from the Part D handoff below):
+1. Phase 17 Part E — manual end-to-end verification using Chrome DevTools MCP at https://ari-product-search.vercel.app/. Test plan in the Part D handoff section below.
+2. Re-enabling the schedule workflow is the natural follow-up; out of scope for Phase 17.
+
 ## Status as of 2026-05-11 late night (Phase 17 — Part D landed)
 
 **Part D — Alerts UI** ✅
