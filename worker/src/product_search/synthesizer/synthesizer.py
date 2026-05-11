@@ -414,7 +414,11 @@ def build_diff_md(diff: DiffResult | None) -> str:
         lines.append("  - (none)")
     else:
         for ch in diff.changed:
-            lines.append(f"  - [{ch.new_listing.source}]({ch.url}) - ${ch.old_price_usd:.2f} -> ${ch.new_price_usd:.2f} ({ch.pct_change*100:+.1f}%): {ch.title}")
+            lines.append(
+                f"  - [{ch.new_listing.source}]({ch.url}) - "
+                f"${ch.old_price_usd:.2f} -> ${ch.new_price_usd:.2f} "
+                f"({ch.pct_change*100:+.1f}%): {ch.title}"
+            )
             
     return "\n".join(lines)
 

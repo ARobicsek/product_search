@@ -13,7 +13,7 @@ Phase 7: scheduler-tick
 
 import argparse
 import sys
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from product_search.models import Listing
@@ -101,7 +101,7 @@ def main() -> None:
     diff_parser.add_argument("slug", help="Product slug (e.g. ddr5-rdimm-256gb)")
 
     # Phase 7: scheduler-tick
-    tick_parser = subparsers.add_parser(
+    subparsers.add_parser(
         "scheduler-tick",
         help="Run search for all profiles whose cron matches the current UTC hour",
     )
@@ -293,7 +293,8 @@ def _cmd_search(
         error_msg: str | None = None
         try:
             if source.id == "ebay_search":
-                from product_search.adapters.ebay import fetch as fetch_ebay, EbayAuthError
+                from product_search.adapters.ebay import EbayAuthError
+                from product_search.adapters.ebay import fetch as fetch_ebay
                 try:
                     listings = fetch_ebay(query)
                 except EbayAuthError as exc:
@@ -482,7 +483,7 @@ def _cmd_search(
             print(f"ERROR (synth post-check): {exc}", file=sys.stderr)
             # Even on failure, surface ai_filter cost (synth's two failed
             # calls are not counted because no surviving SynthesisResult).
-            stub_calls: list[dict] = list(universal_ai_usage)
+            stub_calls: list[dict[str, Any]] = list(universal_ai_usage)
             if ai_filter_mod.LAST_RUN_USAGE:
                 stub_calls.append(ai_filter_mod.LAST_RUN_USAGE)
             stub_cost_md = _build_run_cost_md(stub_calls)
@@ -522,7 +523,7 @@ def _cmd_search(
 
         # Build deterministic Run cost panel from each universal_ai
         # source (if any) + ai_filter (if any) + synth.
-        run_calls: list[dict] = list(universal_ai_usage)
+        run_calls: list[dict[str, Any]] = list(universal_ai_usage)
         if ai_filter_mod.LAST_RUN_USAGE:
             run_calls.append(ai_filter_mod.LAST_RUN_USAGE)
         run_calls.append({
@@ -580,7 +581,7 @@ def _cmd_search(
         from product_search.synthesizer import default_report_path, write_report
 
         diagnostic_md = _build_filter_diagnostic_md(len(all_listings))
-        zero_pass_calls: list[dict] = list(universal_ai_usage)
+        zero_pass_calls: list[dict[str, Any]] = list(universal_ai_usage)
         if ai_filter_mod.LAST_RUN_USAGE:
             zero_pass_calls.append(ai_filter_mod.LAST_RUN_USAGE)
         zero_pass_cost_md = _build_run_cost_md(zero_pass_calls)
@@ -666,7 +667,7 @@ def _build_filter_diagnostic_md(total_fetched: int) -> str:
     return "\n".join(lines)
 
 
-def _build_run_cost_md(calls: list[dict]) -> str:
+def _build_run_cost_md(calls: list[dict[str, Any]]) -> str:
     """Render the deterministic 'Run cost' panel for the daily report.
 
     Each entry in ``calls`` is ``{"step", "provider", "model",
@@ -732,10 +733,17 @@ def _build_sources_searched_md(
     """
     lines = ["**Sources searched.**", ""]
     
-    has_api_issue = any("quota" in str(s.get("error", "")).lower() or "auth" in str(s.get("error", "")).lower() for s in source_stats)
+    has_api_issue = any(
+        "quota" in str(s.get("error", "")).lower()
+        or "auth" in str(s.get("error", "")).lower()
+        for s in source_stats
+    )
     if has_api_issue:
         lines.append("> [!WARNING]")
-        lines.append("> **Scraping API Issue:** One or more sources failed due to an API quota or authentication error. Please check your AlterLab or eBay dashboard limits.")
+        lines.append(
+            "> **Scraping API Issue:** One or more sources failed due to an API quota or "
+            "authentication error. Please check your AlterLab or eBay dashboard limits."
+        )
         lines.append("")
 
     lines.append("| Source | Status | Fetched | Passed |")
@@ -927,7 +935,11 @@ def _cmd_scheduler_tick() -> None:
                 print(f"ERROR: run for {slug} failed with code {result.returncode}", file=sys.stderr)
                 failures += 1
         else:
-            print(f"[{now.isoformat()}] Skipping {slug} (cron: {cron} does not match hour {current_hour})", file=sys.stderr)
+            print(
+                f"[{now.isoformat()}] Skipping {slug} "
+                f"(cron: {cron} does not match hour {current_hour})",
+                file=sys.stderr,
+            )
 
     if failures > 0:
         print(f"[{now.isoformat()}] scheduler-tick completed with {failures} failure(s).", file=sys.stderr)

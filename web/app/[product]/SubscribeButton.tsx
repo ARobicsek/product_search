@@ -14,8 +14,8 @@ export default function SubscribeButton({ productSlug }: { productSlug: string }
   useEffect(() => {
     // Check if running as PWA
     const checkStandalone = () => {
-      const isStandaloneMode = window.matchMedia('(display-mode: standalone)').matches 
-        || (window.navigator as any).standalone 
+      const isStandaloneMode = window.matchMedia('(display-mode: standalone)').matches
+        || (window.navigator as Navigator & { standalone?: boolean }).standalone
         || document.referrer.includes('android-app://');
       setIsStandalone(!!isStandaloneMode);
     };

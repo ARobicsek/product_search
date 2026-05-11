@@ -55,13 +55,14 @@ export async function POST(req: Request) {
         const subscription = typeof subString === 'string' ? JSON.parse(subString) : subString;
         await webpush.sendNotification(subscription, notificationPayload);
         sentCount++;
-      } catch (error: any) {
+      } catch (error: unknown) {
         console.error('Error sending push to a subscription:', error);
-        if (error.statusCode === 404 || error.statusCode === 410) {
+        const webPushErr = error as { statusCode?: number; message?: string };
+        if (webPushErr.statusCode === 404 || webPushErr.statusCode === 410) {
           // Subscription has expired or is no longer valid, remove it
           await redis.srem('push_subscriptions', typeof subString === 'string' ? subString : JSON.stringify(subString));
         } else {
-          errors.push(error.message);
+          errors.push(webPushErr.message);
         }
       }
     }

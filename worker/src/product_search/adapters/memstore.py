@@ -67,7 +67,7 @@ def _parse_html(html: str) -> list[Listing]:
         title = title_node.text().strip()
 
         link_node = item.css_first(".s-item__link")
-        url = link_node.attributes.get("href", "") if link_node else ""
+        url = (link_node.attributes.get("href") or "") if link_node else ""
 
         price_node = item.css_first(".s-item__price")
         price_str = price_node.text().replace("$", "").replace(",", "").strip() if price_node else "0"

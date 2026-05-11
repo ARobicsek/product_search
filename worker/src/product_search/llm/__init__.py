@@ -99,7 +99,6 @@ def call_llm(
     # Dump trace for debugging
     try:
         import json
-        import os
         from datetime import UTC, datetime
         from pathlib import Path
         

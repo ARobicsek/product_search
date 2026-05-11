@@ -6,6 +6,7 @@ import os
 import sys
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import Any
 
 from product_search.llm import Message, call_llm
 from product_search.models import Listing
@@ -55,7 +56,7 @@ def _extract_json(text: str) -> object | None:
         parsed = None
 
     if parsed is not None and not _looks_like_inner_eval(parsed):
-        return parsed
+        return parsed  # type: ignore[no-any-return]
 
     decoder = json.JSONDecoder()
     for i, ch in enumerate(text):
@@ -67,7 +68,7 @@ def _extract_json(text: str) -> object | None:
             continue
         if _looks_like_inner_eval(obj):
             continue
-        return obj
+        return obj  # type: ignore[no-any-return]
     return None
 
 
@@ -108,7 +109,7 @@ def _per_product_filter_log_path(slug: str) -> Path | None:
 # Module-level capture of the most-recent ai_filter run's per-listing verdicts.
 # cli.py reads this when building the report so a 0-pass run can include
 # the first-N rejection reasons inline. Reset at the top of every ai_filter call.
-LAST_RUN_LOG: list[dict] = []
+LAST_RUN_LOG: list[dict[str, Any]] = []
 LAST_RUN_RAW_RESPONSE: str = ""
 
 # Module-level capture of the most-recent ai_filter call's token usage so
@@ -116,10 +117,10 @@ LAST_RUN_RAW_RESPONSE: str = ""
 # having to thread an extra return value through the validator pipeline.
 # ``None`` after a fixture-mode run (no LLM call was made) or when the call
 # bailed before reaching the API.
-LAST_RUN_USAGE: dict | None = None
+LAST_RUN_USAGE: dict[str, Any] | None = None
 
 
-def _write_filter_log(slug: str, entries: list[dict]) -> None:
+def _write_filter_log(slug: str, entries: list[dict[str, Any]]) -> None:
     """Append entries to the daily filter log AND truncate-write a per-product
     sibling under ``reports/<slug>/<date>.filter.jsonl`` so the diagnostic is
     captured in the committed repo (no auth required to inspect)."""
@@ -182,18 +183,27 @@ def ai_filter(listings: list[Listing], profile: Profile) -> list[Listing]:
     rules_full = [r.model_dump() for r in profile.spec_filters]
     target_desc = f"Target: {profile.target.amount} {profile.target.unit}"
     if profile.target.configurations:
-        target_desc += f" (Need exactly one of these configs: {[c.model_dump() for c in profile.target.configurations]})"
+        cfgs = [c.model_dump() for c in profile.target.configurations]
+        target_desc += f" (Need exactly one of these configs: {cfgs})"
 
+    relevance_rule = {
+        "rule": "relevance_check",
+        "description": (
+            "Must be the actual requested product, not an accessory or alternative."
+        ),
+    }
+    rules_json = json.dumps([relevance_rule] + rules_full, indent=2)
     system_prompt = f"""You are a product filter.
 The user wants: {profile.display_name}
 Description: {profile.description}
 {target_desc}
 
 Rules to apply (each rule is a dict with a "rule" type and its parameters):
-{json.dumps([{"rule": "relevance_check", "description": "Must be the actual requested product, not an accessory or alternative."}] + rules_full, indent=2)}
+{rules_json}
 
 How each rule type works (only the ones present above apply):
-- relevance_check: reject if the item is clearly an accessory (e.g. water filters, cases, replacement parts), a completely different product, or incompatible.
+- relevance_check: reject if the item is clearly an accessory (e.g. water filters, cases,
+  replacement parts), a completely different product, or incompatible.
 - form_factor_in {{values:[...]}}: pass if attrs.form_factor is in values, OR if neither
   attrs.form_factor nor the title indicates a specific form factor. Reject only when
   attrs.form_factor is set to something not in values, OR the title clearly contains a
@@ -264,7 +274,7 @@ ONLY output the JSON object.
         f"{len(batches)} batch(es) of up to {_AI_FILTER_BATCH_SIZE})..."
     )
 
-    evaluations_by_index: dict[int, dict] = {}
+    evaluations_by_index: dict[int, dict[str, Any]] = {}
     raw_responses: list[str] = []
     total_in = 0
     total_out = 0
@@ -351,7 +361,7 @@ ONLY output the JSON object.
         # prompt asks for an object. Accept several shapes so we don't silently drop
         # everything on a stylistic difference. Documented post-mortem: yesterday's
         # local trace showed GLM returning `[0]` for an `{"indices": [...]}` prompt.
-        batch_evals: list[dict] = []
+        batch_evals: list[dict[str, Any]] = []
         bare_indices: list[int] | None = None
 
         if isinstance(parsed, dict) and isinstance(parsed.get("evaluations"), list):
@@ -394,8 +404,11 @@ ONLY output the JSON object.
         for ev in batch_evals:
             if not isinstance(ev, dict):
                 continue
+            idx_raw = ev.get("index")
+            if idx_raw is None:
+                continue
             try:
-                local_i = int(ev.get("index"))
+                local_i = int(idx_raw)
             except (TypeError, ValueError):
                 continue
             if not (0 <= local_i < len(batch)):
@@ -418,13 +431,13 @@ ONLY output the JSON object.
     }
 
     # Build log entries (one per listing the model evaluated) and pick the survivors.
-    log_entries: list[dict] = []
+    log_entries: list[dict[str, Any]] = []
     passed_listings: list[Listing] = []
 
     for idx in range(len(listings)):
         lst = listings[idx]
-        ev = evaluations_by_index.get(idx)
-        if ev is None:
+        verdict = evaluations_by_index.get(idx)
+        if verdict is None:
             log_entries.append({
                 "index": idx,
                 "pass": False,
@@ -436,8 +449,8 @@ ONLY output the JSON object.
             })
             continue
 
-        passed = ev["pass"]
-        reason = ev["reason"] or ("passed all rules" if passed else "no reason given")
+        passed = verdict["pass"]
+        reason = verdict["reason"] or ("passed all rules" if passed else "no reason given")
         log_entries.append({
             "index": idx,
             "pass": passed,

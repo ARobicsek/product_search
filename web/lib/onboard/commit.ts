@@ -38,7 +38,12 @@ async function putFile(
   sha?: string,
 ): Promise<PutResult> {
   const url = `https://api.github.com/repos/${REPO}/contents/${repoPath}`;
-  const payload: any = {
+  const payload: {
+    message: string;
+    content: string;
+    branch: string;
+    sha?: string;
+  } = {
     message,
     content: Buffer.from(textContent, 'utf-8').toString('base64'),
     branch: BRANCH,

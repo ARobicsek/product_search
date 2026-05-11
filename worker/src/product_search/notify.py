@@ -1,8 +1,9 @@
 import os
-import httpx
-from typing import Optional
 
-def notify_material_change(product_slug: str, headline: str, url: Optional[str] = None) -> bool:
+import httpx
+
+
+def notify_material_change(product_slug: str, headline: str, url: str | None = None) -> bool:
     """
     Sends a push notification request to the web API for material changes.
     """

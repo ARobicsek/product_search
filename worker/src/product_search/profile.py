@@ -19,7 +19,7 @@ from __future__ import annotations
 
 import re
 from pathlib import Path
-from typing import Annotated, Any, Literal, Union
+from typing import Annotated, Any, Literal
 
 import yaml
 from pydantic import BaseModel, Field, field_validator, model_validator
@@ -207,7 +207,7 @@ class VendorSeenAlert(BaseModel):
 # Discriminated union of all alert rule kinds. Add new kinds here, give them
 # a unique ``kind`` literal, and update the TS mirror in web/lib/onboard/schema.ts.
 AlertRule = Annotated[
-    Union[PriceBelowAlert, VendorSeenAlert],
+    PriceBelowAlert | VendorSeenAlert,
     Field(discriminator="kind"),
 ]
 

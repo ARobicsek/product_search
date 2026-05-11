@@ -12,6 +12,10 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Local-only tooling scripts (not deployed). Mix of Node CJS (sync-prompt)
+    // and standalone TS harness (test-delete) with looser conventions than
+    // the Next.js app code.
+    "scripts/**",
   ]),
 ]);
 

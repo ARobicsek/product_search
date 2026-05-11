@@ -42,7 +42,7 @@ product-search = "product_search.cli:main"
 packages = ["src/product_search"]
 
 [tool.ruff]
-line-length = 100
+line-length = 120
 target-version = "py312"
 
 [tool.ruff.lint]

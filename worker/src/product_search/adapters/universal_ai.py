@@ -865,6 +865,7 @@ def _extract_candidates(
         # locale), try to convert any foreign-currency amount in the raw
         # context to approximate USD.  Better to show an approximate price
         # than to drop the listing entirely.
+        fx_approx: bool | str
         if base_host_is_amazon:
             az_price = _amazon_card_primary_price(a)
             if az_price is not None:
