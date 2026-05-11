@@ -234,6 +234,49 @@ function validateSchedule(schedule: unknown, ctx: ValidationContext) {
   if (s.timezone !== 'UTC') ctx.errors.push('schedule.timezone: must be exactly "UTC"');
 }
 
+// Discriminated-union mirror of profile.py:AlertRule. Add new kinds here AND
+// in profile.py — both validators must agree.
+const ALERT_KINDS = new Set<string>(['price_below', 'vendor_seen']);
+const ALERT_CONDITIONS = new Set<string>(['new', 'used', 'refurbished']);
+
+function validateAlerts(alerts: unknown, ctx: ValidationContext) {
+  // ``alerts`` is optional; default is []. User-supplied via the schedule
+  // editor UI — not emitted by the onboarder. See PHASES.md Phase 17.
+  if (alerts === undefined || alerts === null) return;
+  const arr = asArray(alerts, 'alerts', ctx);
+  if (!arr) return;
+  arr.forEach((rule, i) => {
+    const r = asObject(rule, `alerts[${i}]`, ctx);
+    if (!r) return;
+    const kind = asString(r.kind, `alerts[${i}].kind`, ctx);
+    if (kind === null) return;
+    if (!ALERT_KINDS.has(kind)) {
+      ctx.errors.push(
+        `alerts[${i}].kind: unknown alert kind ${JSON.stringify(kind)}; known: ${[...ALERT_KINDS].sort().join(',')}`,
+      );
+      return;
+    }
+    if (kind === 'price_below') {
+      if (typeof r.threshold_usd !== 'number' || !(r.threshold_usd > 0)) {
+        ctx.errors.push(`alerts[${i}].threshold_usd: expected positive number`);
+      }
+      if (r.condition !== undefined && r.condition !== null) {
+        const c = asString(r.condition, `alerts[${i}].condition`, ctx);
+        if (c !== null && !ALERT_CONDITIONS.has(c)) {
+          ctx.errors.push(
+            `alerts[${i}].condition: must be one of ${[...ALERT_CONDITIONS].sort().join(',')}`,
+          );
+        }
+      }
+    } else if (kind === 'vendor_seen') {
+      const host = asString(r.host, `alerts[${i}].host`, ctx);
+      if (host !== null && host.trim() === '') {
+        ctx.errors.push(`alerts[${i}].host: must be a non-empty string`);
+      }
+    }
+  });
+}
+
 export function parseAndValidateProfileYaml(text: string): ParsedProfile {
   let doc: unknown;
   try {
@@ -317,6 +360,7 @@ export function parseAndValidateProfileYaml(text: string): ParsedProfile {
   }
 
   validateSchedule(obj.schedule, ctx);
+  validateAlerts(obj.alerts, ctx);
 
   if (ctx.errors.length > 0) {
     throw new ProfileValidationError(ctx.errors);

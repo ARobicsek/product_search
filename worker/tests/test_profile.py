@@ -307,6 +307,89 @@ def test_qvl_file_when_set_must_still_contain_slug() -> None:
 
 
 # ---------------------------------------------------------------------------
+# Alerts (Phase 17)
+# ---------------------------------------------------------------------------
+
+
+def test_alerts_optional_defaults_empty() -> None:
+    """A profile without an ``alerts`` key must default to []."""
+    profile = Profile.model_validate(VALID_PROFILE)
+    assert profile.alerts == []
+
+
+def test_accepts_price_below_alert_minimal() -> None:
+    import copy
+
+    good = copy.deepcopy(VALID_PROFILE)
+    good["alerts"] = [{"kind": "price_below", "threshold_usd": 199.99}]
+    profile = Profile.model_validate(good)
+    assert len(profile.alerts) == 1
+    rule = profile.alerts[0]
+    assert rule.kind == "price_below"
+    assert rule.threshold_usd == 199.99
+    assert rule.condition is None
+
+
+def test_accepts_price_below_alert_with_condition() -> None:
+    import copy
+
+    good = copy.deepcopy(VALID_PROFILE)
+    good["alerts"] = [{"kind": "price_below", "threshold_usd": 150.0, "condition": "new"}]
+    profile = Profile.model_validate(good)
+    assert profile.alerts[0].condition == "new"
+
+
+def test_accepts_vendor_seen_alert() -> None:
+    import copy
+
+    good = copy.deepcopy(VALID_PROFILE)
+    good["alerts"] = [{"kind": "vendor_seen", "host": "amazon.com"}]
+    profile = Profile.model_validate(good)
+    assert profile.alerts[0].kind == "vendor_seen"
+    assert profile.alerts[0].host == "amazon.com"
+
+
+def test_rejects_unknown_alert_kind() -> None:
+    import copy
+
+    bad = copy.deepcopy(VALID_PROFILE)
+    bad["alerts"] = [{"kind": "totally_unknown", "host": "amazon.com"}]
+    with pytest.raises(ValidationError) as exc_info:
+        Profile.model_validate(bad)
+    assert "totally_unknown" in str(exc_info.value) or "kind" in str(exc_info.value).lower()
+
+
+def test_rejects_price_below_with_nonpositive_threshold() -> None:
+    import copy
+
+    bad = copy.deepcopy(VALID_PROFILE)
+    bad["alerts"] = [{"kind": "price_below", "threshold_usd": 0}]
+    with pytest.raises(ValidationError) as exc_info:
+        Profile.model_validate(bad)
+    assert "threshold_usd" in str(exc_info.value).lower() or "greater" in str(exc_info.value).lower()
+
+
+def test_rejects_invalid_alert_condition() -> None:
+    import copy
+
+    bad = copy.deepcopy(VALID_PROFILE)
+    bad["alerts"] = [{"kind": "price_below", "threshold_usd": 100, "condition": "open-box"}]
+    with pytest.raises(ValidationError) as exc_info:
+        Profile.model_validate(bad)
+    assert "condition" in str(exc_info.value).lower() or "open-box" in str(exc_info.value)
+
+
+def test_rejects_empty_vendor_host() -> None:
+    import copy
+
+    bad = copy.deepcopy(VALID_PROFILE)
+    bad["alerts"] = [{"kind": "vendor_seen", "host": ""}]
+    with pytest.raises(ValidationError) as exc_info:
+        Profile.model_validate(bad)
+    assert "host" in str(exc_info.value).lower()
+
+
+# ---------------------------------------------------------------------------
 # CLI integration test
 # ---------------------------------------------------------------------------
 

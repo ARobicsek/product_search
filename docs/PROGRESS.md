@@ -7,6 +7,34 @@
 **Phase 17 — Schedule Editor + Alerts. IN PROGRESS.**
 Scope expanded 2026-05-11: in addition to the original cron editor, Phase 17 now also covers user-configurable price/vendor alerts (NOT handled by the onboarder — UI-only).
 
+## Status as of 2026-05-11 late (Phase 17 — Parts A + B landed)
+
+Phase 17 scope was expanded earlier today to cover user-configurable alerts (see [PHASES.md](PHASES.md#phase-17--schedule-editor--alerts-ui)). Parts A and B landed in this session.
+
+**Part A — Schedule editor UI** ✅
+- New surgical-mutator module [web/lib/schedule.ts](../web/lib/schedule.ts) with `applyScheduleToYaml`, `readScheduleFromYaml`, `validateCron`, and a tiny `nextCronTick` computer that supports `*`, `*/N`, integer literals, and comma-lists (enough for all presets + most realistic custom crons).
+- New client component [web/app/[product]/ScheduleEditorButton.tsx](../web/app/[product]/ScheduleEditorButton.tsx) — radio picker for presets (none / daily 08:00 / hourly / every 6h / every 12h / custom cron). Shows local-time "Next run: …" when cron is supported. Reuses the `ColumnChooserButton` save-flow pattern (POST `{yaml}` to `/api/onboard/save`).
+- Wired into the product page toolbar in [web/app/[product]/page.tsx](../web/app/[product]/page.tsx) for both the report and empty-state views.
+- **Smoke test**: dev server returned 200 for `/supermicro-mbd-h13ssl-nt-o`; rendered HTML contained the new button.
+
+**Part B — Alerts schema** ✅
+- Pydantic `PriceBelowAlert` + `VendorSeenAlert` discriminated union in [profile.py](../worker/src/product_search/profile.py); `Profile.alerts: list[AlertRule] = []` default. 8 new tests in [test_profile.py](../worker/tests/test_profile.py) covering happy path, condition filter, optional default, unknown kind, zero threshold, invalid condition, empty host.
+- TS mirror via `validateAlerts` in [web/lib/onboard/schema.ts](../web/lib/onboard/schema.ts). Onboarder prompts intentionally NOT updated — alerts are user-driven via the UI.
+
+**Tests**: 184/184 worker tests pass (was 176; +8 alert tests). `tsc --noEmit` clean.
+
+**Caveat (worth flagging)**: scheduled cron is currently **disabled** in [.github/workflows/search-scheduled.yml](../.github/workflows/search-scheduled.yml) (the `schedule:` block is commented out). The schedule editor writes a valid `schedule.cron` to profile.yaml, but no scheduled-tick workflow is running today. Re-enabling the cron is out of scope for Phase 17 (it's a one-line uncomment + ops decision), but the Phase 17 done-when criterion "next scheduled-run tick picks up the new cron" can't be verified end-to-end until that's flipped.
+
+**Live state at handoff** (2026-05-11 late):
+- Committed: `cba37a3` (delete-bug fix), `9491f77` (Phase 17 brief expanded), plus this session's Phase 17 Parts A+B (committed via this update).
+- Pre-existing working-tree leftovers from earlier rounds still present (`dialog_with_onboarder*.txt`, deleted `REPO_WALKTHROUGH.md`). Not mine.
+
+**Next session — start here**:
+1. **Phase 17 Part C** — worker-side alerts evaluator. After `synth` produces ranked listings, load the previous run's `.csv` from `reports/<slug>/data/`, evaluate each rule with transition semantics (fire only when condition flips false→true), POST to `/api/push/notify` with Bearer `PUSH_NOTIFY_SECRET`. Need new module `worker/src/product_search/alerts.py` + tests + wiring into `cli._cmd_search`. Brief detail in [PHASES.md](PHASES.md#phase-17--schedule-editor--alerts-ui) tasks 6-7.
+2. **Phase 17 Part D** — alerts UI section in the schedule editor (or sibling button). Surgical mutator `applyAlertsToYaml` / `readAlertsFromYaml` in new `web/lib/alerts.ts`. Add/edit/remove rows for both rule kinds. Subscribe-state nudge if user adds an alert without opting into push. Tasks 8-9 in PHASES.md.
+3. **Phase 17 Part E** — manual end-to-end verification including the scheduled-cron caveat above.
+4. **Onboarder-edit-strips-alerts hazard (worth fixing in Part D)**: the `draft`-path through `/api/onboard/save` rebuilds YAML from the LLM-emitted JSON via `renderProfileYaml`. The onboarder doesn't know about alerts, so editing a profile via `/onboard?edit=<slug>` will silently drop any user-supplied alerts. Either splice alerts back in at save time from the on-disk profile, or read alerts into the edit-mode draft and pass through. Document the choice when fixing.
+
 ## Status as of 2026-05-11 (Phase 16 follow-up: empty-reports delete bug)
 
 Two items between sessions, both addressed:

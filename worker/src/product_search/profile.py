@@ -19,7 +19,7 @@ from __future__ import annotations
 
 import re
 from pathlib import Path
-from typing import Any, Literal
+from typing import Annotated, Any, Literal, Union
 
 import yaml
 from pydantic import BaseModel, Field, field_validator, model_validator
@@ -181,6 +181,37 @@ class PendingSource(BaseModel):
     model_config = {"extra": "allow"}
 
 
+class PriceBelowAlert(BaseModel):
+    """Fire when the cheapest passing listing's price_unit crosses below
+    ``threshold_usd``. Optional ``condition`` filter restricts which listings
+    count toward the cheapest (e.g. "new" only). Fired on transition only:
+    only fires when previous run's matching cheapest was at or above the
+    threshold (or no previous run). See Phase 17 alerts brief in PHASES.md.
+    """
+
+    kind: Literal["price_below"]
+    threshold_usd: float = Field(gt=0)
+    condition: Literal["new", "used", "refurbished"] | None = None
+
+
+class VendorSeenAlert(BaseModel):
+    """Fire when ≥1 passing listing has its vendor host equal to ``host``
+    (canonical match per ADR-020). Fired on transition only: only fires when
+    previous run had 0 passing listings for this host (or no previous run).
+    """
+
+    kind: Literal["vendor_seen"]
+    host: str = Field(min_length=1)
+
+
+# Discriminated union of all alert rule kinds. Add new kinds here, give them
+# a unique ``kind`` literal, and update the TS mirror in web/lib/onboard/schema.ts.
+AlertRule = Annotated[
+    Union[PriceBelowAlert, VendorSeenAlert],
+    Field(discriminator="kind"),
+]
+
+
 class Schedule(BaseModel):
     cron: str
     timezone: Literal["UTC"]
@@ -254,6 +285,13 @@ class Profile(BaseModel):
     # web "Run now" button (or manually). The hourly scheduler skips profiles
     # whose schedule is None.
     schedule: Schedule | None = None
+
+    # ``alerts`` are user-supplied (NOT proposed by the onboarder LLM); the
+    # web schedule editor is the only writer. The post-run alerts evaluator
+    # compares each rule to the previous run's snapshot and fires push
+    # notifications via /api/push/notify on state transitions only. Default
+    # empty — most profiles have no alerts.
+    alerts: list[AlertRule] = Field(default_factory=list)
 
     @field_validator("brand_candidates")
     @classmethod
