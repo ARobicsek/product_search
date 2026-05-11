@@ -4,6 +4,8 @@ import { commitNewProfile } from '@/lib/onboard/commit';
 import { parseAndValidateProfileYaml, ProfileValidationError } from '@/lib/onboard/schema';
 import { renderProfileYaml } from '@/lib/onboard/render-yaml';
 import { gateUniversalAiUrls, type ProbeReport } from '@/lib/onboard/gate-universal-ai';
+import { getProductProfileContent } from '@/lib/github';
+import { readAlertsFromYaml } from '@/lib/alerts';
 
 export const runtime = 'nodejs';
 export const maxDuration = 30;
@@ -45,6 +47,27 @@ export async function POST(request: NextRequest) {
     }
     try {
       const draft = body.draft as Record<string, unknown>;
+      // Onboarder-edit-strips-alerts fix (Phase 17 Part D): the onboarder
+      // prompt is intentionally unaware of `alerts` — they're user-driven
+      // via the schedule editor. Without this splice, editing a profile
+      // through /onboard?edit=<slug> would silently drop every alert the
+      // user had configured. We re-attach the existing alerts from the
+      // on-disk profile whenever the draft omits the key.
+      if (
+        body.originalSlug &&
+        SLUG_RE.test(body.originalSlug) &&
+        draft.alerts === undefined
+      ) {
+        const existing = await getProductProfileContent(body.originalSlug).catch(
+          () => null,
+        );
+        if (existing) {
+          const existingAlerts = readAlertsFromYaml(existing);
+          if (existingAlerts.length > 0) {
+            draft.alerts = existingAlerts;
+          }
+        }
+      }
       const gated = await gateUniversalAiUrls(draft);
       probeReports = gated.reports;
       yamlText = renderProfileYaml(gated.draft);

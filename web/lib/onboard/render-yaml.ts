@@ -28,6 +28,7 @@ const CANONICAL_KEY_ORDER: ReadonlyArray<string> = [
   'synthesis_hints',
   'report_columns',
   'schedule',
+  'alerts',
 ];
 
 function canonicalize(input: Record<string, unknown>): Record<string, unknown> {

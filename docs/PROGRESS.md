@@ -7,6 +7,26 @@
 **Phase 17 — Schedule Editor + Alerts. IN PROGRESS.**
 Scope expanded 2026-05-11: in addition to the original cron editor, Phase 17 now also covers user-configurable price/vendor alerts (NOT handled by the onboarder — UI-only).
 
+## Status as of 2026-05-11 late night (Phase 17 — Part D landed)
+
+**Part D — Alerts UI** ✅
+- New surgical-mutator module [web/lib/alerts.ts](../web/lib/alerts.ts) — `readAlertsFromYaml`, `applyAlertsToYaml`, `validateAlertRule`, `describeRule`. Pattern follows [web/lib/schedule.ts](../web/lib/schedule.ts) and [web/lib/report-columns.ts](../web/lib/report-columns.ts). Handles three YAML shapes for the `alerts:` block: present block-list, present inline empty (`alerts: []`), and absent. Empty-list writes are suppressed when no block existed before — keeps untouched YAML stable.
+- [web/app/[product]/ScheduleEditorButton.tsx](../web/app/[product]/ScheduleEditorButton.tsx) refactored: button label is now "Schedule & Alerts" with a badge showing rule count. Popover has two sections — schedule presets (unchanged) and an alerts list with add/edit/delete rows. `AlertForm` (private component in the same file) handles both rule kinds: `price_below` with threshold + optional condition filter, `vendor_seen` with host. Save button now applies schedule + alerts in one POST.
+- **Subscribe-state nudge**: `useEffect` probes `navigator.serviceWorker.ready` → `pushManager.getSubscription()` whenever the popover opens. If the user has alerts configured AND no local subscription, an inline amber banner appears ("Tap **Enable Alerts** in the toolbar above to receive push notifications on this device."). Mirrors the same check the existing [SubscribeButton.tsx](../web/app/[product]/SubscribeButton.tsx) uses — doesn't auto-trigger the subscribe flow.
+- **Onboarder-edit-strips-alerts hazard fix** (ADR-045): in [/api/onboard/save](../web/app/api/onboard/save/route.ts), when `body.originalSlug` is set AND `body.draft.alerts` is undefined, read the on-disk profile via `getProductProfileContent`, extract alerts with `readAlertsFromYaml`, and splice into the draft before `gateUniversalAiUrls`/`renderProfileYaml`. `alerts` is also appended to `CANONICAL_KEY_ORDER` in [render-yaml.ts](../web/lib/onboard/render-yaml.ts) so the re-rendered YAML places the block in a stable spot after `schedule`.
+
+**Tests**: 207/207 worker tests pass (unchanged from Part C — no worker code touched). `tsc --noEmit` clean. Smoke test: dev server returned 200 for `/supermicro-mbd-h13ssl-nt-o`; rendered HTML contains the new "Schedule & Alerts" button.
+
+**Live state at handoff** (2026-05-11 late night):
+- This round's changes: `web/lib/alerts.ts` (new), `web/lib/onboard/render-yaml.ts`, `web/app/[product]/ScheduleEditorButton.tsx`, `web/app/api/onboard/save/route.ts`, this PROGRESS update, new ADR-045 in [DECISIONS.md](DECISIONS.md#adr-045--alerts-survive-onboarder-edits-via-save-time-splice-rather-than-teaching-the-onboarder-about-alerts).
+- Pre-existing working-tree leftovers from earlier rounds still present (`dialog_with_onboarder*.txt`, deleted `REPO_WALKTHROUGH.md`). Not mine.
+
+**Caveat (still active from Part C)**: scheduled cron is still disabled in [.github/workflows/search-scheduled.yml](../.github/workflows/search-scheduled.yml). The Phase 17 Part E done-when criterion "scheduled run that triggers an alert fires exactly one push notification per rule per transition" can't be verified end-to-end until the schedule block is uncommented. Alerts evaluator does run on every run-now, so we can verify Part E with a manual run-now trigger.
+
+**Next session — start here**:
+1. **Phase 17 Part E — manual end-to-end verification.** Pick a product with a running profile; add a `price_below` rule with threshold ABOVE the current cheapest via the UI (should NOT fire — the evaluator only fires on transitions). Trigger run-now → verify report's `## Alerts fired` panel is empty and no push fires. Then edit the rule to lower the threshold below current; trigger run-now again → exactly one push should fire; the audit panel should list one rule. Re-run with no changes → no re-fire. Add a `vendor_seen` rule for a host that returned 0 listings on the last run; trigger run-now → expect one push.
+2. **Re-enable the schedule workflow** (one-line uncomment in `.github/workflows/search-scheduled.yml`) is the natural follow-up that closes the Phase 17 "next scheduled-run tick picks up the new cron" criterion. Out of scope for Phase 17 itself, but worth tagging.
+
 ## Status as of 2026-05-11 night (Phase 17 — Part C landed)
 
 **Part C — Worker-side alerts evaluator** ✅

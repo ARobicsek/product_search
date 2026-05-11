@@ -9,6 +9,26 @@ Status values:
 
 ---
 
+## ADR-045 — Alerts survive onboarder edits via save-time splice (rather than teaching the onboarder about alerts)
+
+**Status**: ACCEPTED
+
+**Date**: 2026-05-11
+
+**Context**: Phase 17 added `profile.alerts` (price-below + vendor-seen rules), configured entirely from the schedule editor UI. The onboarder LLM is intentionally unaware of alerts — the prompt has no mention of them, and the JSON `<draft>` block the LLM emits per turn carries no `alerts` key. This creates a silent-data-loss hazard: `/api/onboard/save` rebuilds YAML from `body.draft` via `renderProfileYaml`, so editing a profile through `/onboard?edit=<slug>` would round-trip the YAML through a draft that never had `alerts` and drop every rule the user had configured. Two viable fixes: (a) teach the onboarder to read and pass through the existing alerts (prompt churn + LLM has to handle a domain it shouldn't); (b) splice the existing alerts back in server-side at save time.
+
+**Decision**:
+1. In [/api/onboard/save](../web/app/api/onboard/save/route.ts), when `body.originalSlug` is a valid edit-mode slug AND `body.draft.alerts` is `undefined`, read the on-disk `products/<slug>/profile.yaml` via the existing `getProductProfileContent`, extract alerts with `readAlertsFromYaml`, and assign them to `draft.alerts` before `gateUniversalAiUrls` and `renderProfileYaml`.
+2. The onboarder prompt continues to know nothing about alerts. This is reinforced by the Phase 17 brief in [PHASES.md](PHASES.md#phase-17--schedule-editor--alerts-ui) ("Alerts are configured in the editor UI **only**").
+3. `alerts` is appended to `CANONICAL_KEY_ORDER` in [render-yaml.ts](../web/lib/onboard/render-yaml.ts) so re-rendered YAML places the block in a stable position immediately after `schedule`.
+
+**Consequence**:
+- Editing a profile through the onboarder no longer silently drops alerts. Users who configured alerts via the schedule editor can safely re-run the onboarder for other reasons (fixing a vendor URL, retargeting the description) without losing their notifications.
+- The onboarder prompt stays simpler — alerts remain a UI-only concept.
+- Trade-off: if a future feature *did* want the onboarder to propose alert defaults, we'd have to revisit this splice (a draft that legitimately wants to clear alerts would have to send `alerts: []` explicitly, not omit the key).
+
+---
+
 ## ADR-044 — Profile schema: `target.configurations` and `qvl_file` are RAM-domain-only and optional
 
 **Status**: ACCEPTED
