@@ -49,6 +49,10 @@ report_columns:
   - seller
   - seller_rating
   - flags
+alerts:
+  - kind: price_below
+    threshold_usd: 400
+
 schedule:
   cron: 0 8 * * *
   timezone: UTC
