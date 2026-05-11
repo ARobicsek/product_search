@@ -51,7 +51,9 @@ report_columns:
   - flags
 alerts:
   - kind: price_below
-    threshold_usd: 400
+    threshold_usd: 500
+  - kind: vendor_seen
+    host: walmart.com
 
 schedule:
   cron: 0 8 * * *
