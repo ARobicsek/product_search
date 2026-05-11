@@ -143,6 +143,7 @@ export default async function ProductPage({
       {/* Action toolbar */}
       <div className="px-4 pt-4 max-w-2xl mx-auto w-full flex items-center justify-end gap-3">
         <SubscribeButton productSlug={product} />
+        <ScheduleEditorButton product={product} profileYaml={profileYaml} />
         <ColumnChooserButton product={product} profileYaml={profileYaml} />
         <Link
           href={`/onboard?edit=${product}`}
