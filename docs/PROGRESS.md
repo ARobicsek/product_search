@@ -7,6 +7,27 @@
 **Phase 17 — Schedule Editor + Alerts. IN PROGRESS.**
 Scope expanded 2026-05-11: in addition to the original cron editor, Phase 17 now also covers user-configurable price/vendor alerts (NOT handled by the onboarder — UI-only).
 
+## Status as of 2026-05-11 night (Phase 17 — Part C landed)
+
+**Part C — Worker-side alerts evaluator** ✅
+- New module [worker/src/product_search/alerts.py](../worker/src/product_search/alerts.py) with `evaluate_alerts(rules, current, previous)`, `listing_host()` (canonical, prefers `attrs.vendor_host` for universal_ai listings), `previous_run_csv()` / `load_previous_run()` (most-recent CSV under `reports/<slug>/data/` excluding the just-written one), and `render_audit_panel()` for the report.
+- **Transition semantics**: `price_below` fires only when current cheapest crosses below threshold AND previous cheapest was at-or-above (or no previous run). `vendor_seen` fires only when current run has ≥1 listing for host AND previous run had 0 (or no previous run). Avoids notification spam — pinned by tests `test_price_below_does_not_fire_when_previous_was_already_below` and `test_vendor_seen_does_not_re_fire_when_previously_present`.
+- Per-condition transition: `price_below` with `condition="new"` checks the previous run's cheapest *new* listing, not the global cheapest — so a previous cheap-used listing doesn't suppress a new-condition fire.
+- Wired into [cli._cmd_search](../worker/src/product_search/cli.py#L532) after `_build_run_cost_md` and before `write_report`. Reuses existing [notify.notify_material_change](../worker/src/product_search/notify.py) for the Bearer-authed POST to `/api/push/notify`. Audit panel (`## Alerts fired`) is appended to the report body so a user inspecting the committed report sees what fired and why. No-op when `profile.alerts == []` (current state for every profile in the repo).
+
+**Tests**: 207/207 worker tests pass (was 184; +23 alert tests in [test_alerts.py](../worker/tests/test_alerts.py) covering empty rules, threshold boundaries, transition semantics for both rule kinds, condition filter, www-stripping/case-insensitive host match, attrs.vendor_host preference, multiple-rule fanout, and CSV round-trip with `tmp_path`).
+
+**Live state at handoff** (2026-05-11 night):
+- Pre-existing working-tree leftovers from earlier rounds still present (`dialog_with_onboarder*.txt`, deleted `REPO_WALKTHROUGH.md`). Not mine.
+- This round's changes: `worker/src/product_search/alerts.py`, `worker/tests/test_alerts.py`, `worker/src/product_search/cli.py` (wiring + `csv_path = None` init), this PROGRESS update.
+
+**Caveat (still active)**: scheduled cron is currently disabled in [.github/workflows/search-scheduled.yml](../.github/workflows/search-scheduled.yml). Alerts evaluator runs on every `search` invocation regardless (run-now and any future scheduled tick), so this isn't blocking — but the Phase 17 done-when criterion "scheduled run that triggers an alert fires exactly one push notification per rule per transition" still can't be verified end-to-end until the schedule block is uncommented.
+
+**Next session — start here**:
+1. **Phase 17 Part D** — alerts UI section in the schedule editor (or sibling button). Surgical mutator `applyAlertsToYaml` / `readAlertsFromYaml` in new `web/lib/alerts.ts`. Add/edit/remove rows for both rule kinds. Subscribe-state nudge if user adds an alert without opting into push. Tasks 8-9 in PHASES.md.
+2. **Onboarder-edit-strips-alerts hazard** (must fix during Part D): the `draft`-path through `/api/onboard/save` rebuilds YAML from the LLM-emitted JSON via `renderProfileYaml`. The onboarder doesn't know about alerts, so editing a profile via `/onboard?edit=<slug>` will silently drop any user-supplied alerts. Either splice alerts back in at save time from the on-disk profile, or read alerts into the edit-mode draft and pass through. Document the choice in PROGRESS when fixing.
+3. **Phase 17 Part E** — manual end-to-end verification. Add a `price_below` rule with threshold above current cheapest (must NOT fire on next run — already below). Lower threshold → next run should fire exactly once → re-run with same state should NOT re-fire. Add `vendor_seen` for a host that didn't return last run, trigger run-now, verify push fires once.
+
 ## Status as of 2026-05-11 late (Phase 17 — Parts A + B landed)
 
 Phase 17 scope was expanded earlier today to cover user-configurable alerts (see [PHASES.md](PHASES.md#phase-17--schedule-editor--alerts-ui)). Parts A and B landed in this session.

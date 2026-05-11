@@ -390,6 +390,9 @@ def _cmd_search(
     run_started_at = datetime.now(tz=UTC)
     snapshot_date = run_started_at.date()
     diff_result = None
+    # ``csv_path`` is set when storage runs; the Phase 17 alerts evaluator
+    # reads it to exclude the just-written CSV when picking the previous run.
+    csv_path = None
     if not no_store and passed_listings:
         from product_search.storage.csv_dump import default_csv_path, write_snapshot_csv
         from product_search.storage.db import (
@@ -531,8 +534,39 @@ def _cmd_search(
         })
         run_cost_md = _build_run_cost_md(run_calls)
 
+        # --- Phase 17 Part C — alerts evaluator -------------------------------
+        # Fire user-configured alert rules on transition only (false → true
+        # since the previous run). Audit-trail panel appended to the report
+        # so a user inspecting the committed report sees what fired and why.
+        alerts_md = ""
+        if profile.alerts:
+            from product_search.alerts import (
+                evaluate_alerts,
+                load_previous_run,
+                render_audit_panel,
+            )
+            from product_search.notify import notify_material_change
+
+            previous_listings = load_previous_run(slug, exclude=csv_path)
+            fired = evaluate_alerts(
+                profile.alerts, passed_listings, previous_listings
+            )
+            outcomes: list[bool] = []
+            for fa in fired:
+                ok = notify_material_change(slug, fa.headline)
+                outcomes.append(ok)
+                print(
+                    f"Alert fired ({fa.rule.kind}): {fa.headline} "
+                    f"(notify={'ok' if ok else 'failed'})",
+                    file=sys.stderr,
+                )
+            alerts_md = render_audit_panel(fired, outcomes)
+
         report_path = default_report_path(slug, snapshot_date)
-        write_report(report_path, body + "\n\n" + sources_md + "\n\n" + run_cost_md)
+        report_body = body + "\n\n" + sources_md + "\n\n" + run_cost_md
+        if alerts_md:
+            report_body += "\n\n" + alerts_md
+        write_report(report_path, report_body)
         print(
             f"Wrote report: {report_path}  "
             f"(in={result.input_tokens}, out={result.output_tokens})",
