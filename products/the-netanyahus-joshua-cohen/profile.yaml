@@ -24,12 +24,13 @@ sources:
   - id: universal_ai_search
     url: https://www.abebooks.com/servlet/SearchResults?kn=the+netanyahus+joshua+cohen&sortby=17
   - id: universal_ai_search
-    url: https://www.thriftbooks.com/browse/?searchTerm=the+netanyahus+joshua+cohen
-  - id: universal_ai_search
-    url: https://www.betterworldbooks.com/search/results?query=the+netanyahus+joshua+cohen
+    url: https://www.thriftbooks.com/browse/?b.search=the+netanyahus+joshua+cohen#b.s=price-asc&b.p=1&b.pp=50&b.oos
   - id: universal_ai_search
     url: https://www.biblio.com/search.php?title=the+netanyahus&author=joshua+cohen&stage=1
-sources_pending: []
+sources_pending:
+  - id: universal_ai_search
+    url: https://www.betterworldbooks.com/search/results?query=the+netanyahus
+    note: JS-heavy SPA; adapter extracts 0 product anchors from server-rendered HTML. Needs deeper JS rendering support to work.
 report_columns:
   - rank
   - source

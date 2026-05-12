@@ -8,6 +8,32 @@
 
 **Next phase candidate**: Phase 18 (polish + second-product proof) per [PHASES.md](PHASES.md#phase-18--polish--second-product-proof-replaces-old-phase-12), OR pick up the deferred Phase 19 (universal adapter accuracy & vendor reach) which still blocks Phase 18's "7-day scheduled runs produce reliable data" criterion. Pre-Phase-18 decisions tracked in the 2026-05-11 afternoon handoff below.
 
+## Status as of 2026-05-12 morning (Book vendor URL fix — "The Netanyahus" profile patch)
+
+**Patched the three failing vendor URLs in `products/the-netanyahus-joshua-cohen/profile.yaml`.** The prior session (2026-05-11 late evening) identified the root causes and fixed the onboard prompt's URL patterns, but never patched the existing profile on disk. This session completes that.
+
+### Changes applied
+
+| Source | Before | After | Why |
+|--------|--------|-------|-----|
+| **thriftbooks.com** | `/w/?resultCount=50&searchTerm=...` → homepage bestsellers (63 fetched, 0 relevant) | `/browse/?b.search=...#b.s=price-asc&b.p=1&b.pp=50&b.oos` → actual search results | `/w/?searchTerm=` silently redirects to ThriftBooks homepage; all 63 returned items were bestsellers (Harry Potter, Hunger Games, etc.) correctly rejected by ai_filter |
+| **biblio.com** | `/search?query=...` → 404 page (0 fetched) | `/search.php?title=the+netanyahus&author=joshua+cohen&stage=1` → actual search results | Biblio uses `search.php` with separate `title` and `author` params; `/search` returns 404 |
+| **betterworldbooks.com** | In `sources` (0 fetched, $0.013/run wasted on LLM call) | Moved to `sources_pending` with note: "JS-heavy SPA; adapter extracts 0 product anchors" | Products are client-rendered; even AlterLab's JS rendering may not produce extractable anchors. Stops wasting ~$0.013/run |
+
+### Verification
+
+- `cli validate the-netanyahus-joshua-cohen`: valid
+- `pytest`: 207/207 pass
+- No worker or web code changes — profile-only fix
+
+### Next session — start here
+
+1. **Trigger a Run-now on `the-netanyahus-joshua-cohen`** to verify the corrected ThriftBooks and Biblio URLs produce real listings. Expected: ThriftBooks returns relevant "The Netanyahus" listings with non-zero passed count; Biblio returns book listings instead of 404.
+2. **Phase 18 vs Phase 19 decision** still pending (see 2026-05-11 afternoon handoff below).
+3. **Deferred**: BetterWorldBooks needs deeper JS-rendering adapter support to work. If AlterLab ever handles their SPA, move back from `sources_pending` to `sources`.
+
+---
+
 ## Status as of 2026-05-11 late evening (Onboarder bug fixes — "The Netanyahus" post-mortem)
 
 **8 bugs identified and fixed from the user's book onboarding session ("The Netanyahus" by Joshua Cohen).** The onboarding conversation hit repeated validation errors, "search limit reached" messages, and the final report showed 0 listings from ThriftBooks, AbeBooks, and Amazon despite those sites having the book. Two additional bugs (RunNowButton timestamp bleed-through, wrong vendor URL patterns) were found and fixed in follow-up commits.
