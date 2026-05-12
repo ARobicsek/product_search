@@ -1,0 +1,44 @@
+slug: the-netanyahus-joshua-cohen
+display_name: The Netanyahus by Joshua Cohen
+description: Track cheapest new listings for The Netanyahus by Joshua Cohen, any edition.
+target:
+  unit: count
+  amount: 1
+spec_filters:
+  - rule: in_stock
+  - rule: title_excludes
+    values:
+      - used
+spec_flags:
+  - rule: low_seller_feedback
+    flag: low_feedback
+    rating_pct_below: 98
+    count_below: 50
+sources:
+  - id: ebay_search
+    queries:
+      - the netanyahus joshua cohen
+    max_results_per_query: 50
+  - id: universal_ai_search
+    url: https://www.amazon.com/s?k=the+netanyahus+joshua+cohen
+  - id: universal_ai_search
+    url: https://www.abebooks.com/servlet/SearchResults?kn=the+netanyahus+joshua+cohen&sortby=17
+  - id: universal_ai_search
+    url: https://www.thriftbooks.com/w/?resultCount=50&searchTerm=the+netanyahus+joshua+cohen
+  - id: universal_ai_search
+    url: https://www.betterworldbooks.com/search/results?query=the+netanyahus
+  - id: universal_ai_search
+    url: https://www.biblio.com/search?query=the+netanyahus+joshua+cohen
+sources_pending: []
+report_columns:
+  - rank
+  - source
+  - title
+  - price_unit
+  - condition
+  - seller
+  - seller_rating
+  - flags
+schedule:
+  cron: 0 8 * * *
+  timezone: UTC
