@@ -8,25 +8,56 @@
 
 **Next phase candidate**: Phase 18 (polish + second-product proof) per [PHASES.md](PHASES.md#phase-18--polish--second-product-proof-replaces-old-phase-12), OR pick up the deferred Phase 19 (universal adapter accuracy & vendor reach) which still blocks Phase 18's "7-day scheduled runs produce reliable data" criterion. Pre-Phase-18 decisions tracked in the 2026-05-11 afternoon handoff below.
 
-## Status as of 2026-05-11 evening (Onboarder bug fixes — "The Netanyahus" post-mortem)
+## Status as of 2026-05-11 late evening (Onboarder bug fixes — "The Netanyahus" post-mortem)
 
-**6 bugs identified and fixed from the user's book onboarding session ("The Netanyahus" by Joshua Cohen).** The onboarding conversation hit repeated validation errors, "search limit reached" messages, and the final report showed 0 listings from ThriftBooks, AbeBooks, and Amazon despite those sites having the book.
+**8 bugs identified and fixed from the user's book onboarding session ("The Netanyahus" by Joshua Cohen).** The onboarding conversation hit repeated validation errors, "search limit reached" messages, and the final report showed 0 listings from ThriftBooks, AbeBooks, and Amazon despite those sites having the book. Two additional bugs (RunNowButton timestamp bleed-through, wrong vendor URL patterns) were found and fixed in follow-up commits.
 
 ### Fixes applied
 
+**Commit `bf8fdac` — core onboarder fixes:**
+
 1. **`WEB_SEARCH_MAX_USES` 2 → 10** ([route.ts](../web/app/api/onboard/chat/route.ts)). The model used both searches to look up eBay + ThriftBooks and ran out for AbeBooks/Biblio/Alibris/Amazon. Original value was 5 (ADR-034 cut to 2 — too aggressive for multi-vendor products).
 
-2. **`spec_attrs` now optional in schema validator** ([schema.ts](../web/lib/onboard/schema.ts)). Non-RAM products correctly emit `spec_attrs: {}` or omit it, but the validator called `validateSpecAttrs()` unconditionally — `null`/`undefined` input caused `asObject` to fail with "expected object". Now guarded: `null`/`undefined` skips validation, matching the Python side's `default_factory=dict`.
+2. **`spec_attrs` now optional in schema validator** ([schema.ts](../web/lib/onboard/schema.ts)). Non-RAM products correctly emit `spec_attrs: {}` or omit it, but the validator called `validateSpecAttrs()` unconditionally — `null`/`undefined` input caused `asObject` to fail with "expected object". Now guarded.
 
-3. **`spec_filters`/`spec_flags` now optional; minimum-length check dropped** ([schema.ts](../web/lib/onboard/schema.ts)). Same class as #2: `validateRules()` was called unconditionally and also enforced `arr.length < 1` → error. The prompt already instructs `in_stock` as a baseline; the hard minimum in the validator caused unrecoverable UI errors for non-RAM products where the model sometimes emitted `null` mid-conversation.
+3. **`spec_filters`/`spec_flags` now optional; minimum-length check dropped** ([schema.ts](../web/lib/onboard/schema.ts)). Same class as #2. The prompt instructs `in_stock` as a baseline; the hard minimum caused unrecoverable UI errors.
 
-4. **Book-vendor URL construction guidance in prompt** ([onboard_v1.txt](../worker/src/product_search/onboarding/prompts/onboard_v1.txt), synced to [promptText.ts](../web/lib/onboard/promptText.ts)). The saved profile had `thriftbooks.com/browse/` (browse root, no query), `abebooks.com/servlet/SearchEntry` (form page), `amazon.com/advanced-search/books` (form page). None are search-results pages — the adapter found no product listings. Added:
-   - Explicit "never use a search-entry form page" rule (URLs ending in `/SearchEntry`, `/advanced-search`, `/browse/` without query params)
-   - Known vendor search-results URL patterns (Amazon `/s?k=`, ThriftBooks `/w/?searchTerm=`, AbeBooks `/servlet/SearchResults?kn=`, Better World Books, Biblio, Alibris, Walmart, Target, Back Market)
+4. **Book-vendor URL construction guidance in prompt** ([onboard_v1.txt](../worker/src/product_search/onboarding/prompts/onboard_v1.txt)). Added explicit "never use a search-entry form page" rule and known vendor search-results URL patterns.
 
-5. **QVL stub no longer created for non-RAM products** ([commit.ts](../web/lib/onboard/commit.ts)). The `commitNewProfile` function unconditionally created `products/<slug>/qvl.yaml`. Now checks if the profile YAML contains `qvl_file:` before creating the stub. Books, headphones, and all non-RAM products no longer get dead-weight QVL files.
+5. **QVL stub no longer created for non-RAM products** ([commit.ts](../web/lib/onboard/commit.ts)). Now checks if profile YAML contains `qvl_file:` before creating the stub.
 
-6. **HTTP 403 treated as bot-block in save-time probe** ([probe-url.ts](../web/lib/onboard/probe-url.ts)). The probe was demoting URLs that returned 403 from the bare-fetch datacenter IP. A 403 from a vendor site is almost always a bot-block (Cloudflare, Akamai, Datadome), not a genuine "forbidden" — AlterLab's rendered fetch handles these in production. Now mirrors the existing 5xx-from-known-good policy: records the 403 as a diagnostic but sets `ok: true`.
+6. **HTTP 403 treated as bot-block in save-time probe** ([probe-url.ts](../web/lib/onboard/probe-url.ts)). Mirrors existing 5xx-from-known-good policy.
+
+**Commit `b1bf03a` — RunNowButton fix:**
+
+7. **RunNowButton showed another product's last-run timestamp** ([dispatch.ts](../web/lib/dispatch.ts)). `getLastCompletedRun()` had a `??` fallback returning ANY product's most recent run when the current slug had never been dispatched. Removed.
+
+**Commit `3a05a88` — vendor URL corrections:**
+
+8. **Vendor URL patterns corrected + product URL signals expanded** ([universal_ai.py](../worker/src/product_search/adapters/universal_ai.py), [probe-url.ts](../web/lib/onboard/probe-url.ts), prompt). Browser-verified that:
+   - ThriftBooks `/w/?searchTerm=` silently redirects to homepage showing bestsellers; correct path is `/browse/?b.search=`
+   - Biblio `/search?query=` returns 404; correct path is `search.php?title=&author=&stage=1`
+   - Added `/w/` (ThriftBooks) and `/book/` (Biblio, BWB) to product URL signals in both Python and TS
+
+### Still failing — carry to next session
+
+The prompt fixes only affect **future onboarding sessions**. The existing `the-netanyahus-joshua-cohen/profile.yaml` on origin/main still has the old URLs from the pre-fix onboarding. Two re-runs confirmed the same failures:
+
+| Source | Fetched | Passed | Why still failing | Resolution |
+|--------|---------|--------|-------------------|------------|
+| **thriftbooks.com** | 63 | 0 | Profile has `/w/?searchTerm=` → homepage → 63 unrelated bestsellers → AI filter correctly rejects all | Re-onboard or patch profile URL to `/browse/?b.search=` |
+| **betterworldbooks.com** | 0 | 0 | JS-heavy SPA. Adapter fetched the page (6k input tokens) but extracted 0 anchors — products are client-rendered | Likely needs deeper adapter work (ScrapFly headless?) |
+| **biblio.com** | 0 | 0 | Profile has `/search?query=` which returns wrong page. Correct path is `search.php?title=&author=` | Re-onboard or patch profile URL |
+
+### Phase 19 candidates — general vendor URL discovery
+
+The vendor URL pattern table in the onboard prompt is **whack-a-mole engineering**: every new vendor domain needs a manually verified entry. Three structural fixes that would eliminate this class of bug permanently:
+
+1. **Chat-time URL probe tool** — let the onboarder invoke a tool during the conversation that fetches a candidate URL and reports whether it contains extractable product listings. The model could iterate ("this URL returned 0 products, let me try `/search?q=`...") before saving.
+
+2. **Vendor URL registry** — a small structured file (`vendor_urls.yaml`) mapping `domain → search URL template` that the model and adapter can look up. Maintained outside the prompt, versioned in the repo, extensible without prompt changes.
+
+3. **Adapter fallback search** — when `universal_ai_search` fetches a URL and gets 0 candidates, automatically try common search path variants for the same domain (`/search?q=<keywords>`, `/s?k=<keywords>`, `/browse/?b.search=<keywords>`, `search.php?title=<keywords>`) before giving up.
 
 ### Verification
 
@@ -35,13 +66,15 @@
 - `npx next build`: success
 - `pytest`: 207/207 pass
 
-### Files changed
+### Files changed (all commits this session)
 
 - `web/app/api/onboard/chat/route.ts` — search limit bump
 - `web/lib/onboard/schema.ts` — spec_attrs/filters/flags optional
-- `web/lib/onboard/probe-url.ts` — 403 policy
+- `web/lib/onboard/probe-url.ts` — 403 policy + `/w/`, `/book/` signals
 - `web/lib/onboard/commit.ts` — conditional QVL stub
-- `worker/src/product_search/onboarding/prompts/onboard_v1.txt` — vendor URL patterns
+- `web/lib/dispatch.ts` — RunNowButton last-run fix
+- `worker/src/product_search/adapters/universal_ai.py` — `/w/`, `/book/` signals
+- `worker/src/product_search/onboarding/prompts/onboard_v1.txt` — vendor URL patterns (corrected twice: first pass had wrong ThriftBooks/Biblio patterns)
 - `web/lib/onboard/promptText.ts` — auto-synced from above
 - `docs/PROGRESS.md` — this update
 
