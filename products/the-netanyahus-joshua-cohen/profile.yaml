@@ -1,4 +1,4 @@
-slug: the-netanyahus-joshua-cohen
+slug: "the-netanyahus-joshua-cohen"
 display_name: The Netanyahus by Joshua Cohen
 description: Track cheapest new listings for The Netanyahus by Joshua Cohen, any edition.
 target:
@@ -24,11 +24,11 @@ sources:
   - id: universal_ai_search
     url: https://www.abebooks.com/servlet/SearchResults?kn=the+netanyahus+joshua+cohen&sortby=17
   - id: universal_ai_search
-    url: https://www.thriftbooks.com/w/?resultCount=50&searchTerm=the+netanyahus+joshua+cohen
+    url: https://www.thriftbooks.com/browse/?searchTerm=the+netanyahus+joshua+cohen
   - id: universal_ai_search
-    url: https://www.betterworldbooks.com/search/results?query=the+netanyahus
+    url: https://www.betterworldbooks.com/search/results?query=the+netanyahus+joshua+cohen
   - id: universal_ai_search
-    url: https://www.biblio.com/search?query=the+netanyahus+joshua+cohen
+    url: https://www.biblio.com/search.php?title=the+netanyahus&author=joshua+cohen&stage=1
 sources_pending: []
 report_columns:
   - rank
