@@ -252,8 +252,8 @@ class Profile(BaseModel):
     # have nothing useful to put here; the validator pipeline does not require
     # any keys to be present, so the default is an empty dict.
     spec_attrs: dict[str, SpecAttrDef] = Field(default_factory=dict)
-    spec_filters: list[FilterRule] = Field(min_length=1)
-    spec_flags: list[FlagRule] = Field(min_length=1)
+    spec_filters: list[FilterRule] = Field(default_factory=list)
+    spec_flags: list[FlagRule] = Field(default_factory=list)
 
     sources: list[Source] = Field(min_length=1)
     sources_pending: list[PendingSource] = Field(default_factory=list)

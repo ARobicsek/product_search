@@ -8,6 +8,27 @@
 
 **Next phase candidate**: Phase 18 (polish + second-product proof) per [PHASES.md](PHASES.md#phase-18--polish--second-product-proof-replaces-old-phase-12), OR pick up the deferred Phase 19 (universal adapter accuracy & vendor reach) which still blocks Phase 18's "7-day scheduled runs produce reliable data" criterion. Pre-Phase-18 decisions tracked in the 2026-05-11 afternoon handoff below.
 
+## Status as of 2026-05-12 afternoon (Pydantic schema validator sync for optional spec_filters/spec_flags)
+
+**Fixed a validation error on non-RAM profiles that omit `spec_flags` or `spec_filters` (e.g. `aufschnitt-essiccata-jerky`).** The prior session made `spec_filters` and `spec_flags` optional in the TypeScript schema validator (`web/lib/onboard/schema.ts`) but forgot to mirror the change in the Python Pydantic model (`worker/src/product_search/profile.py`). As a result, newly onboarded products running on Vercel or GitHub Actions failed instantly with a Pydantic `Field required` missing-key error for `spec_flags`.
+
+### Changes applied
+
+- `worker/src/product_search/profile.py` — changed `spec_filters` and `spec_flags` to `Field(default_factory=list)` to make them optional without minimum length restrictions, mirroring the web-side schema validator exactly.
+
+### Verification
+
+- `cli validate aufschnitt-essiccata-jerky`: valid
+- `pytest`: 207/207 pass
+
+### Next session — start here
+
+1. **Trigger a Run-now on `aufschnitt-essiccata-jerky`** to verify the jerky search pipeline runs cleanly end-to-end.
+2. **Trigger a Run-now on `the-netanyahus-joshua-cohen`** to verify the corrected ThriftBooks and Biblio URLs produce real listings.
+3. **Phase 18 vs Phase 19 decision** still pending (see 2026-05-11 afternoon handoff below).
+
+---
+
 ## Status as of 2026-05-12 morning (Book vendor URL fix — "The Netanyahus" profile patch)
 
 **Patched the three failing vendor URLs in `products/the-netanyahus-joshua-cohen/profile.yaml`.** The prior session (2026-05-11 late evening) identified the root causes and fixed the onboard prompt's URL patterns, but never patched the existing profile on disk. This session completes that.

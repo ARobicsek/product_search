@@ -9,6 +9,24 @@ Status values:
 
 ---
 
+## ADR-046 — Pydantic Profile schema sync: `spec_filters` and `spec_flags` are fully optional
+
+**Status**: ACCEPTED
+
+**Date**: 2026-05-12
+
+**Context**: Previously, the web onboarding UI's TypeScript schema validator (`web/lib/onboard/schema.ts`) was updated to make `spec_filters` and `spec_flags` optional blocks (removing the hard minimum-length check) to unblock non-RAM products that have no specific filters or flags beyond base defaults. However, the worker's canonical Pydantic model (`worker/src/product_search/profile.py`) still enforced `Field(min_length=1)` without a default factory. Consequently, any profile lacking `spec_flags` (such as `aufschnitt-essiccata-jerky`) failed instantly at worker startup/validation with a Pydantic `Field required` missing-key error.
+
+**Decision**:
+1. Updated `worker/src/product_search/profile.py` to type `spec_filters` and `spec_flags` with `Field(default_factory=list)`, removing the minimum-length restriction and allowing the blocks to be completely omitted from `profile.yaml`.
+2. Downstream loops in `validators/pipeline.py` and `validators/flags.py` already iterate safely over empty lists without side effects or errors.
+
+**Consequence**:
+- Profiles like `aufschnitt-essiccata-jerky` that omit `spec_flags` now validate cleanly in both the web preview and the worker runner.
+- Eliminates the silent missing-key crash on scheduled or on-demand worker runs.
+
+---
+
 ## ADR-045 — Alerts survive onboarder edits via save-time splice (rather than teaching the onboarder about alerts)
 
 **Status**: ACCEPTED
