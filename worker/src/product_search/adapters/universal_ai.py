@@ -639,6 +639,8 @@ def _looks_like_product_url(href: str) -> bool:
     signals = (
         "/product/", "/products/", "/p/", "/dp/", "/item/", "/itm/",
         "/listing/", "/buy/", "/sku/", "/pd/", "/shop/",
+        "/w/",    # ThriftBooks work pages: /w/<title>/<id>/
+        "/book/", # Biblio, BetterWorldBooks: /book/<slug>/<id>
     )
     if any(s in h for s in signals):
         return True

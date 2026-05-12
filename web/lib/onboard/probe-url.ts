@@ -75,6 +75,8 @@ const NAV_PATHS: ReadonlyArray<string> = [
 const PRODUCT_URL_SIGNALS: ReadonlyArray<string> = [
   '/product/', '/products/', '/p/', '/dp/', '/item/', '/itm/',
   '/listing/', '/buy/', '/sku/', '/pd/', '/shop/',
+  '/w/',    // ThriftBooks work pages: /w/<title>/<id>/
+  '/book/', // Biblio, BetterWorldBooks: /book/<slug>/<id>
 ];
 
 const SEARCH_OR_CATEGORY_SIGNALS: ReadonlyArray<string> = [

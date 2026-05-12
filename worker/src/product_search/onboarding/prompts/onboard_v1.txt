@@ -299,10 +299,17 @@ Roughly in this order, but adapt to what the user volunteers:
            - **Amazon**: `https://www.amazon.com/s?k=<keywords>` (add
              `&i=stripbooks` for books, `&i=electronics` for
              electronics, etc.)
-           - **ThriftBooks**: `https://www.thriftbooks.com/w/?resultCount=50&searchTerm=<keywords>`
+           - **ThriftBooks**: `https://www.thriftbooks.com/browse/?b.search=<keywords>#b.s=price-asc&b.p=1&b.pp=50&b.oos`
            - **AbeBooks**: `https://www.abebooks.com/servlet/SearchResults?kn=<keywords>&sortby=17`
            - **Better World Books**: `https://www.betterworldbooks.com/search/results?query=<keywords>`
-           - **Biblio**: `https://www.biblio.com/search?query=<keywords>`
+             (Note: BetterWorldBooks is a JS-heavy SPA — the adapter
+             needs AlterLab/ScrapFly JS rendering to extract listings.
+             If listings come back empty, the production renderer may
+             not be reaching the page.)
+           - **Biblio**: `https://www.biblio.com/search.php?title=<title>&author=<author>&stage=1`
+             (Note: Biblio uses separate `title` and `author` params,
+             NOT a single `query` param. The path must be `search.php`,
+             not `/search` which returns 404.)
            - **Alibris**: `https://www.alibris.com/booksearch?keyword=<keywords>`
            - **Walmart**: `https://www.walmart.com/search?q=<keywords>`
            - **Target**: `https://www.target.com/s?searchTerm=<keywords>`
