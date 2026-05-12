@@ -126,9 +126,7 @@ export async function getLastCompletedRun(product: string): Promise<LastRunInfo 
     r.display_title?.includes(product) || r.name?.includes(product);
   const isCompleted = (r: GhRun) => r.status === 'completed';
 
-  const match =
-    runs.find((r) => isCompleted(r) && matchesProduct(r)) ??
-    runs.find(isCompleted);
+  const match = runs.find((r) => isCompleted(r) && matchesProduct(r));
   if (!match || !match.run_started_at) return null;
 
   const start = Date.parse(match.run_started_at);
