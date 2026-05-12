@@ -79,6 +79,8 @@ KNOWN_REPORT_COLUMNS: frozenset[str] = frozenset(
         "rank",
         "source",
         "title",
+        "pack_size",
+        "price_pack",
         "price_unit",
         "total_for_target",
         "qty",

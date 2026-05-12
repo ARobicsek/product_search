@@ -886,3 +886,25 @@ def test_amazon_alterlab_eur_cards_get_approximate_usd_prices() -> None:
             f"Raw EUR price leaked into context: {c['context'][:100]}"
         )
 
+
+def test_parse_pack_extracts_multi_packs() -> None:
+    """_parse_pack decodes module counts and unit prices for multi-pack items."""
+    is_kit, count, unit_p, kit_p = universal_ai._parse_pack("Aufschnitt Jerky 2-pack", 14.00)
+    assert is_kit is True
+    assert count == 2
+    assert unit_p == 7.00
+    assert kit_p == 14.00
+
+    is_kit, count, unit_p, kit_p = universal_ai._parse_pack("Aufschnitt Jerky 6 count", 42.00)
+    assert is_kit is True
+    assert count == 6
+    assert unit_p == 7.00
+    assert kit_p == 42.00
+
+    # LLM explicit pack size overrides title regex when > 1.
+    is_kit, count, unit_p, kit_p = universal_ai._parse_pack("Generic Title", 30.00, llm_pack_size=5)
+    assert is_kit is True
+    assert count == 5
+    assert unit_p == 6.00
+    assert kit_p == 30.00
+

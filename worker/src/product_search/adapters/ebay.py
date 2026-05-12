@@ -88,7 +88,7 @@ def _fixture_dir() -> Path:
 # Keywords that suggest a listing is a multi-module kit.
 _KIT_PATTERNS = re.compile(
     r"\b(\d+)\s*x\s*(\d+)\s*gb\b"        # "8x32GB"
-    r"|\b(\d+)(?:\s*[-–]|\s+)pack\b"     # "8-pack" / "8 pack"
+    r"|\b(\d+)(?:\s*[-–]|\s+)(?:pack|count)\b"  # "8-pack", "8 pack", "6 count"
     r"|\bkit\s+of\s+(\d+)\b"             # "kit of 8"
     r"|\b(\d+)\s*pcs?\b",                # "8pcs"
     re.IGNORECASE,

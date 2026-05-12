@@ -25,4 +25,13 @@ sources:
     url: https://www.amazon.com/s?k=aufschnitt+essiccata+jerky
   - id: universal_ai_search
     url: https://www.aufschnittmeats.com/collections/extra-tender-jerky
+report_columns:
+  - rank
+  - source
+  - title
+  - pack_size
+  - price_pack
+  - price_unit
+  - seller
+  - flags
 sources_pending: []

@@ -45,6 +45,8 @@ export const KNOWN_REPORT_COLUMNS = new Set<string>([
   'rank',
   'source',
   'title',
+  'pack_size',
+  'price_pack',
   'price_unit',
   'total_for_target',
   'qty',

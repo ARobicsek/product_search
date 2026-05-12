@@ -8,6 +8,32 @@
 
 **Next phase candidate**: Phase 18 (polish + second-product proof) per [PHASES.md](PHASES.md#phase-18--polish--second-product-proof-replaces-old-phase-12), OR pick up the deferred Phase 19 (universal adapter accuracy & vendor reach) which still blocks Phase 18's "7-day scheduled runs produce reliable data" criterion. Pre-Phase-18 decisions tracked in the 2026-05-11 afternoon handoff below.
 
+## Status as of 2026-05-12 late afternoon (Multi-pack quantity extraction fix for universal_ai)
+
+**Fixed universal_ai adapter to accurately extract multi-pack product quantities and calculate unit/kit pricing.** Previously, multi-pack items (like the Aufschnitt Jerky 2-pack and 5-pack listings on Amazon) were reported as single units, skewing downstream pricing and quantity availability.
+
+### Changes applied
+
+1. **Schema & Configuration Updates**: Added `pack_size` and `price_pack` to `KNOWN_REPORT_COLUMNS` in `profile.py` and mirrored them in the TypeScript validator (`web/lib/onboard/schema.ts`). Configured `aufschnitt-essiccata-jerky/profile.yaml` to include these columns in reports.
+2. **Synthesis Support**: Extended `synthesizer.py`'s `COLUMN_DEFS` registry to format and render explicit `pack_size` and `price_pack` columns in generated markdown reports.
+3. **Adapter Extraction Logic**:
+   - Added regex-based `_parse_pack` utility function to `universal_ai.py` to decode kit counts from product titles.
+   - Refactored both the JSON-LD parsing pathway and the LLM verdict mapping block to apply `_parse_pack` extraction automatically.
+   - Updated the LLM `SYSTEM_PROMPT` to explicitly instruct the model to parse `pack_size` as an integer from listing titles and context strings.
+4. **Cross-Adapter Alignment**: Extended `ebay.py`'s `_KIT_PATTERNS` regex to include `"count"` variants (e.g., `"6 count"`), ensuring uniform kit decoding across platforms.
+
+### Verification
+
+- `cli validate aufschnitt-essiccata-jerky`: valid
+- `pytest worker/tests/`: 208/208 pass cleanly (including new unit test `test_parse_pack_extracts_multi_packs` in `test_universal_ai.py`).
+
+### Next session — start here
+
+1. **Trigger a Run-now on `aufschnitt-essiccata-jerky`** to verify that multi-pack listings (such as the Amazon 2-pack and 5-pack links) are successfully parsed and reported with their appropriate unit and pack-size attributes.
+2. **Phase 18 vs Phase 19 decision** remains open for selection.
+
+---
+
 ## Status as of 2026-05-12 afternoon (Pydantic schema validator sync for optional spec_filters/spec_flags)
 
 **Fixed a validation error on non-RAM profiles that omit `spec_flags` or `spec_filters` (e.g. `aufschnitt-essiccata-jerky`).** The prior session made `spec_filters` and `spec_flags` optional in the TypeScript schema validator (`web/lib/onboard/schema.ts`) but forgot to mirror the change in the Python Pydantic model (`worker/src/product_search/profile.py`). As a result, newly onboarded products running on Vercel or GitHub Actions failed instantly with a Pydantic `Field required` missing-key error for `spec_flags`.

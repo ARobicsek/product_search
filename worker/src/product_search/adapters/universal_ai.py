@@ -62,6 +62,7 @@ For each kept candidate, return:
   - "price_usd": numeric only (e.g. 47.99). Pick the most plausible price
     from price_hints + context. If you cannot identify a price, OMIT this
     candidate entirely.
+  - "pack_size": integer. If the title or context indicates a multi-pack, bundle, count, or kit (e.g. "2-pack", "5 pack", "6 count", "8x32GB"), extract the number of items/units sold. Default to 1.
   - "condition": one of "new", "used", "refurbished" (default "new")
 
 Output a JSON object: {"listings": [...]}
@@ -349,6 +350,33 @@ def _offer_price_and_condition(offers: Any) -> tuple[float | None, str]:
         return None, "new"
     candidates.sort(key=lambda t: t[0])
     return candidates[0]
+
+
+_PACK_PATTERNS = re.compile(
+    r"\b(\d+)\s*x\s*(\d+)\s*gb\b"
+    r"|\b(\d+)(?:\s*[-–]|\s+)(?:pack|count)\b"
+    r"|\bkit\s+of\s+(\d+)\b"
+    r"|\b(\d+)\s*pcs?\b",
+    re.IGNORECASE,
+)
+
+
+def _parse_pack(
+    title: str, price_usd: float, llm_pack_size: int = 1
+) -> tuple[bool, int, float, float | None]:
+    """Return (is_kit, kit_module_count, unit_price_usd, kit_price_usd)."""
+    count = llm_pack_size
+    if count <= 1:
+        m = _PACK_PATTERNS.search(title)
+        if m:
+            count_str = next(g for g in m.groups() if g is not None)
+            try:
+                count = int(count_str)
+            except ValueError:
+                count = 1
+    if count > 1:
+        return True, count, round(price_usd / count, 2), price_usd
+    return False, 1, price_usd, None
 
 
 def _extract_jsonld_listings(
@@ -999,28 +1027,33 @@ def fetch(query: AdapterQuery) -> list[Listing]:
             f"[universal_ai] Extracted {len(jsonld_listings)} listing(s) from "
             f"JSON-LD on {url}; skipping anchor/LLM tier."
         )
-        return [
-            Listing(
-                source="universal_ai_search",
-                url=item["url"],
-                title=item["title"],
-                fetched_at=fetched_at,
-                brand=None,
-                mpn=None,
-                attrs={"vendor_host": parsed_host, "extractor": "jsonld"},
-                condition=item["condition"],
-                is_kit=False,
-                kit_module_count=1,
-                unit_price_usd=item["price_usd"],
-                kit_price_usd=None,
-                quantity_available=None,
-                seller_name=parsed_host,
-                seller_rating_pct=None,
-                seller_feedback_count=None,
-                ship_from_country=None,
+        jsonld_results: list[Listing] = []
+        for item in jsonld_listings:
+            is_kit, kit_module_count, unit_price_usd, kit_price_usd = _parse_pack(
+                item["title"], item["price_usd"]
             )
-            for item in jsonld_listings
-        ]
+            jsonld_results.append(
+                Listing(
+                    source="universal_ai_search",
+                    url=item["url"],
+                    title=item["title"],
+                    fetched_at=fetched_at,
+                    brand=None,
+                    mpn=None,
+                    attrs={"vendor_host": parsed_host, "extractor": "jsonld"},
+                    condition=item["condition"],
+                    is_kit=is_kit,
+                    kit_module_count=kit_module_count,
+                    unit_price_usd=unit_price_usd,
+                    kit_price_usd=kit_price_usd,
+                    quantity_available=None,
+                    seller_name=parsed_host,
+                    seller_rating_pct=None,
+                    seller_feedback_count=None,
+                    ship_from_country=None,
+                )
+            )
+        return jsonld_results
 
     candidates = _extract_candidates(html, base_url=url)
     if not candidates:
@@ -1119,6 +1152,15 @@ def fetch(query: AdapterQuery) -> list[Listing]:
         if cand.get("fx_approx"):
             attrs["price_approx_fx"] = cand["fx_approx"]
 
+        try:
+            llm_pack_size = int(v.get("pack_size") or 1)
+        except (TypeError, ValueError):
+            llm_pack_size = 1
+
+        is_kit, kit_module_count, unit_price_usd, kit_price_usd = _parse_pack(
+            title, price, llm_pack_size=llm_pack_size
+        )
+
         results.append(Listing(
             source="universal_ai_search",
             url=cand["href"],
@@ -1128,10 +1170,10 @@ def fetch(query: AdapterQuery) -> list[Listing]:
             mpn=None,
             attrs=attrs,
             condition=condition,
-            is_kit=False,
-            kit_module_count=1,
-            unit_price_usd=price,
-            kit_price_usd=None,
+            is_kit=is_kit,
+            kit_module_count=kit_module_count,
+            unit_price_usd=unit_price_usd,
+            kit_price_usd=kit_price_usd,
             quantity_available=None,
             seller_name=parsed_host,
             seller_rating_pct=None,
