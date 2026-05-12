@@ -185,7 +185,7 @@ function validateRules(
 ) {
   const arr = asArray(list, path, ctx);
   if (!arr) return;
-  if (arr.length < 1) ctx.errors.push(`${path}: needs at least one entry`);
+
   arr.forEach((r, i) => {
     const ro = asObject(r, `${path}[${i}]`, ctx);
     if (!ro) return;
@@ -298,9 +298,21 @@ export function parseAndValidateProfileYaml(text: string): ParsedProfile {
   asString(obj.description, 'description', ctx);
 
   validateTarget(obj.target, ctx);
-  validateSpecAttrs(obj.spec_attrs, ctx);
-  validateRules(obj.spec_filters, 'spec_filters', KNOWN_FILTER_RULES, false, ctx);
-  validateRules(obj.spec_flags, 'spec_flags', KNOWN_FLAG_RULES, true, ctx);
+  // ``spec_attrs`` is optional — most non-RAM products have nothing useful
+  // to put there. Mirrors profile.py:Profile.spec_attrs (default_factory=dict).
+  if (obj.spec_attrs !== undefined && obj.spec_attrs !== null) {
+    validateSpecAttrs(obj.spec_attrs, ctx);
+  }
+  // ``spec_filters`` and ``spec_flags`` are optional. The prompt instructs
+  // the model to include at least ``in_stock`` as a baseline filter, but
+  // enforcing a minimum length at the schema level caused unrecoverable
+  // validation errors in the UI for non-RAM products.
+  if (obj.spec_filters !== undefined && obj.spec_filters !== null) {
+    validateRules(obj.spec_filters, 'spec_filters', KNOWN_FILTER_RULES, false, ctx);
+  }
+  if (obj.spec_flags !== undefined && obj.spec_flags !== null) {
+    validateRules(obj.spec_flags, 'spec_flags', KNOWN_FLAG_RULES, true, ctx);
+  }
 
   validateSources(obj.sources, 'sources', false, 1, ctx);
   if (obj.sources_pending !== undefined) {

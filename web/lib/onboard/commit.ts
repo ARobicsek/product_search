@@ -109,11 +109,17 @@ export async function commitNewProfile(
   );
 
   let qvlCreated = false;
-  const existingQvlSha = await getFileSha(qvlPath);
-  if (!existingQvlSha) {
-    const stub = `# QVL (Qualified Vendor List) for ${slug}.\n# Add entries below as you find them. Each entry needs at minimum:\n#   - mpn, brand, capacity_gb, speed_mts\n# See products/ddr5-rdimm-256gb/qvl.yaml for a populated example.\nqvl: []\n`;
-    await putFile(qvlPath, stub, `onboard: stub QVL for ${slug}`);
-    qvlCreated = true;
+  // Only create a QVL stub when the profile actually declares a qvl_file.
+  // Non-RAM products (books, headphones, consumer goods) omit qvl_file
+  // entirely, so committing an empty qvl.yaml for them is dead weight.
+  const needsQvl = /^qvl_file\s*:/m.test(profileYaml);
+  if (needsQvl) {
+    const existingQvlSha = await getFileSha(qvlPath);
+    if (!existingQvlSha) {
+      const stub = `# QVL (Qualified Vendor List) for ${slug}.\n# Add entries below as you find them. Each entry needs at minimum:\n#   - mpn, brand, capacity_gb, speed_mts\n# See products/ddr5-rdimm-256gb/qvl.yaml for a populated example.\nqvl: []\n`;
+      await putFile(qvlPath, stub, `onboard: stub QVL for ${slug}`);
+      qvlCreated = true;
+    }
   }
 
   return {

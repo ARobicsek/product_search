@@ -362,6 +362,15 @@ export async function probeUrl(url: string): Promise<ProbeResult> {
     // Anything in the 2xx/3xx range with a non-trivial body passes; we
     // record JSON-LD / anchor counts as diagnostics but they don't gate.
     if (status >= 400) {
+      // HTTP 403 from a bare datacenter-IP fetch is almost always a
+      // bot-block (Cloudflare, Akamai, Datadome, etc.), not a genuine
+      // "forbidden" in the HTTP sense.  Production uses AlterLab's
+      // rendered fetch which handles these fine.  Treat 403 the same as
+      // 5xx-from-known-good: record it as a diagnostic but don't demote.
+      if (status === 403) {
+        result = { ...result, ok: true, reason: `bare-fetch HTTP 403 (likely bot-block; not demoting)` };
+        return result;
+      }
       // AlterLab-known-good hosts: 5xx / bot-block from the bare-fetch probe
       // is expected (Amazon serves 503 to datacenter IPs, etc.); production
       // AlterLab handles these fine. Record the status as a diagnostic but

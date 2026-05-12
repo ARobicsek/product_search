@@ -16,7 +16,7 @@ const MAX_TURNS_PER_REQUEST = 50;
 // each — wasteful, since the second turn's deltas were small. ADR-034
 // open follow-up: tighten 5 → 2 to bound search-turn cost without losing the
 // ability to cross-check 1–2 candidate vendors per turn.
-const WEB_SEARCH_MAX_USES = 2;
+const WEB_SEARCH_MAX_USES = 10;
 
 // Sliding-window policy:
 //   * Always preserve messages[0] (kickoff — contains slug/profile.yaml in
