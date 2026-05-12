@@ -1,0 +1,28 @@
+slug: aufschnitt-essiccata-jerky
+display_name: Aufschnitt Essiccata Jerky
+description: Track cheapest listings for Aufschnitt Essiccata grass-fed beef jerky across all flavors
+target:
+  unit: count
+  amount: 1
+spec_attrs:
+  flavor:
+    type: str
+    required: false
+    enum:
+      - BBQ
+      - Chipotle
+      - Original
+      - Teriyaki
+      - Variety Pack
+spec_filters:
+  - rule: in_stock
+sources:
+  - id: ebay_search
+    queries:
+      - aufschnitt essiccata jerky
+    max_results_per_query: 50
+  - id: universal_ai_search
+    url: https://www.amazon.com/s?k=aufschnitt+essiccata+jerky
+  - id: universal_ai_search
+    url: https://www.aufschnittmeats.com/collections/extra-tender-jerky
+sources_pending: []
