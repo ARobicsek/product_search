@@ -35,6 +35,15 @@ sources:
   - id: universal_ai_search
     url: https://www.cdw.com/product/amd-epyc-9255-processor/8247923
     page_type: detail
+  - id: universal_ai_search
+    url: https://www.provantage.com/amd-100-000000694~7AAMD3R8.htm
+    page_type: detail
+  - id: universal_ai_search
+    url: https://www.pcnation.com/amd-100-000000694-nt9963
+    page_type: detail
+  - id: universal_ai_search
+    url: https://www.connection.com/product/amd-amd-epyc-model-9255-single/100-000000694/41871521
+    page_type: detail
 sources_pending:
   - id: universal_ai_search
     url: https://www.serversupply.com/PROCESSORS/AMD%20EPYC%2024-Core/3.2GHz/AMD/100-000000694_402211.htm
@@ -47,6 +56,10 @@ sources_pending:
     note: search page (not a detail page); renders but returns OTHER EPYC models (9754/9374F/9124...) — CDW does not carry the 9255. Dead for this product.
   - id: universal_ai_search
     note: "shi.com / ipcstore.com / pcnation.com search URLs: rendered fetch returned empty/near-empty content (no 9255 in catalog or hard JS wall). Re-evaluate if those vendors start carrying the 9255."
+  - id: universal_ai_search
+    url: https://www.networkhardwares.com/products/amd-100-000000694-amd-epyc-twenty-four-core-model-9255-100-000000694
+    page_type: detail
+    note: "probe returned 0 candidates: fetch failed: fetch failed"
 report_columns:
   - rank
   - source
@@ -56,7 +69,6 @@ report_columns:
   - seller
   - seller_rating
   - flags
-
 schedule:
-  run_at: 2026-05-17T14:00:00Z
+  cron: 0 14 * * *
   timezone: UTC
