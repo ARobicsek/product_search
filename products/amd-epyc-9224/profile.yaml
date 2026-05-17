@@ -27,7 +27,14 @@ sources:
     url: https://www.wiredzone.com/shop/category/components-processors-113?search=amd+epyc+9224
   - id: universal_ai_search
     url: https://cloudninjas.com/search?q=amd+epyc+9224
-sources_pending: []
+  - id: universal_ai_search
+    url: https://parts.theserverstore.com/search?q=amd+epyc+9224
+sources_pending:
+  - id: techbuyer_search
+    note: "Quote-based refurbished specialist; no public search available. Contact: us-sales@techbuyer.com or 1-856-673-0208"
+  - id: universal_ai_search
+    url: https://www.centralcomputer.com/search?query=amd+epyc+9224
+    note: "probe returned 0 candidates: fetch returned HTTP 404"
 report_columns:
   - rank
   - source
