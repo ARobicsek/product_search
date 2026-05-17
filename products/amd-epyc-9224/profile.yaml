@@ -1,4 +1,4 @@
-slug: amd-epyc-9224
+slug: "amd-epyc-9224"
 display_name: AMD EPYC 9224 Server Processor
 description: Find the cheapest currently-available listings for AMD EPYC 9224 server processors (non-engineering sample, new and refurbished, in-stock only)
 target:
@@ -10,13 +10,9 @@ spec_filters:
       - Engineering Sample
       - ES
       - Engineering
+      - Locked
   - rule: in_stock
 sources:
-  - id: ebay_search
-    queries:
-      - amd epyc 9224
-      - epyc 9224 processor
-    max_results_per_query: 50
   - id: universal_ai_search
     url: https://www.newegg.com/p/pl?d=amd+epyc+9224
   - id: universal_ai_search
@@ -24,14 +20,14 @@ sources:
   - id: universal_ai_search
     url: https://www.serversupply.com/PROCESSORS/AMD%20EPYC%2024-Core/2.5GHz/
   - id: universal_ai_search
-    url: https://www.wiredzone.com/shop/product/10025540-amd-100-000000939-epyc-9224-2-50ghz-24-core-processor-genoa-10787
-  - id: universal_ai_search
     url: https://www.amazon.com/s?k=amd+epyc+9224
   - id: universal_ai_search
-    url: https://www.etb-tech.com/components/processors/amd-epyc-series
+    url: https://www.etb-tech.com/components/processors/amd-epyc-series?product_list_mode=grid
+sources_pending:
   - id: universal_ai_search
-    url: https://cloudninjas.com/products/amd-epyc-9224-24-cores-48-threads-2-50-ghz
-sources_pending: []
+    note: wiredzone.com — no site-search found; only product detail pages available
+  - id: universal_ai_search
+    note: cloudninjas.com — no site-search found; only product detail pages available
 report_columns:
   - rank
   - source
