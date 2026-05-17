@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import {
+  getLastRunInstant,
   getProductProfileContent,
   getProductProfileExists,
   getProductReports,
@@ -33,12 +34,36 @@ export default async function ProductPage({
   const { product } = await params;
   const { date } = await searchParams;
 
-  const reports = await getProductReports(product);
-  const lastRun = await getLastCompletedRun(product).catch(() => null);
-  // Profile YAML powers the inline column chooser. Fetched in parallel-ish
-  // (await above already kicked off `reports`) so the page render isn't
-  // serialized.
-  const profileYaml = await getProductProfileContent(product).catch(() => null);
+  const [reports, lastRun, lastRunIso, profileYaml] = await Promise.all([
+    getProductReports(product),
+    getLastCompletedRun(product).catch(() => null),
+    // Authoritative most-recent-run instant (scheduled OR on-demand). The
+    // Actions-API `lastRun` above only ever sees on-demand runs, so after a
+    // scheduled run its timestamp is stale — this CSV-derived instant fixes it.
+    getLastRunInstant(product).catch(() => null),
+    getProductProfileContent(product).catch(() => null),
+  ]);
+
+  // Footer time = the true latest run. Keep the on-demand duration/conclusion
+  // only when that run IS the latest one (instants within 10 min — the worker
+  // writes the CSV a minute or two before the workflow marks itself complete).
+  // A much-newer CSV instant means the latest run was scheduled: show the time
+  // only (no per-product duration exists for a multi-product scheduler tick).
+  let footerInfo:
+    | { completedAt: string; durationMs: number | null; conclusion: string | null }
+    | null = null;
+  if (lastRunIso || lastRun) {
+    const sameRun =
+      lastRun && lastRunIso
+        ? Math.abs(Date.parse(lastRunIso) - Date.parse(lastRun.completedAt)) <=
+          10 * 60_000
+        : !lastRunIso;
+    footerInfo = {
+      completedAt: lastRunIso ?? lastRun!.completedAt,
+      durationMs: sameRun && lastRun ? lastRun.durationMs : null,
+      conclusion: sameRun && lastRun ? lastRun.conclusion : null,
+    };
+  }
 
   if (reports.length === 0) {
     // Fresh onboard: profile exists but no report has been generated yet.
@@ -169,7 +194,7 @@ export default async function ProductPage({
               {content}
             </ReactMarkdown>
           </div>
-          {lastRun && <RunInfoFooter lastRun={lastRun} />}
+          {footerInfo && <RunInfoFooter lastRun={footerInfo} />}
         </ReportSection>
       </article>
     </main>

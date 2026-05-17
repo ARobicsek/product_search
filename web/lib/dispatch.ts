@@ -2,6 +2,7 @@ import 'server-only';
 
 const REPO = process.env.GITHUB_REPO ?? 'ARobicsek/product_search';
 const WORKFLOW_FILE = 'search-on-demand.yml';
+const SCHEDULED_WORKFLOW_FILE = 'search-scheduled.yml';
 const BRANCH = 'main';
 
 function dispatchHeaders(): Record<string, string> {
@@ -95,6 +96,43 @@ export async function getLatestOnDemandRun(product: string, sinceIso: string): P
     htmlUrl: match.html_url,
     startedAt: match.run_started_at,
     completedAt: state === 'completed' ? match.updated_at : null,
+  };
+}
+
+export interface ActiveRuns {
+  // display_title of every on-demand run that is not yet completed. The caller
+  // matches a product slug against these (the on-demand workflow puts the slug
+  // in the run title, same convention as getLatestOnDemandRun).
+  onDemandTitles: string[];
+  // True when a scheduler-tick is currently executing. One tick processes ALL
+  // due products in a single run with no per-product title, so the caller can
+  // only attribute it to a product by checking that product's schedule block.
+  scheduledTickActive: boolean;
+}
+
+async function fetchRecentRuns(workflowFile: string): Promise<GhRun[]> {
+  const url =
+    `https://api.github.com/repos/${REPO}/actions/workflows/${workflowFile}/runs` +
+    `?per_page=20`;
+  const res = await fetch(url, { headers: dispatchHeaders(), cache: 'no-store' });
+  if (!res.ok) {
+    throw new Error(`GitHub runs query failed: ${res.status} ${res.statusText}`);
+  }
+  const data = (await res.json()) as { workflow_runs?: GhRun[] };
+  return data.workflow_runs ?? [];
+}
+
+export async function getActiveRuns(): Promise<ActiveRuns> {
+  const isActive = (r: GhRun) => r.status !== 'completed';
+  const [onDemand, scheduled] = await Promise.all([
+    fetchRecentRuns(WORKFLOW_FILE),
+    fetchRecentRuns(SCHEDULED_WORKFLOW_FILE),
+  ]);
+  return {
+    onDemandTitles: onDemand
+      .filter(isActive)
+      .map((r) => r.display_title || r.name || ''),
+    scheduledTickActive: scheduled.some(isActive),
   };
 }
 

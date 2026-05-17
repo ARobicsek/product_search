@@ -1,7 +1,19 @@
 import Link from 'next/link';
 import { Plus } from 'lucide-react';
-import { getProducts, getProductReports, getReportContent } from '@/lib/github';
+import {
+  getProducts,
+  getProductReports,
+  getReportContent,
+  getLastRunInstant,
+  getProductProfileContent,
+} from '@/lib/github';
+import { getActiveRuns } from '@/lib/dispatch';
 import { DeleteProductModal } from '@/components/DeleteProductModal';
+import { CardRunStatus } from './CardRunStatus';
+
+// Running state is live and must never be served from an edge/RSC cache, same
+// reasoning as the product detail page.
+export const dynamic = 'force-dynamic';
 
 // Helper to extract a summary from markdown (e.g., first non-heading line)
 function extractBottomLine(markdown: string) {
@@ -18,12 +30,20 @@ function extractBottomLine(markdown: string) {
 export default async function Home() {
   const products = await getProducts();
 
+  const activeRuns = await getActiveRuns().catch(() => ({
+    onDemandTitles: [],
+    scheduledTickActive: false,
+  }));
+
   const productData = await Promise.all(
     products.map(async (product) => {
-      const reports = await getProductReports(product);
+      const [reports, lastRunIso] = await Promise.all([
+        getProductReports(product),
+        getLastRunInstant(product),
+      ]);
       const latestDate = reports.length > 0 ? reports[0] : null;
       let summary = 'No reports yet.';
-      
+
       if (latestDate) {
         const content = await getReportContent(product, latestDate);
         if (content) {
@@ -31,9 +51,20 @@ export default async function Home() {
         }
       }
 
+      // An on-demand run carries the slug in its title. A scheduler-tick has no
+      // per-product title, so attribute it only to products that actually
+      // declare a schedule block (fetched only while a tick is in flight).
+      let running = activeRuns.onDemandTitles.some((t) => t.includes(product));
+      if (!running && activeRuns.scheduledTickActive) {
+        const profile = await getProductProfileContent(product).catch(() => null);
+        running = !!profile && /^schedule:/m.test(profile);
+      }
+
       return {
         product,
         latestDate,
+        lastRunIso,
+        running,
         summary,
       };
     })
@@ -76,11 +107,11 @@ export default async function Home() {
                   </Link>
                 </h2>
                 <div className="flex items-center gap-2 relative z-10">
-                  {data.latestDate && (
-                    <span className="text-xs font-medium text-gray-500 bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded-full whitespace-nowrap pointer-events-none">
-                      {data.latestDate}
-                    </span>
-                  )}
+                  <CardRunStatus
+                    lastRunIso={data.lastRunIso}
+                    fallbackDate={data.latestDate}
+                    running={data.running}
+                  />
                   <div className="opacity-0 group-hover:opacity-100 transition-opacity focus-within:opacity-100 -mr-2">
                     <DeleteProductModal productSlug={data.product} webSecret={process.env.WEB_SHARED_SECRET || ''} />
                   </div>

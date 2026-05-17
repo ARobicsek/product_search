@@ -10,7 +10,46 @@
 
 **Phase 17 — Schedule editor. REOPENED + extended 2026-05-17 (user request), re-closed same session.** The user found the cron-only editor confusing and wanted one-time runs at a local wall-clock time. Delivered end-to-end: one-time (`run_at`) schedules, minute-aware `*/15` scheduler with one-time self-clear, local-time→UTC picker, mobile sheet. All existing profiles stripped of schedules (user choice). See ADR-050 and the dated status block below.
 
+**Phase 17 — Schedule visibility follow-up. 2026-05-17 (user request).** User reported the `amd-epyc-9255` one-time runs "never ran". Diagnosis: they **did** run (14:30Z→fired 14:41Z, 16:15Z→fired 16:43Z) but ~12–28 min late (GitHub `*/15` heartbeat + Actions cron lag, an accepted ADR-050 tradeoff) and were **invisible** — the cards page showed only a date and the detail footer is on-demand-only. Built a per-card run-status surface (last-run local date+**time** from the newest data CSV + a live "Running" green dot). See ADR-051 and the dated status block below.
+
 **Next phase: Phase 18 — Polish + second-product proof** ([PHASES.md](PHASES.md#phase-18--polish--second-product-proof-replaces-old-phase-12)). Start a fresh session and read that brief.
+
+## Status as of 2026-05-17 (cards run-status — last-run time + live "Running" dot)
+
+**User report: "tried several times to set a one-time schedule for amd-epyc-9255; I don't think they ever ran." Diagnosed + fixed the real problem (visibility, not the scheduler).**
+
+### Diagnosis (the runs DID fire)
+
+Git history of `products/amd-epyc-9255/profile.yaml` + the `chore: update scheduled reports` bot commits:
+- `run_at: 2026-05-17T14:30:00Z` (10:30 AM ET) → scheduler-tick `9a3053e` fired it at **14:41:55Z**, committed report + `data/2026-05-17T14-41-55Z.csv`, self-cleared the `schedule:` block.
+- `run_at: 2026-05-17T16:15:00Z` (12:15 PM ET) → scheduler-tick `13054ee` fired it at **16:43:58Z**, committed report + `data/2026-05-17T16-43-58Z.csv`, self-cleared.
+
+Both one-time jobs worked exactly as ADR-050 designed — ~12 and ~28 min late, which is the documented GitHub `*/15` heartbeat + Actions cron-delay tradeoff (NOT a bug). They were invisible because (a) the cards page showed only a date, (b) the `reports/<slug>/<date>.md` report is date-keyed so the second same-day run overwrote the first, (c) the detail-page `RunInfoFooter` queries only `search-on-demand.yml` (`workflow_dispatch`) and never reflects scheduled runs.
+
+### Changes applied this session
+
+- `web/lib/github.ts` — `getLastRunInstant(slug)`: newest `reports/<slug>/data/<ISO>.csv` filename → parseable ISO instant. The only per-run signal that survives for BOTH scheduled and on-demand runs (md is date-keyed; the Actions API is on-demand-only).
+- `web/lib/dispatch.ts` — `getActiveRuns()`: queries `search-on-demand.yml` + `search-scheduled.yml` unfiltered; returns `{ onDemandTitles[], scheduledTickActive }`.
+- `web/app/CardRunStatus.tsx` (new client component) — local date+time via the mount-then-format pattern (timezone-independent ISO-date-slice placeholder → no hydration mismatch, same approach as `RunInfoFooter`); green pulsing dot + "Running" when active.
+- `web/app/page.tsx` — `export const dynamic = 'force-dynamic'`; fetches last-run instant per product (parallel with reports) + `getActiveRuns()` once; per-product `running` = on-demand title match OR (scheduled tick active AND that profile declares a `schedule:` block — profile fetched only while a tick is in flight). Date-only chip replaced with `<CardRunStatus>`.
+- `web/app/[product]/page.tsx` + `RunInfoFooter.tsx` — **footer time fix** (user follow-up): footer "Last run completed" now uses the authoritative CSV instant (covers scheduled runs); on-demand duration/conclusion kept only when that run IS the latest (instants within 10 min), else time-only. `RunNowButton` left unchanged.
+- `web/app/[product]/ScheduleEditorButton.tsx` — **custom-cron worked examples** (user follow-up): 5-field UTC legend + 4 click-to-fill examples (`0 8 * * *`, `30 13 * * 1-5`, `0 */6 * * *`, `15 0 1 * *`).
+- `docs/DECISIONS.md` — ADR-051 (ACCEPTED, implemented; scope covers cards surface + footer fix + cron examples).
+
+### Verification
+
+- `npx tsc --noEmit` clean · `npm run lint` 0 errors (6 pre-existing warnings only — none in new files).
+- Dev-server SSR (HTTP 200, no compile/runtime errors): cards `amd-epyc-9255` renders `<time dateTime="2026-05-17T16:43:58Z">2026-05-17</time>` (exact 16:43:58Z run instant wired end-to-end, hydration-safe date placeholder); `ddr5-rdimm-256gb` (no CSV) gracefully falls back to date-only `<time>2026-04-30</time>`; detail-page footer renders `<time dateTime="2026-05-17T16:43:58Z">` (the scheduled run — was previously the stale on-demand time) with no fabricated duration.
+- **Not visually browser-verified**: the chrome-devtools MCP profile was locked by an already-running instance and force-killing the user's browser is out of scope. The post-hydration localized time string + dot reuse the exact `RunInfoFooter` localisation pattern already shipped/verified under ADR-050; the custom-cron example block is static JSX. SSR markup, data wiring, and fallback are confirmed via raw HTML.
+
+### Next session — start here
+
+Resume **Phase 18 — Polish + second-product proof**. Carry-over / noticed-but-deferred:
+1. Detail-page footer now reflects scheduled runs (fixed this session). Note: when the latest run is a scheduled multi-product tick the footer shows time-only (no per-product duration is derivable from a shared tick) — by design, not a gap.
+2. GitHub cron lateness (12–28 min observed) is inherent to GitHub-hosted `schedule:` and was accepted by ADR-050. If tighter timing is ever needed it requires an external trigger (out of scope, would change the free-on-public-repo property).
+3. Prior carry-overs still stand (ADR-040 auto-demote impl; AlterLab 422 retry; IT Creations in_stock flip; one-time runs are attempted-once / no retry).
+
+---
 
 ## Status as of 2026-05-17 (Phase 17 reopened — one-time schedules + minute-aware scheduler + local-time picker)
 

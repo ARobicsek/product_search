@@ -125,6 +125,36 @@ export async function getReportContent(product: string, date: string): Promise<s
   }
 }
 
+export async function getLastRunInstant(product: string): Promise<string | null> {
+  // The worker writes a timestamped CSV snapshot (`<ISO>.csv`) for every run —
+  // scheduled AND on-demand — into reports/<slug>/data/. The newest filename is
+  // the exact run instant. This is the only per-run signal that survives:
+  // reports/<slug>/<date>.md is keyed by date, so same-day re-runs overwrite it,
+  // and the GitHub Actions API only exposes on-demand (workflow_dispatch) runs.
+  try {
+    const res = await fetch(
+      `https://api.github.com/repos/${REPO}/contents/reports/${product}/data?ref=${BRANCH}&_cb=${Date.now()}`,
+      { headers: getHeaders(), cache: 'no-store' },
+    );
+    if (!res.ok) {
+      if (res.status === 404) return null;
+      throw new Error(`GitHub API error: ${res.status} ${res.statusText}`);
+    }
+    const data: GitHubFile[] = await res.json();
+    const stamps = data
+      .filter((f) => f.type === 'file' && /^\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}Z\.csv$/.test(f.name))
+      .map((f) => f.name.replace(/\.csv$/, ''))
+      .sort();
+    const newest = stamps[stamps.length - 1];
+    if (!newest) return null;
+    // 2026-05-17T16-43-58Z -> 2026-05-17T16:43:58Z (a parseable ISO instant).
+    return newest.replace(/T(\d{2})-(\d{2})-(\d{2})Z$/, 'T$1:$2:$3Z');
+  } catch (err) {
+    console.error(`Failed to fetch last-run instant for ${product}:`, err);
+    return null;
+  }
+}
+
 export async function getProductProfileContent(slug: string): Promise<string | null> {
   try {
     const url = `https://api.github.com/repos/${REPO}/contents/products/${slug}/profile.yaml?ref=${BRANCH}&_cb=${Date.now()}`;

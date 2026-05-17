@@ -397,15 +397,54 @@ export function ScheduleEditorButton({
                       </label>
 
                       {presetId === p.id && p.id === 'custom' && (
-                        <input
-                          type="text"
-                          value={customCron}
-                          onChange={(e) => setCustomCron(e.target.value)}
-                          placeholder="0 8 * * *  (min hour dom mon dow, UTC)"
-                          spellCheck={false}
-                          autoComplete="off"
-                          className="mt-1 w-full font-mono text-xs px-2 py-1.5 border border-gray-200 dark:border-gray-700 rounded bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                        />
+                        <>
+                          <input
+                            type="text"
+                            value={customCron}
+                            onChange={(e) => setCustomCron(e.target.value)}
+                            placeholder="0 8 * * *  (min hour dom mon dow, UTC)"
+                            spellCheck={false}
+                            autoComplete="off"
+                            className="mt-1 w-full font-mono text-xs px-2 py-1.5 border border-gray-200 dark:border-gray-700 rounded bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                          />
+                          <div className="mt-1.5 rounded-lg bg-gray-50 dark:bg-gray-900/50 px-2 py-1.5 text-[11px] text-gray-600 dark:text-gray-400 space-y-1">
+                            <div>
+                              Five fields, all times{' '}
+                              <strong>UTC</strong>:{' '}
+                              <code className="font-mono">min hour dom mon dow</code>{' '}
+                              (use <code className="font-mono">*</code> for
+                              &ldquo;any&rdquo;, <code className="font-mono">1-5</code>{' '}
+                              for a range, <code className="font-mono">*/6</code> for
+                              &ldquo;every 6&rdquo;).
+                            </div>
+                            <table className="w-full">
+                              <tbody>
+                                {[
+                                  ['0 8 * * *', 'every day at 08:00 UTC'],
+                                  ['30 13 * * 1-5', 'weekdays at 13:30 UTC'],
+                                  ['0 */6 * * *', 'every 6 hours, on the hour'],
+                                  ['15 0 1 * *', '00:15 UTC on the 1st of the month'],
+                                ].map(([expr, desc]) => (
+                                  <tr key={expr}>
+                                    <td className="pr-2 align-top">
+                                      <button
+                                        type="button"
+                                        onClick={() => setCustomCron(expr)}
+                                        className="font-mono text-blue-600 dark:text-blue-400 hover:underline"
+                                        title="Use this example"
+                                      >
+                                        {expr}
+                                      </button>
+                                    </td>
+                                    <td className="text-gray-500 dark:text-gray-500">
+                                      {desc}
+                                    </td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        </>
                       )}
                     </li>
                   ))}

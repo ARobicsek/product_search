@@ -10,13 +10,19 @@ function formatDuration(ms: number): string {
   return `${m}m ${rem.toString().padStart(2, '0')}s`;
 }
 
-interface LastRun {
+interface FooterInfo {
+  // Authoritative instant of the most recent run of ANY kind (scheduled or
+  // on-demand), derived from the newest data CSV. This is what makes the time
+  // correct even when the last run was scheduled (the Actions API the duration
+  // comes from only ever sees on-demand runs).
   completedAt: string;
-  durationMs: number;
+  // Present only when the latest run is the same one the on-demand Actions API
+  // reports (a scheduled run has no per-product duration we can attribute).
+  durationMs: number | null;
   conclusion: string | null;
 }
 
-export function RunInfoFooter({ lastRun }: { lastRun: LastRun }) {
+export function RunInfoFooter({ lastRun }: { lastRun: FooterInfo }) {
   // The completed timestamp must format in the user's local timezone, but
   // this component is rendered both during SSR (Vercel = UTC) and after
   // hydration in the browser. Format only after mount so the SSR markup
@@ -38,7 +44,8 @@ export function RunInfoFooter({ lastRun }: { lastRun: LastRun }) {
     );
   }, [lastRun.completedAt]);
 
-  const duration = formatDuration(lastRun.durationMs);
+  const duration =
+    lastRun.durationMs !== null ? formatDuration(lastRun.durationMs) : null;
   const failed = lastRun.conclusion && lastRun.conclusion !== 'success';
 
   return (
@@ -50,8 +57,8 @@ export function RunInfoFooter({ lastRun }: { lastRun: LastRun }) {
       Last run completed{' '}
       <time dateTime={lastRun.completedAt}>
         {completedLabel ?? '…'}
-      </time>{' '}
-      · took {duration}
+      </time>
+      {duration ? ` · took ${duration}` : ''}
       {failed ? ` · conclusion: ${lastRun.conclusion}` : ''}
     </div>
   );

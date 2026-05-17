@@ -9,6 +9,40 @@ Status values:
 
 ---
 
+## ADR-051 — Per-card run-status surface (last-run time + live "Running" dot) (ACCEPTED — implemented)
+
+**Status**: ACCEPTED — implemented 2026-05-17 (user request, follow-up to ADR-050).
+
+**Date**: 2026-05-17
+
+**Context**: After ADR-050 the user set one-time `run_at` schedules for `amd-epyc-9255` and reported they "never ran". They did run — `14:30Z`→`14:41:55Z`, `16:15Z`→`16:43:58Z` (the documented `*/15` + GitHub Actions cron-lag tradeoff, not a bug) — but were unobservable: the cards page showed only a date, the date-keyed `<date>.md` report meant a second same-day run overwrote the first, and the detail-page `RunInfoFooter` queries only the on-demand workflow so it never reflects scheduled runs. The user asked for the cards screen to show last-run **date and time** and a live indicator (green dot) for "running right now".
+
+**Decision**:
+- **Last-run signal = newest `reports/<slug>/data/<ISO>.csv` filename.** The worker writes a timestamped CSV snapshot for *every* run (scheduled and on-demand); it is the only per-run artifact that survives the date-keyed report overwrite and is not on-demand-only like the Actions API. `getLastRunInstant` lists that dir and parses `YYYY-MM-DDTHH-MM-SSZ` → ISO instant. No CSV → graceful date-only fallback to the latest report date.
+- **Time is rendered in the user's local zone** via the mount-then-format pattern (SSR + first client paint render a timezone-independent ISO-date slice; `useEffect` swaps in the localized `dateStyle:'medium' timeStyle:'short'` string). Identical pattern to `RunInfoFooter`; avoids a hydration mismatch on a server (UTC) vs browser (local) `toLocaleString` divergence.
+- **"Running" attribution**: on-demand runs carry the slug in the run title → direct match. A scheduler-tick has no per-product title and processes all due products in one run, so it is attributed to a product only if that product's profile currently declares a top-level `schedule:` block (profile fetched lazily, only while a tick is actually in flight). This stays quiet on the common path (all profiles currently scheduleless → a heartbeat tick lights nothing) and is honest rather than guessing.
+- The cards page is `force-dynamic` (running state must never be served from an edge/RSC cache — same reasoning as the detail page).
+- **Detail-page footer now uses the same authoritative instant.** `RunInfoFooter`'s "Last run completed" time was driven by `getLastCompletedRun` (on-demand workflow only), so after a scheduled run it showed a stale on-demand timestamp. The footer now takes the CSV-derived instant; the on-demand duration/conclusion are kept only when that on-demand run *is* the latest run (instants within 10 min — the worker writes the CSV a minute or two before the workflow self-completes). A much-newer CSV instant ⇒ the latest run was a scheduled multi-product tick with no per-product duration, so the footer shows the correct time without a fabricated duration. `RunNowButton`'s on-demand microcopy is intentionally left as-is (it is the on-demand control).
+- **Custom-cron worked examples.** The "Custom" schedule mode previously offered only a placeholder. It now shows the 5-field UTC format legend plus four click-to-fill worked examples (`0 8 * * *` → daily 08:00 UTC, `30 13 * * 1-5` → weekdays 13:30 UTC, `0 */6 * * *` → every 6h, `15 0 1 * *` → monthly), so a user can see the format and the cron→English mapping instead of guessing.
+
+**Consequence**:
+- The user can now see exactly when each product last ran (to the minute, in their zone) and whether it is running now, directly on the home screen — closing the visibility gap that made working schedules look broken.
+- The detail-page `RunInfoFooter` remains on-demand-only (unchanged; out of scope for a cards-only request) — logged as an opportunistic follow-up.
+- GitHub cron lateness is unchanged and remains an accepted ADR-050 tradeoff; this ADR makes it *visible* rather than eliminating it.
+- Adds one GitHub contents call per product for the CSV listing, plus a profile fetch per product *only during* an active scheduler tick. Acceptable for a personal low-traffic PWA already doing per-product no-store fetches.
+
+**Implementation (2026-05-17)**:
+- `web/lib/github.ts`: `getLastRunInstant(product)`.
+- `web/lib/dispatch.ts`: `getActiveRuns()` (+ `SCHEDULED_WORKFLOW_FILE`, `fetchRecentRuns`).
+- `web/app/CardRunStatus.tsx`: new client component (local datetime + pulsing green dot).
+- `web/app/page.tsx`: `force-dynamic`; parallel last-run fetch; per-product `running`; chip replaced.
+- `web/app/[product]/page.tsx`: parallel `getLastRunInstant`; `footerInfo` (authoritative instant + same-run-gated duration); footer rendered from it.
+- `web/app/[product]/RunInfoFooter.tsx`: `FooterInfo` props; `durationMs` nullable; duration omitted when null.
+- `web/app/[product]/ScheduleEditorButton.tsx`: custom-cron format legend + 4 click-to-fill worked examples.
+- Verified: `tsc --noEmit` clean; `eslint` 0 errors (6 pre-existing warnings); dev-server SSR HTTP 200 — cards `amd-epyc-9255` → `dateTime="2026-05-17T16:43:58Z"`, `ddr5-rdimm-256gb` → date-only fallback; detail footer → `dateTime="2026-05-17T16:43:58Z"` (the scheduled run, no fabricated duration). Not visually browser-checked (chrome-devtools MCP profile locked by a running instance); localisation/dot reuse the ADR-050-verified `RunInfoFooter` pattern, the cron-example block is static JSX.
+
+---
+
 ## ADR-050 — One-time schedules + minute-aware scheduler + local-time picker (ACCEPTED — implemented)
 
 **Status**: ACCEPTED — implemented 2026-05-17 (Phase 17 reopened by explicit user request to make scheduling intuitive).
