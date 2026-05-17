@@ -9,6 +9,7 @@ __pycache__/
 *.pyo
 .venv/
 venv/
+.ci-venv/
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/

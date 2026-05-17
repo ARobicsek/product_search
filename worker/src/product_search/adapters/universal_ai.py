@@ -916,7 +916,7 @@ def _extract_shopify_embedded_products(html: str, base_url: str) -> list[dict[st
         try:
             variants = json.loads(raw_json)
             if isinstance(variants, list):
-                prod_map = {}
+                prod_map: dict[str, dict[str, Any]] = {}
                 for v in variants:
                     if not isinstance(v, dict):
                         continue

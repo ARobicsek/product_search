@@ -178,7 +178,7 @@ class Source(BaseModel):
         return v
 
     @model_validator(mode="after")
-    def validate_universal_ai_url(self) -> "Source":
+    def validate_universal_ai_url(self) -> Source:
         if self.id == "universal_ai_search":
             url = getattr(self, "url", None)
             if not url or not isinstance(url, str):

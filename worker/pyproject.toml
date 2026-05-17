@@ -24,6 +24,8 @@ dependencies = [
     # so server-rendered storefronts that gate on JA3/HTTP2-fingerprint
     # accept us. Falls back to httpx when not installed.
     "curl-cffi>=0.7",
+    # cli.py loads worker/.env for local runs (ALTERLAB_API_KEY etc.)
+    "python-dotenv>=1.0",
 ]
 
 [project.optional-dependencies]

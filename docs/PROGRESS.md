@@ -8,6 +8,32 @@
 
 **Next phase candidate**: Phase 18 (polish + second-product proof) per [PHASES.md](PHASES.md#phase-18--polish--second-product-proof-replaces-old-phase-12), OR pick up the deferred Phase 19 (universal adapter accuracy & vendor reach) which still blocks Phase 18's "7-day scheduled runs produce reliable data" criterion. Pre-Phase-18 decisions tracked in the 2026-05-11 afternoon handoff below.
 
+## Status as of 2026-05-17 (CI + on-demand search regression fix)
+
+**Fixed three regressions introduced by commit `a2abe05` that broke all CI jobs and both on-demand search runs (`amd-epyc-9224` #118, `amd-epyc-9255` #117).** All passed locally on Python 3.13 but failed CI's fresh Python 3.12 install.
+
+### Root causes & fixes
+
+1. **Undeclared `python-dotenv`** — `a2abe05` added `from dotenv import load_dotenv` to `cli.py` but never added `python-dotenv` to `worker/pyproject.toml`. CI's fresh `pip install -e ".[dev]"` lacked it, so *every* `cli` invocation crashed at import → `validate-profiles` job + both search runs failed. **Fix**: added `python-dotenv>=1.0` to `dependencies` in `worker/pyproject.toml`.
+2. **Ruff `UP037`** — new validator used `-> "Source":` (quoted), redundant under `from __future__ import annotations`. Failed the `worker lint/type-check/test` job at the `ruff` step (mypy/pytest skipped after). **Fix**: unquoted to `-> Source:` in `profile.py`.
+3. **Mypy error (masked by #2)** — `prod_map = {}` in `universal_ai.py` was inferred as `dict[str, Sequence[str]]`, so `.append` failed type-check. Would have failed the same job once ruff was green. **Fix**: annotated `prod_map: dict[str, dict[str, Any]]`.
+
+Also: added `.ci-venv/` to root `.gitignore`; logged [ADR-048](DECISIONS.md#adr-048) (verify CI-affecting changes in a clean Py3.12 venv before pushing).
+
+### Verification (clean `uv` Python 3.12 venv, exact CI sequence)
+
+- `ruff check .`: All checks passed
+- `mypy src`: Success, no issues (31 files)
+- `pytest`: 208 passed
+- `cli validate ddr5-rdimm-256gb` / `amd-epyc-9224` / `amd-epyc-9255`: all valid
+
+### Next session — start here
+
+1. **Confirm CI is green** on the fix commit, then **re-trigger the on-demand search** for `amd-epyc-9255` and `amd-epyc-9224` to verify they now run end-to-end (the original 2026-05-17 verification goal).
+2. Resume the prior next-steps: monitor `universal_ai_search` adapter behavior across the new parameterized search URLs.
+
+---
+
 ## Status as of 2026-05-17 (Stabilizing Product Search Onboarder)
 
 **Stabilized the Product Search Onboarder by hardening system prompts, updating edit mode UI rendering, solving CI lint issues, and enforcing Pydantic model validation against bare-domain active sources.**

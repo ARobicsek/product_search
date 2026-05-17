@@ -9,6 +9,20 @@ Status values:
 
 ---
 
+## ADR-048 — Verify CI-affecting changes in a clean Python 3.12 venv before pushing
+
+**Status**: ACCEPTED
+
+**Date**: 2026-05-17
+
+**Context**: The 2026-05-17 onboarder-stabilization commit (`a2abe05`) added `from dotenv import load_dotenv` to `cli.py` but never declared `python-dotenv` in `worker/pyproject.toml`. It also introduced a `ruff` `UP037` violation (`-> "Source":` quoted annotation, redundant under `from __future__ import annotations`) and a `mypy` error in `universal_ai.py` (`prod_map` inferred as `dict[str, Sequence[str]]`). All three passed locally on Python 3.13 (which had `python-dotenv` in user site-packages and a stale ruff cache) but broke CI's `validate-profiles`, `worker lint/type-check/test`, and both on-demand search runs, because CI does a fresh `pip install -e ".[dev]"` on Python 3.12 installing only declared deps. mypy and pytest were masked in CI because they are skipped once `ruff` fails in the same job.
+
+**Decision**: Any change touching imports, dependencies, type annotations, or profile validation must be verified in a fresh Python 3.12 venv (`uv venv --python 3.12 --clear worker/.ci-venv`; `uv pip install -e ".[dev]"`) running the exact CI sequence (`ruff check src/`, `mypy src/`, `pytest tests/`, `cli validate <slug>`) before pushing. A local 3.13 pass is not sufficient evidence. `.ci-venv/` is gitignored.
+
+**Consequence**: One-time ~1–2 min venv setup cost per risky change. Eliminates the recurring "passed locally, failed CI on missing dep / lint / type" class of regressions. Reinforces that runtime imports must be declared in `pyproject.toml`, not assumed from ambient local installs.
+
+---
+
 ## ADR-047 — Add Pydantic Bare-Domain Schema Validation to Profile Sources
 
 **Status**: ACCEPTED
