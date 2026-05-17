@@ -445,3 +445,44 @@ Each phase is sized to fit one focused dev session (~30-90 min with an AI co-pil
 - Tier 1.5 extracts a correct priced listing from ≥2 of the parked amd-epyc-9255 detail URLs; `amd-epyc-9255` runs eBay-free with ≥1 working non-eBay source; ADR-049 marked implemented.
 
 **Out of scope**: writing native per-vendor adapters (still Tier-A, separate work). Replacing AlterLab with another fetch tier (separate evaluation if Phase 19 conclusions warrant it).
+
+---
+
+## Phase 20 — Reliable scheduling trigger (external `workflow_dispatch`)
+
+**Goal**: schedules (one-time `run_at` and recurring crons) fire within ~15 min of their time, reliably — instead of GitHub's observed ~hourly collapse.
+
+**Context (why this phase exists)**: GitHub Actions `schedule:` is best-effort and deprioritized under load. Empirically on 2026-05-17 the `*/15` heartbeat ran at intervals of [64, 57, 62, 63] min — effectively hourly. Net effect: a user's one-time "run at 2:49 PM" job landed ~55 min late (this bit the user three sessions running). The scheduler/profile/one-time logic is **correct** (`run_at <= now`, not windowed — verified); the only defect is GitHub's trigger cadence. The fix (industry-standard) is to keep the job logic in Actions but trigger it from a reliable external scheduler via the un-throttled `workflow_dispatch` API. The user is on **Vercel Hobby** and requires a **free** solution, so the chosen design routes the external trigger through the *existing* Vercel app so the powerful GitHub PAT never leaves infra we control. Full rationale + rejected alternatives: **ADR-052**.
+
+**Chosen architecture (the "hybrid", per ADR-052)**:
+
+```
+cron-job.org (free, every 15 min)
+  → POST https://<vercel-app-domain>/api/cron/tick   (header: x-cron-secret: <CRON_TRIGGER_SECRET>)
+    → web route validates secret, calls dispatchScheduledTick()
+      → POST GitHub API /actions/workflows/search-scheduled.yml/dispatches {ref:"main"}
+        (uses GITHUB_DISPATCH_TOKEN already in Vercel env — NOT stored at cron-job.org)
+          → scheduler-tick runs in GitHub Actions exactly as today
+```
+
+Why this shape: cron-job.org only ever holds a low-value shared secret + a URL. If that leaks, the worst an attacker gets is "force a scheduler tick" (cost: a search run only if a profile is actually due; most are scheduleless). The GitHub PAT — which can burn paid LLM/scrape budget and push to `main` — stays in Vercel env where it already safely lives and is already used by `dispatchOnDemandRun`. Free on Hobby because a normal inbound API route is *not* subject to Vercel's daily-cron frequency cap (that cap is only for Vercel Cron jobs).
+
+**Tasks**:
+1. **`web/lib/dispatch.ts`** — add `dispatchScheduledTick()`: `POST` `workflow_dispatch` to `SCHEDULED_WORKFLOW_FILE` (`search-scheduled.yml`, constant already added in ADR-051 work), `ref: "main"`, reusing `dispatchHeaders()` + `GITHUB_DISPATCH_TOKEN`. Mirror `dispatchOnDemandRun`'s 204-check error handling.
+2. **`web/app/api/cron/tick/route.ts`** — new route mirroring `web/app/api/dispatch/route.ts`. Accept `POST` (and `GET`, since some external schedulers only do GET). Require server-only `process.env.CRON_TRIGGER_SECRET` via an `x-cron-secret` header (500 if env unset, 401 if missing/mismatch — same shape as `/api/dispatch`). On success call `dispatchScheduledTick()`, return `{ ok: true, dispatchedAt }`. No request body needed.
+3. **`.env.example`** — add `CRON_TRIGGER_SECRET=` (server-only; do NOT add a `NEXT_PUBLIC_` twin). Document it must be set in Vercel **Production** env.
+4. **`.github/workflows/search-scheduled.yml`** — keep `workflow_dispatch:` (already present). **Decision (ADR-052): keep `schedule: '*/15 * * * *'` as an explicit, commented degraded fallback** (if cron-job.org/route ever fails, scheduling degrades to "late", not "dead"). Add a comment line pointing at ADR-052 explaining the external trigger is the on-time path and the cron is the safety net. (Tradeoff acknowledged: the fallback still produces occasional ~hourly Actions runs; accepted for resilience.)
+5. **UI copy truth-up** (land *with* the trigger, not before): in `web/app/[product]/ScheduleEditorButton.tsx` the past-time hint ("it will run at the next scheduler tick (within ~15 min)") and the save-success toast ("The scheduler will pick this up on its next tick.") are accurate once the external trigger is live — re-verify wording matches the new ~15-min reality; no change needed if still true. Add a one-line note to ADR-050's GitHub-cron caveat pointing to ADR-052.
+6. **Manual, out-of-repo setup (runbook — must be documented because git can't see it; see ADR-052 + PROGRESS)**:
+   - In Vercel → project → Settings → Environment Variables: add `CRON_TRIGGER_SECRET` (a long random string) to **Production**; redeploy.
+   - At cron-job.org (free account): create a job — Title "product_search scheduler tick"; URL `https://<vercel-app-domain>/api/cron/tick`; method **POST**; add custom request header `x-cron-secret: <same value>`; schedule **every 15 minutes** (`*/15`); enable failure notifications; save & enable.
+   - Record the job's existence + owning account in PROGRESS.md (config lives outside the repo — future sessions must know it exists).
+
+**Done when**:
+- GitHub Actions history shows `search-scheduled.yml` runs with **event = `workflow_dispatch`** arriving ~every 15 min, on time (within ~1–2 min of :00/:15/:30/:45), proven over ≥1 hour (≥4 consecutive on-time dispatches).
+- End-to-end user scenario (the one that failed 3×): set a one-time `run_at` ~10–15 min out, confirm it fires within ~15 min, produces a report/CSV, and self-clears the `schedule:` block; the cards chip + detail footer (ADR-051) show the on-time run.
+- Route security: returns 401 without/with-wrong `x-cron-secret`; 500 if `CRON_TRIGGER_SECRET` unset; success path dispatches exactly one tick.
+- `npx tsc --noEmit` clean; `npm run lint` 0 errors (pre-existing warnings only).
+- ADR-052 flipped PROPOSED → ACCEPTED (implemented); cron-job.org job + Vercel env var documented in PROGRESS.md.
+
+**Out of scope**: replacing GitHub Actions as the executor; per-product external scheduling (one tick still fans out to all due profiles, unchanged); a dead-man's-switch / uptime monitor on the tick (noted as an optional later hardening in ADR-052); the Cloudflare Workers self-owned variant (documented as the considered-but-not-chosen alternative in ADR-052 — revisit only if cron-job.org proves unreliable or we want zero third-party schedulers).

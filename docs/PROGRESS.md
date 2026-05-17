@@ -12,7 +12,39 @@
 
 **Phase 17 — Schedule visibility follow-up. 2026-05-17 (user request).** User reported the `amd-epyc-9255` one-time runs "never ran". Diagnosis: they **did** run (14:30Z→fired 14:41Z, 16:15Z→fired 16:43Z) but ~12–28 min late (GitHub `*/15` heartbeat + Actions cron lag, an accepted ADR-050 tradeoff) and were **invisible** — the cards page showed only a date and the detail footer is on-demand-only. Built a per-card run-status surface (last-run local date+**time** from the newest data CSV + a live "Running" green dot). See ADR-051 and the dated status block below.
 
-**Next phase: Phase 18 — Polish + second-product proof** ([PHASES.md](PHASES.md#phase-18--polish--second-product-proof-replaces-old-phase-12)). Start a fresh session and read that brief.
+**Phase 20 — Reliable scheduling trigger. PLANNED 2026-05-17 (user-directed), implementation deferred to next session.** Root-caused the recurring "my scheduled run didn't fire on time" complaint: GitHub Actions `schedule:` is throttled to ~hourly (measured intervals [64,57,62,63] min) so a one-time job lands up to ~1 h late. Designed the fix end-to-end (free, Vercel-Hobby-safe): cron-job.org → existing Vercel route → existing `GITHUB_DISPATCH_TOKEN` → `workflow_dispatch`. Full plan in [PHASES.md Phase 20](PHASES.md#phase-20--reliable-scheduling-trigger-external-workflow_dispatch); decision + rejected alternatives in ADR-052 (PROPOSED).
+
+**Next session: implement Phase 20** (read its PHASES.md brief + ADR-052). It is now the priority over Phase 18 per the user. **Phase 18 — Polish + second-product proof** ([PHASES.md](PHASES.md#phase-18--polish--second-product-proof-replaces-old-phase-12)) remains queued after Phase 20.
+
+## Status as of 2026-05-17 (scheduling-reliability root cause + Phase 20 plan — NO code this session)
+
+**User set a one-time run for 2:49 PM ET; it "never ran." Root-caused it definitively and planned the systemic fix. This was a diagnosis + planning session — no code was written; implementation is Phase 20, next session.**
+
+### Root cause (definitive)
+
+- The schedule **saved correctly**: commit `00f57c3` (2026-05-17T18:46:32Z) wrote `schedule: { run_at: 2026-05-17T18:49:00Z }` — 2:49 PM EDT → 18:49 UTC conversion is right. The one-time fire logic is correct (`due = run_at <= now`, NOT subject to the 15-min look-back window — that window only governs recurring crons).
+- It didn't fire because **GitHub Actions throttles the `*/15` `schedule:` cron to ~hourly**. Measured `search-scheduled.yml` run times today (UTC): 14:40, 15:43, 16:40, 17:42, 18:44 → intervals **[64, 57, 62, 63] min**. The last tick (18:44:52Z) was 4 min *before* the job was due; the next was ~19:42Z. So the job was queued and would fire ~55 min late (≈3:42 PM ET), not "never."
+- This is documented, by-design GitHub behaviour (best-effort, deprioritised shared queue), not a bug in our code. It has bitten the user **three sessions running**. ADR-050's "occasional cron delay" caveat understated it.
+
+### Decision (user-approved direction)
+
+- Immediate 2:49 PM job: user chose **wait for the next hourly tick** (no manual trigger). No action taken on it this session.
+- Long-term: user chose **investigate options first**, then after the research picked the **hybrid** design (free, Vercel-Hobby-safe): cron-job.org (every 15 min) → `POST /api/cron/tick` on the existing Vercel app (guarded by a new server-only `CRON_TRIGGER_SECRET`) → existing `GITHUB_DISPATCH_TOKEN` → `workflow_dispatch` on `search-scheduled.yml`. The GitHub PAT never leaves Vercel; cron-job.org only holds a low-value shared secret. Rejected: PAT-in-cron-job.org (worse security), Vercel Cron (Hobby = daily only), Cloudflare Workers (extra platform), do-nothing (doesn't fix it). Full rationale: **ADR-052 (PROPOSED)**.
+
+### Changes applied this session
+
+- Docs only: **Phase 20** added to [PHASES.md](PHASES.md#phase-20--reliable-scheduling-trigger-external-workflow_dispatch) (executable task list + manual runbook + Done-when); **ADR-052 (PROPOSED)** added to DECISIONS.md; Active-phase + this block updated. **No code, no `web/` or `worker/` changes, nothing to verify/build.**
+
+### Next session — start here (this block supersedes the older "resume Phase 18" pointers below)
+
+**Implement Phase 20.** Read the Phase 20 brief in PHASES.md and ADR-052 first, then:
+1. Code: `dispatchScheduledTick()` in `web/lib/dispatch.ts`; new `web/app/api/cron/tick/route.ts` (mirror `web/app/api/dispatch/route.ts`, guard with `CRON_TRIGGER_SECRET` via `x-cron-secret`); add `CRON_TRIGGER_SECRET=` to `.env.example`; keep `schedule:` in `search-scheduled.yml` as a commented fallback + add an ADR-052 pointer comment.
+2. **Manual, out-of-repo (cannot be done from code — flag to the user, they must do it or approve):** set `CRON_TRIGGER_SECRET` in Vercel **Production** env + redeploy; create the cron-job.org job (POST the route URL with the `x-cron-secret` header, every 15 min). Runbook is in Phase 20 / ADR-052. **The cron-job.org account/job lives outside the repo — once created, record its existence + owner here in PROGRESS.**
+3. Verify per Phase 20 Done-when (≥4 on-time `workflow_dispatch` runs over ≥1 h; a one-time `run_at` fires within ~15 min and self-clears); flip ADR-052 → ACCEPTED.
+
+Carry-over still valid: ADR-040 auto-demote impl; AlterLab 422 retry; IT-Creations in_stock flip; one-time runs are attempted-once/no-retry. Phase 18 (Polish + second-product proof) is queued after Phase 20.
+
+---
 
 ## Status as of 2026-05-17 (cards run-status — last-run time + live "Running" dot)
 

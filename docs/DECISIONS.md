@@ -9,6 +9,41 @@ Status values:
 
 ---
 
+## ADR-052 — Reliable scheduling via external `workflow_dispatch` through the existing Vercel app (PROPOSED)
+
+**Status**: PROPOSED — planned 2026-05-17, implementation deferred to a dedicated session (Phase 20). Confirm/override before relying on it.
+
+**Date**: 2026-05-17
+
+**Context**: GitHub Actions `schedule:` is best-effort and deprioritized on shared runners; high-frequency crons are commonly delayed or collapsed. Measured on this repo 2026-05-17: the `*/15 * * * *` heartbeat actually fired at [64, 57, 62, 63]-min intervals — effectively hourly. Consequence: a user's one-time `run_at: 2026-05-17T18:49:00Z` ("2:49 PM ET") job (saved correctly at 18:46:32Z) didn't fire because the last tick was 18:44:52Z and the next wouldn't come for ~an hour. This is the third consecutive session the user hit "my scheduled run didn't happen on time." Diagnosis confirmed the scheduler/profile/one-time logic is correct (`due = run_at <= now`, not subject to the 15-min look-back window which only governs recurring crons); the **sole** defect is GitHub's trigger cadence. Industry-standard remedy: keep the workload in Actions, trigger it from a reliable external scheduler via `workflow_dispatch` (that event is not throttled like `schedule`). Constraints from the user: must stay **free**; the project is on **Vercel Hobby** (Vercel Cron is capped at once/day on Hobby, so Vercel-native cron can't do 15-min); and the project's standing architectural value is "free on a public repo" (ADR-004) with minimal third-party trust.
+
+**Decision**: Adopt the **hybrid trigger**:
+
+> cron-job.org (free; every 15 min) → `POST https://<vercel-app>/api/cron/tick` (guarded by a server-only `CRON_TRIGGER_SECRET` in an `x-cron-secret` header) → the route calls a new `dispatchScheduledTick()` which `POST`s `workflow_dispatch` to `search-scheduled.yml` using the **`GITHUB_DISPATCH_TOKEN` already in Vercel env** → `scheduler-tick` runs in GitHub Actions unchanged.
+
+- The GitHub PAT (which can spend paid LLM/scrape budget and push to `main`) **never leaves Vercel** — it is not stored at cron-job.org. cron-job.org holds only a low-value shared secret + URL; a leak there only lets an attacker force a scheduler tick (cost ≈ a search run *iff* a profile is due — most are scheduleless), bounded further by rotating `CRON_TRIGGER_SECRET`.
+- Free on Hobby: a normal inbound API route is **not** subject to Vercel's daily-cron frequency cap (that cap applies only to Vercel Cron jobs declared in `vercel.json`).
+- Keep `workflow_dispatch:` (already enabled) **and** keep `schedule: '*/15'` as an explicit commented **degraded fallback** so a cron-job.org/route outage degrades scheduling to "late," not "dead."
+- Reuse the existing `/api/dispatch` route shape (500 if secret env unset, 401 on missing/mismatch) for consistency and auditability.
+
+**Alternatives considered & rejected**:
+- **A — PAT stored directly in cron-job.org.** Lowest effort, zero code. Rejected: the powerful GitHub token sits at rest in a free third-party SaaS we don't control; even a fine-grained repo-scoped Actions-only PAT can't be scoped to a single workflow and silently expires (≤1 yr). The hybrid keeps the token in Vercel — strictly better security for the same cost.
+- **B — Vercel Cron → internal route.** Cleanest (no third party at all) but Vercel **Hobby caps cron at once/day**; needs Pro ($20/mo) → violates the free constraint. Revisit only if the project moves to Vercel Pro for other reasons.
+- **D — Cloudflare Workers Cron → dispatch.** Free, self-owned, very reliable, no cron-job.org account. Comparable security to the hybrid (token in your Cloudflare account vs. your Vercel app). Not chosen because it adds a second platform/account and more setup than reusing the Vercel app + token we already operate; documented as the fallback design if cron-job.org proves unreliable or we want zero third-party schedulers.
+- **C — stay GitHub-native, just fix the copy.** Zero infra but does not fix the actual problem (jobs still up to ~1 hr late). Rejected as the primary fix; the honesty/copy part is folded into Phase 20 anyway.
+
+**Consequence**:
+- One-time and recurring schedules fire within ~15 min reliably; the user's recurring failure mode is closed; the ADR-051 cards/footer surfaces will show on-time runs.
+- New external dependency (cron-job.org) and a new server-only secret (`CRON_TRIGGER_SECRET`). Config for the external job lives **outside the repo** → it MUST be documented in PROGRESS.md and here so future sessions know it exists and where it's owned.
+- The kept `schedule:` fallback still emits occasional ~hourly Actions runs — accepted as the price of resilience.
+- Small code surface: one lib function, one API route, one env var, one workflow comment, plus the manual cron-job.org + Vercel-env setup runbook (in Phase 20 / PROGRESS).
+- Supersedes the "occasional GitHub cron delay under load" caveat in **ADR-050** (that caveat understated the magnitude; ADR-052 is the systemic fix). ADR-050's scheduler/one-time semantics remain unchanged and correct.
+- Optional later hardening (out of scope, noted): a dead-man's-switch/uptime monitor on the tick, since neither GitHub nor cron-job.org will proactively tell us if ticks stop.
+
+**Implementation**: deferred — see Phase 20 in [PHASES.md](PHASES.md#phase-20--reliable-scheduling-trigger-external-workflow_dispatch) for the task list, the manual runbook, and the Done-when gate. Flip this ADR to ACCEPTED (implemented) when Phase 20's Done-when is met.
+
+---
+
 ## ADR-051 — Per-card run-status surface (last-run time + live "Running" dot) (ACCEPTED — implemented)
 
 **Status**: ACCEPTED — implemented 2026-05-17 (user request, follow-up to ADR-050).
