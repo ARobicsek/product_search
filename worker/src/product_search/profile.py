@@ -165,6 +165,14 @@ class FlagRule(BaseModel):
 
 class Source(BaseModel):
     id: str
+    # Optional opt-in for the universal_ai_search adapter's Tier 1.5
+    # detail-page extractor (ADR-049). ``"detail"`` means the URL is a
+    # single-product detail page (one exact SKU, no JSON-LD, only nav-junk
+    # anchors) — route it to the bounded detail-LLM tier instead of the
+    # anchor tier. ``"search"`` forces the anchor/search tier. When absent
+    # the adapter falls back to a URL-shape heuristic. MUST stay in sync
+    # with the TS mirror in web/lib/onboard/schema.ts.
+    page_type: Literal["detail", "search"] | None = None
     model_config = {"extra": "allow"}
 
     @field_validator("id")

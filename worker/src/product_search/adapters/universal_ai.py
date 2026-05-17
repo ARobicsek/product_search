@@ -79,6 +79,48 @@ Rules:
 """
 
 
+# Tier 1.5 (Phase 19 / ADR-049): single-product detail-page extractor.
+# Runs ONLY for sources flagged a product-detail page (page_type: "detail",
+# or the URL-shape heuristic when page_type is absent) AND only after the
+# JSON-LD tier found nothing. For single-SKU products (one exact part
+# number) the vendors that stock it often expose it ONLY on JS-heavy detail
+# pages with no JSON-LD and no clean product anchors — Tier 1 misses, Tier 2
+# correctly rejects the nav junk and emits 0. This tier reads the stripped
+# page text and asks for THE one product's price, then deterministically
+# re-verifies that price string occurs verbatim in the fetched bytes before
+# emitting (ADR-001 — stricter than the anchor tier).
+DETAIL_SYSTEM_PROMPT = """You are extracting THE single product from one \
+vendor product-detail page.
+
+The user message is the visible text of ONE product's detail page
+(navigation, header, scripts and footer already stripped). The page is for
+exactly one product for sale.
+
+Return a JSON object with EXACTLY these keys:
+  - "found": true or false
+  - "title": the product title as shown on the page
+  - "price_usd": numeric only (e.g. 2335.00). The CURRENT selling price for
+    THIS product.
+  - "condition": one of "new", "used", "refurbished" (default "new")
+  - "in_stock": true or false
+  - "pack_size": integer — units sold in one purchase (default 1)
+
+Hard rules:
+  - The price MUST appear verbatim in the provided text. If you cannot find
+    an unambiguous current selling price for THIS product, return
+    {"found": false} (the other keys then do not matter).
+  - Do NOT invent, estimate, round, or currency-convert any value. Copy the
+    price digits exactly as they appear (ignore the currency symbol and any
+    thousands separators).
+  - Use the current buy price — NOT list/MSRP/strikethrough/"was" price, NOT
+    a bundled accessory, financing installment, or "related products" price.
+  - "condition" stays "new" unless the page explicitly states otherwise.
+  - "in_stock" is false if the page says out of stock / sold out / backorder
+    / "notify me" / "email when available"; true otherwise.
+  - Output JSON ONLY. No prose preamble, no markdown fences.
+"""
+
+
 # --- Module-level capture for cli.py's run-cost panel -----------------------
 
 LAST_RUN_USAGE: dict[str, Any] | None = None
@@ -1143,6 +1185,220 @@ def _extract_candidates(
     return candidates
 
 
+# --- Tier 1.5: single-product detail-page extractor (ADR-049) --------------
+
+
+_DETAIL_STRIP_TAGS = (
+    "script", "style", "noscript", "template", "svg",
+    "nav", "header", "footer", "form", "iframe",
+)
+
+# Hard cap on the stripped text we hand the LLM. Detail pages with long spec
+# tables / reviews can balloon; ~16k chars keeps the single Haiku call cheap
+# and bounded while still containing the price + title (which are near the
+# top of every real product page).
+_DETAIL_MAX_CHARS = 16000
+
+
+def _strip_to_main_text(html: str) -> str:
+    """Reduce a product-detail page to its visible main-content text.
+
+    Drops ``<script>/<style>/<nav>/<header>/<footer>`` etc., flattens the
+    remaining body to whitespace-collapsed text, canonicalises Amazon-style
+    split price spans, and strips foreign-currency amounts (AlterLab's
+    European exit IPs leak EUR/GBP into the DOM). The result is BOTH the
+    LLM payload AND the haystack the price-verbatim guard checks against,
+    so the guard can never disagree with what the model saw.
+    """
+    try:
+        from selectolax.parser import HTMLParser
+    except ImportError:
+        logger.error("selectolax is required for universal_ai detail extraction.")
+        return ""
+
+    tree = HTMLParser(html)
+    if tree.body is None:
+        return ""
+    for sel in _DETAIL_STRIP_TAGS:
+        for node in tree.css(sel):
+            node.decompose()
+
+    text = tree.body.text(separator=" ", strip=True) or ""
+    text = re.sub(r"\s+", " ", text).strip()
+    text = _canonicalize_prices(text)
+    text = _strip_foreign_currencies(text)
+    if len(text) > _DETAIL_MAX_CHARS:
+        text = text[:_DETAIL_MAX_CHARS]
+    return text
+
+
+def _price_in_text(price: float, text: str) -> bool:
+    """True iff ``price`` occurs verbatim in ``text`` under normalisation.
+
+    The architectural guard (ADR-001): the LLM never produces a price the
+    deterministic layer didn't fetch. We strip ``$``, commas and whitespace
+    from the haystack and look for the price in its common printed forms
+    (``2335.00`` / ``2335`` / ``2,335.00`` all normalise the same way), so a
+    fabricated number is dropped while real formatting variation passes.
+    """
+    norm = re.sub(r"[\s,$]", "", text)
+    forms: set[str] = {f"{price:.2f}"}
+    if price == int(price):
+        forms.add(str(int(price)))
+        forms.add(f"{int(price)}.00")
+    # No-trailing-zero form, e.g. 2335.5 -> "2335.5".
+    trimmed = (f"{price:.2f}").rstrip("0").rstrip(".")
+    if trimmed:
+        forms.add(trimmed)
+    return any(f and f in norm for f in forms)
+
+
+def _resolve_detail_mode(query: AdapterQuery, url: str) -> str:
+    """Return ``"detail"``, ``"search"``, or ``"auto"`` for ``url``.
+
+    Explicit ``page_type`` on the profile source wins (deterministic
+    opt-in, preferred). When absent, fall back to the URL-shape heuristic:
+    a product-looking URL that is NOT a search/category URL is treated as
+    a detail page (``"auto"`` — Tier 1.5 is attempted but the anchor tier
+    still runs as a fallback if it yields nothing, so the heuristic can't
+    regress existing search pages).
+    """
+    page_type = query.extra.get("page_type")
+    if page_type in ("detail", "search"):
+        return str(page_type)
+    if _looks_like_product_url(url) and not _is_search_or_category_url(url):
+        return "auto"
+    return "search"
+
+
+def _extract_detail_listing(
+    html: str,
+    url: str,
+    *,
+    profile: Any | None,
+    fetched_at: datetime,
+    parsed_host: str,
+) -> list[Listing]:
+    """Tier 1.5: extract the single product from a detail page, or [].
+
+    One bounded ``claude-haiku-4-5`` call against the stripped page text.
+    The returned price is re-verified verbatim against that same text
+    before a Listing is emitted; the URL is ALWAYS the source URL (never
+    LLM-produced). Returns ``[]`` (caller decides whether to fall through
+    to the anchor tier) when nothing extractable is found.
+    """
+    global LAST_RUN_USAGE
+
+    text = _strip_to_main_text(html)
+    if len(text) < 20:
+        logger.info(
+            f"[universal_ai] Tier 1.5: stripped body too small "
+            f"({len(text)} chars) for {url}; skipping detail extraction."
+        )
+        return []
+
+    try:
+        resp = call_llm(
+            provider="anthropic",
+            model="claude-haiku-4-5",
+            system=DETAIL_SYSTEM_PROMPT,
+            messages=[Message(role="user", content=text)],
+            response_format="json",
+            max_tokens=1024,
+        )
+    except Exception as exc:
+        logger.error(
+            f"[universal_ai] Tier 1.5 LLM call failed: "
+            f"{type(exc).__name__}: {exc}"
+        )
+        return []
+
+    LAST_RUN_USAGE = {
+        "step": "universal_ai_search",
+        "provider": "anthropic",
+        "model": "claude-haiku-4-5",
+        "input_tokens": resp.input_tokens,
+        "output_tokens": resp.output_tokens,
+    }
+
+    parsed = _extract_json(resp.text or "")
+    if not isinstance(parsed, dict):
+        logger.warning(
+            f"[universal_ai] Tier 1.5: unparseable detail response for {url}: "
+            f"{(resp.text or '')[:200]}"
+        )
+        return []
+
+    if not parsed.get("found"):
+        logger.info(
+            f"[universal_ai] Tier 1.5: model found no priced product on {url}."
+        )
+        return []
+
+    raw_price = parsed.get("price_usd")
+    try:
+        price = float(raw_price)  # type: ignore[arg-type]
+    except (TypeError, ValueError):
+        return []
+    if price <= 0:
+        return []
+
+    if not _price_in_text(price, text):
+        logger.warning(
+            f"[universal_ai] Tier 1.5: extracted price {price} NOT found "
+            f"verbatim in fetched body for {url}; dropping (anti-hallucination "
+            f"guard, ADR-001)."
+        )
+        return []
+
+    title = str(parsed.get("title") or "").strip()
+    if not title:
+        return []
+
+    condition = str(parsed.get("condition") or "new").strip().lower()
+    if condition not in ("new", "used", "refurbished"):
+        condition = "new"
+
+    try:
+        llm_pack_size = int(parsed.get("pack_size") or 1)
+    except (TypeError, ValueError):
+        llm_pack_size = 1
+    is_kit, kit_module_count, unit_price_usd, kit_price_usd = _parse_pack(
+        title, price, llm_pack_size=llm_pack_size
+    )
+
+    # in_stock: False → quantity_available 0 so the in_stock filter
+    # (reject when qty <= 0) works; True/absent → None (unknown).
+    in_stock = parsed.get("in_stock")
+    quantity_available = 0 if in_stock is False else None
+
+    logger.info(
+        f"[universal_ai] Tier 1.5: extracted 1 detail listing from {url} "
+        f"(${price:.2f}, {condition})."
+    )
+    return [
+        Listing(
+            source="universal_ai_search",
+            url=url,
+            title=title[:300],
+            fetched_at=fetched_at,
+            brand=None,
+            mpn=None,
+            attrs={"vendor_host": parsed_host, "extractor": "detail_llm"},
+            condition=condition,
+            is_kit=is_kit,
+            kit_module_count=kit_module_count,
+            unit_price_usd=unit_price_usd,
+            kit_price_usd=kit_price_usd,
+            quantity_available=quantity_available,
+            seller_name=parsed_host,
+            seller_rating_pct=None,
+            seller_feedback_count=None,
+            ship_from_country=None,
+        )
+    ]
+
+
 # --- Main entry point ------------------------------------------------------
 
 
@@ -1214,6 +1470,29 @@ def fetch(query: AdapterQuery, profile: Any | None = None) -> list[Listing]:
                 )
             )
         return jsonld_results
+
+    # Tier 1.5 (ADR-049): single-product detail-page extractor. Runs after
+    # JSON-LD found nothing, only for detail-flagged / detail-shaped URLs.
+    detail_mode = _resolve_detail_mode(query, url)
+    if detail_mode != "search":
+        detail_listings = _extract_detail_listing(
+            html, url,
+            profile=profile,
+            fetched_at=fetched_at,
+            parsed_host=parsed_host,
+        )
+        if detail_listings:
+            return detail_listings
+        if detail_mode == "detail":
+            # Explicit opt-in: the page IS one product; the anchor tier
+            # would only emit nav junk. Don't burn a second LLM call.
+            logger.info(
+                f"[universal_ai] Tier 1.5 yielded nothing for explicit "
+                f"detail source {url}; not falling through to anchor tier."
+            )
+            return []
+        # detail_mode == "auto" (URL-shape heuristic): fall through to the
+        # anchor tier so a real search/category page is never regressed.
 
     candidates = _extract_candidates(html, base_url=url)
     if not candidates:

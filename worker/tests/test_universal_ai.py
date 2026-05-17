@@ -887,6 +887,239 @@ def test_amazon_alterlab_eur_cards_get_approximate_usd_prices() -> None:
         )
 
 
+# --- Phase 19 / ADR-049: Tier 1.5 single-product detail extractor ----------
+
+DETAIL_FIXTURE = FIXTURE_DIR / "detail-single-sku-synthetic.html"
+# A real-shaped parked amd-epyc-9255 URL: not a search/category URL, last
+# path segment is a long hyphenated SKU slug → URL-shape heuristic = detail.
+DETAIL_URL = "https://www.sabrepc.com/100-000000694-AMD-S137839588"
+
+
+def _detail_html() -> str:
+    return DETAIL_FIXTURE.read_text(encoding="utf-8")
+
+
+def test_strip_to_main_text_drops_chrome_keeps_price() -> None:
+    """The strip pass removes script/nav/header/footer and the fake
+    in-script price, but keeps the visible title + the real $2,335.00."""
+    text = universal_ai._strip_to_main_text(_detail_html())
+    assert "AMD EPYC 9255 24-Core 3.25GHz Processor" in text
+    assert "$2,335.00" in text
+    assert "In Stock" in text
+    # Chrome / script noise must be gone.
+    assert "9999999" not in text, "in-<script> fake price leaked"
+    assert "My Account" not in text, "<header> nav leaked"
+    assert "All RMA Request" not in text, "<nav> junk leaked"
+    assert "Return Policy" not in text, "<footer> leaked"
+
+
+def test_price_in_text_verbatim_guard() -> None:
+    """The anti-hallucination guard tolerates print-format variation but
+    rejects a price that is not in the fetched bytes (ADR-001)."""
+    body = "Our Price: $2,335.00 today only. SKU 100-000000694."
+    assert universal_ai._price_in_text(2335.0, body)
+    assert universal_ai._price_in_text(2335.00, body)
+    # Comma-free / cents-free printed forms normalise the same way.
+    assert universal_ai._price_in_text(2335, "flat 2335 dollars")
+    assert universal_ai._price_in_text(2335.0, "now $2335")
+    # Fabricated price → dropped.
+    assert not universal_ai._price_in_text(4567.89, body)
+    assert not universal_ai._price_in_text(2336.0, body)
+
+
+def test_resolve_detail_mode_gating() -> None:
+    """Explicit page_type wins; URL-shape heuristic is the fallback."""
+    q_detail = AdapterQuery(
+        source_id="universal_ai_search",
+        extra={"url": DETAIL_URL, "page_type": "detail"},
+    )
+    q_search = AdapterQuery(
+        source_id="universal_ai_search",
+        extra={"url": DETAIL_URL, "page_type": "search"},
+    )
+    q_auto = AdapterQuery(
+        source_id="universal_ai_search", extra={"url": DETAIL_URL},
+    )
+    q_search_url = AdapterQuery(
+        source_id="universal_ai_search",
+        extra={"url": "https://www.cdw.com/search/?key=amd+epyc+9255"},
+    )
+    assert universal_ai._resolve_detail_mode(q_detail, DETAIL_URL) == "detail"
+    assert universal_ai._resolve_detail_mode(q_search, DETAIL_URL) == "search"
+    assert universal_ai._resolve_detail_mode(q_auto, DETAIL_URL) == "auto"
+    assert (
+        universal_ai._resolve_detail_mode(
+            q_search_url, "https://www.cdw.com/search/?key=amd+epyc+9255"
+        )
+        == "search"
+    )
+
+
+def test_tier15_emits_single_listing_with_source_url(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """page_type:detail → one Listing whose URL is the verbatim source URL,
+    extractor tagged detail_llm, price taken from the body."""
+    monkeypatch.setattr(
+        universal_ai, "_fetch_html",
+        lambda url, timeout=20.0: (_detail_html(), 200, "stub"),
+    )
+    monkeypatch.setattr(universal_ai, "call_llm", _stub_llm_response(
+        '{"found": true, "title": "AMD EPYC 9255 24-Core 3.25GHz Processor", '
+        '"price_usd": 2335.00, "condition": "new", "in_stock": true, '
+        '"pack_size": 1}'
+    ))
+
+    query = AdapterQuery(
+        source_id="universal_ai_search",
+        extra={"url": DETAIL_URL, "page_type": "detail"},
+    )
+    results = universal_ai.fetch(query)
+
+    assert len(results) == 1
+    r = results[0]
+    assert r.url == DETAIL_URL  # never LLM-produced
+    assert r.unit_price_usd == 2335.00
+    assert r.condition == "new"
+    assert r.attrs["extractor"] == "detail_llm"
+    assert r.attrs["vendor_host"] == "www.sabrepc.com"
+    assert r.quantity_available is None  # in_stock True → unknown qty
+    assert universal_ai.LAST_RUN_USAGE is not None
+    assert universal_ai.LAST_RUN_USAGE["step"] == "universal_ai_search"
+
+
+def test_tier15_out_of_stock_sets_quantity_zero(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """in_stock:false → quantity_available 0 so the in_stock filter
+    (reject when qty <= 0) can drop it downstream."""
+    monkeypatch.setattr(
+        universal_ai, "_fetch_html",
+        lambda url, timeout=20.0: (_detail_html(), 200, "stub"),
+    )
+    monkeypatch.setattr(universal_ai, "call_llm", _stub_llm_response(
+        '{"found": true, "title": "AMD EPYC 9255", "price_usd": 2335, '
+        '"condition": "new", "in_stock": false, "pack_size": 1}'
+    ))
+    query = AdapterQuery(
+        source_id="universal_ai_search",
+        extra={"url": DETAIL_URL, "page_type": "detail"},
+    )
+    results = universal_ai.fetch(query)
+    assert len(results) == 1
+    assert results[0].quantity_available == 0
+
+
+def test_tier15_drops_fabricated_price(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A price the model returns that is NOT verbatim in the fetched body
+    is dropped — the guard is stricter than the anchor tier (ADR-001)."""
+    monkeypatch.setattr(
+        universal_ai, "_fetch_html",
+        lambda url, timeout=20.0: (_detail_html(), 200, "stub"),
+    )
+    monkeypatch.setattr(universal_ai, "call_llm", _stub_llm_response(
+        '{"found": true, "title": "AMD EPYC 9255", "price_usd": 4567.89, '
+        '"condition": "new", "in_stock": true, "pack_size": 1}'
+    ))
+    query = AdapterQuery(
+        source_id="universal_ai_search",
+        extra={"url": DETAIL_URL, "page_type": "detail"},
+    )
+    assert universal_ai.fetch(query) == []
+
+
+def test_tier15_found_false_returns_empty(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        universal_ai, "_fetch_html",
+        lambda url, timeout=20.0: (_detail_html(), 200, "stub"),
+    )
+    monkeypatch.setattr(
+        universal_ai, "call_llm", _stub_llm_response('{"found": false}')
+    )
+    query = AdapterQuery(
+        source_id="universal_ai_search",
+        extra={"url": DETAIL_URL, "page_type": "detail"},
+    )
+    assert universal_ai.fetch(query) == []
+
+
+def test_tier15_explicit_detail_does_not_fall_through_to_anchor(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Explicit page_type:detail + Tier 1.5 finding nothing must NOT burn a
+    second (anchor-tier) LLM call — the page IS one product."""
+    monkeypatch.setattr(
+        universal_ai, "_fetch_html",
+        lambda url, timeout=20.0: (_detail_html(), 200, "stub"),
+    )
+    calls: list[str] = []
+
+    def _llm(**kwargs: object) -> LLMResponse:
+        calls.append(str(kwargs.get("system", ""))[:40])
+        return LLMResponse(
+            provider="anthropic", model="claude-haiku-4-5",
+            text='{"found": false}', input_tokens=100, output_tokens=10,
+        )
+
+    monkeypatch.setattr(universal_ai, "call_llm", _llm)
+    query = AdapterQuery(
+        source_id="universal_ai_search",
+        extra={"url": DETAIL_URL, "page_type": "detail"},
+    )
+    assert universal_ai.fetch(query) == []
+    assert len(calls) == 1, f"expected exactly 1 LLM call, got {len(calls)}"
+
+
+def test_tier15_auto_mode_falls_through_to_anchor_tier(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """When page_type is ABSENT (URL-shape heuristic only), a Tier 1.5 miss
+    must fall through to the anchor tier so a mis-classified search/category
+    page is never regressed."""
+    monkeypatch.setattr(
+        universal_ai, "_fetch_html",
+        lambda url, timeout=20.0: (_detail_html(), 200, "stub"),
+    )
+    state = {"n": 0}
+
+    def _llm(**kwargs: object) -> LLMResponse:
+        import json as _json
+        state["n"] += 1
+        if state["n"] == 1:
+            # Tier 1.5 detail call — find nothing.
+            return LLMResponse(
+                provider="anthropic", model="claude-haiku-4-5",
+                text='{"found": false}', input_tokens=100, output_tokens=10,
+            )
+        # Anchor tier call — pick the first candidate that has a price hint.
+        payload = _json.loads(kwargs["messages"][0].content)  # type: ignore[index]
+        for c in payload:
+            if c["price_hints"]:
+                price = float(c["price_hints"][0].lstrip("$").replace(",", ""))
+                return LLMResponse(
+                    provider="anthropic", model="claude-haiku-4-5",
+                    text=_json.dumps({"listings": [{
+                        "idx": c["idx"], "title": c["anchor_text"] or "x",
+                        "price_usd": price, "condition": "new",
+                    }]}),
+                    input_tokens=200, output_tokens=40,
+                )
+        return LLMResponse(
+            provider="anthropic", model="claude-haiku-4-5",
+            text='{"listings": []}', input_tokens=200, output_tokens=10,
+        )
+
+    monkeypatch.setattr(universal_ai, "call_llm", _llm)
+    query = AdapterQuery(source_id="universal_ai_search", extra={"url": DETAIL_URL})
+    results = universal_ai.fetch(query)
+
+    assert state["n"] == 2, "auto mode must fall through to the anchor tier"
+    assert len(results) >= 1
+    assert all(r.attrs.get("extractor") == "anchor_llm" for r in results)
+
+
 def test_parse_pack_extracts_multi_packs() -> None:
     """_parse_pack decodes module counts and unit prices for multi-pack items."""
     is_kit, count, unit_p, kit_p = universal_ai._parse_pack("Aufschnitt Jerky 2-pack", 14.00)

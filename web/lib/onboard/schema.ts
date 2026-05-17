@@ -223,6 +223,14 @@ function validateSources(
         `${path}[${i}].id: unknown source id ${JSON.stringify(id)}; known: ${[...KNOWN_SOURCE_IDS].sort().join(',')}`,
       );
     }
+    if (so.page_type !== undefined && so.page_type !== null) {
+      const pt = asString(so.page_type, `${path}[${i}].page_type`, ctx);
+      if (pt !== null && !SOURCE_PAGE_TYPES.has(pt)) {
+        ctx.errors.push(
+          `${path}[${i}].page_type: must be one of ${[...SOURCE_PAGE_TYPES].sort().join(',')}`,
+        );
+      }
+    }
   });
 }
 
@@ -239,6 +247,10 @@ function validateSchedule(schedule: unknown, ctx: ValidationContext) {
 
 // Discriminated-union mirror of profile.py:AlertRule. Add new kinds here AND
 // in profile.py — both validators must agree.
+// Mirrors profile.py:Source.page_type. Optional opt-in for the
+// universal_ai_search Tier 1.5 detail-page extractor (ADR-049).
+const SOURCE_PAGE_TYPES = new Set<string>(['detail', 'search']);
+
 const ALERT_KINDS = new Set<string>(['price_below', 'vendor_seen']);
 const ALERT_CONDITIONS = new Set<string>(['new', 'used', 'refurbished']);
 

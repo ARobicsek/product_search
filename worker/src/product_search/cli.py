@@ -127,6 +127,12 @@ def main() -> None:
         default=None,
         help="Write the fetched HTML body to PATH (useful for capturing fixtures)",
     )
+    probe_parser.add_argument(
+        "--detail",
+        action="store_true",
+        help="Run the Tier 1.5 single-product detail extractor (ADR-049) on "
+             "the fetched body and report the extracted listing",
+    )
 
     args = parser.parse_args()
 
@@ -158,7 +164,12 @@ def main() -> None:
         _cmd_scheduler_tick()
 
     elif args.command == "probe-url":
-        _cmd_probe_url(args.url, render=args.render, save_body=args.save_body)
+        _cmd_probe_url(
+            args.url,
+            render=args.render,
+            save_body=args.save_body,
+            detail=args.detail,
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -958,7 +969,13 @@ def _cmd_scheduler_tick() -> None:
 # ---------------------------------------------------------------------------
 
 
-def _cmd_probe_url(url: str, *, render: bool, save_body: str | None = None) -> None:
+def _cmd_probe_url(
+    url: str,
+    *,
+    render: bool,
+    save_body: str | None = None,
+    detail: bool = False,
+) -> None:
     """Diagnose a single vendor URL through the universal_ai pipeline.
 
     Prints fetcher used, status, body length, JSON-LD count, anchor candidate
@@ -971,6 +988,12 @@ def _cmd_probe_url(url: str, *, render: bool, save_body: str | None = None) -> N
     fetch returned 0 candidates" (extraction problem) from "raw fetch returned
     0 candidates" (probably needs rendering). Without ``--render`` the
     standard fetch tier chain runs (AlterLab if env key set, else curl_cffi).
+
+    With ``--detail`` the Tier 1.5 single-product detail extractor (ADR-049)
+    is run against the fetched body and its extracted listing reported; exit
+    is 0 iff Tier 1.5 produced a priced listing. Use this to gate whether a
+    single-SKU vendor detail URL belongs in ``sources`` with
+    ``page_type: detail``.
     """
     import os
 
@@ -1032,6 +1055,36 @@ def _cmd_probe_url(url: str, *, render: bool, save_body: str | None = None) -> N
             title = (c["anchor_text"] or "")[:70]
             prices = ", ".join(c["price_hints"][:3]) or "(no price hints)"
             print(f"  - {title}  [{prices}]")
+
+    if detail:
+        from datetime import UTC, datetime
+        from urllib.parse import urlparse
+
+        detail_listings = universal_ai._extract_detail_listing(
+            html,
+            url,
+            profile=None,
+            fetched_at=datetime.now(tz=UTC),
+            parsed_host=urlparse(url).netloc.lower(),
+        )
+        print(f"\nTier 1.5 detail listing: {len(detail_listings)}")
+        if detail_listings:
+            d = detail_listings[0]
+            stock = (
+                "unknown"
+                if d.quantity_available is None
+                else ("in stock" if d.quantity_available != 0 else "out of stock")
+            )
+            print(
+                f"  - {d.title[:70]}  ${d.unit_price_usd:.2f}  "
+                f"({d.condition}, {stock})"
+            )
+            sys.exit(0)
+        print(
+            "\nTier 1.5 extracted no priced product from this detail page.",
+            file=sys.stderr,
+        )
+        sys.exit(1)
 
     total = len(jsonld_listings) + len(candidates)
     if total == 0:

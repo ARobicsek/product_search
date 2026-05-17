@@ -9,11 +9,11 @@ Status values:
 
 ---
 
-## ADR-049 — Tier 1.5 detail-page price extractor for single-SKU products (PROPOSED)
+## ADR-049 — Tier 1.5 detail-page price extractor for single-SKU products (ACCEPTED — implemented)
 
-**Status**: PROPOSED (scoped 2026-05-17; implementation deferred to a Phase 19 session)
+**Status**: ACCEPTED — code implemented 2026-05-17 (Phase 19 task 6). The live application step (re-probe the parked `amd-epyc-9255` URLs through AlterLab, promote the ones Tier 1.5 extracts into `sources`, remove `ebay_search`) is the remaining follow-up — it needs a paid live run and is tracked in PROGRESS.md.
 
-**Date**: 2026-05-17
+**Date**: 2026-05-17 (scoped); 2026-05-17 (implemented)
 
 **Context**: The `amd-epyc-9255` profile produced a "dreadful" run — eBay returned 19 real listings; all 8 `universal_ai_search` vendor URLs returned 0. Empirical rendered `probe-url` testing of every realistic non-eBay vendor (SabrePC, Wiredzone, ServerSupply, IT Creations, Central Computer, Newegg, CDW) showed they all *stock* the EPYC 9255 but expose it only on JS-heavy product **detail** pages with **no JSON-LD** and **no clean product anchors** (the adapter extracts only nav junk like "All RMA Request"). Tier 1 (JSON-LD) misses these; Tier 2 (anchor→LLM) correctly rejects the junk and emits nothing. For a single-SKU product (one exact part number), eBay is therefore the *only* source the current architecture can extract — which makes the user's explicit, repeated request to remove eBay impossible for this product class. This is a structural adapter gap, not a config error.
 
@@ -25,6 +25,13 @@ Status values:
 - Adds an optional `page_type` field that must stay in sync between `worker/src/product_search/profile.py` and `web/lib/onboard/schema.ts` (recurring Pydantic/TS sync hazard).
 - Best-effort only for hard bot-walls (ServerSupply/CentralComputer returned empty rendered bodies; AlterLab intermittently 422s Newegg/IT Creations) — Tier 1.5 fixes extraction, not fetch reachability.
 - Until implemented, `amd-epyc-9255` keeps `ebay_search` (only working source) and parks the 8 probe-tested-dead vendor URLs in `sources_pending` with verdict notes — they are not run and not charged.
+
+**Implementation (2026-05-17)**:
+- `Source.page_type: Literal["detail","search"] | None` added to `profile.py`; mirrored in `web/lib/onboard/schema.ts` (`SOURCE_PAGE_TYPES`).
+- `universal_ai.py`: `DETAIL_SYSTEM_PROMPT`, `_strip_to_main_text` (drops script/style/nav/header/footer/form/iframe, collapses whitespace, canonicalises split prices, strips foreign currency, caps 16k chars), `_price_in_text` (verbatim guard: `$`/`,`/space-insensitive, tolerates `2335`/`2335.00`/`2,335.00`), `_resolve_detail_mode` (explicit `page_type` wins; URL-shape heuristic → `"auto"` fallback), `_extract_detail_listing`. Wired into `fetch()` after the JSON-LD tier: explicit `detail` does NOT fall through to the anchor tier on a miss (no wasted 2nd LLM call); `auto` (heuristic) DOES fall through so a mis-classified search page can't regress.
+- `cli.py probe-url --detail` runs Tier 1.5 and exits 0 iff it produced a priced listing (onboarder gate).
+- `onboard_v1.txt`: single-SKU `page_type:"detail"` exception documented (narrowed to single exact MPN with no working search URL).
+- Tests: 9 new in `test_universal_ai.py` (strip, verbatim guard, gating, emit, OOS→qty 0, fabricated-price drop, found:false, explicit-no-fallthrough, auto-fallthrough) against synthetic `detail-single-sku-synthetic.html`. Full CI sequence green in fresh Py3.12 venv: ruff/mypy(31)/pytest(217)/validate(4 profiles); web tsc + lint clean.
 
 ---
 

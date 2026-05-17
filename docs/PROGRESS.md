@@ -6,7 +6,35 @@
 
 **Phase 17 — Schedule Editor + Alerts. CLOSED 2026-05-11 afternoon.** Five-part scope (A schedule UI, B alerts schema, C worker evaluator, D alerts UI, E verification) all landed. Scope expanded mid-phase to cover user-configurable price/vendor alerts (NOT handled by the onboarder — UI-only).
 
-**Next phase candidate**: Phase 18 (polish + second-product proof) per [PHASES.md](PHASES.md#phase-18--polish--second-product-proof-replaces-old-phase-12), OR pick up the deferred Phase 19 (universal adapter accuracy & vendor reach) which still blocks Phase 18's "7-day scheduled runs produce reliable data" criterion. Pre-Phase-18 decisions tracked in the 2026-05-11 afternoon handoff below.
+**Active: Phase 19 — Universal adapter accuracy & vendor reach.** Task 6 (Tier 1.5 detail-page extractor, ADR-049) code is IMPLEMENTED and CI-green as of 2026-05-17 (see status section below). Remaining in task 6: the paid live promotion run for `amd-epyc-9255` + `ebay_search` removal (needs go-ahead). Phase 18 (polish + second-product proof) remains the next phase candidate after Phase 19.
+
+## Status as of 2026-05-17 (Phase 19 task 6 — Tier 1.5 detail-page extractor IMPLEMENTED)
+
+**Built the Tier 1.5 single-product detail-page price extractor (ADR-049). All code, schema, prompt, probe-url, fixtures, and tests landed and CI-green. The remaining step — a paid live run to re-probe the parked `amd-epyc-9255` URLs, promote the ones Tier 1.5 extracts into `sources`, and remove `ebay_search` — is NOT done this session: it spends money on AlterLab + Haiku and changes a production-scheduled profile, so it needs an explicit go-ahead.**
+
+### Changes applied this session
+
+- `worker/src/product_search/profile.py` — `Source.page_type: Literal["detail","search"] | None = None` (explicit Tier 1.5 opt-in).
+- `web/lib/onboard/schema.ts` — `SOURCE_PAGE_TYPES` mirror + per-source `page_type` validation (Pydantic/TS sync).
+- `worker/src/product_search/adapters/universal_ai.py` — `DETAIL_SYSTEM_PROMPT`, `_strip_to_main_text`, `_price_in_text` (verbatim anti-hallucination guard), `_resolve_detail_mode` (explicit `page_type` wins; URL-shape heuristic → `auto`), `_extract_detail_listing`; wired into `fetch()` between the JSON-LD and anchor tiers. Explicit `detail` does not fall through to the anchor tier on a miss; `auto` does (no regression for mis-classified search pages).
+- `worker/src/product_search/cli.py` — `probe-url --detail` runs Tier 1.5 and exits 0 iff it extracted a priced listing.
+- `worker/src/product_search/onboarding/prompts/onboard_v1.txt` — single-SKU `page_type:"detail"` exception (narrow: one exact MPN, no working search URL).
+- `worker/tests/fixtures/universal_ai/detail-single-sku-synthetic.html` + 9 new tests in `test_universal_ai.py`.
+- `docs/DECISIONS.md` — ADR-049 → ACCEPTED with an implementation note.
+
+### Verification (fresh `uv` Python 3.12 venv, exact CI sequence + web)
+
+- `ruff check src/`: passed · `mypy src/`: 31 files clean · `pytest tests/`: **217 passed** (was 208 + 9 Tier 1.5).
+- `cli validate` amd-epyc-9255 / amd-epyc-9224 / ddr5-rdimm-256gb / aufschnitt-essiccata-jerky: all valid.
+- `web`: `npx tsc --noEmit` clean; `npm run lint` 0 errors (only pre-existing sw.js warnings).
+
+### Next session — start here
+
+1. **(Needs go-ahead — paid live run.)** With `ALTERLAB_API_KEY` set, for each parked `products/amd-epyc-9255/profile.yaml` `sources_pending` detail URL run `product-search probe-url <url> --render --detail`. Capture the rendered bodies to `worker/tests/fixtures/universal_ai/<vendor>-epyc9255-2026-05-17.html` for the ones that extract (per SESSION_PROTOCOL: capture fixtures when scraping live).
+2. Promote URLs Tier 1.5 extracts (`probe-url --detail` exit 0) into `sources` with `page_type: "detail"`; **remove `ebay_search`** (the originally-requested change, unblocked once ≥1 non-eBay source works). Re-run `amd-epyc-9255`; confirm eBay-free with ≥1 working non-eBay source.
+3. Add real-fixture-pinned Tier 1.5 tests for the vendors that extracted (SabrePC/Wiredzone/IT Creations expected; ServerSupply/CentralComputer best-effort per ADR-049 risks). Consider a 1-retry/backoff on AlterLab 422 (Newegg/IT Creations) — orthogonal fetch-reliability item, noticed but deferred.
+
+---
 
 ## Status as of 2026-05-17 (Onboarder removal-bug fix + EPYC 9255 vendor-reach diagnosis; Tier 1.5 scoped)
 
