@@ -70,5 +70,5 @@ report_columns:
   - seller_rating
   - flags
 schedule:
-  cron: 0 14 * * *
+  run_at: 2026-05-17T14:30:00Z
   timezone: UTC
