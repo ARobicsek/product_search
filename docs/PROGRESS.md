@@ -8,6 +8,37 @@
 
 **Next phase candidate**: Phase 18 (polish + second-product proof) per [PHASES.md](PHASES.md#phase-18--polish--second-product-proof-replaces-old-phase-12), OR pick up the deferred Phase 19 (universal adapter accuracy & vendor reach) which still blocks Phase 18's "7-day scheduled runs produce reliable data" criterion. Pre-Phase-18 decisions tracked in the 2026-05-11 afternoon handoff below.
 
+## Status as of 2026-05-17 (Onboarder removal-bug fix + EPYC 9255 vendor-reach diagnosis; Tier 1.5 scoped)
+
+**Diagnosed the "dreadful" amd-epyc-9255 run, fixed the onboarder's remove-source bug, empirically proved no non-eBay vendor is extractable for this product, and scoped the fix (Tier 1.5 detail-page extractor) into Phase 19. Implementation deferred to next session per user.**
+
+### What happened on the run
+
+The first post-CI-fix `amd-epyc-9255` run executed cleanly (import crash gone) but eBay returned 19 real listings while all 8 `universal_ai_search` vendors returned 0. Two root causes, both upstream of the CI fix:
+
+1. **eBay wouldn't go away — onboarder edit bug.** `onboard_v1.txt` only told the model to default-to-eBay-unless-asked at *initial creation*. On *edits*, it seeded `<draft>` from the pasted YAML and **appended** new vendors without ever **deleting** the existing `ebay_search` block. Fixed: added a "Removal requests are DESTRUCTIVE edits — delete, don't just stop mentioning" section to the Edit-mode part of `onboard_v1.txt`, with explicit eBay-strip rules and a `<state>` ledger-sync rule so removals can't resurrect on later turns.
+2. **All non-eBay sources 0 — wrong vendor class + adapter gap.** CDW returned only *other* EPYC models (no 9255 in catalog; correctly rejected). The rest: rendered `probe-url` (AlterLab) testing of SabrePC/Wiredzone/ServerSupply/IT Creations/Central Computer/Newegg showed they all *stock* the 9255 but expose it only on JS-heavy **detail** pages with **no JSON-LD** and **only nav-junk anchors**. Tier 1 misses, Tier 2 correctly rejects → 0. **eBay is the only extractable source for this single-SKU CPU with today's adapter.**
+
+### Changes applied this session (in addition to the earlier CI-regression fix below)
+
+- `worker/src/product_search/onboarding/prompts/onboard_v1.txt` — Edit-mode hardening for destructive/removal requests (delete from `<draft>` + `<state>`, eBay-specific strip rule, empty-sources guard).
+- `products/amd-epyc-9255/profile.yaml` — interim cleanup: kept `ebay_search` (only working source); moved all 8 probe-tested-dead `universal_ai_search` URLs to `sources_pending` with per-URL verdict notes (no longer run, no longer charged ~$0.02/run). eBay removal is intentionally **deferred** — it is blocked on Tier 1.5.
+- `docs/PHASES.md` — added Phase 19 **task 6**: full Tier-1.5 detail-page-extractor design (gating, extraction, price-verbatim guard, schema/prompt changes, fixtures, risks).
+- `docs/DECISIONS.md` — **ADR-049** (PROPOSED): Tier 1.5 detail-page price extractor for single-SKU products.
+
+### Verification
+
+- `cli validate amd-epyc-9255`: valid (restructured sources_pending schema-checked).
+- No Python changed this session → CI suite unaffected by these edits (earlier CI-regression fix already green on `98907a6`).
+
+### Next session — start here
+
+1. **Implement Phase 19 task 6 (Tier 1.5 detail-page extractor)** per the design in PHASES.md and ADR-049. Start by `cli probe-url --save-body --render` capturing the SabrePC + Wiredzone + IT Creations + ServerSupply + CentralComputer detail pages (URLs parked in `products/amd-epyc-9255/profile.yaml` `sources_pending`) into `worker/tests/fixtures/universal_ai/`.
+2. After Tier 1.5 works: promote the extracting URLs back into `amd-epyc-9255` `sources`, **remove `ebay_search`** (the originally-requested change), re-run, confirm eBay-free with ≥1 working non-eBay source.
+3. Watch the Pydantic↔TS schema sync when adding `page_type` (recurring hazard).
+
+---
+
 ## Status as of 2026-05-17 (CI + on-demand search regression fix)
 
 **Fixed three regressions introduced by commit `a2abe05` that broke all CI jobs and both on-demand search runs (`amd-epyc-9224` #118, `amd-epyc-9255` #117).** All passed locally on Python 3.13 but failed CI's fresh Python 3.12 install.

@@ -9,6 +9,25 @@ Status values:
 
 ---
 
+## ADR-049 — Tier 1.5 detail-page price extractor for single-SKU products (PROPOSED)
+
+**Status**: PROPOSED (scoped 2026-05-17; implementation deferred to a Phase 19 session)
+
+**Date**: 2026-05-17
+
+**Context**: The `amd-epyc-9255` profile produced a "dreadful" run — eBay returned 19 real listings; all 8 `universal_ai_search` vendor URLs returned 0. Empirical rendered `probe-url` testing of every realistic non-eBay vendor (SabrePC, Wiredzone, ServerSupply, IT Creations, Central Computer, Newegg, CDW) showed they all *stock* the EPYC 9255 but expose it only on JS-heavy product **detail** pages with **no JSON-LD** and **no clean product anchors** (the adapter extracts only nav junk like "All RMA Request"). Tier 1 (JSON-LD) misses these; Tier 2 (anchor→LLM) correctly rejects the junk and emits nothing. For a single-SKU product (one exact part number), eBay is therefore the *only* source the current architecture can extract — which makes the user's explicit, repeated request to remove eBay impossible for this product class. This is a structural adapter gap, not a config error.
+
+**Decision**: Add a **Tier 1.5 detail-page extractor** to `universal_ai.fetch()`, between the JSON-LD tier and the anchor tier. It runs only when JSON-LD found nothing AND the source is flagged a single-product detail page (explicit `page_type: "detail"` opt-in on the `Source` model preferred; `_looks_like_product_url()` heuristic as fallback). It strips the fetched HTML to main content, makes one bounded `claude-haiku-4-5` call to extract `{found, title, price_usd, condition, in_stock, pack_size}` for the single product, then **deterministically verifies the extracted price string occurs verbatim (under normalization) in the fetched HTML** before emitting — dropping the listing otherwise. The URL is always the source URL, never LLM-produced. Full task breakdown, schema/prompt changes, fixtures, and risks are in PHASES.md Phase 19 task 6.
+
+**Consequence**:
+- Preserves ADR-001 (LLM never produces data the deterministic layer didn't fetch): the price is extracted from real fetched bytes and re-verified verbatim against them — a *stricter* check than Tier 2's anchor mapping.
+- Unblocks single-SKU products (server CPUs, specific MPNs) whose only vendors are SPA/custom storefronts, and unblocks eBay removal for `amd-epyc-9255` once ≥1 non-eBay source extracts.
+- Adds an optional `page_type` field that must stay in sync between `worker/src/product_search/profile.py` and `web/lib/onboard/schema.ts` (recurring Pydantic/TS sync hazard).
+- Best-effort only for hard bot-walls (ServerSupply/CentralComputer returned empty rendered bodies; AlterLab intermittently 422s Newegg/IT Creations) — Tier 1.5 fixes extraction, not fetch reachability.
+- Until implemented, `amd-epyc-9255` keeps `ebay_search` (only working source) and parks the 8 probe-tested-dead vendor URLs in `sources_pending` with verdict notes — they are not run and not charged.
+
+---
+
 ## ADR-048 — Verify CI-affecting changes in a clean Python 3.12 venv before pushing
 
 **Status**: ACCEPTED
