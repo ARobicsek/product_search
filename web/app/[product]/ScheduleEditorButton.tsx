@@ -5,12 +5,22 @@ import { useRouter } from 'next/navigation';
 import { Bell, CalendarClock, CheckCircle2, Loader2, Pencil, Plus, Trash2, X } from 'lucide-react';
 import {
   applyScheduleToYaml,
+  buildTimezoneOptions,
+  dailyCronToLocalHHMM,
+  dailyLocalToCron,
+  detectBrowserTimeZone,
   detectPreset,
-  nextCronTick,
+  isoToLocalParts,
+  nextRunDate,
+  onceLocalToIso,
   readScheduleFromYaml,
   SCHEDULE_PRESETS,
+  TIME_STEP_SECONDS,
+  todayInZone,
   validateCron,
+  type PresetId,
   type ScheduleConfig,
+  type TzOption,
 } from '@/lib/schedule';
 import {
   applyAlertsToYaml,
@@ -58,6 +68,16 @@ function draftToRule(draft: AlertDraft): { rule: AlertRule | null; error: string
   return err ? { rule: null, error: err } : { rule, error: null };
 }
 
+function describeSchedule(schedule: ScheduleConfig | null): string {
+  if (!schedule) return 'Runs only when you click Run now.';
+  if (schedule.kind === 'once') {
+    const d = new Date(schedule.runAtIso);
+    if (Number.isNaN(d.getTime())) return 'One-time run.';
+    return `One-time run at ${d.toLocaleString()} (your time).`;
+  }
+  return `Recurring (cron ${schedule.cron}, UTC).`;
+}
+
 export function ScheduleEditorButton({
   profileYaml,
 }: {
@@ -68,14 +88,22 @@ export function ScheduleEditorButton({
   const [open, setOpen] = useState(false);
   const [saveState, setSaveState] = useState<SaveState>({ kind: 'idle' });
 
-  const initialSchedule = profileYaml ? readScheduleFromYaml(profileYaml) : null;
-  const initialPresetId = detectPreset(initialSchedule);
   const initialAlerts = profileYaml ? readAlertsFromYaml(profileYaml) : [];
 
-  const [presetId, setPresetId] = useState<string>(initialPresetId);
-  const [customCron, setCustomCron] = useState<string>(
-    initialPresetId === 'custom' ? initialSchedule?.cron ?? '' : '',
-  );
+  // Schedule picker state. Real values are computed in openEditor() (on the
+  // client, after a user click) to avoid any SSR/hydration timezone mismatch.
+  const [presetId, setPresetId] = useState<PresetId>('none');
+  const [customCron, setCustomCron] = useState<string>('');
+  const [timeHHMM, setTimeHHMM] = useState<string>('08:00');
+  const [dateStr, setDateStr] = useState<string>('');
+  const [tz, setTz] = useState<string>('UTC');
+  const [tzOptions, setTzOptions] = useState<TzOption[]>([]);
+  const [initialScheduleConfig, setInitialScheduleConfig] =
+    useState<ScheduleConfig | null>(null);
+  // Clock captured when the editor opens (render must stay pure — no
+  // Date.now() during render). Used to flag a one-time run set in the past.
+  const [openedAtMs, setOpenedAtMs] = useState<number>(0);
+
   const [alerts, setAlerts] = useState<AlertRule[]>(initialAlerts);
   // Editing index: number = editing that row, -1 = adding new, null = not editing.
   const [editIdx, setEditIdx] = useState<number | null>(null);
@@ -124,9 +152,31 @@ export function ScheduleEditorButton({
 
   function openEditor() {
     const fresh = profileYaml ? readScheduleFromYaml(profileYaml) : null;
-    const freshPreset = detectPreset(fresh);
-    setPresetId(freshPreset);
-    setCustomCron(freshPreset === 'custom' ? fresh?.cron ?? '' : '');
+    const zone = detectBrowserTimeZone();
+    const today = todayInZone(zone);
+    const p = detectPreset(fresh);
+
+    setTz(zone);
+    setTzOptions(buildTimezoneOptions());
+    setPresetId(p);
+    setCustomCron(
+      p === 'custom' && fresh?.kind === 'recurring' ? fresh.cron : '',
+    );
+
+    if (fresh?.kind === 'once') {
+      const parts = isoToLocalParts(fresh.runAtIso, zone);
+      setDateStr(parts.date);
+      setTimeHHMM(parts.time);
+    } else if (fresh?.kind === 'recurring' && p === 'daily') {
+      setDateStr(today);
+      setTimeHHMM(dailyCronToLocalHHMM(fresh.cron, zone) ?? '08:00');
+    } else {
+      setDateStr(today);
+      setTimeHHMM('08:00');
+    }
+
+    setInitialScheduleConfig(fresh);
+    setOpenedAtMs(Date.now());
     setAlerts(profileYaml ? readAlertsFromYaml(profileYaml) : []);
     setEditIdx(null);
     setEditError(null);
@@ -139,22 +189,45 @@ export function ScheduleEditorButton({
     if (presetId === 'custom') {
       const err = validateCron(customCron);
       if (err) return { schedule: null, error: err };
-      return { schedule: { cron: customCron.trim() }, error: null };
+      return { schedule: { kind: 'recurring', cron: customCron.trim() }, error: null };
+    }
+    if (presetId === 'once') {
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+        return { schedule: null, error: 'pick a date' };
+      }
+      if (!/^\d{1,2}:\d{2}$/.test(timeHHMM)) {
+        return { schedule: null, error: 'pick a time' };
+      }
+      return {
+        schedule: { kind: 'once', runAtIso: onceLocalToIso(dateStr, timeHHMM, tz) },
+        error: null,
+      };
+    }
+    if (presetId === 'daily') {
+      if (!/^\d{1,2}:\d{2}$/.test(timeHHMM)) {
+        return { schedule: null, error: 'pick a time' };
+      }
+      return {
+        schedule: { kind: 'recurring', cron: dailyLocalToCron(timeHHMM, tz) },
+        error: null,
+      };
     }
     const preset = SCHEDULE_PRESETS.find((p) => p.id === presetId);
     if (!preset || !preset.cron) return { schedule: null, error: 'invalid preset' };
-    return { schedule: { cron: preset.cron }, error: null };
+    return { schedule: { kind: 'recurring', cron: preset.cron }, error: null };
   }
 
   const resolved = resolveSchedule();
   const localValidationError = resolved.error;
-  const nextRun =
-    resolved.schedule && !localValidationError
-      ? nextCronTick(resolved.schedule.cron)
-      : null;
+  const nextRun = localValidationError
+    ? null
+    : nextRunDate(resolved.schedule, new Date(openedAtMs));
+  const onceInPast =
+    resolved.schedule?.kind === 'once' &&
+    new Date(resolved.schedule.runAtIso).getTime() <= openedAtMs;
 
   const initialPayload = JSON.stringify({
-    schedule: initialSchedule,
+    schedule: initialScheduleConfig,
     alerts: initialAlerts,
   });
   const currentPayload = JSON.stringify({ schedule: resolved.schedule, alerts });
@@ -255,6 +328,9 @@ export function ScheduleEditorButton({
     editIdx !== null;
 
   const showSubscribeNudge = alerts.length > 0 && pushSubscribed === false;
+  const activePreset = SCHEDULE_PRESETS.find((p) => p.id === presetId);
+  const showTimeRow = activePreset?.needsTime === true;
+  const showDateRow = activePreset?.needsDate === true;
 
   return (
     <div className="relative" ref={popoverRef}>
@@ -274,7 +350,7 @@ export function ScheduleEditorButton({
         )}
       </button>
       {open && (
-        <div className="absolute right-0 mt-2 z-30 w-[min(24rem,calc(100vw-2rem))] bg-white dark:bg-gray-950 border border-gray-200 dark:border-gray-800 rounded-xl shadow-lg overflow-hidden">
+        <div className="fixed inset-x-2 top-24 sm:absolute sm:inset-x-auto sm:top-auto sm:left-0 sm:mt-2 z-30 w-auto sm:w-[min(24rem,calc(100vw-2rem))] bg-white dark:bg-gray-950 border border-gray-200 dark:border-gray-800 rounded-xl shadow-lg overflow-hidden">
           <div className="px-3 py-2 border-b border-gray-200 dark:border-gray-800 flex items-center justify-between">
             <h3 className="text-sm font-semibold">Schedule &amp; Alerts</h3>
             <button
@@ -293,7 +369,7 @@ export function ScheduleEditorButton({
                 Schedule
               </h4>
               <fieldset>
-                <legend className="sr-only">Schedule preset</legend>
+                <legend className="sr-only">When should this product run?</legend>
                 <ul className="space-y-1">
                   {SCHEDULE_PRESETS.map((p) => (
                     <li key={p.id}>
@@ -319,50 +395,83 @@ export function ScheduleEditorButton({
                           </code>
                         )}
                       </label>
+
+                      {presetId === p.id && p.id === 'custom' && (
+                        <input
+                          type="text"
+                          value={customCron}
+                          onChange={(e) => setCustomCron(e.target.value)}
+                          placeholder="0 8 * * *  (min hour dom mon dow, UTC)"
+                          spellCheck={false}
+                          autoComplete="off"
+                          className="mt-1 w-full font-mono text-xs px-2 py-1.5 border border-gray-200 dark:border-gray-700 rounded bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                        />
+                      )}
                     </li>
                   ))}
-                  <li>
-                    <label
-                      className={`flex items-center gap-2 rounded-lg px-2 py-1.5 cursor-pointer text-sm ${
-                        presetId === 'custom'
-                          ? 'bg-blue-50 dark:bg-blue-900/30 text-gray-900 dark:text-gray-100'
-                          : 'hover:bg-gray-50 dark:hover:bg-gray-900/50 text-gray-700 dark:text-gray-300'
-                      }`}
-                    >
-                      <input
-                        type="radio"
-                        name="schedule-preset"
-                        value="custom"
-                        checked={presetId === 'custom'}
-                        onChange={() => setPresetId('custom')}
-                        className="shrink-0"
-                      />
-                      <span className="flex-1">Custom cron</span>
-                    </label>
-                    {presetId === 'custom' && (
-                      <input
-                        type="text"
-                        value={customCron}
-                        onChange={(e) => setCustomCron(e.target.value)}
-                        placeholder="0 8 * * *"
-                        spellCheck={false}
-                        autoComplete="off"
-                        className="mt-1 w-full font-mono text-xs px-2 py-1.5 border border-gray-200 dark:border-gray-700 rounded bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                      />
-                    )}
-                  </li>
                 </ul>
               </fieldset>
 
-              {nextRun && (
-                <div className="text-[11px] text-gray-600 dark:text-gray-400 px-2 mt-1.5">
-                  Next run: <span className="font-medium">{nextRun.toLocaleString()}</span>
-                  {' '}
-                  <span className="text-gray-500 dark:text-gray-500">
-                    ({nextRun.toISOString().replace('.000', '').replace('T', ' ')})
-                  </span>
+              {(showTimeRow || showDateRow) && (
+                <div className="mt-2 ml-6 grid grid-cols-[auto_1fr] items-center gap-x-2 gap-y-2">
+                  {showDateRow && (
+                    <>
+                      <label className="text-[11px] text-gray-600 dark:text-gray-400">
+                        Date
+                      </label>
+                      <input
+                        type="date"
+                        value={dateStr}
+                        onChange={(e) => setDateStr(e.target.value)}
+                        className="text-xs px-2 py-1.5 border border-gray-200 dark:border-gray-700 rounded bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                      />
+                    </>
+                  )}
+                  <label className="text-[11px] text-gray-600 dark:text-gray-400">
+                    Time
+                  </label>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="time"
+                      step={TIME_STEP_SECONDS}
+                      value={timeHHMM}
+                      onChange={(e) => setTimeHHMM(e.target.value)}
+                      className="text-xs px-2 py-1.5 border border-gray-200 dark:border-gray-700 rounded bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    />
+                    <select
+                      value={tz}
+                      onChange={(e) => setTz(e.target.value)}
+                      className="flex-1 text-xs px-2 py-1.5 border border-gray-200 dark:border-gray-700 rounded bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                      aria-label="Time zone"
+                    >
+                      {tzOptions.map((o) => (
+                        <option key={o.id} value={o.id}>
+                          {o.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
                 </div>
               )}
+
+              <div className="text-[11px] text-gray-600 dark:text-gray-400 px-2 mt-2 space-y-0.5">
+                <div>{describeSchedule(resolved.schedule)}</div>
+                {nextRun && (
+                  <div>
+                    Next run:{' '}
+                    <span className="font-medium">{nextRun.toLocaleString()}</span>{' '}
+                    <span className="text-gray-500 dark:text-gray-500">
+                      ({nextRun.toISOString().replace('.000', '').replace('T', ' ')})
+                    </span>
+                  </div>
+                )}
+                {onceInPast && !localValidationError && (
+                  <div className="text-amber-700 dark:text-amber-400">
+                    That time is in the past — it will run at the next
+                    scheduler tick (within ~15 min).
+                  </div>
+                )}
+              </div>
             </section>
 
             <section>

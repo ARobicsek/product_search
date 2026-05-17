@@ -9,6 +9,39 @@ Status values:
 
 ---
 
+## ADR-050 — One-time schedules + minute-aware scheduler + local-time picker (ACCEPTED — implemented)
+
+**Status**: ACCEPTED — implemented 2026-05-17 (Phase 17 reopened by explicit user request to make scheduling intuitive).
+
+**Date**: 2026-05-17
+
+**Context**: The Phase 17 schedule editor exposed a raw 5-field cron and only ever stored recurring UTC crons. Three structural gaps made the user's stated typical task — "schedule a single job for 8:30 AM ET today" — *impossible*, not just confusing: (1) no one-time concept (cron is inherently recurring); (2) `_cron_matches_hour` only read the cron **hour** field — minute/day/month/dow ignored, so ":30" and date-specific crons were meaningless; (3) time was hardcoded UTC (`Schedule.timezone: Literal["UTC"]`) with no local-time entry, while the user thinks in ET. The automatic heartbeat (`search-scheduled.yml` cron) was also disabled, so nothing fired on a timer at all. The user was interviewed and chose: full one-time support end-to-end; enter time in local zone, store UTC (no tz field added); 15-minute precision; keep the radio presets and add a time/zone/date picker; enable the `*/15` heartbeat but strip schedules from all existing profiles so blast radius is zero ("I'll add them in if needed later").
+
+**Decision**:
+- `Schedule` model carries **exactly one** of `cron` (recurring, UTC) or `run_at` (one-time, absolute UTC instant). `timezone` stays `Literal["UTC"]` (now defaulted/optional); the **web UI** converts a wall-clock time in the user's chosen zone to UTC before it ever reaches the model — the stored model never holds a non-UTC zone (DST drift on a fixed recurring cron is an accepted, documented tradeoff).
+- The scheduler heartbeat is `*/15 * * * *`. `scheduler-tick` now matches the **full** cron (minute+hour+dom+month+dow, standard Vixie dom/dow OR rule) within a non-overlapping 15-min look-back window. A `run_at` job fires once when its instant is past, then the scheduler **strips the whole `schedule:` block** from the profile (regex mirror of the web mutator) so it never repeats; the workflow's existing `git add -A && commit && push` persists the removal. A one-time job is attempted exactly once regardless of exit code (a broken profile must not retry every tick forever).
+- All 7 active product profiles had their `schedule:` block removed (run-now-only); `_template` updated to document the new either/or schema. Nothing auto-fires until a schedule is re-added via the editor.
+- Editor keeps the preset radios; "One time only" and "Every day" reveal a native time input (15-min step), a date input (one-time), and a timezone dropdown (browser zone surfaced first). On mobile the panel is a viewport-pinned `fixed` sheet (the trigger button is the leftmost toolbar item, so the prior `right-0` anchored popover ran off-screen at narrow widths).
+
+**Consequence**:
+- The user's headline use case now works: "8:30 AM ET today" → `run_at: 2026-05-17T12:30:00Z`, fires within ~15 min of that instant, then self-clears.
+- Enabling the heartbeat is a real behaviour change (96 mostly-idle Actions runs/day) but free on a public repo (ADR-004); the only costs are Actions-history noise and occasional GitHub cron delay under load. It does **not** increase search/LLM spend — a product still runs at most once per its cadence regardless of tick frequency.
+- New recurring `Schedule` shape must stay in sync between `profile.py` and `web/lib/onboard/schema.ts` (same Pydantic/TS hazard as ADR-049's `page_type`).
+- Minute-aware matching is stricter than the old hour-only check; safe here because all existing schedules were stripped (no migration risk). Cron fields the parser can't expand are treated as non-matching (never fire on an unparseable cron).
+- Follow-up (not a gate): a failed one-time run is not retried (attempted-once semantics) — acceptable for v1; revisit if transient failures prove common. DST drift on recurring daily crons is unaddressed by design (would need a stored tz + scheduler localisation).
+
+**Implementation (2026-05-17)**:
+- `profile.py`: `Schedule.cron: str|None`, `run_at: datetime|None`, `timezone` defaulted; validators for cron (None-safe), run_at→aware-UTC normalisation, and exactly-one mode.
+- `cli.py`: `_expand_cron_field`, `_cron_fires_at` (Vixie OR), `_cron_due` (windowed), `_strip_schedule_block`; `_cmd_scheduler_tick` rewritten for recurring-vs-one-time + post-fire strip. `TICK_WINDOW_MINUTES = 15`.
+- `.github/workflows/search-scheduled.yml`: `schedule: - cron: '*/15 * * * *'` enabled.
+- `web/lib/schedule.ts`: `ScheduleConfig` union; YAML read/write for `run_at`|`cron`; `zonedWallTimeToUtc` (two-pass, DST-correct), `dailyLocalToCron`, `onceLocalToIso`, `dailyCronToLocalHHMM`, `isoToLocalParts`, `buildTimezoneOptions`, `nextRunDate`.
+- `web/lib/onboard/schema.ts`: `validateSchedule` mirrors exactly-one + ISO `run_at`.
+- `ScheduleEditorButton.tsx`: presets + time/date/tz controls, past-time hint, render-pure clock (`openedAtMs`), mobile `fixed` sheet (`sm:` reverts to anchored popover).
+- 7 product profiles stripped of `schedule:`; `_template` re-documented.
+- Tests: 5 new in `test_profile.py` (Schedule model) + new `test_scheduler.py` (expand/fires-at/Vixie-OR/window/strip incl. CRLF). Verified: ruff clean, mypy 31 files clean, **pytest 236 passed**; web `tsc --noEmit` clean, lint 0 errors (6 pre-existing warnings). Live UI checked at narrow viewport via Chrome DevTools: recurring parse + UTC↔ET conversion, one-time date/time/tz (11:30 PM ET → 03:30Z next day, DST-correct), past-time warning, custom-cron next-run honouring minute+dow, mobile sheet no longer clips.
+
+---
+
 ## ADR-049 — Tier 1.5 detail-page price extractor for single-SKU products (ACCEPTED — implemented)
 
 **Status**: ACCEPTED — code implemented 2026-05-17 (Phase 19 task 6). The live application step (re-probe the parked `amd-epyc-9255` URLs through AlterLab, promote the ones Tier 1.5 extracts into `sources`, remove `ebay_search`) is the remaining follow-up — it needs a paid live run and is tracked in PROGRESS.md.

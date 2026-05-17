@@ -50,7 +50,3 @@ report_columns:
   - seller_rating
   - flags
 alerts: []
-
-schedule:
-  cron: 0 8 * * *
-  timezone: UTC

@@ -46,6 +46,3 @@ sources_pending:
     url: https://www.bestbuy.com/site/breville-the-barista-express-espresso-machine-with-15-bars-of-pressure-milk-frother-and-intergrated-grinder-stainless-steel/6291169.p?skuId=6291169
     note: "probe returned 0 candidates: fetch failed: This operation was aborted"
 qvl_file: products/breville-barista-express/qvl.yaml
-schedule:
-  cron: 0 8 * * *
-  timezone: UTC

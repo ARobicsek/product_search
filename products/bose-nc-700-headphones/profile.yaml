@@ -96,6 +96,3 @@ report_columns:
   - seller
   - seller_rating
   - ship_from
-schedule:
-  cron: 0 8 * * *
-  timezone: UTC

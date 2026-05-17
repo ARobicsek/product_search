@@ -12,7 +12,9 @@ Phase 7: scheduler-tick
 """
 
 import argparse
+import re
 import sys
+from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING, Any
 
 from dotenv import load_dotenv
@@ -870,60 +872,132 @@ def _cmd_diff(slug: str) -> None:
 # ---------------------------------------------------------------------------
 
 
-def _cron_matches_hour(cron_expr: str, hour: int) -> bool:
-    """Check if the hour field of a 5-field cron matches the given hour."""
-    hour_field = cron_expr.split()[1]
-    if hour_field == "*":
-        return True
+# The heartbeat workflow (.github/workflows/search-scheduled.yml) ticks every
+# 15 min. A recurring cron is "due" if it has an occurrence in the look-back
+# window (now - TICK_WINDOW_MINUTES, now]. Consecutive on-time ticks have
+# non-overlapping windows, so a firing is counted once. If GitHub delays or
+# skips a high-frequency cron under load, a firing lost in the gap is missed
+# — accepted and documented in ADR-050.
+TICK_WINDOW_MINUTES = 15
 
-    for part in hour_field.split(","):
-        if part.startswith("*/"):
-            try:
-                step = int(part[2:])
-                if hour % step == 0:
-                    return True
-            except ValueError:
-                pass
-        elif "-" in part:
-            try:
-                start, end = map(int, part.split("-"))
-                if start <= hour <= end:
-                    return True
-            except ValueError:
-                pass
+_CRON_PART_RE = re.compile(r"(\*|\d+)(?:-(\d+))?(?:/(\d+))?")
+_SCHEDULE_BLOCK_RE = re.compile(
+    r"^schedule:[ \t]*\r?\n(?:[ \t]+[^\r\n]*\r?\n?)+", re.MULTILINE
+)
+
+
+def _expand_cron_field(field: str, lo: int, hi: int) -> set[int] | None:
+    """Expand one cron field into the set of values it matches within
+    ``[lo, hi]``. Supports ``*``, ``*/n``, ``a-b``, ``a-b/n``, literals and
+    comma lists. Returns ``None`` on any unsupported pattern — the scheduler
+    then treats the cron as non-matching (conservative: never fire on a cron
+    we cannot parse rather than fire unexpectedly)."""
+    out: set[int] = set()
+    for part in field.split(","):
+        m = _CRON_PART_RE.fullmatch(part)
+        if not m:
+            return None
+        base, end, step_s = m.group(1), m.group(2), m.group(3)
+        step = int(step_s) if step_s else 1
+        if step < 1:
+            return None
+        if base == "*":
+            start, stop = lo, hi
         else:
-            try:
-                if int(part) == hour:
-                    return True
-            except ValueError:
-                pass
+            start = int(base)
+            # `a` -> just a; `a-b` -> a..b; `a/n` -> a..hi step n.
+            stop = int(end) if end is not None else (hi if step_s else start)
+        if start < lo or stop > hi or start > stop:
+            return None
+        out.update(range(start, stop + 1, step))
+    return out or None
+
+
+def _cron_fires_at(cron_expr: str, dt: datetime) -> bool:
+    """True iff a 5-field cron fires at the given UTC minute-resolution
+    instant. Implements the standard Vixie day-of-month / day-of-week OR
+    rule: when both are restricted, either matching is enough."""
+    parts = cron_expr.strip().split()
+    if len(parts) != 5:
+        return False
+    minute = _expand_cron_field(parts[0], 0, 59)
+    hour = _expand_cron_field(parts[1], 0, 23)
+    dom = _expand_cron_field(parts[2], 1, 31)
+    month = _expand_cron_field(parts[3], 1, 12)
+    # cron day-of-week: Sun=0..Sat=6 (7 also means Sun, normalised below).
+    dow = _expand_cron_field(parts[4], 0, 7)
+    if minute is None or hour is None or dom is None or month is None or dow is None:
+        return False
+    dow = {0 if d == 7 else d for d in dow}
+
+    if dt.minute not in minute or dt.hour not in hour or dt.month not in month:
+        return False
+    dom_restricted = parts[2] != "*"
+    dow_restricted = parts[4] != "*"
+    dom_ok = dt.day in dom
+    # isoweekday(): Mon=1..Sun=7 -> %7 -> Mon=1..Sat=6, Sun=0 (cron's scheme).
+    dow_ok = (dt.isoweekday() % 7) in dow
+    if dom_restricted and dow_restricted:
+        return dom_ok or dow_ok
+    return dom_ok and dow_ok
+
+
+def _cron_due(cron_expr: str, window_start: datetime, now: datetime) -> bool:
+    """True iff the cron has at least one firing minute ``t`` with
+    ``window_start < t <= now``."""
+    probe = now.replace(second=0, microsecond=0)
+    while probe > window_start:
+        if _cron_fires_at(cron_expr, probe):
+            return True
+        probe -= timedelta(minutes=1)
     return False
 
 
+def _strip_schedule_block(yaml_text: str) -> str:
+    """Remove the whole ``schedule:`` block (and one trailing blank line)
+    from a profile's raw YAML. Mirror of ``applyScheduleToYaml(text, null)``
+    in ``web/lib/schedule.ts`` so a one-time run self-clears after firing."""
+    return re.sub(
+        _SCHEDULE_BLOCK_RE.pattern + r"\r?\n?",
+        "",
+        yaml_text,
+        count=1,
+        flags=re.MULTILINE,
+    )
+
+
 def _cmd_scheduler_tick() -> None:
-    """Walk products/, check cron against current UTC hour, and run search for matches."""
+    """Walk products/, decide which profiles are due now, and run search.
+
+    Recurring (``cron``) profiles fire when the cron has an occurrence in
+    the look-back window. One-time (``run_at``) profiles fire when their
+    instant is in the past; the schedule block is then stripped from the
+    profile so the run never repeats (the workflow commits the edit)."""
     import subprocess
-    from datetime import UTC, datetime
+    from pathlib import Path
 
     from product_search.profile import _repo_root, load_profile
 
-    now = datetime.now(tz=UTC)
-    current_hour = now.hour
+    now = datetime.now(tz=UTC).replace(second=0, microsecond=0)
+    window_start = now - timedelta(minutes=TICK_WINDOW_MINUTES)
 
     repo_root = _repo_root()
     products_dir = repo_root / "products"
     if not products_dir.is_dir():
-        from pathlib import Path
         products_dir = Path.cwd().parent / "products"
 
     if not products_dir.exists() or not products_dir.is_dir():
         print(f"ERROR: {products_dir} not found.", file=sys.stderr)
         sys.exit(1)
 
-    print(f"[{now.isoformat()}] scheduler-tick running (hour={current_hour})", file=sys.stderr)
+    print(
+        f"[{now.isoformat()}] scheduler-tick running "
+        f"(window {window_start.isoformat()} .. {now.isoformat()})",
+        file=sys.stderr,
+    )
 
     failures = 0
-    for path in products_dir.iterdir():
+    for path in sorted(products_dir.iterdir()):
         if not path.is_dir() or path.name.startswith("_"):
             continue
 
@@ -934,33 +1008,86 @@ def _cmd_scheduler_tick() -> None:
             print(f"Skipping {slug} (invalid profile): {exc}", file=sys.stderr)
             continue
 
-        if profile.schedule is None:
-            print(f"[{now.isoformat()}] Skipping {slug} (no schedule — run-now only)", file=sys.stderr)
-            continue
-
-        cron = profile.schedule.cron
-        if _cron_matches_hour(cron, current_hour):
-            print(f"[{now.isoformat()}] => Running search for {slug} (cron: {cron})", file=sys.stderr)
-            cmd = [sys.executable, "-m", "product_search.cli", "search", slug]
-            
-            # Note: We run this in a subprocess to isolate it. _cmd_search calls sys.exit
-            # and could leak state if called sequentially in process.
-            result = subprocess.run(cmd)
-            if result.returncode != 0:
-                print(f"ERROR: run for {slug} failed with code {result.returncode}", file=sys.stderr)
-                failures += 1
-        else:
+        sched = profile.schedule
+        if sched is None:
             print(
-                f"[{now.isoformat()}] Skipping {slug} "
-                f"(cron: {cron} does not match hour {current_hour})",
+                f"[{now.isoformat()}] Skipping {slug} (no schedule — run-now only)",
                 file=sys.stderr,
             )
+            continue
+
+        one_time = sched.run_at is not None
+        if one_time:
+            assert sched.run_at is not None
+            due = sched.run_at <= now
+            reason = f"run_at={sched.run_at.isoformat()}"
+        else:
+            assert sched.cron is not None
+            due = _cron_due(sched.cron, window_start, now)
+            reason = f"cron={sched.cron!r}"
+
+        if not due:
+            print(
+                f"[{now.isoformat()}] Skipping {slug} (not due; {reason})",
+                file=sys.stderr,
+            )
+            continue
+
+        print(
+            f"[{now.isoformat()}] => Running search for {slug} ({reason})",
+            file=sys.stderr,
+        )
+        cmd = [sys.executable, "-m", "product_search.cli", "search", slug]
+        # Subprocess-isolated: _cmd_search calls sys.exit and could leak
+        # state if called in-process.
+        result = subprocess.run(cmd)
+        if result.returncode != 0:
+            print(
+                f"ERROR: run for {slug} failed with code {result.returncode}",
+                file=sys.stderr,
+            )
+            failures += 1
+
+        if one_time:
+            # A one-time job is attempted exactly once. Strip the schedule
+            # block regardless of the run's exit code so a broken profile
+            # cannot retry every tick forever (ADR-050). The workflow's
+            # final `git add -A && commit && push` persists the removal.
+            profile_file = path / "profile.yaml"
+            try:
+                original = profile_file.read_text(encoding="utf-8")
+                cleared = _strip_schedule_block(original)
+                if cleared != original:
+                    profile_file.write_text(cleared, encoding="utf-8")
+                    print(
+                        f"[{now.isoformat()}] Cleared one-time schedule for {slug}",
+                        file=sys.stderr,
+                    )
+                else:
+                    print(
+                        f"[{now.isoformat()}] WARNING: no schedule block found "
+                        f"to clear for {slug}",
+                        file=sys.stderr,
+                    )
+            except OSError as exc:
+                print(
+                    f"[{now.isoformat()}] WARNING: failed to clear one-time "
+                    f"schedule for {slug}: {exc}",
+                    file=sys.stderr,
+                )
 
     if failures > 0:
-        print(f"[{now.isoformat()}] scheduler-tick completed with {failures} failure(s).", file=sys.stderr)
+        print(
+            f"[{now.isoformat()}] scheduler-tick completed with "
+            f"{failures} failure(s).",
+            file=sys.stderr,
+        )
         sys.exit(1)
-    
-    print(f"[{now.isoformat()}] scheduler-tick completed successfully.", file=sys.stderr)
+
+    print(
+        f"[{now.isoformat()}] scheduler-tick completed successfully.",
+        file=sys.stderr,
+    )
     sys.exit(0)
 
 

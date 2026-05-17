@@ -8,7 +8,44 @@
 
 **Phase 19 — Universal adapter accuracy & vendor reach. CLOSED 2026-05-17.** All six tasks done and every "Done when" criterion met: task 1 Amazon price attribution (ADR-039 + ADR-041), task 2 per-vendor capture + [VENDOR_REACH.md](VENDOR_REACH.md), task 3 bose `c/refurbished` demoted, task 4 vendor-reach **policy decided** (ADR-040), task 5 re-run/verify, task 6 Tier 1.5 detail extractor + live eBay removal on `amd-epyc-9255` (ADR-049). **One explicit follow-up, NOT a Phase 19 gate:** ADR-040's auto-demote *implementation* (source_runs table + streak prune in `_cmd_search`) was deliberately deferred by ADR-040 itself — until it lands, the 5 dead bose universal_ai URLs sit in active `sources` costing ~$0.011/run (manual demote is the stopgap; user chose to leave as documented follow-up 2026-05-17).
 
+**Phase 17 — Schedule editor. REOPENED + extended 2026-05-17 (user request), re-closed same session.** The user found the cron-only editor confusing and wanted one-time runs at a local wall-clock time. Delivered end-to-end: one-time (`run_at`) schedules, minute-aware `*/15` scheduler with one-time self-clear, local-time→UTC picker, mobile sheet. All existing profiles stripped of schedules (user choice). See ADR-050 and the dated status block below.
+
 **Next phase: Phase 18 — Polish + second-product proof** ([PHASES.md](PHASES.md#phase-18--polish--second-product-proof-replaces-old-phase-12)). Start a fresh session and read that brief.
+
+## Status as of 2026-05-17 (Phase 17 reopened — one-time schedules + minute-aware scheduler + local-time picker)
+
+**User-directed UX work: the schedule editor was confusing (raw cron, no one-time, UTC-only). Interviewed the user; delivered the full vertical slice and re-closed Phase 17 in-session. ADR-050 has the full rationale + implementation list.**
+
+### What the user chose (interview)
+
+Full one-time support end-to-end · enter time in local zone, store UTC (no tz field added) · 15-minute precision · keep preset radios + add a time/zone/date picker · **enable the `*/15` heartbeat** (was disabled) **but strip schedules from all existing profiles** so blast radius is zero ("I'll add them in if needed later").
+
+### Changes applied this session
+
+- `worker/src/product_search/profile.py` — `Schedule` = exactly one of `cron`(recurring)/`run_at`(one-time UTC); `timezone` defaulted; validators (None-safe cron, run_at→aware-UTC, exactly-one).
+- `worker/src/product_search/cli.py` — `_expand_cron_field`, `_cron_fires_at` (Vixie dom/dow OR), `_cron_due` (15-min window), `_strip_schedule_block`; `_cmd_scheduler_tick` rewritten (recurring vs one-time; one-time attempted once then self-clears the `schedule:` block — workflow commit/push persists it).
+- `.github/workflows/search-scheduled.yml` — heartbeat enabled: `*/15 * * * *`.
+- `web/lib/schedule.ts` — rewritten: `ScheduleConfig` union, run_at|cron YAML read/write, DST-correct `zonedWallTimeToUtc`, daily/once builders, tz options (browser zone first), `nextRunDate`.
+- `web/lib/onboard/schema.ts` — `validateSchedule` mirrors exactly-one + ISO `run_at`.
+- `web/app/[product]/ScheduleEditorButton.tsx` — preset radios + native time/date inputs (15-min step) + tz dropdown + past-time hint; render-pure clock; **mobile `fixed` sheet** (`sm:` reverts to anchored popover — the trigger is the leftmost toolbar item so the old `right-0` popover ran off-screen at narrow widths).
+- `products/{bose-nc-700-headphones,homelabs-beverage-cooler,lululemon-never-lost-keychain-wordmark,mech-keyboard-budget,ddr5-rdimm-256gb,breville-barista-express,the-netanyahus-joshua-cohen}/profile.yaml` — `schedule:` block removed (run-now-only). `products/_template/profile.yaml` — re-documented to the new either/or schema.
+- `worker/tests/test_profile.py` (+5 Schedule tests), `worker/tests/test_scheduler.py` (new).
+- `docs/DECISIONS.md` — ADR-050 (ACCEPTED, implemented).
+
+### Verification
+
+- Worker (local Py): `ruff check src/ tests/` clean · `mypy src/` 31 files clean · `pytest tests/` **236 passed** (was 225; +11). Per ADR-048 this touched imports/types/validation — a clean Py3.12 venv re-run before push is advisable.
+- Web: `npx tsc --noEmit` clean · `npm run lint` 0 errors (6 pre-existing warnings: SubscribeButton/OnboardChat/next.config/sw.js — not introduced here).
+- Live UI (Chrome DevTools, narrow viewport): recurring parse + 08:00 UTC↔04:00 ET; "One time only" date/time/tz with 11:30 PM ET → `2026-05-18 03:30:00Z` (DST-correct); past-time warning; custom-cron next-run honours minute + day-of-week; mobile sheet fully on-screen (no clipping).
+
+### Next session — start here
+
+Phase 17 is **re-closed**. Resume **Phase 18 — Polish + second-product proof** (read its PHASES.md brief). Carry-over / noticed-but-deferred:
+1. The `*/15` heartbeat is now committed-enabled — once pushed, the scheduled workflow starts ticking every 15 min (all profiles currently have no schedule, so it will no-op until a schedule is added via the editor). Confirm the first scheduled-workflow run is green on GitHub after push.
+2. A failed one-time run is **not** retried (attempted-once). DST drift on recurring daily crons is by-design (no stored tz). Revisit only if either bites.
+3. Prior Phase 19 carry-overs still stand (ADR-040 auto-demote impl; AlterLab 422 retry; IT Creations in_stock flip).
+
+---
 
 ## Status as of 2026-05-17 (Phase 19 task 6 — Tier 1.5 COMPLETE incl. live promotion + eBay removal)
 

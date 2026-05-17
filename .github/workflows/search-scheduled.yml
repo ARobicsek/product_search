@@ -1,13 +1,15 @@
 name: Search (Scheduled)
 
-# Scheduled cron is disabled for now — searches only run when manually
-# triggered via the Run-now button (search-on-demand.yml) or the Actions
-# UI. To re-enable hourly runs, uncomment the `schedule` block below.
+# Heartbeat: every 15 minutes. scheduler-tick decides per-profile whether a
+# product is "due" (recurring cron occurrence in the look-back window, or a
+# past-due one-time run_at). 15-min cadence is what lets one-time jobs land
+# near :15/:30/:45 instead of only on the hour. Free on a public repo
+# (unlimited Actions minutes); the only cost is Actions-history noise and
+# occasional GitHub cron delay under load (see ADR-050).
 on:
   workflow_dispatch:
-  # schedule:
-  #   # Run at minute 0 past every hour
-  #   - cron: '0 * * * *'
+  schedule:
+    - cron: '*/15 * * * *'
 
 permissions:
   contents: write

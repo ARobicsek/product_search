@@ -18,6 +18,7 @@ called from the ``worker/`` working directory (CI) and from the repo root.
 from __future__ import annotations
 
 import re
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Annotated, Any, Literal
 
@@ -239,13 +240,32 @@ AlertRule = Annotated[
 
 
 class Schedule(BaseModel):
-    cron: str
-    timezone: Literal["UTC"]
+    """A product's run schedule.
+
+    Exactly one of ``cron`` (recurring) or ``run_at`` (one-time) must be set.
+
+    - ``cron`` is a standard 5-field expression interpreted in UTC. The
+      scheduler now honours the *minute* field too (Phase 17 follow-up), not
+      just the hour.
+    - ``run_at`` is an absolute UTC instant for a single run. After the
+      scheduler fires it, it strips the whole ``schedule:`` block from the
+      profile so the run never repeats.
+
+    ``timezone`` stays ``UTC``. The web UI lets the user pick a wall-clock
+    time in their local zone and converts to UTC before it reaches this
+    model (see ``web/lib/schedule.ts``); we never store a non-UTC zone.
+    """
+
+    cron: str | None = None
+    run_at: datetime | None = None
+    timezone: Literal["UTC"] = "UTC"
 
     @field_validator("cron")
     @classmethod
-    def cron_must_be_valid(cls, v: str) -> str:
+    def cron_must_be_valid(cls, v: str | None) -> str | None:
         """Validate a 5-field cron expression (minute hour dom month dow)."""
+        if v is None:
+            return v
         fields = v.strip().split()
         if len(fields) != 5:
             raise ValueError(
@@ -258,6 +278,33 @@ class Schedule(BaseModel):
                     f"Invalid cron field {field!r} in expression {v!r}"
                 )
         return v
+
+    @field_validator("run_at")
+    @classmethod
+    def run_at_must_be_utc(cls, v: datetime | None) -> datetime | None:
+        """Normalise ``run_at`` to an aware UTC datetime. A naive value is
+        interpreted as UTC (the UI always emits a ``...Z`` instant)."""
+        if v is None:
+            return v
+        if v.tzinfo is None:
+            return v.replace(tzinfo=UTC)
+        return v.astimezone(UTC)
+
+    @model_validator(mode="after")
+    def exactly_one_mode(self) -> Schedule:
+        has_cron = self.cron is not None
+        has_run_at = self.run_at is not None
+        if has_cron and has_run_at:
+            raise ValueError(
+                "schedule must set either 'cron' (recurring) or 'run_at' "
+                "(one-time), not both"
+            )
+        if not has_cron and not has_run_at:
+            raise ValueError(
+                "schedule must set one of 'cron' (recurring) or 'run_at' "
+                "(one-time)"
+            )
+        return self
 
 
 # ---------------------------------------------------------------------------

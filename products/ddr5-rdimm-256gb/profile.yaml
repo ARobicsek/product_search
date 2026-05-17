@@ -79,7 +79,3 @@ report_columns:
   - qty
   - seller
   - condition
-
-schedule:
-  cron: "0 8 * * *"
-  timezone: "UTC"

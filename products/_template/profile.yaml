@@ -102,7 +102,23 @@ synthesis_hints:
 # report_columns: [rank, source, title, condition, price_unit, seller, flags]
 
 # --- Schedule ----------------------------------------------------------------
-
-schedule:
-  cron: "0 8 * * *"   # daily at 08:00 UTC
-  timezone: "UTC"     # only UTC supported in MVP
+#
+# OPTIONAL. Omit the whole block to make the product run-now-only (no
+# automatic runs). Set it from the web "Schedule & Alerts" editor rather
+# than by hand — the UI converts your local wall-clock time to UTC.
+#
+# Set EXACTLY ONE of `cron` (recurring) or `run_at` (one-time). `timezone`
+# is always UTC; it defaults to UTC and may be omitted. The scheduler
+# heartbeat ticks every 15 min and honours the cron MINUTE field (not just
+# the hour). A `run_at` job fires once when its instant has passed, then
+# the editor/scheduler strips this block automatically.
+#
+# Recurring example (daily at 08:00 UTC):
+# schedule:
+#   cron: "0 8 * * *"
+#   timezone: "UTC"
+#
+# One-time example (single run at a specific UTC instant):
+# schedule:
+#   run_at: "2026-05-17T12:30:00Z"
+#   timezone: "UTC"

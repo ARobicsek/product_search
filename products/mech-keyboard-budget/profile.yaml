@@ -39,6 +39,3 @@ sources:
   - id: universal_ai_search
     url: https://www.bestbuy.com/site/shop/mechanical-keyboards
 qvl_file: products/mech-keyboard-budget/qvl.yaml
-schedule:
-  cron: 0 8 * * *
-  timezone: UTC

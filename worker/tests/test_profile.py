@@ -19,7 +19,7 @@ from typing import Any
 import pytest
 from pydantic import ValidationError
 
-from product_search.profile import Profile, load_profile, load_qvl
+from product_search.profile import Profile, Schedule, load_profile, load_qvl
 
 # ---------------------------------------------------------------------------
 # Locate the repo root so tests can build minimal profile fixtures.
@@ -163,6 +163,55 @@ def test_rejects_invalid_cron() -> None:
     with pytest.raises(ValidationError) as exc_info:
         Profile.model_validate(bad)
     assert "cron" in str(exc_info.value).lower() or "field" in str(exc_info.value).lower()
+
+
+def test_schedule_recurring_cron_only_valid() -> None:
+    """A cron-only schedule is valid; timezone defaults to UTC when omitted."""
+    s = Schedule.model_validate({"cron": "30 13 * * *"})
+    assert s.cron == "30 13 * * *"
+    assert s.run_at is None
+    assert s.timezone == "UTC"
+
+
+def test_schedule_one_time_run_at_normalised_to_utc() -> None:
+    """A run_at-only schedule is valid; the instant is normalised to UTC."""
+    s = Schedule.model_validate({"run_at": "2026-05-17T08:30:00-04:00"})
+    assert s.cron is None
+    assert s.run_at is not None
+    assert s.run_at.tzinfo is not None
+    # 08:30 EDT == 12:30 UTC.
+    assert s.run_at.hour == 12 and s.run_at.minute == 30
+
+    # A naive timestamp is interpreted as UTC.
+    naive = Schedule.model_validate({"run_at": "2026-05-17T12:30:00"})
+    assert naive.run_at is not None and naive.run_at.hour == 12
+    assert naive.run_at.tzinfo is not None
+
+
+def test_schedule_rejects_both_cron_and_run_at() -> None:
+    with pytest.raises(ValidationError) as exc:
+        Schedule.model_validate(
+            {"cron": "0 8 * * *", "run_at": "2026-05-17T12:30:00Z"}
+        )
+    assert "not both" in str(exc.value)
+
+
+def test_schedule_rejects_neither_cron_nor_run_at() -> None:
+    with pytest.raises(ValidationError) as exc:
+        Schedule.model_validate({"timezone": "UTC"})
+    assert "one of" in str(exc.value)
+
+
+def test_profile_accepts_one_time_schedule() -> None:
+    """Profile round-trips a one-time schedule (web save path relies on this)."""
+    import copy
+
+    p = copy.deepcopy(VALID_PROFILE)
+    p["schedule"] = {"run_at": "2026-05-17T12:30:00Z", "timezone": "UTC"}
+    profile = Profile.model_validate(p)
+    assert profile.schedule is not None
+    assert profile.schedule.cron is None
+    assert profile.schedule.run_at is not None
 
 
 def test_rejects_unknown_filter_rule() -> None:

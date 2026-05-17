@@ -48,6 +48,3 @@ sources:
   - id: universal_ai_search
     url: https://www.amazon.com/never-lost-keychain-lululemon/s?k=never+lost+keychain+lululemon
 qvl_file: products/lululemon-never-lost-keychain-wordmark/qvl.yaml
-schedule:
-  cron: 0 8 * * *
-  timezone: UTC

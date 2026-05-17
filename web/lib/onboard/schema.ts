@@ -236,13 +236,40 @@ function validateSources(
 
 function validateSchedule(schedule: unknown, ctx: ValidationContext) {
   // ``schedule`` is optional — a profile without one runs only via the
-  // web "Run now" button. Mirrors profile.py:Profile.schedule (Optional).
+  // web "Run now" button. Mirrors profile.py:Schedule. Exactly one of
+  // ``cron`` (recurring) or ``run_at`` (one-time, UTC ISO 8601) must be set.
   if (schedule === undefined || schedule === null) return;
   const s = asObject(schedule, 'schedule', ctx);
   if (!s) return;
-  const cron = asString(s.cron, 'schedule.cron', ctx);
-  if (cron !== null) validateCron(cron, 'schedule.cron', ctx);
-  if (s.timezone !== 'UTC') ctx.errors.push('schedule.timezone: must be exactly "UTC"');
+
+  const hasCron = s.cron !== undefined && s.cron !== null;
+  const hasRunAt = s.run_at !== undefined && s.run_at !== null;
+  if (hasCron && hasRunAt) {
+    ctx.errors.push(
+      "schedule: set either 'cron' (recurring) or 'run_at' (one-time), not both",
+    );
+  } else if (!hasCron && !hasRunAt) {
+    ctx.errors.push(
+      "schedule: must set one of 'cron' (recurring) or 'run_at' (one-time)",
+    );
+  }
+
+  if (hasCron) {
+    const cron = asString(s.cron, 'schedule.cron', ctx);
+    if (cron !== null) validateCron(cron, 'schedule.cron', ctx);
+  }
+  if (hasRunAt) {
+    const runAt = asString(s.run_at, 'schedule.run_at', ctx);
+    if (runAt !== null && Number.isNaN(Date.parse(runAt))) {
+      ctx.errors.push(
+        `schedule.run_at: not a valid ISO 8601 datetime (${JSON.stringify(runAt)})`,
+      );
+    }
+  }
+  // ``timezone`` defaults to UTC and is optional in the new schema.
+  if (s.timezone !== undefined && s.timezone !== 'UTC') {
+    ctx.errors.push('schedule.timezone: must be exactly "UTC"');
+  }
 }
 
 // Discriminated-union mirror of profile.py:AlertRule. Add new kinds here AND
