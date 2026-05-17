@@ -41,7 +41,7 @@ Full one-time support end-to-end · enter time in local zone, store UTC (no tz f
 ### Next session — start here
 
 Phase 17 is **re-closed**. Resume **Phase 18 — Polish + second-product proof** (read its PHASES.md brief). Carry-over / noticed-but-deferred:
-1. The `*/15` heartbeat is now committed-enabled — once pushed, the scheduled workflow starts ticking every 15 min (all profiles currently have no schedule, so it will no-op until a schedule is added via the editor). Confirm the first scheduled-workflow run is green on GitHub after push.
+1. The `*/15` heartbeat is **live** — pushed in `b08f296` → `main`. The scheduled workflow now ticks every 15 min; it no-ops until a schedule is added via the editor (all profiles are currently scheduleless). **First thing: confirm on GitHub Actions that the push's CI run AND the first `scheduler-tick` came back green.** ADR-048 clean-Py3.12-venv re-verify was offered but the user chose to push directly — so CI is the safety net here.
 2. A failed one-time run is **not** retried (attempted-once). DST drift on recurring daily crons is by-design (no stored tz). Revisit only if either bites.
 3. Prior Phase 19 carry-overs still stand (ADR-040 auto-demote impl; AlterLab 422 retry; IT Creations in_stock flip).
 
