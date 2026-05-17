@@ -69,6 +69,3 @@ report_columns:
   - seller
   - seller_rating
   - flags
-schedule:
-  run_at: 2026-05-17T14:30:00Z
-  timezone: UTC
