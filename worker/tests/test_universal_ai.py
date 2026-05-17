@@ -1120,6 +1120,112 @@ def test_tier15_auto_mode_falls_through_to_anchor_tier(
     assert all(r.attrs.get("extractor") == "anchor_llm" for r in results)
 
 
+# --- Phase 19 / ADR-049: real captured detail-page fixtures ----------------
+#
+# Bodies captured 2026-05-17 via `probe-url --render --detail` (AlterLab
+# rendered). Like the Phase 15 real-vendor fixtures these are large and pin
+# the DETERMINISTIC half of Tier 1.5 (strip + verbatim guard) against real
+# DOM density — the LLM call itself is never exercised here (non-deterministic
+# + needs the network). They are the regression net for the form-strip fix.
+
+_REAL_DETAIL_EXTRACTS = [
+    ("sabrepc-epyc9255-2026-05-17.html", 2523.20),
+    ("wiredzone-epyc9255-2026-05-17.html", 2070.0),
+    ("itcreations-epyc9255-2026-05-17.html", 2795.0),
+    ("newegg-epyc9255-2026-05-17.html", 3202.50),
+]
+_REAL_DETAIL_BOTWALLS = [
+    "serversupply-epyc9255-2026-05-17.html",
+    "centralcomputer-epyc9255-2026-05-17.html",
+]
+
+
+@pytest.mark.parametrize("fixture,price", _REAL_DETAIL_EXTRACTS)
+def test_strip_real_detail_fixture_exposes_verbatim_price(
+    fixture: str, price: float
+) -> None:
+    """Each real EPYC-9255 detail body, after stripping, must still contain
+    the price so the verbatim guard passes. Wiredzone is the regression
+    canary for the form-strip fix (its price lives inside the Odoo
+    add-to-cart <form>; decomposing <form> would delete it)."""
+    html = (FIXTURE_DIR / fixture).read_text(encoding="utf-8")
+    text = universal_ai._strip_to_main_text(html)
+    assert len(text) > 200, f"{fixture}: stripped body suspiciously small"
+    assert universal_ai._price_in_text(price, text), (
+        f"{fixture}: price {price} not verbatim in stripped text — "
+        f"Tier 1.5 would (correctly) drop a real listing"
+    )
+
+
+@pytest.mark.parametrize("fixture", _REAL_DETAIL_BOTWALLS)
+def test_strip_real_botwall_fixture_is_barren(fixture: str) -> None:
+    """ServerSupply / CentralComputer hit a bot wall AlterLab only partially
+    defeats (ADR-049: Tier 1.5 fixes extraction, not fetch reachability).
+    Pin them as barren so a future rendering improvement surfaces as a diff
+    rather than silently changing behaviour."""
+    import re as _re
+
+    html = (FIXTURE_DIR / fixture).read_text(encoding="utf-8")
+    text = universal_ai._strip_to_main_text(html)
+    assert _re.search(r"\$\s?\d", text) is None, (
+        f"{fixture}: now renders a $ price — promote it out of "
+        f"sources_pending and add it to _REAL_DETAIL_EXTRACTS"
+    )
+
+
+def test_form_element_is_not_stripped_keeps_price() -> None:
+    """Regression guard for the ADR-049 form-strip bug: many storefronts
+    (Odoo/Wiredzone) put the price + Add-to-Cart inside the product <form>.
+    _strip_to_main_text must NOT decompose <form>."""
+    html = (
+        "<html><body><nav>Menu Cart</nav>"
+        "<main><h1>AMD EPYC 9255</h1>"
+        '<form action="/shop/cart/update">'
+        '<span class="oe_currency_value">$2,070.00</span>'
+        "<button>Add to Cart</button></form></main>"
+        "<footer>Contact</footer></body></html>"
+    )
+    text = universal_ai._strip_to_main_text(html)
+    assert "$2,070.00" in text
+    assert universal_ai._price_in_text(2070.0, text)
+    assert "Menu Cart" not in text  # <nav> still stripped
+    assert "Contact" not in text  # <footer> still stripped
+
+
+def test_fetch_tier15_wiredzone_fixture_end_to_end(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Full path on a REAL captured body: page_type:detail + stubbed LLM
+    (returning the price that is verbatim in the stripped Wiredzone text)
+    → exactly one Listing carrying the verbatim source URL."""
+    html = (
+        FIXTURE_DIR / "wiredzone-epyc9255-2026-05-17.html"
+    ).read_text(encoding="utf-8")
+    monkeypatch.setattr(
+        universal_ai, "_fetch_html",
+        lambda url, timeout=20.0: (html, 200, "stub"),
+    )
+    monkeypatch.setattr(universal_ai, "call_llm", _stub_llm_response(
+        '{"found": true, "title": "AMD 100-000000694 EPYC 9255 24-Core", '
+        '"price_usd": 2070.00, "condition": "new", "in_stock": false, '
+        '"pack_size": 1}'
+    ))
+    wz_url = (
+        "https://www.wiredzone.com/shop/product/10032075-amd-100-000000694-"
+        "epyc-9255-3-20ghz-24-core-processor-5th-generation-turin-14772"
+    )
+    query = AdapterQuery(
+        source_id="universal_ai_search",
+        extra={"url": wz_url, "page_type": "detail"},
+    )
+    results = universal_ai.fetch(query)
+    assert len(results) == 1
+    assert results[0].url == wz_url
+    assert results[0].unit_price_usd == 2070.00
+    assert results[0].attrs["extractor"] == "detail_llm"
+    assert results[0].quantity_available == 0  # in_stock false
+
+
 def test_parse_pack_extracts_multi_packs() -> None:
     """_parse_pack decodes module counts and unit prices for multi-pack items."""
     is_kit, count, unit_p, kit_p = universal_ai._parse_pack("Aufschnitt Jerky 2-pack", 14.00)

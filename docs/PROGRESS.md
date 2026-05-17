@@ -6,11 +6,13 @@
 
 **Phase 17 — Schedule Editor + Alerts. CLOSED 2026-05-11 afternoon.** Five-part scope (A schedule UI, B alerts schema, C worker evaluator, D alerts UI, E verification) all landed. Scope expanded mid-phase to cover user-configurable price/vendor alerts (NOT handled by the onboarder — UI-only).
 
-**Active: Phase 19 — Universal adapter accuracy & vendor reach.** Task 6 (Tier 1.5 detail-page extractor, ADR-049) code is IMPLEMENTED and CI-green as of 2026-05-17 (see status section below). Remaining in task 6: the paid live promotion run for `amd-epyc-9255` + `ebay_search` removal (needs go-ahead). Phase 18 (polish + second-product proof) remains the next phase candidate after Phase 19.
+**Active: Phase 19 — Universal adapter accuracy & vendor reach.** Task 6 (Tier 1.5 detail-page extractor, ADR-049) is COMPLETE as of 2026-05-17: code + the paid live promotion (eBay removed from `amd-epyc-9255`; 4 detail sources extracting). All Phase 19 task 6 done-when criteria met. Phase 18 (polish + second-product proof) is the next phase candidate; tasks 1–5 of Phase 19 (Amazon price attribution, bose dead-URL cleanup, vendor-reach 0-yield policy, ADR-039) are still open and gate Phase 18's reliable-data criterion.
 
-## Status as of 2026-05-17 (Phase 19 task 6 — Tier 1.5 detail-page extractor IMPLEMENTED)
+## Status as of 2026-05-17 (Phase 19 task 6 — Tier 1.5 COMPLETE incl. live promotion + eBay removal)
 
-**Built the Tier 1.5 single-product detail-page price extractor (ADR-049). All code, schema, prompt, probe-url, fixtures, and tests landed and CI-green. The remaining step — a paid live run to re-probe the parked `amd-epyc-9255` URLs, promote the ones Tier 1.5 extracts into `sources`, and remove `ebay_search` — is NOT done this session: it spends money on AlterLab + Haiku and changes a production-scheduled profile, so it needs an explicit go-ahead.**
+**Tier 1.5 detail-page extractor (ADR-049) shipped end-to-end. After user go-ahead, ran the paid live promotion: probed all 6 parked `amd-epyc-9255` detail URLs via AlterLab. 4 extract a verified price — SabrePC $2,523.20, Wiredzone $2,070.00, IT Creations $2,795.00, Newegg $3,202.50 — promoted into `sources` with `page_type: detail`. `ebay_search` REMOVED (the user's originally-requested change, finally unblocked). The eBay-free run completes clean (exit 0) with non-eBay `detail_llm` listings passing the validator. ServerSupply/CentralComputer remain parked (bot wall AlterLab only partially defeats — expected per ADR-049); CDW parked (carries other EPYC models, not the 9255).**
+
+**Mid-task fix:** Wiredzone (an Odoo store, flagged a "prime target" in ADR-049) initially MISSED because `_strip_to_main_text` decomposed `<form>` — Odoo puts the price + Add-to-Cart inside the product `<form>`, so the price was being deleted before the LLM saw it. ADR-049's design only specified stripping `script/style/nav/header/footer`; `<form>` was an over-addition. Removed `form` from `_DETAIL_STRIP_TAGS` (comment + regression test pin it). This recovered Wiredzone (3→4 extractors).
 
 ### Changes applied this session
 
@@ -19,20 +21,26 @@
 - `worker/src/product_search/adapters/universal_ai.py` — `DETAIL_SYSTEM_PROMPT`, `_strip_to_main_text`, `_price_in_text` (verbatim anti-hallucination guard), `_resolve_detail_mode` (explicit `page_type` wins; URL-shape heuristic → `auto`), `_extract_detail_listing`; wired into `fetch()` between the JSON-LD and anchor tiers. Explicit `detail` does not fall through to the anchor tier on a miss; `auto` does (no regression for mis-classified search pages).
 - `worker/src/product_search/cli.py` — `probe-url --detail` runs Tier 1.5 and exits 0 iff it extracted a priced listing.
 - `worker/src/product_search/onboarding/prompts/onboard_v1.txt` — single-SKU `page_type:"detail"` exception (narrow: one exact MPN, no working search URL).
-- `worker/tests/fixtures/universal_ai/detail-single-sku-synthetic.html` + 9 new tests in `test_universal_ai.py`.
-- `docs/DECISIONS.md` — ADR-049 → ACCEPTED with an implementation note.
+- `worker/src/product_search/adapters/universal_ai.py` — also removed `form` from `_DETAIL_STRIP_TAGS` (the Wiredzone/Odoo fix above).
+- `products/amd-epyc-9255/profile.yaml` — `ebay_search` removed; 4 `universal_ai_search` detail sources promoted with `page_type: detail`; ServerSupply/CentralComputer/CDW re-parked with updated 2026-05-17 verdict notes.
+- `worker/tests/fixtures/universal_ai/` — `detail-single-sku-synthetic.html` + 6 real captured bodies (`{sabrepc,wiredzone,itcreations,newegg,serversupply,centralcomputer}-epyc9255-2026-05-17.html`).
+- `worker/tests/test_universal_ai.py` — 9 synthetic Tier 1.5 tests + 8 real-fixture tests (parametrised price/bot-wall pins, form-not-stripped regression, Wiredzone end-to-end).
+- `docs/DECISIONS.md` — ADR-049 → ACCEPTED with implementation note + form-strip refinement.
 
-### Verification (fresh `uv` Python 3.12 venv, exact CI sequence + web)
+### Verification (fresh `uv` Python 3.12 venv, exact CI sequence + web + live)
 
-- `ruff check src/`: passed · `mypy src/`: 31 files clean · `pytest tests/`: **217 passed** (was 208 + 9 Tier 1.5).
+- `ruff check src/ tests/`: passed · `mypy src/`: 31 files clean · `pytest tests/`: **225 passed** (208 + 17 Tier 1.5).
 - `cli validate` amd-epyc-9255 / amd-epyc-9224 / ddr5-rdimm-256gb / aufschnitt-essiccata-jerky: all valid.
 - `web`: `npx tsc --noEmit` clean; `npm run lint` 0 errors (only pre-existing sw.js warnings).
+- **Live**: 6 `probe-url --render --detail` runs; 4 extract (SabrePC/Wiredzone/IT Creations/Newegg). `product-search search amd-epyc-9255 --no-store --no-report` → exit 0, eBay-free, non-eBay `detail_llm` listings pass the validator.
 
 ### Next session — start here
 
-1. **(Needs go-ahead — paid live run.)** With `ALTERLAB_API_KEY` set, for each parked `products/amd-epyc-9255/profile.yaml` `sources_pending` detail URL run `product-search probe-url <url> --render --detail`. Capture the rendered bodies to `worker/tests/fixtures/universal_ai/<vendor>-epyc9255-2026-05-17.html` for the ones that extract (per SESSION_PROTOCOL: capture fixtures when scraping live).
-2. Promote URLs Tier 1.5 extracts (`probe-url --detail` exit 0) into `sources` with `page_type: "detail"`; **remove `ebay_search`** (the originally-requested change, unblocked once ≥1 non-eBay source works). Re-run `amd-epyc-9255`; confirm eBay-free with ≥1 working non-eBay source.
-3. Add real-fixture-pinned Tier 1.5 tests for the vendors that extracted (SabrePC/Wiredzone/IT Creations expected; ServerSupply/CentralComputer best-effort per ADR-049 risks). Consider a 1-retry/backoff on AlterLab 422 (Newegg/IT Creations) — orthogonal fetch-reliability item, noticed but deferred.
+Phase 19 task 6 is fully closed. Pick up the **rest of Phase 19** (tasks 1–5, which still gate Phase 18) or move to **Phase 18**:
+1. Phase 19 task 1: Amazon price attribution — verify against a real Amazon search fixture (see PHASES.md).
+2. Phase 19 tasks 3–4: bose dead-URL cleanup + vendor-reach 0-yield auto-demote policy; then ADR-039.
+3. **Noticed but deferred**: AlterLab intermittently 422s Newegg/IT Creations detail URLs (didn't recur this session, but real) — consider one retry/backoff on 422 in `_fetch_via_alterlab`. Orthogonal to extraction.
+4. **Noticed but deferred**: IT Creations `in_stock` flips between runs (LLM nondeterminism on the in_stock field) — acceptable, but if it causes alert churn, consider a deterministic stock-string check.
 
 ---
 

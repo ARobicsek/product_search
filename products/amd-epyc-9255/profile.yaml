@@ -1,6 +1,6 @@
 slug: "amd-epyc-9255"
 display_name: AMD EPYC 9255
-description: Single AMD EPYC 9255 processor, in-stock, tracking condition across vendor storefronts and eBay
+description: Single AMD EPYC 9255 processor, in-stock, tracking condition across vendor storefronts
 target:
   unit: count
   amount: 1
@@ -13,31 +13,41 @@ spec_flags:
       - refurbished
       - used
       - open-box
+# eBay removed 2026-05-17 (the user's originally-requested change), unblocked
+# by the Phase 19 Tier 1.5 detail-page extractor (ADR-049). The four sources
+# below are single-product DETAIL pages (page_type: detail) — JS-heavy custom
+# storefronts with no JSON-LD and only nav-junk anchors, where Tier 1.5
+# extracts the price from the rendered body text and re-verifies it verbatim
+# (ADR-001). All four confirmed extracting via `probe-url --render --detail`
+# on 2026-05-17 (fixtures committed under worker/tests/fixtures/universal_ai/).
 sources:
   - id: universal_ai_search
-    note: "shi.com / ipcstore.com / pcnation.com search URLs: rendered fetch returned empty/near-empty content (no 9255 in catalog or hard JS wall). Re-evaluate at Tier 1.5 time."
-  - id: universal_ai_search
     url: https://www.sabrepc.com/100-000000694-AMD-S137839588
-    note: detail page; AlterLab 200 / 770KB body but 0 JSON-LD, anchors are nav junk ('All RMA Request'). Prime Tier-1.5 target.
+    page_type: detail
   - id: universal_ai_search
     url: https://www.wiredzone.com/shop/product/10032075-amd-100-000000694-epyc-9255-3-20ghz-24-core-processor-5th-generation-turin-14772
-    note: detail page; AlterLab 200 / 63KB body but 0 JSON-LD, anchors are nav junk ('READY TO SHIP SERVERS'). Prime Tier-1.5 target.
+    page_type: detail
   - id: universal_ai_search
     url: https://www.itcreations.com/product/148917
-    note: detail page; cheapest found ($1,950) but AlterLab intermittently 422s this URL. Tier-1.5 + 422 retry needed.
-  - id: universal_ai_search
-    url: https://www.serversupply.com/PROCESSORS/AMD%20EPYC%2024-Core/3.2GHz/AMD/100-000000694_402211.htm
-    note: detail page; AlterLab 200 / 31KB but 0 JSON-LD and 0 anchors. search.asp?q= also 0 rendered. Likely Datadome wall; best-effort for Tier 1.5.
-  - id: universal_ai_search
-    url: https://www.centralcomputer.com/amd-epyc-9255-24c-48t-3-25ghz-processor-4-3ghz-boost-tray-128-mb-l3-cache-200w-tdp-100-000000694.html
-    note: detail page; AlterLab 200 / 32KB but 0 JSON-LD and 0 anchors. best-effort for Tier 1.5.
+    page_type: detail
   - id: universal_ai_search
     url: https://www.newegg.com/amd-epyc-9255-socket-sp5/p/N82E16819113863
-    note: detail page; AlterLab 422 (can't render). search p/pl?d= renders 681KB but React SPA -> 0 anchors. Needs Tier 1.5 + 422 handling.
+    page_type: detail
+# Probe-tested 2026-05-17 via `probe-url --render --detail`; NOT extractable
+# with today's stack (Tier 1.5 fixes extraction, not fetch reachability —
+# ADR-049). Not run, not charged. Re-evaluate if AlterLab rendering improves.
+sources_pending:
+  - id: universal_ai_search
+    url: https://www.serversupply.com/PROCESSORS/AMD%20EPYC%2024-Core/3.2GHz/AMD/100-000000694_402211.htm
+    note: "detail page; AlterLab 200 / 32KB rendered body but 0 anchors and 0 price text — hard bot wall (Datadome), AlterLab only partially renders. Tier 1.5 miss confirmed 2026-05-17."
+  - id: universal_ai_search
+    url: https://www.centralcomputer.com/amd-epyc-9255-24c-48t-3-25ghz-processor-4-3ghz-boost-tray-128-mb-l3-cache-200w-tdp-100-000000694.html
+    note: "detail page; AlterLab 200 / 32KB rendered body but 0 anchors and 0 price text — best-effort bot wall. Tier 1.5 miss confirmed 2026-05-17."
   - id: universal_ai_search
     url: https://www.cdw.com/search/?key=amd+epyc+9255
-    note: search renders; returns OTHER EPYC models (9754/9374F/9124...) — CDW does not carry the 9255. Dead for this product.
-sources_pending: []
+    note: "search page (not a detail page); renders but returns OTHER EPYC models (9754/9374F/9124...) — CDW does not carry the 9255. Dead for this product."
+  - id: universal_ai_search
+    note: "shi.com / ipcstore.com / pcnation.com search URLs: rendered fetch returned empty/near-empty content (no 9255 in catalog or hard JS wall). Re-evaluate if those vendors start carrying the 9255."
 report_columns:
   - rank
   - source

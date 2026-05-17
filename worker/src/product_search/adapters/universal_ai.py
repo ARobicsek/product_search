@@ -1188,9 +1188,14 @@ def _extract_candidates(
 # --- Tier 1.5: single-product detail-page extractor (ADR-049) --------------
 
 
+# Per ADR-049 we strip script/style/nav/header/footer; noscript/template/
+# svg/iframe carry no product text so they go too (token economy). NOTE:
+# do NOT add ``form`` here — many storefronts (Odoo/Wiredzone, others) put
+# the price + Add-to-Cart inside the product <form>; decomposing it deletes
+# the very price Tier 1.5 needs.
 _DETAIL_STRIP_TAGS = (
     "script", "style", "noscript", "template", "svg",
-    "nav", "header", "footer", "form", "iframe",
+    "nav", "header", "footer", "iframe",
 )
 
 # Hard cap on the stripped text we hand the LLM. Detail pages with long spec
