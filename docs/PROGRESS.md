@@ -6,7 +6,9 @@
 
 **Phase 17 — Schedule Editor + Alerts. CLOSED 2026-05-11 afternoon.** Five-part scope (A schedule UI, B alerts schema, C worker evaluator, D alerts UI, E verification) all landed. Scope expanded mid-phase to cover user-configurable price/vendor alerts (NOT handled by the onboarder — UI-only).
 
-**Active: Phase 19 — Universal adapter accuracy & vendor reach.** Task 6 (Tier 1.5 detail-page extractor, ADR-049) is COMPLETE as of 2026-05-17: code + the paid live promotion (eBay removed from `amd-epyc-9255`; 4 detail sources extracting). All Phase 19 task 6 done-when criteria met. Phase 18 (polish + second-product proof) is the next phase candidate; tasks 1–5 of Phase 19 (Amazon price attribution, bose dead-URL cleanup, vendor-reach 0-yield policy, ADR-039) are still open and gate Phase 18's reliable-data criterion.
+**Phase 19 — Universal adapter accuracy & vendor reach. CLOSED 2026-05-17.** All six tasks done and every "Done when" criterion met: task 1 Amazon price attribution (ADR-039 + ADR-041), task 2 per-vendor capture + [VENDOR_REACH.md](VENDOR_REACH.md), task 3 bose `c/refurbished` demoted, task 4 vendor-reach **policy decided** (ADR-040), task 5 re-run/verify, task 6 Tier 1.5 detail extractor + live eBay removal on `amd-epyc-9255` (ADR-049). **One explicit follow-up, NOT a Phase 19 gate:** ADR-040's auto-demote *implementation* (source_runs table + streak prune in `_cmd_search`) was deliberately deferred by ADR-040 itself — until it lands, the 5 dead bose universal_ai URLs sit in active `sources` costing ~$0.011/run (manual demote is the stopgap; user chose to leave as documented follow-up 2026-05-17).
+
+**Next phase: Phase 18 — Polish + second-product proof** ([PHASES.md](PHASES.md#phase-18--polish--second-product-proof-replaces-old-phase-12)). Start a fresh session and read that brief.
 
 ## Status as of 2026-05-17 (Phase 19 task 6 — Tier 1.5 COMPLETE incl. live promotion + eBay removal)
 
@@ -36,11 +38,12 @@
 
 ### Next session — start here
 
-Phase 19 task 6 is fully closed. Pick up the **rest of Phase 19** (tasks 1–5, which still gate Phase 18) or move to **Phase 18**:
-1. Phase 19 task 1: Amazon price attribution — verify against a real Amazon search fixture (see PHASES.md).
-2. Phase 19 tasks 3–4: bose dead-URL cleanup + vendor-reach 0-yield auto-demote policy; then ADR-039.
-3. **Noticed but deferred**: AlterLab intermittently 422s Newegg/IT Creations detail URLs (didn't recur this session, but real) — consider one retry/backoff on 422 in `_fetch_via_alterlab`. Orthogonal to extraction.
-4. **Noticed but deferred**: IT Creations `in_stock` flips between runs (LLM nondeterminism on the in_stock field) — acceptable, but if it causes alert churn, consider a deterministic stock-string check.
+**Phase 19 is CLOSED.** Verified this session that tasks 1–5 were already complete (ADR-039/040/041, VENDOR_REACH.md, bose `c/refurbished` demoted) and task 6 (Tier 1.5) shipped. Start a fresh session on **Phase 18 — Polish + second-product proof** (read its PHASES.md brief).
+
+Carried-over / noticed-but-deferred (none block Phase 18 start; pick up opportunistically):
+1. **ADR-040 auto-demote implementation** (the only open Phase 19 follow-up — ADR-040 deferred it by design): `source_runs` table + 3-consecutive-0-yield prune in `_cmd_search` using ruamel.yaml. Until then the 5 dead bose universal_ai URLs waste ~$0.011/run. User chose to leave as documented follow-up 2026-05-17.
+2. AlterLab intermittently 422s Newegg/IT Creations detail URLs (didn't recur this session, but real) — consider one retry/backoff on 422 in `_fetch_via_alterlab`. Orthogonal to extraction.
+3. IT Creations `in_stock` flips between runs (LLM nondeterminism on the in_stock field) — acceptable; if it causes alert churn, add a deterministic stock-string check.
 
 ---
 
