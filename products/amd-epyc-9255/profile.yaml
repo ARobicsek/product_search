@@ -58,5 +58,5 @@ report_columns:
   - flags
 
 schedule:
-  run_at: 2026-05-17T13:30:00Z
+  run_at: 2026-05-17T13:40:00Z
   timezone: UTC
