@@ -9,6 +9,25 @@ Status values:
 
 ---
 
+## ADR-047 — Add Pydantic Bare-Domain Schema Validation to Profile Sources
+
+**Status**: ACCEPTED
+
+**Date**: 2026-05-17
+
+**Context**: In previous onboarding runs, the LLM onboarder generated bare domain URLs (e.g., `https://www.ipcstore.com/` or `https://www.sabrepc.com/`) when it was unable to identify a functional parameterized search URL for a vendor storefront. Bare domains or homepage paths always yield 0 listings because the `universal_ai_search` adapter is designed to extract listing cards from search results pages rather than raw homepage content. To protect runs from resource and budget waste, we need a hard structural guardrail that blocks bare domains in active profiles.
+
+**Decision**:
+1. Added a `model_validator` (mode="after") in the Pydantic `Source` model in `worker/src/product_search/profile.py`.
+2. If `id == "universal_ai_search"`, the validator parses the URL and raises a `ValueError` if the URL is a bare domain (i.e. path is empty or `/` and has no search-related query parameters).
+3. The Pydantic validator acts as a structural backstop, immediately rejecting any saved drafts or edited profiles that violate these URL-shape constraints.
+
+**Consequence**:
+- Active profile configurations can no longer contain bare-domain URLs for universal search, catching LLM compliance errors before the profile is committed or run.
+- Ensures the onboarder strictly defaults to parameterized search-results URLs or puts the vendor under `sources_pending` if a search URL cannot be constructed.
+
+---
+
 ## ADR-046 — Pydantic Profile schema sync: `spec_filters` and `spec_flags` are fully optional
 
 **Status**: ACCEPTED

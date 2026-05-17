@@ -8,6 +8,37 @@
 
 **Next phase candidate**: Phase 18 (polish + second-product proof) per [PHASES.md](PHASES.md#phase-18--polish--second-product-proof-replaces-old-phase-12), OR pick up the deferred Phase 19 (universal adapter accuracy & vendor reach) which still blocks Phase 18's "7-day scheduled runs produce reliable data" criterion. Pre-Phase-18 decisions tracked in the 2026-05-11 afternoon handoff below.
 
+## Status as of 2026-05-17 (Stabilizing Product Search Onboarder)
+
+**Stabilized the Product Search Onboarder by hardening system prompts, updating edit mode UI rendering, solving CI lint issues, and enforcing Pydantic model validation against bare-domain active sources.**
+
+### Changes applied
+
+1. **Onboarding Prompt Hardening**:
+   - Revised `worker/src/product_search/onboarding/prompts/onboard_v1.txt` to strictly prohibit bare domain URLs or homepages, mandating parameterized search-results URLs (e.g. `?q=`, `?key=`).
+   - Mapped negative user constraints (e.g. "no eBay", "no locked") to `title_excludes` filters and explicitly banned eBay search when requested.
+2. **UI/UX Edit Mode Enhancements**:
+   - Reconfigured `web/app/onboard/OnboardChat.tsx` to parse `initialProfile` via `js-yaml` on initial load. This immediately loads and displays the preview profile panel in edit mode rather than waiting for the first LLM message.
+3. **Pydantic Hard Guardrails**:
+   - Added a `model_validator` to `Source` inside `worker/src/product_search/profile.py` that raises a `ValueError` if a `universal_ai_search` source contains a bare domain URL, providing a schema-level safeguard.
+4. **CI Pipeline Clean-up**:
+   - Resolved all Python unit test `ruff` linting errors (`E501`, `E402`) in files like `universal_ai.py`, `synthesizer.py`, and test files.
+   - Wired `load_dotenv()` into `worker/src/product_search/cli.py` to ensure environment variables like `ALTERLAB_API_KEY` are successfully picked up for headless JS scraping.
+
+### Verification
+
+- `cli validate amd-epyc-9255`: valid
+- `pytest`: 208/208 tests passed cleanly.
+- `npm run lint` & `npx tsc --noEmit` locally: clean.
+- Successfully rebased and pushed all local modifications to the git repository.
+
+### Next session — start here
+
+1. **Perform a Verification Run on the `amd-epyc-9255` profile** to confirm it runs end-to-end, uses the corrected parameterized search URLs, and correctly queries vendors through AlterLab.
+2. **Monitor `universal_ai_search` adapter behavior** across the new search URL targets. If any site times out or fails to yield results, verify using `product-search probe-url <url> --render`.
+
+---
+
 ## Status as of 2026-05-12 late afternoon (Multi-pack quantity extraction fix for universal_ai)
 
 **Fixed universal_ai adapter to accurately extract multi-pack product quantities and calculate unit/kit pricing.** Previously, multi-pack items (like the Aufschnitt Jerky 2-pack and 5-pack listings on Amazon) were reported as single units, skewing downstream pricing and quantity availability.
