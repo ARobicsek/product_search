@@ -23,11 +23,11 @@ sources:
     url: https://www.amazon.com/s?k=amd+epyc+9224
   - id: universal_ai_search
     url: https://www.etb-tech.com/components/processors/amd-epyc-series?product_list_mode=grid
-sources_pending:
   - id: universal_ai_search
-    note: wiredzone.com — no site-search found; only product detail pages available
+    url: https://www.wiredzone.com/shop/category/components-processors-113?search=amd+epyc+9224
   - id: universal_ai_search
-    note: cloudninjas.com — no site-search found; only product detail pages available
+    url: https://cloudninjas.com/search?q=amd+epyc+9224
+sources_pending: []
 report_columns:
   - rank
   - source
