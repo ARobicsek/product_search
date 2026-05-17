@@ -13,13 +13,6 @@ spec_flags:
       - refurbished
       - used
       - open-box
-# eBay removed 2026-05-17 (the user's originally-requested change), unblocked
-# by the Phase 19 Tier 1.5 detail-page extractor (ADR-049). The four sources
-# below are single-product DETAIL pages (page_type: detail) — JS-heavy custom
-# storefronts with no JSON-LD and only nav-junk anchors, where Tier 1.5
-# extracts the price from the rendered body text and re-verifies it verbatim
-# (ADR-001). All four confirmed extracting via `probe-url --render --detail`
-# on 2026-05-17 (fixtures committed under worker/tests/fixtures/universal_ai/).
 sources:
   - id: universal_ai_search
     url: https://www.sabrepc.com/100-000000694-AMD-S137839588
@@ -33,19 +26,25 @@ sources:
   - id: universal_ai_search
     url: https://www.newegg.com/amd-epyc-9255-socket-sp5/p/N82E16819113863
     page_type: detail
-# Probe-tested 2026-05-17 via `probe-url --render --detail`; NOT extractable
-# with today's stack (Tier 1.5 fixes extraction, not fetch reachability —
-# ADR-049). Not run, not charged. Re-evaluate if AlterLab rendering improves.
+  - id: universal_ai_search
+    url: https://www.shi.com/product/49015363/AMD-EPYC-9255-3.25-GHz
+    page_type: detail
+  - id: universal_ai_search
+    url: https://www.colamco.com/product/amd-epyc-9255-processor-100-000000694-2631653
+    page_type: detail
+  - id: universal_ai_search
+    url: https://www.cdw.com/product/amd-epyc-9255-processor/8247923
+    page_type: detail
 sources_pending:
   - id: universal_ai_search
     url: https://www.serversupply.com/PROCESSORS/AMD%20EPYC%2024-Core/3.2GHz/AMD/100-000000694_402211.htm
-    note: "detail page; AlterLab 200 / 32KB rendered body but 0 anchors and 0 price text — hard bot wall (Datadome), AlterLab only partially renders. Tier 1.5 miss confirmed 2026-05-17."
+    note: detail page; AlterLab 200 / 32KB rendered body but 0 anchors and 0 price text — hard bot wall (Datadome), AlterLab only partially renders. Tier 1.5 miss confirmed 2026-05-17.
   - id: universal_ai_search
     url: https://www.centralcomputer.com/amd-epyc-9255-24c-48t-3-25ghz-processor-4-3ghz-boost-tray-128-mb-l3-cache-200w-tdp-100-000000694.html
-    note: "detail page; AlterLab 200 / 32KB rendered body but 0 anchors and 0 price text — best-effort bot wall. Tier 1.5 miss confirmed 2026-05-17."
+    note: detail page; AlterLab 200 / 32KB rendered body but 0 anchors and 0 price text — best-effort bot wall. Tier 1.5 miss confirmed 2026-05-17.
   - id: universal_ai_search
     url: https://www.cdw.com/search/?key=amd+epyc+9255
-    note: "search page (not a detail page); renders but returns OTHER EPYC models (9754/9374F/9124...) — CDW does not carry the 9255. Dead for this product."
+    note: search page (not a detail page); renders but returns OTHER EPYC models (9754/9374F/9124...) — CDW does not carry the 9255. Dead for this product.
   - id: universal_ai_search
     note: "shi.com / ipcstore.com / pcnation.com search URLs: rendered fetch returned empty/near-empty content (no 9255 in catalog or hard JS wall). Re-evaluate if those vendors start carrying the 9255."
 report_columns:
