@@ -1,4 +1,4 @@
-slug: amd-epyc-9255
+slug: "amd-epyc-9255"
 display_name: AMD EPYC 9255
 description: Single AMD EPYC 9255 processor, in-stock, tracking condition across vendor storefronts and eBay
 target:
@@ -14,28 +14,32 @@ spec_flags:
       - used
       - open-box
 sources:
-  - id: ebay_search
-    queries:
-      - AMD EPYC 9255
-      - AMD 100-000000694
-    max_results_per_query: 50
-  - id: universal_ai_search
-    url: https://www.serversupply.com/PROCESSORS/AMD%20EPYC%2024-Core/3.2GHz/
   - id: universal_ai_search
     url: https://www.cdw.com/search/?key=amd+epyc+9255
   - id: universal_ai_search
-    url: https://www.shi.com/product/49015363/AMD-EPYC-9255-3.25-GHz
-  - id: universal_ai_search
-    url: https://www.ipcstore.com/
-  - id: universal_ai_search
-    url: https://www.sabrepc.com/
-  - id: universal_ai_search
-    url: https://www.centralcomputer.com/
-  - id: universal_ai_search
     url: https://www.newegg.com/p/pl?d=epyc+9255
   - id: universal_ai_search
-    url: https://www.pcnation.com/
+    url: https://www.serversupply.com/PROCESSORS/AMD%20EPYC%2024-Core/3.2GHz/
+  - id: universal_ai_search
+    url: https://www.colamco.com/products/amd/computer-components/cpus-processors
+  - id: universal_ai_search
+    url: https://e-catalog.com/AMD-9255-OEM.htm
 sources_pending:
+  - id: universal_ai_search
+    url: https://www.shi.com/product/49015363/AMD-EPYC-9255-3.25-GHz
+    note: single product detail page; SHI does not have a public product search URL
+  - id: universal_ai_search
+    url: https://www.ipcstore.com/
+    note: bare domain; no clear search URL found despite EPYC 9255 being in their catalog
+  - id: universal_ai_search
+    url: https://www.sabrepc.com/
+    note: bare domain; no clear search URL found despite EPYC 9255 being in their catalog
+  - id: universal_ai_search
+    url: https://www.centralcomputer.com/
+    note: bare domain; unclear if they expose EPYC search or just category browsing
+  - id: universal_ai_search
+    url: https://www.pcnation.com/
+    note: bare domain; EPYC 9255 found individually but no clear search URL
   - id: universal_ai_search
     url: https://www.itcreations.com/product/148926
     note: "probe returned 0 candidates: fetch failed: This operation was aborted"
