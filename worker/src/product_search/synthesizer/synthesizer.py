@@ -238,7 +238,10 @@ COLUMN_DEFS: dict[str, tuple[str, Callable[[int, Listing], str]]] = {
     "source": ("Source", lambda i, lst: f"[{_esc(_source_label(lst))}]({lst.url})"),
     "title": ("Title", lambda i, lst: _esc(lst.title)),
     "pack_size": ("Pack size", lambda i, lst: str(lst.kit_module_count)),
-    "price_pack": ("Price (pack)", lambda i, lst: _price_with_fx(lst, lst.kit_price_usd if lst.is_kit else lst.unit_price_usd)),
+    "price_pack": (
+        "Price (pack)",
+        lambda i, lst: _price_with_fx(lst, lst.kit_price_usd if lst.is_kit else lst.unit_price_usd)
+    ),
     "price_unit": ("Price (unit)", lambda i, lst: _price_with_fx(lst, lst.unit_price_usd)),
     "total_for_target": ("Total for target", lambda i, lst: _price_with_fx(lst, lst.total_for_target_usd)),
     "qty": (
@@ -256,6 +259,10 @@ COLUMN_DEFS: dict[str, tuple[str, Callable[[int, Listing], str]]] = {
     "ship_from": ("Ships from", lambda i, lst: lst.ship_from_country or "unknown"),
     "qvl_status": ("QVL", lambda i, lst: lst.qvl_status or "unknown"),
     "flags": ("Flags", lambda i, lst: ", ".join(lst.flags) if lst.flags else "(no flags)"),
+    "flavor": (
+        "Flavor",
+        lambda i, lst: _esc(str(lst.attrs.get("flavor"))) if lst.attrs and lst.attrs.get("flavor") else "unknown"
+    ),
 }
 
 DEFAULT_REPORT_COLUMNS: list[str] = [

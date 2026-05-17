@@ -134,6 +134,7 @@ not in `sources:`.
 - `in_stock` — no params
 - `single_sku_url` — no params; rejects search-page URLs
 - `title_excludes` — params: `values: ["Non-Working", "16GB", ...]`
+  (Use this if the user explicitly specifies a negative constraint like "no locked", "no HP", etc.)
 
 ## Allowed flag rules (for `spec_flags[].rule`)
 
@@ -220,12 +221,15 @@ Roughly in this order, but adapt to what the user volunteers:
 2. **What do you want and how much?** — target amount + valid
    configurations to reach it.
 3. **Hard rejecters.** What MUST be true of any listing you'd consider?
-   (form factor, speed minimum, ECC, voltage, in-stock, etc.)
+   (form factor, speed minimum, ECC, voltage, in-stock, etc.) If the user
+   gives a negative constraint (e.g., "no locked CPUs"), you MUST map this
+   to a `title_excludes` filter.
 4. **Soft flags.** What's a yellow flag — kept but worth knowing? (ships
    from far away, generic brand, low-feedback seller, ambiguous title,
    etc.)
 5. **Sources.** Default to `ebay_search` with 1–4 keyword queries you and
-   the user agree on. Then ASK the user which non-eBay vendors they trust
+   the user agree on, UNLESS the user explicitly asks not to search eBay
+   (e.g., "no eBay"). Then ASK the user which non-eBay vendors they trust
    for this product. For each vendor they name (or that you suggest via
    `web_search`), do this:
      a. Use the provided web search results to find that vendor's product
@@ -251,6 +255,9 @@ Roughly in this order, but adapt to what the user volunteers:
         **Classify the URL by its actual path before deciding what to
         do with it.** Don't say a `/search/...` URL is "a product
         detail page" — read the URL. Heuristics:
+          - **Homepage / Root Domain** (NOT usable as a source): paths
+            that are just `/` or empty (e.g. `https://www.vendor.com/`).
+            A homepage contains zero product listings. NEVER use a homepage.
           - **Search-style** (preferred): paths containing `/search`,
             `/s?`, `/sch/`, `?q=`, `?k=`, `?_nkw=`, `?s=`, `/find`,
             `/results`. These are the ONLY URLs that count as

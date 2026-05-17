@@ -25,7 +25,6 @@ from product_search.models import Listing
 from product_search.profile import PriceBelowAlert, VendorSeenAlert
 from product_search.storage.csv_dump import write_snapshot_csv
 
-
 # ---------------------------------------------------------------------------
 # Listing factory — minimal valid Listing for evaluator tests
 # ---------------------------------------------------------------------------

@@ -92,6 +92,7 @@ KNOWN_REPORT_COLUMNS: frozenset[str] = frozenset(
         "ship_from",
         "qvl_status",
         "flags",
+        "flavor",
     ]
 )
 
@@ -175,6 +176,21 @@ class Source(BaseModel):
                 f"Known source IDs: {sorted(KNOWN_SOURCE_IDS)}"
             )
         return v
+
+    @model_validator(mode="after")
+    def validate_universal_ai_url(self) -> "Source":
+        if self.id == "universal_ai_search":
+            url = getattr(self, "url", None)
+            if not url or not isinstance(url, str):
+                raise ValueError("universal_ai_search source must have a 'url' string field.")
+            from urllib.parse import urlparse
+            parsed = urlparse(url)
+            path = parsed.path.rstrip("/")
+            if not path:
+                raise ValueError(
+                    f"URL {url!r} is a bare domain. A search URL with parameters or a valid path is required."
+                )
+        return self
 
 
 class PendingSource(BaseModel):

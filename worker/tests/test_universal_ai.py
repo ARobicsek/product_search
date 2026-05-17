@@ -232,7 +232,7 @@ def test_alterlab_fetch_path_used_when_key_set(monkeypatch: pytest.MonkeyPatch) 
         def __init__(self, **kwargs: object) -> None:
             captured["client_kwargs"] = kwargs
 
-        def __enter__(self) -> "_StubClient":
+        def __enter__(self) -> _StubClient:
             return self
 
         def __exit__(self, *_: object) -> None:

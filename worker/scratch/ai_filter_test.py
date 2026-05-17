@@ -1,8 +1,8 @@
 import os
-import json
 from datetime import UTC, datetime
-from product_search.profile import load_profile
+
 from product_search.models import Listing
+from product_search.profile import load_profile
 from product_search.validators.ai_filter import ai_filter
 
 # clear fixture mode

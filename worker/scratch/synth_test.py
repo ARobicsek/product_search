@@ -1,13 +1,14 @@
 import os
-import json
 from datetime import UTC, datetime
+
 from dotenv import load_dotenv
+
 load_dotenv('../.env')
 
-from product_search.profile import load_profile
-from product_search.models import Listing
-from product_search.synthesizer import synthesize
-from product_search.storage.diff import DiffResult, PriceChange
+from product_search.models import Listing  # noqa: E402
+from product_search.profile import load_profile  # noqa: E402
+from product_search.storage.diff import DiffResult, PriceChange  # noqa: E402
+from product_search.synthesizer import synthesize  # noqa: E402
 
 os.environ.pop('WORKER_USE_FIXTURES', None)
 profile = load_profile('ddr5-rdimm-256gb')

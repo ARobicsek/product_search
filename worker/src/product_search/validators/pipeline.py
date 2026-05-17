@@ -103,9 +103,22 @@ def run_pipeline(
         # 5. Calculate total for target
         listing.total_for_target_usd = _calculate_total(listing, profile)
 
-        # If unknown quantity and total_for_target_usd couldn't be calculated
-        # we still keep it, but it might be flagged.
-        if listing.quantity_available is None and "unknown_quantity" not in listing.flags:
+        # If unknown quantity and the target requires multi-unit fulfillment,
+        # flag it as unknown_quantity.
+        is_multi_unit_target = False
+        if profile.target.configurations:
+            cap = listing.attrs.get("capacity_gb")
+            if cap is not None:
+                for config in profile.target.configurations:
+                    if config.module_capacity_gb == cap:
+                        if listing.kit_module_count > 0 and config.module_count // listing.kit_module_count > 1:
+                            is_multi_unit_target = True
+                        break
+        elif profile.target.amount > 1:
+            if listing.kit_module_count > 0 and profile.target.amount // listing.kit_module_count > 1:
+                is_multi_unit_target = True
+
+        if is_multi_unit_target and listing.quantity_available is None and "unknown_quantity" not in listing.flags:
             listing.flags.append("unknown_quantity")
 
         passed.append(listing)

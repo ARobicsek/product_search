@@ -58,6 +58,7 @@ export const KNOWN_REPORT_COLUMNS = new Set<string>([
   'ship_from',
   'qvl_status',
   'flags',
+  'flavor',
 ]);
 
 const SLUG_RE = /^[a-z0-9][a-z0-9-]{0,63}$/;

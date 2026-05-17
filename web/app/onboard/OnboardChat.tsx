@@ -4,6 +4,7 @@ import { FormEvent, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import yaml from 'js-yaml';
 import {
   Bot,
   CheckCircle2,
@@ -214,7 +215,14 @@ export function OnboardChat({ initialProfile, initialSlug }: { initialProfile?: 
     void runTurn([kickoffMessage]);
   }
 
-  const draftIntent = findLatestDraft(messages);
+  let draftIntent = findLatestDraft(messages);
+  if (!draftIntent && initialProfile) {
+    try {
+      draftIntent = yaml.load(initialProfile) as Record<string, unknown>;
+    } catch {
+      // ignore
+    }
+  }
   const draftYaml = safeRender(draftIntent);
   const draftSlug = (draftIntent?.slug as string | undefined) ?? null;
 

@@ -62,7 +62,8 @@ For each kept candidate, return:
   - "price_usd": numeric only (e.g. 47.99). Pick the most plausible price
     from price_hints + context. If you cannot identify a price, OMIT this
     candidate entirely.
-  - "pack_size": integer. If the title or context indicates a multi-pack, bundle, count, or kit (e.g. "2-pack", "5 pack", "6 count", "8x32GB"), extract the number of items/units sold. Default to 1.
+  - "pack_size": integer. If the title or context indicates a multi-pack, bundle, count,
+    or kit (e.g. "2-pack", "5 pack", "6 count", "8x32GB"), extract the number of items/units sold. Default to 1.
   - "condition": one of "new", "used", "refurbished" (default "new")
 
 Output a JSON object: {"listings": [...]}
@@ -827,6 +828,152 @@ def _ancestor_card_text(node: Any, max_hops: int = 6, max_text: int = 1500) -> s
     return last_text
 
 
+def _extract_shopify_embedded_products(html: str, base_url: str) -> list[dict[str, Any]]:
+    """Extract candidate products embedded in Shopify / Bold JSON arrays.
+    
+    Resolves zero-match discovery failures on modern headless/SPA Shopify
+    sites where product grids lack price hints in static HTML anchors.
+    """
+    results = []
+    seen_canonicals = set()
+
+    # Pattern 1: window.BOLD.subscriptions.addCachedProductData([...])
+    for m in re.finditer(r"addCachedProductData\((\[.*\}])\);", html, re.DOTALL):
+        try:
+            products = json.loads(m.group(1))
+            if isinstance(products, list):
+                for p in products:
+                    if not isinstance(p, dict):
+                        continue
+                    title = p.get("title") or p.get("name")
+                    handle = p.get("handle") or p.get("url")
+                    if not title or not handle or not isinstance(title, str) or not isinstance(handle, str):
+                        continue
+                    
+                    handle_path = handle
+                    if not handle.startswith("/") and not handle.startswith("http"):
+                        handle_path = f"/products/{handle}"
+                    url_abs = urljoin(base_url, handle_path)
+                    parsed = urlparse(url_abs)
+                    canonical = f"{parsed.scheme}://{parsed.netloc.lower()}{parsed.path.rstrip('/')}"
+                    if canonical in seen_canonicals:
+                        continue
+
+                    prices = []
+                    base_price = p.get("price")
+                    if isinstance(base_price, (int, float)) and base_price > 0:
+                        if isinstance(base_price, int) or base_price.is_integer():
+                            prices.append(f"{base_price / 100.0:.2f}")
+                        else:
+                            prices.append(f"{base_price:.2f}")
+
+                    variants = p.get("variants")
+                    if isinstance(variants, list):
+                        for v in variants:
+                            if isinstance(v, dict):
+                                vp = v.get("price")
+                                if isinstance(vp, (int, float)) and vp > 0:
+                                    if isinstance(vp, int) or vp.is_integer():
+                                        prices.append(f"{vp / 100.0:.2f}")
+                                    else:
+                                        prices.append(f"{vp:.2f}")
+                    
+                    seen_p = set()
+                    deduped_prices = []
+                    for pr in prices:
+                        if pr not in seen_p:
+                            seen_p.add(pr)
+                            deduped_prices.append(pr)
+
+                    if not deduped_prices:
+                        continue
+
+                    desc = p.get("description") or ""
+                    desc_clean = re.sub(r"<[^>]+>", " ", desc)
+                    desc_clean = re.sub(r"\s+", " ", desc_clean).strip()
+
+                    context = f"{title} {desc_clean}"
+                    if len(context) > 500:
+                        context = context[:500] + "…"
+                    context += " Variant prices: " + ", ".join(f"${pr}" for pr in deduped_prices)
+
+                    seen_canonicals.add(canonical)
+                    results.append({
+                        "title": title.strip(),
+                        "href_abs": url_abs,
+                        "prices": deduped_prices,
+                        "context": context,
+                        "fx_approx": False,
+                    })
+        except Exception as exc:
+            logger.debug(f"[universal_ai] Failed to parse addCachedProductData JSON: {exc}")
+
+    # Pattern 2: Web Pixels Manager strings containing "productVariants":[...]
+    for m in re.finditer(r"\"productVariants\"\s*:\s*(\[.*?\])(?:\}|,\s*\"|\Z)", html, re.DOTALL):
+        raw_json = m.group(1)
+        if '\\"' in raw_json:
+            raw_json = raw_json.replace('\\"', '"').replace('\\\\/', '/').replace('\\/', '/')
+        try:
+            variants = json.loads(raw_json)
+            if isinstance(variants, list):
+                prod_map = {}
+                for v in variants:
+                    if not isinstance(v, dict):
+                        continue
+                    prod = v.get("product")
+                    if not isinstance(prod, dict):
+                        continue
+                    title = prod.get("title") or prod.get("untranslatedTitle")
+                    url_val = prod.get("url")
+                    if not title or not url_val or not isinstance(title, str) or not isinstance(url_val, str):
+                        continue
+                    
+                    url_abs = urljoin(base_url, url_val)
+                    parsed = urlparse(url_abs)
+                    canonical = f"{parsed.scheme}://{parsed.netloc.lower()}{parsed.path.rstrip('/')}"
+                    if canonical in seen_canonicals:
+                        continue
+
+                    price_info = v.get("price")
+                    amt = None
+                    if isinstance(price_info, dict):
+                        amt = price_info.get("amount")
+                    elif isinstance(v.get("price"), (int, float)):
+                        amt = v.get("price")
+                    
+                    if isinstance(amt, (int, float)) and amt > 0:
+                        pr_str = f"{amt:.2f}"
+                        if canonical not in prod_map:
+                            prod_map[canonical] = {
+                                "title": title.strip(),
+                                "href_abs": url_abs,
+                                "prices": [],
+                                "context_parts": [title.strip()],
+                            }
+                        if pr_str not in prod_map[canonical]["prices"]:
+                            prod_map[canonical]["prices"].append(pr_str)
+                            v_title = v.get("title")
+                            if v_title and isinstance(v_title, str) and v_title.strip():
+                                prod_map[canonical]["context_parts"].append(f"Option {v_title.strip()}: ${pr_str}")
+
+                for canonical, pdata in prod_map.items():
+                    seen_canonicals.add(canonical)
+                    context = " | ".join(pdata["context_parts"])
+                    if len(context) > 500:
+                        context = context[:500] + "…"
+                    results.append({
+                        "title": pdata["title"],
+                        "href_abs": pdata["href_abs"],
+                        "prices": pdata["prices"],
+                        "context": context,
+                        "fx_approx": False,
+                    })
+        except Exception as exc:
+            logger.debug(f"[universal_ai] Failed to parse Web Pixels Manager productVariants JSON: {exc}")
+
+    return results
+
+
 def _extract_candidates(
     html: str, base_url: str, *, max_candidates: int = 80
 ) -> list[dict[str, Any]]:
@@ -860,6 +1007,19 @@ def _extract_candidates(
     # canonical_url -> {"href_abs": ..., "raw": [{title, context, prices}, ...]}
     groups: dict[str, dict[str, Any]] = {}
     order: list[str] = []  # preserve DOM order of first encounter
+
+    # Pre-seed groups with embedded Shopify products
+    for ep in _extract_shopify_embedded_products(html, base_url):
+        parsed = urlparse(ep["href_abs"])
+        canonical = f"{parsed.scheme}://{parsed.netloc.lower()}{parsed.path.rstrip('/')}"
+        groups[canonical] = {"href_abs": ep["href_abs"], "raw": []}
+        order.append(canonical)
+        groups[canonical]["raw"].append({
+            "title": ep["title"],
+            "context": ep["context"],
+            "prices": ep["prices"],
+            "fx_approx": ep["fx_approx"],
+        })
 
     for a in tree.css("a"):
         href = (a.attributes.get("href") or "").strip()
@@ -986,7 +1146,7 @@ def _extract_candidates(
 # --- Main entry point ------------------------------------------------------
 
 
-def fetch(query: AdapterQuery) -> list[Listing]:
+def fetch(query: AdapterQuery, profile: Any | None = None) -> list[Listing]:
     """Fetch and extract product listings from an arbitrary vendor URL."""
     global LAST_RUN_USAGE
     LAST_RUN_USAGE = None
@@ -1079,11 +1239,28 @@ def fetch(query: AdapterQuery) -> list[Listing]:
         for c in candidates
     ]
 
+    prompt = SYSTEM_PROMPT
+    extra_keys = []
+    if profile and hasattr(profile, "spec_attrs") and profile.spec_attrs:
+        extra_lines = []
+        for k, attr_def in profile.spec_attrs.items():
+            extra_keys.append(k)
+            attr_type = getattr(attr_def, "type", "str")
+            desc = f'  - "{k}": extract this attribute from title or context if present (type: {attr_type}).'
+            if hasattr(attr_def, "enum") and attr_def.enum:
+                desc += f" Must be one of: {attr_def.enum}."
+            extra_lines.append(desc)
+        if extra_lines:
+            prompt = prompt.replace(
+                "Output a JSON object:",
+                "\n".join(extra_lines) + "\n\nOutput a JSON object:",
+            )
+
     try:
         resp = call_llm(
             provider="anthropic",
             model="claude-haiku-4-5",
-            system=SYSTEM_PROMPT,
+            system=prompt,
             messages=[Message(role="user", content=json.dumps(llm_payload, indent=2))],
             response_format="json",
             max_tokens=4096,
@@ -1151,6 +1328,10 @@ def fetch(query: AdapterQuery) -> list[Listing]:
         attrs = {"vendor_host": parsed_host, "extractor": "anchor_llm"}
         if cand.get("fx_approx"):
             attrs["price_approx_fx"] = cand["fx_approx"]
+
+        for k in extra_keys:
+            if k in v and v[k] is not None:
+                attrs[k] = v[k]
 
         try:
             llm_pack_size = int(v.get("pack_size") or 1)

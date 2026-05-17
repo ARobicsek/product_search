@@ -1,6 +1,8 @@
 import asyncio
+
+from product_search.models import Listing, Profile, Rule, Target
 from product_search.validators.ai_filter import filter_listings
-from product_search.models import Listing, Profile, Target, Rule
+
 
 async def test():
     profile = Profile(
@@ -14,7 +16,10 @@ async def test():
     lst = Listing(
         source="universal_ai_search",
         url="https://www.amazon.com/dp/B0D8VPJ9XZ",
-        title="2PCS 54mm Silicone Steam Ring for Breville Espresso Machine 878/870/860/880/810/840/450/500 and Sage 880/878/875/870/810/500, Breville Espresso Machine Accessories Grouphead Gasket Replacement Part",
+        title=(
+            "2PCS 54mm Silicone Steam Ring for Breville Espresso Machine 878/870/860/880/810/840/450/500 "
+            "and Sage 880/878/875/870/810/500, Breville Espresso Machine Accessories Grouphead Gasket Replacement Part"
+        ),
         brand="Unknown",
         mpn="Unknown",
         attrs={},

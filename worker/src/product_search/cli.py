@@ -15,6 +15,10 @@ import argparse
 import sys
 from typing import TYPE_CHECKING, Any
 
+from dotenv import load_dotenv
+
+load_dotenv()
+
 if TYPE_CHECKING:
     from product_search.models import Listing
 
@@ -316,7 +320,7 @@ def _cmd_search(
                 listings = fetch_memstore(query)
             elif source.id == "universal_ai_search":
                 from product_search.adapters import universal_ai as universal_ai_mod
-                listings = universal_ai_mod.fetch(query)
+                listings = universal_ai_mod.fetch(query, profile=profile)
                 if universal_ai_mod.LAST_RUN_USAGE:
                     # Tag with the source URL so the cost panel can
                     # disambiguate when a profile has multiple vendor URLs.
