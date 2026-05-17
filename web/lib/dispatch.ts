@@ -32,6 +32,24 @@ export async function dispatchOnDemandRun(product: string): Promise<void> {
   }
 }
 
+// Phase 20 / ADR-052: triggered by the external scheduler (cron-job.org) via
+// /api/cron/tick. workflow_dispatch is NOT throttled the way schedule: is, so
+// this is the on-time path; the kept schedule: '*/15' in the workflow is only
+// a degraded fallback.
+export async function dispatchScheduledTick(): Promise<void> {
+  const url = `https://api.github.com/repos/${REPO}/actions/workflows/${SCHEDULED_WORKFLOW_FILE}/dispatches`;
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { ...dispatchHeaders(), 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ref: BRANCH }),
+    cache: 'no-store',
+  });
+  if (res.status !== 204) {
+    const body = await res.text().catch(() => '');
+    throw new Error(`GitHub scheduled dispatch failed: ${res.status} ${res.statusText} ${body}`);
+  }
+}
+
 export interface RunStatus {
   state: 'pending' | 'queued' | 'in_progress' | 'completed';
   conclusion: string | null;

@@ -9,9 +9,9 @@ Status values:
 
 ---
 
-## ADR-052 — Reliable scheduling via external `workflow_dispatch` through the existing Vercel app (PROPOSED)
+## ADR-052 — Reliable scheduling via external `workflow_dispatch` through the existing Vercel app (ACCEPTED — code implemented; live setup pending user runbook)
 
-**Status**: PROPOSED — planned 2026-05-17, implementation deferred to a dedicated session (Phase 20). Confirm/override before relying on it.
+**Status**: ACCEPTED — code implemented 2026-05-17 (Phase 20). The in-repo surface is done and verified locally (tsc/lint clean; `/api/cron/tick` returns the 500 guard for both GET and POST before any GitHub call). **The on-time behaviour does NOT take effect until the out-of-repo runbook is executed by the user** (set `CRON_TRIGGER_SECRET` in Vercel Production env + redeploy; create the cron-job.org job). Until then scheduling still runs on the kept `schedule:` fallback (~hourly). The live Done-when gate (≥4 on-time `workflow_dispatch` over ≥1 h; a one-time `run_at` fires within ~15 min) is verified by the user post-setup — see PROGRESS.md.
 
 **Date**: 2026-05-17
 
@@ -94,7 +94,7 @@ Status values:
 
 **Consequence**:
 - The user's headline use case now works: "8:30 AM ET today" → `run_at: 2026-05-17T12:30:00Z`, fires within ~15 min of that instant, then self-clears.
-- Enabling the heartbeat is a real behaviour change (96 mostly-idle Actions runs/day) but free on a public repo (ADR-004); the only costs are Actions-history noise and occasional GitHub cron delay under load. It does **not** increase search/LLM spend — a product still runs at most once per its cadence regardless of tick frequency.
+- Enabling the heartbeat is a real behaviour change (96 mostly-idle Actions runs/day) but free on a public repo (ADR-004); the only costs are Actions-history noise and occasional GitHub cron delay under load. It does **not** increase search/LLM spend — a product still runs at most once per its cadence regardless of tick frequency. **Update (ADR-052, Phase 20):** the "occasional GitHub cron delay" was empirically far worse than this caveat implied (collapsed to ~hourly); ADR-052 supersedes it by making `workflow_dispatch` (external trigger) the on-time path and the `schedule:` cron only a degraded fallback. ADR-050's scheduler/one-time semantics are unchanged.
 - New recurring `Schedule` shape must stay in sync between `profile.py` and `web/lib/onboard/schema.ts` (same Pydantic/TS hazard as ADR-049's `page_type`).
 - Minute-aware matching is stricter than the old hour-only check; safe here because all existing schedules were stripped (no migration risk). Cron fields the parser can't expand are treated as non-matching (never fire on an unparseable cron).
 - Follow-up (not a gate): a failed one-time run is not retried (attempted-once semantics) — acceptable for v1; revisit if transient failures prove common. DST drift on recurring daily crons is unaddressed by design (would need a stored tz + scheduler localisation).

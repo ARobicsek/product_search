@@ -1,11 +1,20 @@
 name: Search (Scheduled)
 
-# Heartbeat: every 15 minutes. scheduler-tick decides per-profile whether a
-# product is "due" (recurring cron occurrence in the look-back window, or a
-# past-due one-time run_at). 15-min cadence is what lets one-time jobs land
-# near :15/:30/:45 instead of only on the hour. Free on a public repo
-# (unlimited Actions minutes); the only cost is Actions-history noise and
-# occasional GitHub cron delay under load (see ADR-050).
+# scheduler-tick decides per-profile whether a product is "due" (recurring
+# cron occurrence in the look-back window, or a past-due one-time run_at).
+#
+# Phase 20 / ADR-052: the ON-TIME path is `workflow_dispatch`, fired every
+# ~15 min by an external scheduler (cron-job.org → POST /api/cron/tick on the
+# Vercel app → this dispatch). GitHub's own `schedule:` is best-effort and was
+# measured collapsing to ~hourly (intervals [64,57,62,63] min on 2026-05-17),
+# which is why a reliable external trigger is needed.
+#
+# The `schedule:` cron below is KEPT ON PURPOSE as a DEGRADED FALLBACK only:
+# if cron-job.org or the Vercel route is ever down, scheduling degrades to
+# "late" (~hourly) instead of "dead". It is NOT the primary trigger. Free on a
+# public repo (unlimited Actions minutes); cost is Actions-history noise +
+# occasional ~hourly delay when the fallback is what actually fires. See
+# ADR-052 (supersedes the ADR-050 cron-delay caveat).
 on:
   workflow_dispatch:
   schedule:

@@ -12,9 +12,41 @@
 
 **Phase 17 — Schedule visibility follow-up. 2026-05-17 (user request).** User reported the `amd-epyc-9255` one-time runs "never ran". Diagnosis: they **did** run (14:30Z→fired 14:41Z, 16:15Z→fired 16:43Z) but ~12–28 min late (GitHub `*/15` heartbeat + Actions cron lag, an accepted ADR-050 tradeoff) and were **invisible** — the cards page showed only a date and the detail footer is on-demand-only. Built a per-card run-status surface (last-run local date+**time** from the newest data CSV + a live "Running" green dot). See ADR-051 and the dated status block below.
 
-**Phase 20 — Reliable scheduling trigger. PLANNED 2026-05-17 (user-directed), implementation deferred to next session.** Root-caused the recurring "my scheduled run didn't fire on time" complaint: GitHub Actions `schedule:` is throttled to ~hourly (measured intervals [64,57,62,63] min) so a one-time job lands up to ~1 h late. Designed the fix end-to-end (free, Vercel-Hobby-safe): cron-job.org → existing Vercel route → existing `GITHUB_DISPATCH_TOKEN` → `workflow_dispatch`. Full plan in [PHASES.md Phase 20](PHASES.md#phase-20--reliable-scheduling-trigger-external-workflow_dispatch); decision + rejected alternatives in ADR-052 (PROPOSED).
+**Phase 20 — Reliable scheduling trigger. CODE IMPLEMENTED 2026-05-17; live cut-over BLOCKED on a one-time user runbook.** The in-repo fix is done & verified locally: `dispatchScheduledTick()` in `web/lib/dispatch.ts`, new `web/app/api/cron/tick/route.ts` (GET+POST, `x-cron-secret`/`CRON_TRIGGER_SECRET` guard mirroring `/api/dispatch`), `CRON_TRIGGER_SECRET` in `.env.example`, `search-scheduled.yml` re-commented (workflow_dispatch = on-time path, `schedule: '*/15'` kept as degraded fallback), ADR-050 caveat cross-linked. tsc/lint clean; route returns the 500 guard for GET+POST before any GitHub call. **Scheduling still runs on the ~hourly `schedule:` fallback until the user does the out-of-repo setup** (see the runbook in the dated block below). ADR-052 → ACCEPTED (code); live Done-when (≥4 on-time `workflow_dispatch` over ≥1 h + a one-time `run_at` firing within ~15 min) is user-verified post-setup.
 
-**Next session: implement Phase 20** (read its PHASES.md brief + ADR-052). It is now the priority over Phase 18 per the user. **Phase 18 — Polish + second-product proof** ([PHASES.md](PHASES.md#phase-18--polish--second-product-proof-replaces-old-phase-12)) remains queued after Phase 20.
+**Next session: do the Phase 20 runbook (user action) + verify, OR start Phase 18.** The runbook (Vercel env var + cron-job.org job) is the only thing between "code merged" and "scheduling actually on-time" — it cannot be done from code. After it's done + verified, record the cron-job.org job's owner/existence here and confirm the live Done-when. **Phase 18 — Polish + second-product proof** ([PHASES.md](PHASES.md#phase-18--polish--second-product-proof-replaces-old-phase-12)) remains queued.
+
+## Status as of 2026-05-17 (Phase 20 — code implemented; live cut-over needs a one-time user runbook)
+
+**Implemented the Phase 20 in-repo surface end-to-end. The on-time scheduler is NOT live yet — it switches on only after the user runs the out-of-repo runbook below. Until then, scheduling keeps working on the kept ~hourly `schedule:` fallback (degraded, not dead).**
+
+### Changes applied this session (all in-repo, code + docs)
+
+- `web/lib/dispatch.ts` — `dispatchScheduledTick()`: `POST` `workflow_dispatch` to `search-scheduled.yml` (`ref: main`, no inputs), reuses `dispatchHeaders()` + `GITHUB_DISPATCH_TOKEN`, mirrors `dispatchOnDemandRun`'s 204-check.
+- `web/app/api/cron/tick/route.ts` (new) — `GET` **and** `POST` (some external schedulers only do GET) → shared `handle()`: 500 if `CRON_TRIGGER_SECRET` unset, 401 on missing/mismatched `x-cron-secret`, else `dispatchScheduledTick()` → `{ ok, dispatchedAt }`. Guard shape is identical to the proven `/api/dispatch`. No request body needed.
+- `.env.example` — added server-only `CRON_TRIGGER_SECRET=` (no `NEXT_PUBLIC_` twin; documented "must be set in Vercel Production").
+- `.github/workflows/search-scheduled.yml` — header comment rewritten: `workflow_dispatch` (external trigger) is the on-time path; `schedule: '*/15'` **kept on purpose** as a labelled degraded fallback; points at ADR-052.
+- `docs/DECISIONS.md` — ADR-052 flipped PROPOSED → **ACCEPTED (code)**; ADR-050's cron-delay caveat now cross-links ADR-052.
+- ScheduleEditor copy (task 5) — re-verified: "it will run at the next scheduler tick (within ~15 min)" and "Saved. The scheduler will pick this up on its next tick." are accurate once the trigger is live. **No code change.**
+
+### Verification
+
+- `npx tsc --noEmit` clean · `npm run lint` 0 errors (same 6 pre-existing warnings: SubscribeButton/OnboardChat/next.config/sw.js — none in new files).
+- Route smoke (against the already-running dev server on :3000, which has no `CRON_TRIGGER_SECRET`): both `POST` and `GET /api/cron/tick` return `HTTP 500 {"ok":false,"error":"CRON_TRIGGER_SECRET not configured on server"}` — proves the new route compiles in Next 16, both verbs are wired, and the guard returns **before** any GitHub dispatch (no token use, no CI burn). 401 + success + on-time cadence require the env var/token + cron-job.org and are user-verified via the runbook (401 guard shape is byte-identical to the production-proven `/api/dispatch`).
+- Not done locally: a real `workflow_dispatch` (would fire a real Actions run / burn CI — deliberately not triggered autonomously in auto mode).
+
+### >>> USER RUNBOOK — required to make scheduling on-time (cannot be done from code) <<<
+
+1. **Vercel** → project → Settings → Environment Variables: add `CRON_TRIGGER_SECRET` = a long random string (`openssl rand -hex 32`) to **Production**; **redeploy** so the env var is live.
+2. **cron-job.org** (free account): create a job — Title `product_search scheduler tick`; URL `https://<your-vercel-domain>/api/cron/tick`; method **POST**; add custom request header `x-cron-secret: <the same value from step 1>`; schedule **every 15 minutes**; enable failure notifications; save & enable.
+3. After it's running, **record the cron-job.org account owner + that the job exists right here in PROGRESS** (config lives outside the repo — future sessions must know).
+4. **Live Done-when to confirm** (then ADR-052 is fully ACCEPTED, not just code-ACCEPTED): GitHub Actions shows `search-scheduled.yml` runs with **event = `workflow_dispatch`** ~every 15 min on time for ≥1 h (≥4 in a row); set a one-time `run_at` ~10–15 min out and confirm it fires within ~15 min, produces a report/CSV, self-clears the `schedule:` block, and shows on the cards chip + detail footer.
+
+### Next session — start here
+
+If the runbook above is **not yet done**: that's the priority — it's a ~10-min user task; walk the user through it and verify the live Done-when, then annotate the cron-job.org ownership here. If it **is** done & verified: resume **Phase 18 — Polish + second-product proof** (read its PHASES.md brief). Carry-over still valid: ADR-040 auto-demote impl; AlterLab 422 retry; IT-Creations in_stock flip; one-time runs are attempted-once/no-retry; GitHub `schedule:` fallback still emits occasional ~hourly runs (accepted price of resilience per ADR-052).
+
+---
 
 ## Status as of 2026-05-17 (scheduling-reliability root cause + Phase 20 plan — NO code this session)
 
