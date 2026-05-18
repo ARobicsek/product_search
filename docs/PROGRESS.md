@@ -14,7 +14,7 @@
 
 **Phase 20 — Reliable scheduling trigger. DONE 2026-05-18. Chain PROVEN end-to-end.** Code shipped + pushed (`0d5b99a`): `dispatchScheduledTick()` in `web/lib/dispatch.ts`, new `web/app/api/cron/tick/route.ts` (GET+POST, `x-cron-secret`/`CRON_TRIGGER_SECRET` guard mirroring `/api/dispatch`), `CRON_TRIGGER_SECRET` in `.env.example`, `search-scheduled.yml` re-commented (workflow_dispatch = on-time path, `schedule: '*/15'` kept as degraded fallback), ADR-050 caveat cross-linked. tsc/lint clean. Out-of-repo runbook executed (Vercel `CRON_TRIGGER_SECRET` set in Production + **redeployed** — the redeploy was the missing step that caused an interim 401; cron-job.org job 7619329, `*/15`, POST, `x-cron-secret`, America/New_York, enabled; owner ari.robicsek@gmail.com). **Verified live 2026-05-18**: cron-job.org test run → `200 {"ok":true,"dispatchedAt":"2026-05-18T05:15:29.703Z"}`; GitHub Actions then ran `search-scheduled.yml` with `event = workflow_dispatch`, completed **success at 05:15:30Z** (≈1 s after dispatch). ADR-052 → **ACCEPTED (fully — implemented + proven)**.
 
-**Remaining = passive/optional, NOT a gate:** the recurring `*/15` cron-job.org job now produces on-time `workflow_dispatch` runs automatically (cron-job.org emails on failure); the ≥4-over-≥1 h cadence accrues on its own. A one-time `run_at` end-to-end (set via the schedule editor → fires within ~15 min → self-clears → shows on cards chip/footer) exercises already-shipped ADR-050/051 logic through the now-proven trigger; spot-check whenever convenient. **Next session: resume Phase 18 — Polish + second-product proof** ([PHASES.md](PHASES.md#phase-18--polish--second-product-proof-replaces-old-phase-12)).
+**Remaining = passive/optional, NOT a gate:** the recurring `*/15` cron-job.org job now produces on-time `workflow_dispatch` runs automatically (cron-job.org emails on failure); the ≥4-over-≥1 h cadence accrues on its own. A one-time `run_at` end-to-end (set via the schedule editor → fires within ~15 min → self-clears → shows on cards chip/footer) exercises already-shipped ADR-050/051 logic through the now-proven trigger; spot-check whenever convenient. **Next session (user-directed 2026-05-18): work on the alerts UX confusion + email-on-alert option** — start with a structured trade-off interview, NOT code (details in the ADR-053 status block → "Noticed but deferred — alerts UX confusion"). **Phase 18 — Polish + second-product proof** ([PHASES.md](PHASES.md#phase-18--polish--second-product-proof-replaces-old-phase-12)) remains queued after that.
 
 **Inter-phase fix — `universal_ai` transient-fetch retry. DONE 2026-05-18 (ADR-053).** Not Phase 18 scope; a targeted reliability fix the user explicitly requested after diagnosing the `amd-epyc-9255` `2026-05-18T04:55:34Z` run (provantage `curl: (28)` connection timeout dropped the cheapest source and silently moved the report headline $2117→$2795). `fetch()` now calls `_fetch_html_with_retry` (one bounded retry, 2 s backoff, only on timeout/connection-class errors; AlterLab auth/quota + parse errors fail fast). ruff + mypy --strict clean; full worker suite 240 passed (4 new). See ADR-053 + the dated status block below.
 
@@ -42,9 +42,23 @@ Diagnosed the latest `amd-epyc-9255` run (`reports/amd-epyc-9255/data/2026-05-18
 2. Surface "N source(s) errored — cheapest may be understated" in the report so a fetch-driven headline move is legible.
 3. Report-footer doc nit: `cdw.com` appears under both "searched (ok)" and "Pending (not yet wired)".
 
+### Noticed but deferred — alerts UX confusion + email option (USER WANTS TO WORK ON THIS NEXT SESSION)
+
+User reported the per-product alerts control is confusing. Diagnosed by reading `web/app/[product]/SubscribeButton.tsx` + `web/app/api/push/{subscribe,notify}/route.ts` (no code written — diagnosis only):
+
+- It **is** the subscribe control, just labeled **"Enable Alerts"** (🔔 `Bell`) / **"Disable Alerts"** (🔕 `BellOff`). There is no separate "Subscribe" anywhere.
+- **Label shows the action, not the current state** → users can't tell if alerts are on. (Bell/"Enable" = currently OFF; crossed-bell/"Disable" = currently ON.) This is the primary confusion.
+- **Device-wide, NOT per-slug.** It subscribes the whole browser/device to push for *all* products. The `productSlug` prop is passed but **unused**; delivery is a single global Redis set `push_subscriptions` fanned out to every subscription ([notify/route.ts](web/app/api/push/notify/route.ts)). Living on an individual product page wrongly implies per-product scope; no caption states "this device will receive alerts for all tracked products".
+- **Only renders inside the installed PWA** (`display-mode: standalone` → returns `null` otherwise). That's why it's invisible on a normal desktop browser tab and the user "couldn't find subscribe" on desktop.
+- Conceptual layering not surfaced: this control = "does this device receive push at all"; the price-below / vendor-seen **rules** are set separately in the alerts editor and live per-product in the profile. The two are not visually connected.
+
+Also raised + deferred this session: **option to also email when an alert fires.** No email path exists anywhere today (`worker/.../notify.py` only POSTs to `/api/push/notify`; no Resend/SES/SMTP). New feature — simplest single-user fit is a global "also email me" gated by an env var + recipient (Resend free tier fits the free/self-owned-infra preference); a per-alert email toggle is more work (UI + profile schema + worker plumbing). Needs its own ADR + sign-off.
+
+Process for next session (per the user's standing UX-work preference, memory `feedback_interview_before_ux_work`): run a structured trade-off interview (AskUserQuestion) surfacing the backend constraint — global fan-out, no per-user/per-product targeting today — **before** coding.
+
 ### Next session
 
-Unchanged: **resume Phase 18 — Polish + second-product proof**. This fix does not alter the Phase 18 brief.
+User wants to **work on the alerts UX confusion + email-on-alert option next session** (see "Noticed but deferred" above — start with the trade-off interview, not code). Phase 18 — Polish + second-product proof remains the queued phase after that; this session's ADR-053 fix does not alter the Phase 18 brief.
 
 ## Status as of 2026-05-18 (Phase 20 — DONE; external trigger PROVEN end-to-end)
 
