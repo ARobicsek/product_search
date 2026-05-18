@@ -702,14 +702,21 @@ function AlertForm({
               }
               className="flex-1 text-xs px-2 py-1 border border-gray-200 dark:border-gray-700 rounded bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100"
             >
-              <option value="is_below">Whenever it&apos;s at/below the price</option>
-              <option value="drops_below">Only when it drops below the price</option>
+              <option value="is_below">Once, when it&apos;s at/below the price</option>
+              <option value="while_below">Every run while it&apos;s at/below the price</option>
+              {/* drops_below retired from the picker (ADR-057) but still
+                  selectable when editing a legacy rule that already uses it. */}
+              {draft.mode === 'drops_below' && (
+                <option value="drops_below">Only on a fresh drop (legacy)</option>
+              )}
             </select>
           </div>
           <p className="text-[10px] text-gray-500 dark:text-gray-400 leading-snug">
-            {draft.mode === 'is_below'
-              ? 'Alerts as soon as the cheapest is at/below your price — including right after you add this if it is already below — then stays quiet until the price goes back up.'
-              : 'Alerts only on the run where the cheapest crosses from above to below your price. Will not alert if it is already below when you add this.'}
+            {draft.mode === 'while_below'
+              ? 'Alerts on every scheduled run for as long as the cheapest is at/below your price. Noisiest — one notification per run.'
+              : draft.mode === 'is_below'
+                ? 'Alerts once, as soon as the cheapest is at/below your price — including right after you add this if it is already below — then stays quiet until the price goes back up and dips again.'
+                : 'Legacy: alerts only on the run where the cheapest crosses from above to below your price. Will not alert if it is already below when you add this.'}
           </p>
           <div className="flex items-center gap-2">
             <label className="text-[11px] text-gray-700 dark:text-gray-300 shrink-0 w-20">Threshold $</label>

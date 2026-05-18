@@ -48,8 +48,8 @@ class AlertsState:
     ``armed[fingerprint]`` is ``True`` when an ``is_below`` rule is eligible to
     fire on its next below-threshold observation. A missing key means "armed"
     (a freshly created or edited rule starts armed, so it fires immediately if
-    the price is already below). ``drops_below`` and ``vendor_seen`` rules are
-    stateless and never touch this.
+    the price is already below). ``drops_below``, ``while_below`` and
+    ``vendor_seen`` rules are stateless and never touch this.
     """
 
     armed: dict[str, bool] = field(default_factory=dict)
@@ -169,6 +169,25 @@ def _evaluate_price_is_below(
     return FiredAlert(rule=rule, headline=headline)
 
 
+def _evaluate_price_while_below(
+    rule: PriceBelowAlert,
+    current: list[Listing],
+) -> FiredAlert | None:
+    """State-free ``while_below`` (ADR-057): fire on every run where the
+    matching cheapest is below the threshold — no per-dip dedupe, no armed
+    flag. A run with no eligible listing simply does not fire (ship-simple;
+    the robust "N sources errored" handling is the deferred ADR-053 item)."""
+    curr = _cheapest(current, condition=rule.condition)
+    if curr is None or curr.unit_price_usd >= rule.threshold_usd:
+        return None
+    cond_phrase = f" ({rule.condition})" if rule.condition else ""
+    headline = (
+        f"Cheapest{cond_phrase} is ${curr.unit_price_usd:,.2f} "
+        f"— at or below your ${rule.threshold_usd:,.2f} alert"
+    )
+    return FiredAlert(rule=rule, headline=headline)
+
+
 def _evaluate_vendor_seen(
     rule: VendorSeenAlert,
     current: list[Listing],
@@ -211,6 +230,8 @@ def evaluate_alerts(
         if isinstance(rule, PriceBelowAlert):
             if rule.mode == "is_below":
                 res = _evaluate_price_is_below(rule, current, state)
+            elif rule.mode == "while_below":
+                res = _evaluate_price_while_below(rule, current)
             else:
                 res = _evaluate_price_below(rule, current, previous)
         elif isinstance(rule, VendorSeenAlert):

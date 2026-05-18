@@ -18,17 +18,23 @@
 // Alerts are optional and default to []. An empty list is written as `alerts: []`
 // inline; an undefined list omits the block entirely.
 
-// `mode` mirrors profile.py:PriceBelowAlert.mode (ADR-056).
+// `mode` mirrors profile.py:PriceBelowAlert.mode (ADR-056, ADR-057).
 //  - 'drops_below': fire only on the transition run where the cheapest
 //    crosses from at/above the threshold down to below it (old behavior;
 //    also the worker's default when `mode` is absent from the YAML).
-//  - 'is_below': fire as soon as the cheapest is below — including the
-//    first run after the rule is created while already below — then stay
-//    quiet until the price returns to/above the threshold (re-arm).
-export type PriceBelowMode = 'drops_below' | 'is_below';
+//    Retired from the editor UI (ADR-057) but still parsed/valid for any
+//    pre-existing serialized rule.
+//  - 'is_below': fire once per dip — as soon as the cheapest is below
+//    (including the first run after the rule is created while already
+//    below) — then stay quiet until the price returns to/above the
+//    threshold (re-arm). Stateful.
+//  - 'while_below' (ADR-057): fire on EVERY run while the cheapest is
+//    below the threshold. Stateless, no per-dip dedupe.
+export type PriceBelowMode = 'drops_below' | 'is_below' | 'while_below';
 
 export const PRICE_BELOW_MODES: ReadonlyArray<PriceBelowMode> = [
   'is_below',
+  'while_below',
   'drops_below',
 ];
 
@@ -211,8 +217,13 @@ export function describeRule(rule: AlertRule): string {
     const cond = rule.condition ? ` (${rule.condition} only)` : '';
     const amount = `$${rule.threshold_usd.toLocaleString()}`;
     // Undefined mode = the worker's drops_below default.
-    const verb = rule.mode === 'is_below' ? 'is at or below' : 'drops below';
-    return `Cheapest${cond} ${verb} ${amount}`;
+    const suffix =
+      rule.mode === 'while_below'
+        ? `is at or below ${amount} (every run)`
+        : rule.mode === 'is_below'
+          ? `is at or below ${amount} (once per dip)`
+          : `drops below ${amount}`;
+    return `Cheapest${cond} ${suffix}`;
   }
   return `Any listing seen at ${rule.host}`;
 }

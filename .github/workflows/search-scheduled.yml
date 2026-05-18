@@ -56,6 +56,11 @@ jobs:
           EBAY_CLIENT_ID: ${{ secrets.EBAY_CLIENT_ID }}
           EBAY_CLIENT_SECRET: ${{ secrets.EBAY_CLIENT_SECRET }}
           ALTERLAB_API_KEY: ${{ secrets.ALTERLAB_API_KEY }}
+          # Without these two, notify.py early-returns and NO alert push is
+          # ever sent (the alert still fires + disarms in the state machine).
+          # PUSH_NOTIFY_SECRET must equal the same-named value in Vercel.
+          WEB_URL: ${{ secrets.WEB_URL }}
+          PUSH_NOTIFY_SECRET: ${{ secrets.PUSH_NOTIFY_SECRET }}
         run: |
           python -m product_search.cli scheduler-tick
 

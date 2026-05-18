@@ -225,12 +225,17 @@ class PriceBelowAlert(BaseModel):
       created while already below — then stays quiet for the rest of that dip
       and re-arms once the price goes back to/above the threshold. State is
       persisted per-rule in ``reports/<slug>/alerts_state.json``.
+    - ``while_below`` (ADR-057): fires on *every* run where the matching
+      cheapest is below the threshold (no dedupe). Stateless — never touches
+      ``alerts_state.json``. A run with no eligible listing simply does not
+      fire that run (ship-simple; robust source-error handling is the deferred
+      ADR-053 item).
     """
 
     kind: Literal["price_below"]
     threshold_usd: float = Field(gt=0)
     condition: Literal["new", "used", "refurbished"] | None = None
-    mode: Literal["drops_below", "is_below"] = "drops_below"
+    mode: Literal["drops_below", "is_below", "while_below"] = "drops_below"
 
 
 class VendorSeenAlert(BaseModel):

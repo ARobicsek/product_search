@@ -9,6 +9,44 @@ Status values:
 
 ---
 
+## ADR-058 — Add a third `price_below` mode `while_below` (every-run, stateless); UI shows only `is_below` + `while_below` (ACCEPTED — implemented)
+
+**Status**: ACCEPTED — implemented 2026-05-18 (user request; design locked via a structured trade-off interview per memory `feedback_interview_before_ux_work`, building directly on ADR-056).
+
+**Date**: 2026-05-18
+
+**Context**: After ADR-056 shipped `is_below` (once-per-dip), the user reported (correctly diagnosed below as ADR-057, a *delivery* bug — not this) that "the price is below $2700 but I'm not getting alerts". When asked what behavior they actually want, the answer was: *"I want the UI to give me the flexibility to specify whether I want it once (first run after drop) or every time it's below a number."* `is_below` covers "once", `drops_below` covers neither intuitively, and there was no "every run while below" option. The `drops_below` vs `is_below` distinction in the picker was itself the original ADR-056 confusion.
+
+**Decision** (interview-confirmed):
+- Add `mode: "while_below"` to `PriceBelowAlert` (`profile.py` Literal now `drops_below | is_below | while_below`; default still `drops_below` for back-compat of any serialized rule). New `_evaluate_price_while_below` in `alerts.py`: **stateless** — fires on every run where the matching cheapest is `< threshold`; a run with no eligible listing simply does not fire that run (ship-simple — robust source-error handling stays the deferred ADR-053 "N sources errored" item, user chose this explicitly over zero-listing state-holding). Never touches `alerts_state.json`. Wired into `evaluate_alerts` mode dispatch; `rule_fingerprint` already keys on `mode` so it is distinct.
+- Web mirrors: `lib/alerts.ts` (`PriceBelowMode` union, `PRICE_BELOW_MODES`, `describeRule` now suffixes "(every run)" / "(once per dip)" / "drops below"), `lib/onboard/schema.ts` `ALERT_PRICE_MODES`. The editor "When" selector now offers exactly **two** choices — "Once, when it's at/below the price" (`is_below`) and "Every run while it's at/below the price" (`while_below`); `drops_below` is **retired from the picker** but still rendered as a selectable "legacy" option *iff* the rule being edited already has `mode: drops_below` (no blank-select, no silent behavior change for a legacy rule). New rules still default to `is_below` (quieter).
+
+**Consequence**:
+- The user gets the requested explicit once-vs-every-run choice; the confusing `drops_below`/`is_below` pairing is gone from the normal path.
+- `while_below` on an hourly schedule = one push per hour while below — by design (helper text says "Noisiest"). Acceptable per the interview.
+- `while_below` is robust to the ADR-053 transient-fetch false-spike (no armed flag to spuriously re-arm, unlike `is_below`); the only flake artifact is a single skipped notification on a zero-listing run, which self-heals next run.
+- Worker suite 255 passed (4 new in `test_alerts.py`); ruff + mypy (`--strict` on touched files, plain on `src/`) clean; web `tsc --noEmit` + eslint clean. Default-`drops_below` keeps all prior alerts tests valid.
+- Unchanged scope: push remains device-wide fan-out (ADR-055); email-on-alert still deferred to its own ADR. Delivery itself is fixed by ADR-057 (sibling decision this session).
+
+---
+
+## ADR-057 — Wire `WEB_URL` + `PUSH_NOTIFY_SECRET` into both search workflows (alert pushes were NEVER sent) (ACCEPTED — implemented; out-of-repo runbook required)
+
+**Status**: ACCEPTED — implemented in-repo 2026-05-18. **Inert until the user completes the out-of-repo runbook** (GitHub Actions secrets + Vercel env) — flagged, not done by Claude.
+
+**Date**: 2026-05-18
+
+**Context**: User: alert + hourly schedule on, bell "on", price < $2700, "not getting alerts — nothing at all, ever". Evidence-based root cause: the `is_below` alert *did* fire server-side (proven by `reports/amd-epyc-9255/alerts_state.json` flipping created→`armed:false` at the 16:04Z run, then re-arming at 19:04Z when a transient fetch drop left only a $3202.50 listing). But `notify.py` early-returns without POSTing if `WEB_URL` **or** `PUSH_NOTIFY_SECRET` is unset, and **neither `search-scheduled.yml` nor `search-on-demand.yml` ever put those two vars in the step `env:`** (only API keys). They were not even in `.env.example`. `cli.py` disarms a fired alert regardless of notify success, so the state machine looked "fired" while zero notifications were ever sent — push has **never worked once** in CI (this also explains the multi-session "didn't get notified" reports). ADR-012's consequence note already specified `PUSH_NOTIFY_SECRET` as "server-only, kept in Vercel + GH Actions"; it was simply never wired.
+
+**Decision**: Add `WEB_URL: ${{ secrets.WEB_URL }}` and `PUSH_NOTIFY_SECRET: ${{ secrets.PUSH_NOTIFY_SECRET }}` to the run step `env:` of **both** workflows; document both (and the failure mode) in `.env.example`. No code change to `notify.py` (its guard is correct — the bug was the missing wiring).
+
+**Consequence**:
+- Necessary but not sufficient. The user MUST (Claude cannot): set GitHub Actions repo secrets `WEB_URL` (deployed Vercel URL, no trailing slash) + `PUSH_NOTIFY_SECRET` (random); ensure Vercel Production has the **same** `PUSH_NOTIFY_SECRET` plus `VAPID_PUBLIC_KEY`/`VAPID_PRIVATE_KEY`/`VAPID_SUBJECT` (+ `NEXT_PUBLIC_VAPID_PUBLIC_KEY`) and Upstash Redis vars, then **redeploy**. Without the Vercel VAPID keys a correct POST still yields `sent:0`.
+- Verification path: after secrets set + this pushed, the `amd-epyc-9255` rule is currently armed → the next scheduled run with cheapest < $2700 should deliver. The IDE "Context access might be invalid" lint on the new `secrets.*` is expected until the repo secrets exist.
+- The alerts-bell purple state only proves a *client-side* subscription; ADR-055/056 already flagged end-to-end push delivery as never verified — this ADR is why.
+
+---
+
 ## ADR-056 — Selectable `price_below` alert mode: `is_below` (state) vs `drops_below` (transition) (ACCEPTED — implemented)
 
 **Status**: ACCEPTED — implemented 2026-05-18 (user request; design locked via a structured trade-off interview per memory `feedback_interview_before_ux_work`).

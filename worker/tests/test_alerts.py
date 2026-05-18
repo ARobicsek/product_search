@@ -443,3 +443,63 @@ def test_render_audit_panel_lists_each_fire_with_status() -> None:
     assert "vendor_seen" in panel
     assert "notify=ok" in panel
     assert "notify=failed" in panel
+
+
+# ---------------------------------------------------------------------------
+# ADR-057 — price_below mode: while_below (stateless, fires every run below)
+# ---------------------------------------------------------------------------
+
+
+def test_while_below_fires_every_run_while_below() -> None:
+    """The point of while_below: no per-dip dedupe — it fires on every run
+    the cheapest is below, unlike is_below (which fires once per dip)."""
+    rule = PriceBelowAlert(
+        kind="price_below", threshold_usd=200.0, mode="while_below"
+    )
+    state = AlertsState()
+    for price in (150.0, 140.0, 199.99):
+        fired = evaluate_alerts(
+            [rule], [_mk_listing(unit_price_usd=price)], None, state
+        )
+        assert len(fired) == 1
+        assert f"{price:,.2f}" in fired[0].headline
+    # Stateless: never touched the armed map.
+    assert state.armed == {}
+
+
+def test_while_below_silent_when_at_or_above_or_no_listing() -> None:
+    rule = PriceBelowAlert(
+        kind="price_below", threshold_usd=200.0, mode="while_below"
+    )
+    assert evaluate_alerts([rule], [_mk_listing(unit_price_usd=200.0)], None) == []
+    assert evaluate_alerts([rule], [_mk_listing(unit_price_usd=250.0)], None) == []
+    # Ship-simple flake handling: a run with no eligible listing just doesn't
+    # fire that run (no state, so it resumes the next run automatically).
+    assert evaluate_alerts([rule], [], None) == []
+    after = evaluate_alerts([rule], [_mk_listing(unit_price_usd=150.0)], None)
+    assert len(after) == 1
+
+
+def test_while_below_respects_condition_filter() -> None:
+    rule = PriceBelowAlert(
+        kind="price_below",
+        threshold_usd=200.0,
+        mode="while_below",
+        condition="new",
+    )
+    used_only = [_mk_listing(unit_price_usd=50.0, condition="used")]
+    assert evaluate_alerts([rule], used_only, None) == []
+    new_below = [_mk_listing(unit_price_usd=150.0, condition="new")]
+    fired = evaluate_alerts([rule], new_below, None)
+    assert len(fired) == 1
+    assert "(new)" in fired[0].headline
+
+
+def test_while_below_fingerprint_distinct_from_other_modes() -> None:
+    base = dict(kind="price_below", threshold_usd=200.0)
+    assert rule_fingerprint(
+        PriceBelowAlert(**base, mode="while_below")
+    ) not in {
+        rule_fingerprint(PriceBelowAlert(**base, mode="is_below")),
+        rule_fingerprint(PriceBelowAlert(**base, mode="drops_below")),
+    }
