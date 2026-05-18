@@ -8,6 +8,7 @@ import {
   getProductProfileContent,
 } from '@/lib/github';
 import { getActiveRuns } from '@/lib/dispatch';
+import { readScheduleFromYaml } from '@/lib/schedule';
 import { DeleteProductModal } from '@/components/DeleteProductModal';
 import { CardRunStatus } from './CardRunStatus';
 
@@ -31,15 +32,17 @@ export default async function Home() {
   const products = await getProducts();
 
   const activeRuns = await getActiveRuns().catch(() => ({
-    onDemandTitles: [],
+    onDemand: [] as { title: string; startedIso: string | null }[],
     scheduledTickActive: false,
+    scheduledTickStartedIso: null as string | null,
   }));
 
   const productData = await Promise.all(
     products.map(async (product) => {
-      const [reports, lastRunIso] = await Promise.all([
+      const [reports, lastRunIso, profile] = await Promise.all([
         getProductReports(product),
         getLastRunInstant(product),
+        getProductProfileContent(product).catch(() => null),
       ]);
       const latestDate = reports.length > 0 ? reports[0] : null;
       let summary = 'No reports yet.';
@@ -51,20 +54,34 @@ export default async function Home() {
         }
       }
 
-      // An on-demand run carries the slug in its title. A scheduler-tick has no
-      // per-product title, so attribute it only to products that actually
-      // declare a schedule block (fetched only while a tick is in flight).
-      let running = activeRuns.onDemandTitles.some((t) => t.includes(product));
-      if (!running && activeRuns.scheduledTickActive) {
-        const profile = await getProductProfileContent(product).catch(() => null);
-        running = !!profile && /^schedule:/m.test(profile);
+      // An on-demand run carries the slug in its title (so we know its exact
+      // start). A scheduler-tick has no per-product title, so it's attributed
+      // to any product declaring a schedule block — best-effort, since one
+      // tick processes all due products together.
+      const hasSchedule =
+        !!profile && readScheduleFromYaml(profile) !== null;
+      const onDemandMatch = activeRuns.onDemand.find((r) =>
+        r.title.includes(product),
+      );
+
+      let status: 'running' | 'waiting' | 'idle' = 'idle';
+      let runningSinceIso: string | null = null;
+      if (onDemandMatch) {
+        status = 'running';
+        runningSinceIso = onDemandMatch.startedIso;
+      } else if (activeRuns.scheduledTickActive && hasSchedule) {
+        status = 'running';
+        runningSinceIso = activeRuns.scheduledTickStartedIso;
+      } else if (hasSchedule) {
+        status = 'waiting';
       }
 
       return {
         product,
         latestDate,
         lastRunIso,
-        running,
+        status,
+        runningSinceIso,
         summary,
       };
     })
@@ -110,7 +127,8 @@ export default async function Home() {
                   <CardRunStatus
                     lastRunIso={data.lastRunIso}
                     fallbackDate={data.latestDate}
-                    running={data.running}
+                    status={data.status}
+                    runningSinceIso={data.runningSinceIso}
                   />
                   <div className="opacity-0 group-hover:opacity-100 transition-opacity focus-within:opacity-100 -mr-2">
                     <DeleteProductModal productSlug={data.product} webSecret={process.env.WEB_SHARED_SECRET || ''} />

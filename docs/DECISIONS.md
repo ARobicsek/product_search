@@ -9,6 +9,26 @@ Status values:
 
 ---
 
+## ADR-054 — Tri-state card run-status (Running-since / Waiting to run / idle); never show a stale last-run time while running (ACCEPTED — implemented)
+
+**Status**: ACCEPTED — implemented 2026-05-18 (user request, same session as the Phase 20 cron-job.org reactivation). `web/lib/dispatch.ts` (`ActiveRuns` now carries each active on-demand run's `run_started_at` + the freshest in-flight scheduled-tick start), `web/app/page.tsx` (per-product `status: 'running'|'waiting'|'idle'` + `runningSinceIso`; now fetches every profile to detect a `schedule:` block via `readScheduleFromYaml`), `web/app/CardRunStatus.tsx` (tri-state render). tsc + lint clean; mobile (390px) + `idle` state + zero console errors verified live; `waiting`/`running` are logic-verified only (origin/main had no scheduled product to reproduce them visually at commit time).
+
+**Date**: 2026-05-18
+
+**Context**: ADR-051's per-card surface showed a green "Running" dot whenever *any* scheduler tick was in flight and the product merely had a schedule block, next to the newest-CSV timestamp. Two user-reported confusions: (1) a scheduled-but-idle product was indistinguishable from an unscheduled one (no "armed" signal), and while a tick was active the card showed "Running" beside the *previous* run's timestamp — implying the run had started hours ago; (2) "is it actually running right now? it should show when the run began" — the shown time was the stale last-CSV instant, not the active run's start.
+
+**Decision**:
+- Replace the `running: boolean` card prop with `status: 'running' | 'waiting' | 'idle'`: an on-demand run whose title matches the slug, OR (a scheduler tick active AND the product has a parseable `schedule:` block) → `running`; else has-schedule → `waiting`; else `idle`.
+- Plumb the active run's `run_started_at` through `ActiveRuns` (per matching on-demand run, and the freshest in-flight scheduled tick — ISO-string sort, `.at(-1)`). While `running`, the card shows **"Running since &lt;begin time&gt;"** from that start instant and **never** falls back to the stale last-run timestamp (renders no time if the start is unknown). `waiting`/`idle` keep the last-run / last-report-date display.
+- `waiting` renders a non-pulsing amber "Waiting to run"; `running` keeps the green pulsing dot; `idle` with no timestamp still renders nothing (preserves ADR-051's empty-state).
+
+**Consequence**:
+- Scheduled-but-idle is now legible ("Waiting to run") and "Running" always pairs with the *current* run's begin time, never a misleading old one.
+- Accepted limitation (inherited from ADR-051): a scheduler tick has no per-product attribution, so while a tick is genuinely in flight *every* scheduled card shows "Running since &lt;tick start&gt;" though one tick processes all due products together — best-effort, the only signal the GitHub API exposes. True per-product attribution would require the worker to emit per-product run markers (out of scope).
+- `page.tsx` now fetches every product's profile on each home render (previously only while a tick was active) to detect the schedule block — N extra GitHub contents calls per load, parallelized inside the existing per-product `Promise.all`; negligible latency, free within the authenticated rate limit.
+
+---
+
 ## ADR-053 — One bounded retry on transient (timeout/connection-class) fetch failures in `universal_ai` (ACCEPTED — implemented)
 
 **Status**: ACCEPTED — implemented 2026-05-18 (user request). `worker/src/product_search/adapters/universal_ai.py` (`_is_retryable_fetch_error`, `_fetch_html_with_retry`, `fetch()` now calls the retry wrapper); 4 new tests in `worker/tests/test_universal_ai.py`. ruff + mypy --strict clean; full worker suite 240 passed.

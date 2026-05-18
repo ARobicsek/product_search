@@ -118,14 +118,18 @@ export async function getLatestOnDemandRun(product: string, sinceIso: string): P
 }
 
 export interface ActiveRuns {
-  // display_title of every on-demand run that is not yet completed. The caller
-  // matches a product slug against these (the on-demand workflow puts the slug
-  // in the run title, same convention as getLatestOnDemandRun).
-  onDemandTitles: string[];
+  // Every on-demand run not yet completed, with the slug-bearing title and the
+  // instant the run began (run_started_at). The caller matches a product slug
+  // against the title (on-demand workflow puts the slug in the run title).
+  onDemand: { title: string; startedIso: string | null }[];
   // True when a scheduler-tick is currently executing. One tick processes ALL
   // due products in a single run with no per-product title, so the caller can
   // only attribute it to a product by checking that product's schedule block.
   scheduledTickActive: boolean;
+  // run_started_at of the freshest in-flight scheduler tick (the one most
+  // likely doing the work right now), or null when none is active. Used to
+  // show "Running since <time>" instead of a stale last-run timestamp.
+  scheduledTickStartedIso: string | null;
 }
 
 async function fetchRecentRuns(workflowFile: string): Promise<GhRun[]> {
@@ -146,11 +150,21 @@ export async function getActiveRuns(): Promise<ActiveRuns> {
     fetchRecentRuns(WORKFLOW_FILE),
     fetchRecentRuns(SCHEDULED_WORKFLOW_FILE),
   ]);
+  const activeScheduled = scheduled.filter(isActive);
+  const scheduledTickStartedIso =
+    activeScheduled
+      .map((r) => r.run_started_at)
+      .filter((s): s is string => !!s)
+      .sort()
+      .at(-1) ?? null;
+
   return {
-    onDemandTitles: onDemand
-      .filter(isActive)
-      .map((r) => r.display_title || r.name || ''),
-    scheduledTickActive: scheduled.some(isActive),
+    onDemand: onDemand.filter(isActive).map((r) => ({
+      title: r.display_title || r.name || '',
+      startedIso: r.run_started_at,
+    })),
+    scheduledTickActive: activeScheduled.length > 0,
+    scheduledTickStartedIso,
   };
 }
 
