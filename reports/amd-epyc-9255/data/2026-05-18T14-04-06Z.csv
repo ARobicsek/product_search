@@ -1,0 +1,3 @@
+source,url,title,fetched_at,brand,mpn,attrs,condition,is_kit,kit_module_count,unit_price_usd,kit_price_usd,quantity_available,seller_name,seller_rating_pct,seller_feedback_count,ship_from_country,qvl_status,flags,total_for_target_usd
+universal_ai_search,https://www.newegg.com/amd-epyc-9255-socket-sp5/p/N82E16819113863,AMD EPYC 9255,2026-05-18T14:01:29.038792+00:00,,,"{""extractor"": ""detail_llm"", ""vendor_host"": ""www.newegg.com""}",new,0,1,3202.5,,,www.newegg.com,,,,unknown,[],
+universal_ai_search,https://www.provantage.com/amd-100-000000694~7AAMD3R8.htm,AMD Epyc 9255 24 Core 200 TDP,2026-05-18T14:03:15.947274+00:00,,,"{""extractor"": ""detail_llm"", ""vendor_host"": ""www.provantage.com""}",new,0,1,2117.44,,,www.provantage.com,,,,unknown,[],
