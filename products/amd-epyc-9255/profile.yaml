@@ -70,4 +70,7 @@ report_columns:
 schedule:
   cron: 0 * * * *
   timezone: UTC
-alerts: []
+alerts:
+  - kind: price_below
+    threshold_usd: 2700
+    mode: is_below
