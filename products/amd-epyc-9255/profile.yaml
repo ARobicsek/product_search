@@ -21,16 +21,10 @@ sources:
     url: https://www.wiredzone.com/shop/product/10032075-amd-100-000000694-epyc-9255-3-20ghz-24-core-processor-5th-generation-turin-14772
     page_type: detail
   - id: universal_ai_search
-    url: https://www.itcreations.com/product/148917
-    page_type: detail
-  - id: universal_ai_search
     url: https://www.newegg.com/amd-epyc-9255-socket-sp5/p/N82E16819113863
     page_type: detail
   - id: universal_ai_search
     url: https://www.shi.com/product/49015363/AMD-EPYC-9255-3.25-GHz
-    page_type: detail
-  - id: universal_ai_search
-    url: https://www.colamco.com/product/amd-epyc-9255-processor-100-000000694-2631653
     page_type: detail
   - id: universal_ai_search
     url: https://www.cdw.com/product/amd-epyc-9255-processor/8247923
@@ -60,6 +54,10 @@ sources_pending:
     url: https://www.networkhardwares.com/products/amd-100-000000694-amd-epyc-twenty-four-core-model-9255-100-000000694
     page_type: detail
     note: "probe returned 0 candidates: fetch failed: fetch failed"
+  - id: universal_ai_search
+    url: https://www.colamco.com/product/amd-epyc-9255-processor-100-000000694-2631653
+    page_type: detail
+    note: "probe returned 0 candidates: fetch failed: This operation was aborted"
 report_columns:
   - rank
   - source
@@ -69,11 +67,9 @@ report_columns:
   - seller
   - seller_rating
   - flags
-
-alerts:
-  - kind: price_below
-    threshold_usd: 2700
-
 schedule:
   cron: 0 * * * *
   timezone: UTC
+alerts:
+  - kind: price_below
+    threshold_usd: 2700
