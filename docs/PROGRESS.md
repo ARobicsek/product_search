@@ -16,6 +16,36 @@
 
 **Remaining = passive/optional, NOT a gate:** the recurring `*/15` cron-job.org job now produces on-time `workflow_dispatch` runs automatically (cron-job.org emails on failure); the ≥4-over-≥1 h cadence accrues on its own. A one-time `run_at` end-to-end (set via the schedule editor → fires within ~15 min → self-clears → shows on cards chip/footer) exercises already-shipped ADR-050/051 logic through the now-proven trigger; spot-check whenever convenient. **Next session: resume Phase 18 — Polish + second-product proof** ([PHASES.md](PHASES.md#phase-18--polish--second-product-proof-replaces-old-phase-12)).
 
+**Inter-phase fix — `universal_ai` transient-fetch retry. DONE 2026-05-18 (ADR-053).** Not Phase 18 scope; a targeted reliability fix the user explicitly requested after diagnosing the `amd-epyc-9255` `2026-05-18T04:55:34Z` run (provantage `curl: (28)` connection timeout dropped the cheapest source and silently moved the report headline $2117→$2795). `fetch()` now calls `_fetch_html_with_retry` (one bounded retry, 2 s backoff, only on timeout/connection-class errors; AlterLab auth/quota + parse errors fail fast). ruff + mypy --strict clean; full worker suite 240 passed (4 new). See ADR-053 + the dated status block below.
+
+## Status as of 2026-05-18 (inter-phase — `universal_ai` transient-fetch retry, ADR-053)
+
+**User-requested reliability fix between Phase 20 (done) and Phase 18 (next). Not a phase task.**
+
+### Why
+
+Diagnosed the latest `amd-epyc-9255` run (`reports/amd-epyc-9255/data/2026-05-18T04-55-34Z.csv`, commit `ae6834c`). provantage.com errored with `curl: (28) Connection timed out after 20002 milliseconds` — a transient TCP-connect timeout, not a block: the prior run had provantage as the cheapest passing listing ($2117.44 new). `_fetch_html` was called exactly once with no retry, so one blip dropped provantage for the whole run and the report's headline "cheapest" jumped to $2795 (itcreations) with no signal it was a fetch failure rather than a price move.
+
+### Changes applied this session
+
+- `worker/src/product_search/adapters/universal_ai.py`: `import time`; new `_FETCH_MAX_ATTEMPTS`/`_FETCH_RETRY_BACKOFF_SECONDS`; `_is_retryable_fetch_error()` (timeout/connection class retryable; AlterLab `"AlterLab API issue"` auth/quota + non-transient errors NOT); `_fetch_html_with_retry()`; `fetch()` now calls the wrapper instead of `_fetch_html` directly.
+- `worker/tests/test_universal_ai.py`: 4 tests — classifier truth table, retry-then-succeed, no-retry on AlterLab auth, no-retry on non-transient.
+- `docs/DECISIONS.md`: ADR-053 (ACCEPTED — implemented), incl. the accepted ~2× worst-case latency tradeoff and the 3 explicitly-deferred follow-ups.
+
+### Verification
+
+- `python -m ruff check` clean · `python -m mypy --strict` clean on universal_ai · `pytest worker/` → **240 passed** (56 in test_universal_ai incl. the 4 new). No live fetch performed.
+
+### Deferred (from the 2026-05-18 diagnosis — NOT done, logged in ADR-053 Consequence)
+
+1. Trim AlterLab→curl_cffi fallback latency for AlterLab-only hosts (ADR-053 makes worst-case ~2× by design — intentional, flagged for any future latency work).
+2. Surface "N source(s) errored — cheapest may be understated" in the report so a fetch-driven headline move is legible.
+3. Report-footer doc nit: `cdw.com` appears under both "searched (ok)" and "Pending (not yet wired)".
+
+### Next session
+
+Unchanged: **resume Phase 18 — Polish + second-product proof**. This fix does not alter the Phase 18 brief.
+
 ## Status as of 2026-05-18 (Phase 20 — DONE; external trigger PROVEN end-to-end)
 
 **Phase 20 closed. The recurring "my scheduled run didn't fire on time" failure (3+ sessions) is fixed and proven.**

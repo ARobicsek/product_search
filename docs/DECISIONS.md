@@ -9,6 +9,34 @@ Status values:
 
 ---
 
+## ADR-053 — One bounded retry on transient (timeout/connection-class) fetch failures in `universal_ai` (ACCEPTED — implemented)
+
+**Status**: ACCEPTED — implemented 2026-05-18 (user request). `worker/src/product_search/adapters/universal_ai.py` (`_is_retryable_fetch_error`, `_fetch_html_with_retry`, `fetch()` now calls the retry wrapper); 4 new tests in `worker/tests/test_universal_ai.py`. ruff + mypy --strict clean; full worker suite 240 passed.
+
+**Date**: 2026-05-18
+
+**Context**: `_fetch_html` already cascades AlterLab → curl_cffi → httpx, but the whole cascade ran exactly **once** per source per run (`fetch()` called it with no retry). On the `amd-epyc-9255` run `2026-05-18T04:55:34Z` provantage.com failed with `curl: (28) Connection timed out after 20002 milliseconds` — a transient TCP-connection timeout, **not** a 403/bot-block or a permanent datacenter ban: the prior run (`2026-05-17`) had provantage as `ok 1/1` and the **cheapest passing listing** at **$2117.44 (new)**. Because that one flaky socket dropped provantage from the entire run, the report's headline "cheapest" silently jumped to **$2795** (itcreations) — a quality regression caused by a fetch blip, not a market move. The `Diff vs yesterday` line gave no signal it was a source error rather than a price change.
+
+**Decision**: Add **exactly one** bounded retry around the full fetch cascade, gated by an explicit retryable-error classifier:
+
+> `fetch()` → `_fetch_html_with_retry(url)` → up to `_FETCH_MAX_ATTEMPTS = 2` attempts of `_fetch_html`, with `_FETCH_RETRY_BACKOFF_SECONDS = 2.0` s between them, retried **only** when `_is_retryable_fetch_error(exc)` is true.
+
+- Retryable = timeout/connection class: builtin `TimeoutError`/`ConnectionError`; `httpx.TimeoutException`/`ConnectError`/`ReadError`; libcurl strings `curl: (28|7|6|35)` / "timed out" / "connection refused" / "connection reset" (curl_cffi's message form, matched by string so no hard dependency on its exception classes).
+- **Not** retryable, surfaces immediately on attempt 1: AlterLab auth/quota (`RuntimeError` tagged `"AlterLab API issue"` → a 401/403/429 won't heal on retry and a 2nd attempt re-spends the up-to-120 s AlterLab budget for nothing), and any non-transient error (parse/`ValueError` etc. — fail fast, don't mask a bug behind a pointless retry).
+
+**Alternatives considered & rejected**:
+- **Retry only the curl_cffi/httpx cheap tier (not AlterLab).** Bounds worst-case latency tighter, but AlterLab is exactly the path that renders many of these hosts (provantage worked via the cascade the day before); skipping it on retry would make the retry useless for the hosts that need it most. Rejected.
+- **N>1 retries / exponential backoff.** More resilience but multiplies the worst-case wall-clock on a genuinely-down host (each attempt can cost up to AlterLab-120 s + curl-20 s). One retry recovers the observed transient-blip failure mode without that blow-up. Revisit only if single-retry proves insufficient in practice.
+- **Do nothing / just document.** Leaves the headline silently wrong whenever a high-value source has a transient blip — the actual user-visible failure. Rejected.
+
+**Consequence**:
+- Transient single-blip failures on high-value sources (the provantage mode) now self-heal within one run; the report's "cheapest" stops swinging on fetch noise.
+- Accepted tradeoff: a **genuinely** down/blocked host now costs up to ~2× the cascade once (worst case ≈ 2×(AlterLab 120 s + curl 20 s) ≈ 280 s) before the source is marked errored. Rare (only when both the rendered and cheap tiers fail *and* the error looks transient), bounded (single retry), and the documented price of not losing a transient winner. The previously-noted "guaranteed-miss source can stall a run" latency item (PROGRESS "noticed but deferred") is now *slightly worse by design* — flagged here so a future session optimizing run latency knows this is intentional, not an oversight.
+- Auth/quota and parse errors are explicitly excluded so the retry never delays surfacing a real outage or bug.
+- Not addressed (still open, deliberately out of scope of this ADR — they were items #2–#4 in the 2026-05-18 diagnosis): trimming the AlterLab→curl_cffi fallback latency for AlterLab-only hosts; surfacing "N source(s) errored — cheapest may be understated" in the report so a fetch-driven headline move is legible; the report-footer doc nit that lists `cdw.com` under both "searched (ok)" and "Pending (not yet wired)".
+
+---
+
 ## ADR-052 — Reliable scheduling via external `workflow_dispatch` through the existing Vercel app (ACCEPTED — implemented + proven)
 
 **Status**: ACCEPTED — implemented + pushed 2026-05-17 (Phase 20, `0d5b99a`; tsc/lint clean) and **proven live 2026-05-18**. The out-of-repo runbook was executed (Vercel `CRON_TRIGGER_SECRET` set in Production + **redeployed** — the redeploy was the step that resolved an interim 401; env changes don't apply to a running deployment until redeploy. cron-job.org job 7619329: `*/15`, POST, `x-cron-secret`, enabled; owner ari.robicsek@gmail.com — full config in PROGRESS.md). End-to-end verification: cron-job.org test run → `200 {"ok":true,"dispatchedAt":"2026-05-18T05:15:29.703Z"}`; `search-scheduled.yml` then ran with `event = workflow_dispatch`, success at `2026-05-18T05:15:30Z` (≈1 s vs. the old ~hourly `schedule:` lag). The recurring `*/15` job now accrues on-time dispatches automatically; the kept `schedule:` cron remains the degraded fallback. (Operational gotcha worth remembering: **any change to `CRON_TRIGGER_SECRET` requires a Vercel redeploy** to take effect.)

@@ -32,6 +32,7 @@ import json
 import logging
 import os
 import re
+import time
 from datetime import UTC, datetime
 from typing import Any
 from urllib.parse import urljoin, urlparse
@@ -259,6 +260,89 @@ def _fetch_via_alterlab(
         html = ""
     origin_status = int(payload.get("status_code") or 0)
     return html, origin_status, "alterlab"
+
+
+# --- Bounded retry for transient fetch failures (ADR-053) ------------------
+#
+# `_fetch_html` cascades AlterLab -> curl_cffi -> httpx, but the whole
+# cascade was attempted exactly once. A single transient connection/read
+# timeout therefore dropped the source for the entire run. On 2026-05-18 a
+# 20 s curl(28) connection timeout knocked provantage.com out of the
+# amd-epyc-9255 run; because provantage had been the cheapest listing the
+# prior run ($2117 vs the $2795 that then became the headline), one flaky
+# socket silently moved the report's bottom line. ADR-053: retry the whole
+# fetch ONCE on timeout/connection-class errors only. Auth/quota errors
+# (AlterLab 401/403/429) are deliberately NOT retried -- a retry cannot fix
+# them and would re-spend the (up to 120 s) AlterLab budget for nothing.
+# Accepted tradeoff: a genuinely-down host now costs ~2x the cascade once;
+# that latency is the price of not losing a transient winner.
+_FETCH_MAX_ATTEMPTS = 2
+_FETCH_RETRY_BACKOFF_SECONDS = 2.0
+
+
+def _is_retryable_fetch_error(exc: BaseException) -> bool:
+    """True if ``exc`` is a transient timeout/connection failure worth one retry.
+
+    Explicitly NOT retryable: AlterLab auth/quota, raised as a ``RuntimeError``
+    tagged ``"AlterLab API issue"`` -- retrying cannot fix a 401/403/429 and
+    would re-spend the long AlterLab timeout for nothing.
+    """
+    msg = str(exc)
+    if isinstance(exc, RuntimeError) and "AlterLab API issue" in msg:
+        return False
+
+    if isinstance(exc, (TimeoutError, ConnectionError)):
+        return True
+
+    try:
+        import httpx
+
+        if isinstance(exc, (httpx.TimeoutException, httpx.ConnectError, httpx.ReadError)):
+            return True
+    except ImportError:
+        pass
+
+    # curl_cffi raises its own timeout/connection types; match the libcurl
+    # error string when the class isn't importable. 28 = operation timed
+    # out, 7 = couldn't connect, 6 = couldn't resolve host, 35 = SSL connect.
+    lowered = msg.lower()
+    return any(
+        marker in lowered
+        for marker in (
+            "timed out",
+            "timeout",
+            "curl: (28)",
+            "curl: (7)",
+            "curl: (6)",
+            "curl: (35)",
+            "connection refused",
+            "connection reset",
+        )
+    )
+
+
+def _fetch_html_with_retry(url: str) -> tuple[str, int, str]:
+    """``_fetch_html`` with one bounded retry on transient fetch errors.
+
+    Non-retryable errors (auth/quota, parse, anything not timeout/connection
+    class) propagate on the first attempt with no delay. See ADR-053.
+    """
+    for attempt in range(1, _FETCH_MAX_ATTEMPTS + 1):
+        try:
+            return _fetch_html(url)
+        except Exception as exc:
+            if attempt < _FETCH_MAX_ATTEMPTS and _is_retryable_fetch_error(exc):
+                logger.warning(
+                    f"[universal_ai] Fetch attempt {attempt}/{_FETCH_MAX_ATTEMPTS} "
+                    f"for {url} hit a transient error "
+                    f"({type(exc).__name__}: {exc}); retrying after "
+                    f"{_FETCH_RETRY_BACKOFF_SECONDS:.0f}s."
+                )
+                time.sleep(_FETCH_RETRY_BACKOFF_SECONDS)
+                continue
+            raise
+    # Unreachable: the loop either returns or raises on the final attempt.
+    raise AssertionError("unreachable: _fetch_html_with_retry exhausted loop")
 
 
 # --- JSON-LD / microdata extraction ----------------------------------------
@@ -1423,7 +1507,7 @@ def fetch(query: AdapterQuery, profile: Any | None = None) -> list[Listing]:
 
     logger.info(f"[universal_ai] Fetching {url}")
     try:
-        html, status, fetcher = _fetch_html(url)
+        html, status, fetcher = _fetch_html_with_retry(url)
     except Exception as exc:
         logger.error(f"[universal_ai] Fetch failed: {type(exc).__name__}: {exc}")
         # Bubble up explicit fetch errors (like AlterLab quota/auth) so cli.py

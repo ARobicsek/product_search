@@ -221,6 +221,94 @@ def test_fetch_returns_empty_when_no_url(monkeypatch: pytest.MonkeyPatch) -> Non
     assert universal_ai.fetch(query) == []
 
 
+# --- ADR-053: bounded retry on transient fetch failures --------------------
+
+
+def test_is_retryable_fetch_error_classifies_correctly() -> None:
+    """curl(28)/timeout/connection class is retryable; AlterLab auth and
+    plain parse errors are not."""
+    provantage = Exception(
+        "Timeout: Failed to perform, curl: (28) Connection timed out "
+        "after 20002 milliseconds."
+    )
+    assert universal_ai._is_retryable_fetch_error(provantage) is True
+    assert universal_ai._is_retryable_fetch_error(TimeoutError("slow")) is True
+    assert universal_ai._is_retryable_fetch_error(
+        ConnectionError("connection reset by peer")
+    ) is True
+
+    # AlterLab quota/auth must NOT retry (a 2nd 120 s AlterLab call can't fix it).
+    alterlab_429 = RuntimeError("AlterLab API issue: HTTP 429 quota or auth error")
+    assert universal_ai._is_retryable_fetch_error(alterlab_429) is False
+    # A non-transient bug must surface immediately, not after a pointless retry.
+    assert universal_ai._is_retryable_fetch_error(ValueError("bad json")) is False
+
+
+def test_fetch_retries_once_then_succeeds(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A single transient timeout is retried once and the source recovers
+    (the provantage 2026-05-18 failure mode)."""
+    monkeypatch.setattr(universal_ai, "_FETCH_RETRY_BACKOFF_SECONDS", 0.0)
+    slept: list[float] = []
+    monkeypatch.setattr(universal_ai.time, "sleep", lambda s: slept.append(s))
+
+    calls: list[str] = []
+
+    def _flaky(url: str, timeout: float = 20.0) -> tuple[str, int, str]:
+        calls.append(url)
+        if len(calls) == 1:
+            raise Exception(
+                "Timeout: Failed to perform, curl: (28) Connection timed out "
+                "after 20002 milliseconds."
+            )
+        return (_load_html(), 200, "stub")
+
+    monkeypatch.setattr(universal_ai, "_fetch_html", _flaky)
+    monkeypatch.setattr(universal_ai, "call_llm", _stub_llm_response('{"listings": []}'))
+
+    query = AdapterQuery(source_id="universal_ai_search", extra={"url": BASE_URL})
+    assert universal_ai.fetch(query) == []
+    assert len(calls) == 2  # failed once, retried once, succeeded
+    assert len(slept) == 1
+
+
+def test_fetch_does_not_retry_alterlab_auth_error(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Auth/quota errors bubble up on the first attempt — no wasted retry."""
+    monkeypatch.setattr(universal_ai, "_FETCH_RETRY_BACKOFF_SECONDS", 0.0)
+    calls: list[str] = []
+
+    def _auth_fail(url: str, timeout: float = 20.0) -> tuple[str, int, str]:
+        calls.append(url)
+        raise RuntimeError("AlterLab API issue: HTTP 429 quota or auth error")
+
+    monkeypatch.setattr(universal_ai, "_fetch_html", _auth_fail)
+
+    query = AdapterQuery(source_id="universal_ai_search", extra={"url": BASE_URL})
+    with pytest.raises(RuntimeError, match="AlterLab API issue"):
+        universal_ai.fetch(query)
+    assert len(calls) == 1  # NOT retried
+
+
+def test_fetch_does_not_retry_non_transient_error(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A non-timeout error surfaces immediately rather than after a retry."""
+    monkeypatch.setattr(universal_ai, "_FETCH_RETRY_BACKOFF_SECONDS", 0.0)
+    calls: list[str] = []
+
+    def _boom(url: str, timeout: float = 20.0) -> tuple[str, int, str]:
+        calls.append(url)
+        raise ValueError("unexpected parse failure")
+
+    monkeypatch.setattr(universal_ai, "_fetch_html", _boom)
+
+    query = AdapterQuery(source_id="universal_ai_search", extra={"url": BASE_URL})
+    with pytest.raises(ValueError, match="unexpected parse failure"):
+        universal_ai.fetch(query)
+    assert len(calls) == 1
+
+
 def test_alterlab_fetch_path_used_when_key_set(monkeypatch: pytest.MonkeyPatch) -> None:
     """When ALTERLAB_API_KEY is set, _fetch_html routes through AlterLab
     (not curl_cffi/httpx) and returns the origin HTML from the JSON envelope."""
