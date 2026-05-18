@@ -1,5 +1,5 @@
 {
   "armed": {
-    "price_below|is_below|2700.0|": false
+    "price_below|is_below|2700.0|": true
   }
 }
