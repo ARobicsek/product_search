@@ -72,6 +72,3 @@ alerts:
     threshold_usd: 3500
     mode: while_below
 
-schedule:
-  run_at: 2026-05-18T20:36:00Z
-  timezone: UTC
