@@ -349,6 +349,22 @@ def test_build_bottom_line_emits_clickable_source_link() -> None:
     assert "[ebay_search](https://www.ebay.com/itm/123)" in md
 
 
+def test_build_bottom_line_uses_vendor_host_for_universal_ai() -> None:
+    """The Bottom line must show the vendor host (e.g. provantage.com), not
+    the literal `universal_ai_search` adapter id, mirroring the Source column
+    (regression: the id used to leak into the headline)."""
+    profile = load_profile("ddr5-rdimm-256gb")
+    listing = _listing(
+        "https://www.provantage.com/amd-100-000000694~7AAMD3R8.htm",
+        total_for_target_usd=960.0,
+    )
+    listing.source = "universal_ai_search"
+    listing.attrs = {"vendor_host": "www.provantage.com"}
+    md = build_bottom_line_md([listing], profile)
+    assert "universal_ai_search" not in md
+    assert "[provantage.com](https://www.provantage.com/amd-100-000000694~7AAMD3R8.htm)" in md
+
+
 # ---------------------------------------------------------------------------
 # Deterministic Flags (ADR-028)
 # ---------------------------------------------------------------------------

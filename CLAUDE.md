@@ -18,6 +18,17 @@ Short version:
 - Use committed test fixtures in `worker/tests/fixtures/`. Don't re-scrape live sites unless explicitly required.
 - Before ending: update `docs/PROGRESS.md`, log new decisions in `docs/DECISIONS.md`, commit. Do not push without explicit approval.
 
+## Syncing with origin (read this if a commit/push fails)
+
+The deployed web app commits **directly to `origin/main`** on its own, independent of any local session:
+- the onboarder + schedule/alerts editor rewrite `products/<slug>/profile.yaml` (commits like `onboard: update <slug> profile`);
+- the scheduled GitHub Action rewrites `reports/**` + data CSVs (`chore: update scheduled reports and data [skip ci]`).
+
+So your local clone goes stale between *and during* sessions. Because of this:
+- **Never trust local `products/*/profile.yaml` or `reports/**`.** `git fetch origin` and read/diff against `origin/main` before reasoning about schedule, alerts, or report state — the user's in-app edits won't be in your working tree.
+- Most "commit failed" cases are a non-fast-forward push or a rebase conflict from those bot/app commits. Fix: `git fetch origin && git pull --rebase origin main`, resolve conflicts (take origin's app-written `schedule:`/`alerts:` blocks unless you intentionally changed them), then push. Never `--no-verify`.
+- Before redoing work after a failed rebase, check `git log origin/main..HEAD` — `pull --rebase` silently drops a local commit whose patch already exists on origin.
+
 ## Hard rules
 
 - The LLM never produces a price, stock count, URL, or quote that the deterministic layer didn't actually fetch. This is the architectural commitment. If you're tempted to ask the LLM to "find listings" or "verify a price," stop and re-read [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).

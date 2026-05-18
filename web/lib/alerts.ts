@@ -18,10 +18,25 @@
 // Alerts are optional and default to []. An empty list is written as `alerts: []`
 // inline; an undefined list omits the block entirely.
 
+// `mode` mirrors profile.py:PriceBelowAlert.mode (ADR-056).
+//  - 'drops_below': fire only on the transition run where the cheapest
+//    crosses from at/above the threshold down to below it (old behavior;
+//    also the worker's default when `mode` is absent from the YAML).
+//  - 'is_below': fire as soon as the cheapest is below — including the
+//    first run after the rule is created while already below — then stay
+//    quiet until the price returns to/above the threshold (re-arm).
+export type PriceBelowMode = 'drops_below' | 'is_below';
+
+export const PRICE_BELOW_MODES: ReadonlyArray<PriceBelowMode> = [
+  'is_below',
+  'drops_below',
+];
+
 export interface PriceBelowRule {
   kind: 'price_below';
   threshold_usd: number;
   condition?: 'new' | 'used' | 'refurbished';
+  mode?: PriceBelowMode;
 }
 
 export interface VendorSeenRule {
@@ -104,6 +119,10 @@ function parseRuleFields(fields: Record<string, string>): AlertRule | null {
     if (cond && (ALERT_CONDITIONS as ReadonlyArray<string>).includes(cond)) {
       out.condition = cond as PriceBelowRule['condition'];
     }
+    const mode = fields.mode;
+    if (mode && (PRICE_BELOW_MODES as ReadonlyArray<string>).includes(mode)) {
+      out.mode = mode as PriceBelowMode;
+    }
     return out;
   }
   if (kind === 'vendor_seen') {
@@ -121,6 +140,7 @@ function renderRule(rule: AlertRule): string {
       `    threshold_usd: ${rule.threshold_usd}`,
     ];
     if (rule.condition) lines.push(`    condition: ${rule.condition}`);
+    if (rule.mode) lines.push(`    mode: ${rule.mode}`);
     return lines.join('\n');
   }
   return [`  - kind: vendor_seen`, `    host: ${rule.host}`].join('\n');
@@ -164,6 +184,12 @@ export function validateAlertRule(rule: AlertRule): string | null {
     ) {
       return `condition must be one of ${ALERT_CONDITIONS.join(', ')}`;
     }
+    if (
+      rule.mode !== undefined &&
+      !(PRICE_BELOW_MODES as ReadonlyArray<string>).includes(rule.mode)
+    ) {
+      return `mode must be one of ${PRICE_BELOW_MODES.join(', ')}`;
+    }
     return null;
   }
   if (rule.kind === 'vendor_seen') {
@@ -183,7 +209,10 @@ export function validateAlertRule(rule: AlertRule): string | null {
 export function describeRule(rule: AlertRule): string {
   if (rule.kind === 'price_below') {
     const cond = rule.condition ? ` (${rule.condition} only)` : '';
-    return `Cheapest${cond} drops below $${rule.threshold_usd.toLocaleString()}`;
+    const amount = `$${rule.threshold_usd.toLocaleString()}`;
+    // Undefined mode = the worker's drops_below default.
+    const verb = rule.mode === 'is_below' ? 'is at or below' : 'drops below';
+    return `Cheapest${cond} ${verb} ${amount}`;
   }
   return `Any listing seen at ${rule.host}`;
 }

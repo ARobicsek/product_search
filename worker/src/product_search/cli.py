@@ -552,23 +552,31 @@ def _cmd_search(
         })
         run_cost_md = _build_run_cost_md(run_calls)
 
-        # --- Phase 17 Part C — alerts evaluator -------------------------------
-        # Fire user-configured alert rules on transition only (false → true
-        # since the previous run). Audit-trail panel appended to the report
-        # so a user inspecting the committed report sees what fired and why.
+        # --- Alerts evaluator (Phase 17 Part C; modes per ADR-056) -----------
+        # drops_below = transition (false→true since the previous run).
+        # is_below = state-based: fires while below AND armed, re-arms once the
+        # matching cheapest returns to/above the threshold. Audit-trail panel
+        # appended to the report so a user inspecting it sees what fired/why.
         alerts_md = ""
         if profile.alerts:
             from product_search.alerts import (
                 evaluate_alerts,
+                load_alerts_state,
                 load_previous_run,
                 render_audit_panel,
+                save_alerts_state,
             )
             from product_search.notify import notify_material_change
 
             previous_listings = load_previous_run(slug, exclude=csv_path)
+            alerts_state = load_alerts_state(slug)
             fired = evaluate_alerts(
-                profile.alerts, passed_listings, previous_listings
+                profile.alerts, passed_listings, previous_listings, alerts_state
             )
+            # Persist arm/disarm transitions only on stored runs, so an
+            # ephemeral (--no-store) run never mutates the user's alert state.
+            if csv_path is not None:
+                save_alerts_state(slug, alerts_state)
             outcomes: list[bool] = []
             for fa in fired:
                 ok = notify_material_change(slug, fa.headline)
@@ -786,20 +794,28 @@ def _build_sources_searched_md(
         # is available.
         from urllib.parse import urlparse as _urlparse_pending
 
-        def _pending_label(p: object) -> str:
+        def _pending_label(p: object) -> str | None:
             pid = getattr(p, "id", None)
             extra = getattr(p, "model_extra", None) or {}
             url = extra.get("url") if isinstance(extra, dict) else None
-            if pid == "universal_ai_search" and isinstance(url, str) and url:
-                host = _urlparse_pending(url).netloc.lower()
-                if host.startswith("www."):
-                    host = host[4:]
-                return host or url
+            if pid == "universal_ai_search":
+                if isinstance(url, str) and url:
+                    host = _urlparse_pending(url).netloc.lower()
+                    if host.startswith("www."):
+                        host = host[4:]
+                    return host or url
+                # A URL-less universal_ai_search entry is a free-text
+                # re-evaluation note, not a wireable vendor — the bare
+                # adapter id is meaningless to a reader, so omit it.
+                return None
             return pid or "?"
 
-        names = ", ".join(_pending_label(p) for p in pending)
-        lines.append("")
-        lines.append(f"_Pending (not yet wired): {names}._")
+        labels = [
+            lbl for p in pending if (lbl := _pending_label(p)) is not None
+        ]
+        if labels:
+            lines.append("")
+            lines.append(f"_Pending (not yet wired): {', '.join(labels)}._")
     return "\n".join(lines)
 
 

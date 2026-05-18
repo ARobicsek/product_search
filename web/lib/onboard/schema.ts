@@ -280,6 +280,8 @@ const SOURCE_PAGE_TYPES = new Set<string>(['detail', 'search']);
 
 const ALERT_KINDS = new Set<string>(['price_below', 'vendor_seen']);
 const ALERT_CONDITIONS = new Set<string>(['new', 'used', 'refurbished']);
+// Mirrors profile.py:PriceBelowAlert.mode (ADR-056).
+const ALERT_PRICE_MODES = new Set<string>(['drops_below', 'is_below']);
 
 function validateAlerts(alerts: unknown, ctx: ValidationContext) {
   // ``alerts`` is optional; default is []. User-supplied via the schedule
@@ -307,6 +309,14 @@ function validateAlerts(alerts: unknown, ctx: ValidationContext) {
         if (c !== null && !ALERT_CONDITIONS.has(c)) {
           ctx.errors.push(
             `alerts[${i}].condition: must be one of ${[...ALERT_CONDITIONS].sort().join(',')}`,
+          );
+        }
+      }
+      if (r.mode !== undefined && r.mode !== null) {
+        const m = asString(r.mode, `alerts[${i}].mode`, ctx);
+        if (m !== null && !ALERT_PRICE_MODES.has(m)) {
+          ctx.errors.push(
+            `alerts[${i}].mode: must be one of ${[...ALERT_PRICE_MODES].sort().join(',')}`,
           );
         }
       }

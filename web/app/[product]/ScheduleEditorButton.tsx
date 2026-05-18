@@ -28,6 +28,7 @@ import {
   readAlertsFromYaml,
   validateAlertRule,
   type AlertRule,
+  type PriceBelowMode,
 } from '@/lib/alerts';
 
 type SaveState =
@@ -37,7 +38,12 @@ type SaveState =
   | { kind: 'error'; message: string; details?: string[] };
 
 type AlertDraft =
-  | { kind: 'price_below'; threshold_usd: string; condition: '' | 'new' | 'used' | 'refurbished' }
+  | {
+      kind: 'price_below';
+      threshold_usd: string;
+      condition: '' | 'new' | 'used' | 'refurbished';
+      mode: PriceBelowMode;
+    }
   | { kind: 'vendor_seen'; host: string };
 
 function ruleToDraft(rule: AlertRule): AlertDraft {
@@ -46,6 +52,9 @@ function ruleToDraft(rule: AlertRule): AlertDraft {
       kind: 'price_below',
       threshold_usd: String(rule.threshold_usd),
       condition: rule.condition ?? '',
+      // No mode in YAML = the worker's drops_below default; reflect that
+      // when editing an existing rule so behavior isn't silently changed.
+      mode: rule.mode ?? 'drops_below',
     };
   }
   return { kind: 'vendor_seen', host: rule.host };
@@ -59,6 +68,7 @@ function draftToRule(draft: AlertDraft): { rule: AlertRule | null; error: string
     }
     const rule: AlertRule = { kind: 'price_below', threshold_usd: threshold };
     if (draft.condition) rule.condition = draft.condition;
+    rule.mode = draft.mode;
     const err = validateAlertRule(rule);
     return err ? { rule: null, error: err } : { rule, error: null };
   }
@@ -111,6 +121,7 @@ export function ScheduleEditorButton({
     kind: 'price_below',
     threshold_usd: '',
     condition: '',
+    mode: 'is_below',
   });
   const [editError, setEditError] = useState<string | null>(null);
   const [pushSubscribed, setPushSubscribed] = useState<boolean | null>(null);
@@ -235,7 +246,12 @@ export function ScheduleEditorButton({
 
   function startAdd() {
     setEditIdx(-1);
-    setEditDraft({ kind: 'price_below', threshold_usd: '', condition: '' });
+    setEditDraft({
+      kind: 'price_below',
+      threshold_usd: '',
+      condition: '',
+      mode: 'is_below',
+    });
     setEditError(null);
   }
 
@@ -658,7 +674,12 @@ function AlertForm({
           onChange={(e) => {
             const kind = e.target.value as AlertDraft['kind'];
             if (kind === 'price_below') {
-              onChange({ kind: 'price_below', threshold_usd: '', condition: '' });
+              onChange({
+                kind: 'price_below',
+                threshold_usd: '',
+                condition: '',
+                mode: 'is_below',
+              });
             } else {
               onChange({ kind: 'vendor_seen', host: '' });
             }
@@ -672,6 +693,24 @@ function AlertForm({
 
       {draft.kind === 'price_below' ? (
         <>
+          <div className="flex items-center gap-2">
+            <label className="text-[11px] text-gray-700 dark:text-gray-300 shrink-0 w-20">When</label>
+            <select
+              value={draft.mode}
+              onChange={(e) =>
+                onChange({ ...draft, mode: e.target.value as PriceBelowMode })
+              }
+              className="flex-1 text-xs px-2 py-1 border border-gray-200 dark:border-gray-700 rounded bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100"
+            >
+              <option value="is_below">Whenever it&apos;s at/below the price</option>
+              <option value="drops_below">Only when it drops below the price</option>
+            </select>
+          </div>
+          <p className="text-[10px] text-gray-500 dark:text-gray-400 leading-snug">
+            {draft.mode === 'is_below'
+              ? 'Alerts as soon as the cheapest is at/below your price — including right after you add this if it is already below — then stays quiet until the price goes back up.'
+              : 'Alerts only on the run where the cheapest crosses from above to below your price. Will not alert if it is already below when you add this.'}
+          </p>
           <div className="flex items-center gap-2">
             <label className="text-[11px] text-gray-700 dark:text-gray-300 shrink-0 w-20">Threshold $</label>
             <input

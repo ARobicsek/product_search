@@ -359,7 +359,7 @@ def build_bottom_line_md(listings: list[Listing], profile: Profile) -> str:
     return (
         f"**Bottom line.** Cheapest passing listing for "
         f"{_esc(profile.display_name)}: {price_clause}{seller_clause} via "
-        f"[{_esc(top.source)}]({top.url}) — {title_clip}{cond_clause}."
+        f"[{_esc(_source_label(top))}]({top.url}) — {title_clip}{cond_clause}."
     )
 
 
@@ -407,7 +407,7 @@ def build_diff_md(diff: DiffResult | None) -> str:
         lines.append("  - (none)")
     else:
         for lst in diff.new:
-            lines.append(f"  - [{lst.source}]({lst.url}) - ${lst.unit_price_usd:.2f}: {lst.title}")
+            lines.append(f"  - [{_source_label(lst)}]({lst.url}) - ${lst.unit_price_usd:.2f}: {lst.title}")
             
     # Dropped
     lines.append("- **Dropped:**")
@@ -415,7 +415,7 @@ def build_diff_md(diff: DiffResult | None) -> str:
         lines.append("  - (none)")
     else:
         for lst in diff.dropped:
-            lines.append(f"  - [{lst.source}]({lst.url}) - ${lst.unit_price_usd:.2f}: {lst.title}")
+            lines.append(f"  - [{_source_label(lst)}]({lst.url}) - ${lst.unit_price_usd:.2f}: {lst.title}")
             
     # Changed
     lines.append("- **Price-changed (>=5%):**")
@@ -424,7 +424,7 @@ def build_diff_md(diff: DiffResult | None) -> str:
     else:
         for ch in diff.changed:
             lines.append(
-                f"  - [{ch.new_listing.source}]({ch.url}) - "
+                f"  - [{_source_label(ch.new_listing)}]({ch.url}) - "
                 f"${ch.old_price_usd:.2f} -> ${ch.new_price_usd:.2f} "
                 f"({ch.pct_change*100:+.1f}%): {ch.title}"
             )

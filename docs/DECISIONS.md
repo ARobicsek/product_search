@@ -9,6 +9,29 @@ Status values:
 
 ---
 
+## ADR-056 — Selectable `price_below` alert mode: `is_below` (state) vs `drops_below` (transition) (ACCEPTED — implemented)
+
+**Status**: ACCEPTED — implemented 2026-05-18 (user request; design locked via a structured trade-off interview per memory `feedback_interview_before_ux_work`).
+
+**Date**: 2026-05-18
+
+**Context**: A user added a `price_below $2700` alert on `amd-epyc-9255` while the cheapest passing listing was *already* $2117.44 and never got notified. Diagnosis (not a bug): the only `price_below` behavior was transition-only — fire on the run where the matching cheapest crosses from ≥ threshold down to < threshold, suppress when the previous run was already below. The rule was created (commit `80b9f6c`, 2026-05-18 12:29Z) while already below and stayed below every run, so there was never a downward crossing → correctly silent. The transition rule is also inherently noisy under fetch flakiness (a transient source drop → fake price spike → recovery looks like a real "drop below"). The user wanted to choose, per alert, between "tell me whenever it's below $X" and "tell me only on a fresh drop". Interview decisions: (1) enabling an `is_below` rule while already below **fires on the next run**; (2) re-fire cadence = **once per dip**, re-arm only when the price returns to/above the threshold (no per-run spam); (3) **keep both** modes, user picks per alert.
+
+**Decision**: Add `mode: Literal["drops_below", "is_below"]` to `PriceBelowAlert` (`profile.py`), default `"drops_below"` for backward-compat of any pre-existing serialized rule (no silent behavior change). The web schedule/alerts editor defaults *new* rules to `is_below` (the intuitive choice that fixes the reported confusion).
+- `drops_below`: unchanged transition logic (`_evaluate_price_below`, CSV prev-vs-current; stateless).
+- `is_below`: new `_evaluate_price_is_below` using a persisted per-rule armed flag. Fire iff cheapest < threshold AND armed → then disarm; re-arm whenever cheapest is not below (≥ threshold or no eligible listing). A missing fingerprint = armed, so a freshly created/edited rule fires on first below observation even if already below.
+- State lives in `reports/<slug>/alerts_state.json` (`AlertsState{armed: {fingerprint: bool}}`), loaded/saved in `cli.py` around the alert eval; saved **only** when the run is stored (`csv_path is not None`) so `--no-store` runs never mutate user state. Auto-committed by the scheduled workflow's existing `git add -A` (no workflow change). `rule_fingerprint` keys on kind|mode|threshold|condition — editing any salient field re-arms (intended).
+- TS mirrors updated: `web/lib/alerts.ts` (type/parse/render/validate/`describeRule` verb), `web/lib/onboard/schema.ts` (`ALERT_PRICE_MODES` validation), `ScheduleEditorButton.tsx` `AlertForm` gains a "When" selector + behavior helper text.
+
+**Consequence**:
+- The user's exact scenario now works: re-add the alert in `is_below` mode → next scheduled/Run-now run notifies immediately (price already $2117 < $2700), then stays quiet until the price climbs back to/above $2700 and dips again.
+- New persisted artifact `reports/<slug>/alerts_state.json` per product with `is_below` rules; small, JSON, committed alongside reports/data. Deleting it = all `is_below` rules re-armed (at most one extra notification).
+- `is_below` is robust to the transient-fetch false-spike problem (it reports the *current* state, not a cross), unlike `drops_below`. The ADR-053 deferred "surface N source(s) errored" item is still independently worth doing for `drops_below`.
+- Worker suite 251 passed (10 new in `test_alerts.py`); ruff + mypy --strict clean; web tsc clean, eslint 0 errors. Default-`drops_below` keeps every existing alerts test valid.
+- Not addressed (unchanged scope): push remains a device-wide fan-out (ADR-055); email-on-alert still deferred to its own ADR.
+
+---
+
 ## ADR-055 — Single device-wide alerts bell on the home screen (replaces the per-product PWA-only Subscribe button) (ACCEPTED — implemented)
 
 **Status**: ACCEPTED — implemented 2026-05-18 (user request, structured trade-off interview per memory `feedback_interview_before_ux_work`). New `web/app/AlertsBell.tsx`; rendered once in the `web/app/page.tsx` home header next to "New"; the two `SubscribeButton` instances + import removed from `web/app/[product]/page.tsx`; `web/app/[product]/SubscribeButton.tsx` **deleted**; stale comment in `ScheduleEditorButton.tsx` repointed. tsc + lint clean; verified live (chrome-devtools, localhost) at 390px and 1280px: bell renders as greyed crossed-out `BellOff` (not subscribed), accessible name "Turn on alerts"/"Turn off alerts", visible+interactive on a non-PWA desktop tab, busy spinner on click, zero console errors, product toolbar now Schedule&Alerts/Columns/Edit Profile/Run now only.

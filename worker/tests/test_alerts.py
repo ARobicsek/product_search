@@ -14,12 +14,16 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from product_search.alerts import (
+    AlertsState,
     FiredAlert,
     evaluate_alerts,
     listing_host,
+    load_alerts_state,
     load_previous_run,
     previous_run_csv,
     render_audit_panel,
+    rule_fingerprint,
+    save_alerts_state,
 )
 from product_search.models import Listing
 from product_search.profile import PriceBelowAlert, VendorSeenAlert
@@ -295,6 +299,131 @@ def test_load_previous_run_returns_none_when_only_current_exists(
 
 def test_render_audit_panel_empty_when_nothing_fired() -> None:
     assert render_audit_panel([], []) == ""
+
+
+# ---------------------------------------------------------------------------
+# ADR-056 — price_below mode: is_below (state-based) vs drops_below (default)
+# ---------------------------------------------------------------------------
+
+
+def test_price_below_mode_defaults_to_drops_below() -> None:
+    """Back-compat: a rule with no mode is the old transition behavior."""
+    rule = PriceBelowAlert(kind="price_below", threshold_usd=200.0)
+    assert rule.mode == "drops_below"
+
+
+def test_is_below_fires_even_when_previous_already_below() -> None:
+    """The whole point of is_below: a rule created while the price is ALREADY
+    below fires on its first run (drops_below would stay silent here)."""
+    rule = PriceBelowAlert(
+        kind="price_below", threshold_usd=200.0, mode="is_below"
+    )
+    current = [_mk_listing(unit_price_usd=150.0)]
+    previous = [_mk_listing(unit_price_usd=160.0)]  # already below last run
+    state = AlertsState()
+    fired = evaluate_alerts([rule], current, previous, state)
+    assert len(fired) == 1
+    assert "150.00" in fired[0].headline
+    # drops_below on the same inputs would NOT fire (the contrast).
+    drops = PriceBelowAlert(kind="price_below", threshold_usd=200.0)
+    assert evaluate_alerts([drops], current, previous, AlertsState()) == []
+
+
+def test_is_below_does_not_refire_while_staying_below() -> None:
+    rule = PriceBelowAlert(
+        kind="price_below", threshold_usd=200.0, mode="is_below"
+    )
+    state = AlertsState()
+    assert len(evaluate_alerts([rule], [_mk_listing(unit_price_usd=150.0)], None, state)) == 1
+    # Still below on the next run — armed flag is now False, so silent.
+    assert evaluate_alerts([rule], [_mk_listing(unit_price_usd=140.0)], None, state) == []
+    assert evaluate_alerts([rule], [_mk_listing(unit_price_usd=199.0)], None, state) == []
+
+
+def test_is_below_rearms_when_price_returns_above_then_fires_again() -> None:
+    rule = PriceBelowAlert(
+        kind="price_below", threshold_usd=200.0, mode="is_below"
+    )
+    state = AlertsState()
+    assert len(evaluate_alerts([rule], [_mk_listing(unit_price_usd=150.0)], None, state)) == 1
+    assert evaluate_alerts([rule], [_mk_listing(unit_price_usd=150.0)], None, state) == []
+    # Price climbs back to/above threshold -> re-arm (no notification).
+    assert evaluate_alerts([rule], [_mk_listing(unit_price_usd=250.0)], None, state) == []
+    # Next dip fires again.
+    fired = evaluate_alerts([rule], [_mk_listing(unit_price_usd=180.0)], None, state)
+    assert len(fired) == 1
+
+
+def test_is_below_rearms_when_no_eligible_listings() -> None:
+    """No listing for the condition counts as 'not below' -> re-arm."""
+    rule = PriceBelowAlert(
+        kind="price_below", threshold_usd=200.0, mode="is_below", condition="new"
+    )
+    state = AlertsState()
+    assert len(evaluate_alerts([rule], [_mk_listing(unit_price_usd=150.0, condition="new")], None, state)) == 1
+    # Only a used listing now — not eligible -> re-armed.
+    assert evaluate_alerts([rule], [_mk_listing(unit_price_usd=50.0, condition="used")], None, state) == []
+    fired = evaluate_alerts([rule], [_mk_listing(unit_price_usd=150.0, condition="new")], None, state)
+    assert len(fired) == 1
+
+
+def test_is_below_with_none_state_treats_rule_as_armed_once() -> None:
+    """Stateless callers (state=None) get a single fire (ephemeral armed)."""
+    rule = PriceBelowAlert(
+        kind="price_below", threshold_usd=200.0, mode="is_below"
+    )
+    fired = evaluate_alerts([rule], [_mk_listing(unit_price_usd=150.0)], None)
+    assert len(fired) == 1
+
+
+def test_rule_fingerprint_stable_and_changes_on_edit() -> None:
+    a = PriceBelowAlert(kind="price_below", threshold_usd=200.0, mode="is_below")
+    a2 = PriceBelowAlert(kind="price_below", threshold_usd=200.0, mode="is_below")
+    assert rule_fingerprint(a) == rule_fingerprint(a2)
+    # Editing threshold / condition / mode each yields a new key (re-arms).
+    assert rule_fingerprint(a) != rule_fingerprint(
+        PriceBelowAlert(kind="price_below", threshold_usd=201.0, mode="is_below")
+    )
+    assert rule_fingerprint(a) != rule_fingerprint(
+        PriceBelowAlert(
+            kind="price_below", threshold_usd=200.0, mode="is_below", condition="new"
+        )
+    )
+    assert rule_fingerprint(a) != rule_fingerprint(
+        PriceBelowAlert(kind="price_below", threshold_usd=200.0)
+    )
+
+
+def test_alerts_state_json_round_trip_and_tolerates_garbage() -> None:
+    s = AlertsState(armed={"k": False, "j": True})
+    assert AlertsState.from_json(s.to_json()).armed == {"k": False, "j": True}
+    # Garbage / wrong shapes degrade to an empty (all-armed) state.
+    assert AlertsState.from_json("nope").armed == {}
+    assert AlertsState.from_json({"armed": "nope"}).armed == {}
+    assert AlertsState.from_json({"armed": {"x": "notbool"}}).armed == {}
+
+
+def test_load_save_alerts_state_round_trip(tmp_path: Path) -> None:
+    rd = tmp_path / "reports" / "slug"
+    rd.mkdir(parents=True)
+    assert load_alerts_state("slug", report_dir=rd).armed == {}  # missing file
+    save_alerts_state("slug", AlertsState(armed={"fp": False}), report_dir=rd)
+    assert load_alerts_state("slug", report_dir=rd).armed == {"fp": False}
+
+
+def test_is_below_state_persists_across_runs_via_disk(tmp_path: Path) -> None:
+    """End-to-end: fire once, persist, reload -> stays silent until re-arm."""
+    rd = tmp_path / "reports" / "slug"
+    rd.mkdir(parents=True)
+    rule = PriceBelowAlert(
+        kind="price_below", threshold_usd=200.0, mode="is_below"
+    )
+    s1 = load_alerts_state("slug", report_dir=rd)
+    assert len(evaluate_alerts([rule], [_mk_listing(unit_price_usd=150.0)], None, s1)) == 1
+    save_alerts_state("slug", s1, report_dir=rd)
+    # Next run reloads the (disarmed) state from disk -> silent.
+    s2 = load_alerts_state("slug", report_dir=rd)
+    assert evaluate_alerts([rule], [_mk_listing(unit_price_usd=150.0)], None, s2) == []
 
 
 def test_render_audit_panel_lists_each_fire_with_status() -> None:

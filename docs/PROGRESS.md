@@ -20,6 +20,36 @@
 
 **Inter-phase — Phase 20 recurring trigger ROOT-CAUSED + genuinely proven; card run-status tri-state. DONE 2026-05-18 (ADR-054).** User reported a one-time `amd-epyc-9255` run (`run_at` 05:31Z, later re-set to 06:15Z) never fired. Diagnosed empirically: in-repo code + Vercel `/api/cron/tick` (401 not 500 → env+deploy healthy) + `GITHUB_DISPATCH_TOKEN` (on-demand #129 OK same day) all healthy; the break was isolated entirely to the **cron-job.org → /api/cron/tick leg**. Root cause confirmed by the user: **cron-job.org job 7619329 was simply INACTIVE** — Phase 20's "proven end-to-end" had only ever been the single *manual* test #24; the recurring `*/15` job never fired automatically. User reactivated it; verified **genuinely** end-to-end same hour (auto-fired 06:15:03Z → run #26 success 06:19:45Z → the armed one-time ran, wrote a CSV, **self-cleared**, committed `95efb44`). Separately, the user asked to fix the home-cards status confusion ("waiting to run" vs "running", and show the *current* run's begin time not the stale last-run): shipped tri-state `running|waiting|idle` + "Running since &lt;begin&gt;" (ADR-054). The session's original first item also landed: the confusing per-product PWA-only Subscribe button was replaced by a single device-wide **alerts bell** in the home header (ADR-055; works on desktop, icon-only, email-on-alert deferred). Residual real gap: still no in-app surface for silent trigger death (a redundant independent trigger — e.g. Cloudflare Workers cron — is the only true fix; user was offered it, deferred).
 
+**Inter-phase — selectable `price_below` alert mode (`is_below` vs `drops_below`). DONE 2026-05-18 (ADR-056).** Diagnosed why a `price_below $2700` alert on `amd-epyc-9255` never fired (NOT a bug): transition-only semantics + the rule was created at 12:29Z when the cheapest was *already* $2117.44 and stayed below — no downward crossing ever occurred. Per a structured trade-off interview (memory `feedback_interview_before_ux_work`): added a per-alert `mode` — `drops_below` (default; old transition behavior, back-compat) and `is_below` (state-based: fires while below AND armed, including immediately when enabled-while-below; re-arms only when price returns to/above threshold; per-rule armed flag persisted in `reports/<slug>/alerts_state.json`, auto-committed by the workflow's `git add -A`). Web editor defaults *new* rules to `is_below`. Also fixed (#4 same session) the `universal_ai_search` adapter-id leaking into the report Bottom line / Diff / Pending line (now shows the vendor host; URL-less pending meta-note omitted), and added a "Syncing with origin" section to CLAUDE.md (#5). Worker 251 passed (10 new); ruff+mypy --strict clean; web tsc clean. **User will test by re-adding the alert in `is_below` mode** — expect an immediate notification on the next run since price is already < $2700 (requires push subscription on the device + a deployed build). See ADR-056 + the dated status block below.
+
+## Status as of 2026-05-18 (inter-phase — ADR-056 selectable alert modes; universal_ai_search display cleanup; CLAUDE.md origin-sync note)
+
+**User-driven session between Phase 20 (done) and Phase 18 (next). Six items raised; all resolved or actioned.**
+
+### 1 — Can we detect an above→below transition? (answered: yes)
+
+Fully capable and tested (`test_alerts.py` pins prev-vs-current logic). The `amd-epyc-9255` alert didn't fire only because the rule was created (12:29Z) while the cheapest was already $2117.44 < $2700 and stayed below — no crossing. Not a bug.
+
+### 2 — Selectable alert mode (ADR-056 — SHIPPED, awaiting user test)
+
+`PriceBelowAlert.mode`: `drops_below` (default, = old transition) | `is_below` (state-based armed flag, persisted in `reports/<slug>/alerts_state.json`). Worker: `profile.py`, `alerts.py` (`AlertsState`, `rule_fingerprint`, `_evaluate_price_is_below`, `load/save_alerts_state`), `cli.py` (load/eval/save; state saved only when `csv_path is not None`). Web: `lib/alerts.ts`, `lib/onboard/schema.ts`, `ScheduleEditorButton.tsx` "When" selector (defaults new rules to `is_below`) + behavior helper text. Verified: worker 251 passed (10 new), ruff + mypy --strict clean; web `tsc --noEmit` clean, eslint 0 errors (5 pre-existing unrelated warnings). **Not yet exercised end-to-end on the deployed app** — needs commit+push+Vercel deploy, then the user re-adds the alert in `is_below` mode and confirms the push arrives on the next run. The user also reconfirmed their phone WAS subscribed (#3) — consistent with "never fired" (nothing was sent).
+
+### 4 — `universal_ai_search` display leak (FIXED)
+
+Was leaking into the report **Bottom line** ("via universal_ai_search"), **Diff** rows, and the **Pending (not yet wired)** line. `synthesizer.py` now uses `_source_label` in all three (vendor host); `cli.py::_pending_label` omits URL-less `universal_ai_search` meta-notes entirely. Regression test added. (The Source *column* was already clean.)
+
+### 5 — CLAUDE.md origin-sync note (DONE)
+
+Added a "Syncing with origin (read this if a commit/push fails)" section: the deployed app commits profile/schedule/alerts edits + the scheduled report bot directly to `origin/main`, so local goes stale; never trust local `products/*/profile.yaml` or `reports/**`; `git fetch && pull --rebase` recipe; the rebase-dedup check.
+
+### 6 — Bot-wall blocks (later-session guidance, no action)
+
+serversupply.com = Datadome (hard); centralcomputer.com = lighter best-effort wall. Options laid out (AlterLab residential/stealth tier check → Playwright+stealth Tier-2 → accept as dead). Recommendation: not worth bespoke anti-Datadome work for one SKU while provantage holds $2117; revisit only if a walled vendor is suspected cheaper. Logged here for a future session.
+
+### Next session
+
+Phase 18 — Polish + second-product proof remains the queued phase. ADR-056 carry-over: confirm `is_below` end-to-end on the deployed app once the user tests (re-add alert → immediate push next run → quiet → re-arm when price ≥ $2700). Still-open prior items unchanged: ADR-040 auto-demote impl; ADR-053 deferred #1–#3 (incl. "N sources errored" surfacing, still relevant for `drops_below`); scheduled tick #25 06:11Z `failure`-with-nothing-due; no in-app signal for silent external-trigger death; email-on-alert (own ADR + sign-off).
+
 ## Status as of 2026-05-18 (inter-phase — Phase 20 trigger root-cause; card run-status tri-state ADR-054; alerts bell ADR-055)
 
 ### Task 2 — "my 1:31 AM schedule didn't run" (RESOLVED)

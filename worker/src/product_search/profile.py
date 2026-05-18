@@ -209,16 +209,28 @@ class PendingSource(BaseModel):
 
 
 class PriceBelowAlert(BaseModel):
-    """Fire when the cheapest passing listing's price_unit crosses below
+    """Fire when the cheapest passing listing's price_unit is/drops below
     ``threshold_usd``. Optional ``condition`` filter restricts which listings
-    count toward the cheapest (e.g. "new" only). Fired on transition only:
-    only fires when previous run's matching cheapest was at or above the
-    threshold (or no previous run). See Phase 17 alerts brief in PHASES.md.
+    count toward the cheapest (e.g. "new" only).
+
+    ``mode`` controls re-fire semantics (ADR-056):
+
+    - ``drops_below`` (default; back-compat with pre-ADR-056 rules): fires only
+      on the *transition* run where the matching cheapest crosses from at/above
+      the threshold down to below it (or on the first run when there is no
+      previous run). Will NOT fire if the price was already below when the rule
+      was created.
+    - ``is_below``: fires as soon as the matching cheapest is below the
+      threshold — including immediately on the first run after the rule is
+      created while already below — then stays quiet for the rest of that dip
+      and re-arms once the price goes back to/above the threshold. State is
+      persisted per-rule in ``reports/<slug>/alerts_state.json``.
     """
 
     kind: Literal["price_below"]
     threshold_usd: float = Field(gt=0)
     condition: Literal["new", "used", "refurbished"] | None = None
+    mode: Literal["drops_below", "is_below"] = "drops_below"
 
 
 class VendorSeenAlert(BaseModel):
