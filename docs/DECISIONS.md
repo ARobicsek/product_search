@@ -9,9 +9,9 @@ Status values:
 
 ---
 
-## ADR-052 — Reliable scheduling via external `workflow_dispatch` through the existing Vercel app (ACCEPTED — code implemented; live setup pending user runbook)
+## ADR-052 — Reliable scheduling via external `workflow_dispatch` through the existing Vercel app (ACCEPTED — implemented + proven)
 
-**Status**: ACCEPTED (code) — implemented + pushed 2026-05-17 (Phase 20, `0d5b99a`); tsc/lint clean. The out-of-repo runbook was executed by the user: `CRON_TRIGGER_SECRET` set in Vercel Production + redeployed (confirmed — a header-less GET to prod returns 401, not 500), and cron-job.org job 7619329 created (`*/15`, POST, `x-cron-secret`, enabled; owner ari.robicsek@gmail.com — full config recorded in PROGRESS.md). **The live Done-when gate is still OPEN**: as of the ~20:00Z 2026-05-17 check, no `workflow_dispatch` run had yet appeared on `search-scheduled.yml` (all recent runs still `event = schedule`) — either cron-job.org hadn't reached its first tick or the secret is out of sync. Next session must confirm a 200 at cron-job.org → an on-time `workflow_dispatch` cadence (≥4 over ≥1 h) + a one-time `run_at` firing within ~15 min, then mark this fully done. Until proven, scheduling runs on the kept `schedule:` fallback (~hourly). Triage steps in PROGRESS.md.
+**Status**: ACCEPTED — implemented + pushed 2026-05-17 (Phase 20, `0d5b99a`; tsc/lint clean) and **proven live 2026-05-18**. The out-of-repo runbook was executed (Vercel `CRON_TRIGGER_SECRET` set in Production + **redeployed** — the redeploy was the step that resolved an interim 401; env changes don't apply to a running deployment until redeploy. cron-job.org job 7619329: `*/15`, POST, `x-cron-secret`, enabled; owner ari.robicsek@gmail.com — full config in PROGRESS.md). End-to-end verification: cron-job.org test run → `200 {"ok":true,"dispatchedAt":"2026-05-18T05:15:29.703Z"}`; `search-scheduled.yml` then ran with `event = workflow_dispatch`, success at `2026-05-18T05:15:30Z` (≈1 s vs. the old ~hourly `schedule:` lag). The recurring `*/15` job now accrues on-time dispatches automatically; the kept `schedule:` cron remains the degraded fallback. (Operational gotcha worth remembering: **any change to `CRON_TRIGGER_SECRET` requires a Vercel redeploy** to take effect.)
 
 **Date**: 2026-05-17
 

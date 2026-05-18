@@ -12,9 +12,36 @@
 
 **Phase 17 — Schedule visibility follow-up. 2026-05-17 (user request).** User reported the `amd-epyc-9255` one-time runs "never ran". Diagnosis: they **did** run (14:30Z→fired 14:41Z, 16:15Z→fired 16:43Z) but ~12–28 min late (GitHub `*/15` heartbeat + Actions cron lag, an accepted ADR-050 tradeoff) and were **invisible** — the cards page showed only a date and the detail footer is on-demand-only. Built a per-card run-status surface (last-run local date+**time** from the newest data CSV + a live "Running" green dot). See ADR-051 and the dated status block below.
 
-**Phase 20 — Reliable scheduling trigger. CODE SHIPPED + pushed 2026-05-17 (`0d5b99a`); external trigger CONFIGURED; first on-time `workflow_dispatch` NOT yet observed.** In-repo fix done, committed, pushed: `dispatchScheduledTick()` in `web/lib/dispatch.ts`, new `web/app/api/cron/tick/route.ts` (GET+POST, `x-cron-secret`/`CRON_TRIGGER_SECRET` guard mirroring `/api/dispatch`), `CRON_TRIGGER_SECRET` in `.env.example`, `search-scheduled.yml` re-commented (workflow_dispatch = on-time path, `schedule: '*/15'` kept as degraded fallback), ADR-050 caveat cross-linked. tsc/lint clean. User executed the runbook: Vercel `CRON_TRIGGER_SECRET` set + redeployed (confirmed: header-less GET to prod returns 401, not 500); cron-job.org job 7619329 created (`*/15`, POST, `x-cron-secret`, America/New_York, enabled; owner ari.robicsek@gmail.com). **Not yet proven on-time**: ~20:00Z GitHub check showed all 12 recent `search-scheduled.yml` runs still `event = schedule` — no `workflow_dispatch` yet (either cron-job.org hadn't ticked, or the secret is out of sync). ADR-052 = ACCEPTED (code); live Done-when still OPEN.
+**Phase 20 — Reliable scheduling trigger. DONE 2026-05-18. Chain PROVEN end-to-end.** Code shipped + pushed (`0d5b99a`): `dispatchScheduledTick()` in `web/lib/dispatch.ts`, new `web/app/api/cron/tick/route.ts` (GET+POST, `x-cron-secret`/`CRON_TRIGGER_SECRET` guard mirroring `/api/dispatch`), `CRON_TRIGGER_SECRET` in `.env.example`, `search-scheduled.yml` re-commented (workflow_dispatch = on-time path, `schedule: '*/15'` kept as degraded fallback), ADR-050 caveat cross-linked. tsc/lint clean. Out-of-repo runbook executed (Vercel `CRON_TRIGGER_SECRET` set in Production + **redeployed** — the redeploy was the missing step that caused an interim 401; cron-job.org job 7619329, `*/15`, POST, `x-cron-secret`, America/New_York, enabled; owner ari.robicsek@gmail.com). **Verified live 2026-05-18**: cron-job.org test run → `200 {"ok":true,"dispatchedAt":"2026-05-18T05:15:29.703Z"}`; GitHub Actions then ran `search-scheduled.yml` with `event = workflow_dispatch`, completed **success at 05:15:30Z** (≈1 s after dispatch). ADR-052 → **ACCEPTED (fully — implemented + proven)**.
 
-**Next session: confirm or fix the live trigger** (read the dated block below — has the cron-job.org job details + the 200/401/500 triage). It's the only thing between "shipped" and "done"; no `gh` on PATH, use the public Actions API via `curl`. Then resume **Phase 18 — Polish + second-product proof** ([PHASES.md](PHASES.md#phase-18--polish--second-product-proof-replaces-old-phase-12)).
+**Remaining = passive/optional, NOT a gate:** the recurring `*/15` cron-job.org job now produces on-time `workflow_dispatch` runs automatically (cron-job.org emails on failure); the ≥4-over-≥1 h cadence accrues on its own. A one-time `run_at` end-to-end (set via the schedule editor → fires within ~15 min → self-clears → shows on cards chip/footer) exercises already-shipped ADR-050/051 logic through the now-proven trigger; spot-check whenever convenient. **Next session: resume Phase 18 — Polish + second-product proof** ([PHASES.md](PHASES.md#phase-18--polish--second-product-proof-replaces-old-phase-12)).
+
+## Status as of 2026-05-18 (Phase 20 — DONE; external trigger PROVEN end-to-end)
+
+**Phase 20 closed. The recurring "my scheduled run didn't fire on time" failure (3+ sessions) is fixed and proven.**
+
+### What resolved the interim 401
+
+The 2026-05-17 close-out left the chain wired but unproven (a ~20:00Z check still showed only `event = schedule`). Root cause of the lingering 401: the Vercel `CRON_TRIGGER_SECRET` value had been updated but the **production deployment was not redeployed**, so the running app validated against the old secret while cron-job.org sent the new one. After the user redeployed (and confirmed the cron-job.org header value was byte-identical to `CRON_TRIGGER_SECRET`), the chain went green.
+
+### Live verification (the Done-when, met)
+
+- cron-job.org → **Test run** on job 7619329: `200 OK`, `X-Matched-Path: /api/cron/tick`, body `{"ok":true,"dispatchedAt":"2026-05-18T05:15:29.703Z"}`.
+- Public Actions API immediately after: `search-scheduled.yml` ran with **`event = workflow_dispatch`**, `completed / success` at **`2026-05-18T05:15:30Z`** — ≈1 s after dispatch (vs. the old ~hourly `schedule:` lag). Prior `schedule` runs remain in history as the now-secondary fallback.
+
+### Out-of-repo config (unchanged, still recorded per ADR-052)
+
+Vercel `CRON_TRIGGER_SECRET` (Production; **must redeploy after any change** — that was the gotcha). cron-job.org account owner **ari.robicsek@gmail.com**, job **id 7619329** (`https://console.cron-job.org/jobs/7619329`): URL `https://ari-product-search.vercel.app/api/cron/tick`, POST, header `x-cron-secret`, `*/15`, America/New_York, enabled, failure-notify on. Note: the live secret value transited the troubleshooting chat — optional low-priority rotation (low-value secret: worst case is a forced no-op tick).
+
+### Changes applied this session
+
+- Docs only: this block + the active-phase block updated; ADR-052 → ACCEPTED (fully). **No code changed this session** (the runbook fix was entirely out-of-repo: a Vercel redeploy + cron-job.org header). Nothing to build/verify in-repo.
+
+### Next session — start here
+
+**Resume Phase 18 — Polish + second-product proof** (read its PHASES.md brief). Optional passive confirmations (NOT gates): the `*/15` job accrues on-time `workflow_dispatch` runs automatically (cron-job.org notifies on failure); a one-time `run_at` set via the schedule editor should fire within ~15 min, self-clear, and surface on the cards chip + detail footer (exercises already-shipped ADR-050/051 through the proven trigger) — spot-check anytime. Carry-over still valid: ADR-040 auto-demote impl; AlterLab 422 retry; IT-Creations in_stock flip; one-time runs are attempted-once/no-retry; the kept GitHub `schedule:` fallback still emits occasional ~hourly runs (accepted price of resilience per ADR-052).
+
+---
 
 ## Status as of 2026-05-17 (Phase 20 — code SHIPPED + pushed; external trigger CONFIGURED; first on-time `workflow_dispatch` NOT yet observed)
 
