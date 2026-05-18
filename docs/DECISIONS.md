@@ -9,6 +9,28 @@ Status values:
 
 ---
 
+## ADR-055 — Single device-wide alerts bell on the home screen (replaces the per-product PWA-only Subscribe button) (ACCEPTED — implemented)
+
+**Status**: ACCEPTED — implemented 2026-05-18 (user request, structured trade-off interview per memory `feedback_interview_before_ux_work`). New `web/app/AlertsBell.tsx`; rendered once in the `web/app/page.tsx` home header next to "New"; the two `SubscribeButton` instances + import removed from `web/app/[product]/page.tsx`; `web/app/[product]/SubscribeButton.tsx` **deleted**; stale comment in `ScheduleEditorButton.tsx` repointed. tsc + lint clean; verified live (chrome-devtools, localhost) at 390px and 1280px: bell renders as greyed crossed-out `BellOff` (not subscribed), accessible name "Turn on alerts"/"Turn off alerts", visible+interactive on a non-PWA desktop tab, busy spinner on click, zero console errors, product toolbar now Schedule&Alerts/Columns/Edit Profile/Run now only.
+
+**Date**: 2026-05-18
+
+**Context**: Push delivery is **device-wide** — `/api/push/subscribe` writes one global Redis set fanned out to every product by `/api/push/notify`; the old `SubscribeButton`'s `productSlug` prop was unused. Yet it lived on every product detail page (implying per-product scope) and `return null` unless `display-mode: standalone`, so it was invisible on a normal desktop tab — the user "couldn't find subscribe on desktop" and couldn't tell subscription state (label showed the *action*, not the state). Interview decisions: (1) make it actually work on desktop, not just visible; (2) icon-only, no caption/scope tooltip; (3) email-on-alert deferred to its own ADR.
+
+**Decision**: One `AlertsBell` in the home header — the only push control in the app.
+- Illuminated bell (filled `Bell`, indigo) = subscribed; greyed crossed-out `BellOff` = not subscribed; spinner while busy/loading; disabled+greyed when web-push is unsupported (e.g. iOS Safari not installed as a PWA — a platform constraint we degrade to, not bypass).
+- **No** `isStandalone` gate (the service worker is registered unconditionally in `layout.tsx`, so subscribe works in any web-push-capable browser incl. desktop). No `productSlug` (scope is the device).
+- Icon-only, no visible caption/scope tooltip (user choice); an invisible `aria-label` + `aria-pressed` is kept for accessibility (an icon button needs an accessible name — not a "caption").
+- Subscribe/unsubscribe logic (VAPID `NEXT_PUBLIC_VAPID_PUBLIC_KEY`, `pushManager`, POST/DELETE `/api/push/subscribe`) is carried over from the deleted button unchanged.
+
+**Consequence**:
+- Subscription state is now legible at a glance from one place; desktop users can finally subscribe; the false per-product implication is gone.
+- `SubscribeButton.tsx` deleted (no back-compat shim — it had no remaining importers; project rule against keeping dead code).
+- Accepted limitation: the bell reflects only *this device's* subscription; there is still no per-product alert targeting (out of scope — the price/vendor *rules* remain per-product in the alerts editor; the bell is purely "does this device receive push at all"). iOS web-push still requires the installed PWA — surfaced as the disabled state, not worked around.
+- Email-on-alert remains unbuilt (deferred by interview to its own ADR + sign-off; no email path exists anywhere today).
+
+---
+
 ## ADR-054 — Tri-state card run-status (Running-since / Waiting to run / idle); never show a stale last-run time while running (ACCEPTED — implemented)
 
 **Status**: ACCEPTED — implemented 2026-05-18 (user request, same session as the Phase 20 cron-job.org reactivation). `web/lib/dispatch.ts` (`ActiveRuns` now carries each active on-demand run's `run_started_at` + the freshest in-flight scheduled-tick start), `web/app/page.tsx` (per-product `status: 'running'|'waiting'|'idle'` + `runningSinceIso`; now fetches every profile to detect a `schedule:` block via `readScheduleFromYaml`), `web/app/CardRunStatus.tsx` (tri-state render). tsc + lint clean; mobile (390px) + `idle` state + zero console errors verified live; `waiting`/`running` are logic-verified only (origin/main had no scheduled product to reproduce them visually at commit time).

@@ -11,6 +11,7 @@ import { getActiveRuns } from '@/lib/dispatch';
 import { readScheduleFromYaml } from '@/lib/schedule';
 import { DeleteProductModal } from '@/components/DeleteProductModal';
 import { CardRunStatus } from './CardRunStatus';
+import AlertsBell from './AlertsBell';
 
 // Running state is live and must never be served from an edge/RSC cache, same
 // reasoning as the product detail page.
@@ -94,13 +95,16 @@ export default async function Home() {
           <h1 className="text-3xl font-bold tracking-tight">Product Search</h1>
           <p className="text-gray-500 dark:text-gray-400 mt-2">Daily price tracking reports</p>
         </div>
-        <Link
-          href="/onboard"
-          className="shrink-0 mt-1 flex items-center text-sm font-medium px-3 py-1.5 rounded-full bg-blue-600 text-white hover:bg-blue-700 transition focus:outline-none focus:ring-2 focus:ring-blue-500"
-        >
-          <Plus className="w-4 h-4 mr-1" />
-          New
-        </Link>
+        <div className="shrink-0 mt-1 flex items-center gap-2">
+          <AlertsBell />
+          <Link
+            href="/onboard"
+            className="flex items-center text-sm font-medium px-3 py-1.5 rounded-full bg-blue-600 text-white hover:bg-blue-700 transition focus:outline-none focus:ring-2 focus:ring-blue-500"
+          >
+            <Plus className="w-4 h-4 mr-1" />
+            New
+          </Link>
+        </div>
       </header>
 
       {productData.length === 0 ? (

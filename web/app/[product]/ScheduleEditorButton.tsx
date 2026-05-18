@@ -128,7 +128,7 @@ export function ScheduleEditorButton({
   }, [open]);
 
   // Probe local push subscription whenever the popover opens. Mirrors the
-  // logic in SubscribeButton — we only care about *this* device's state.
+  // logic in AlertsBell — we only care about *this* device's state.
   useEffect(() => {
     if (!open) return;
     let cancelled = false;
