@@ -78,7 +78,8 @@ def rule_fingerprint(rule: AlertRule) -> str:
     edited rule behaving like a new one is the intended behavior."""
     if isinstance(rule, PriceBelowAlert):
         return (
-            f"price_below|{rule.mode}|{rule.threshold_usd}|{rule.condition or ''}"
+            f"price_below|{rule.mode}|{rule.threshold_usd}"
+            f"|{rule.condition or ''}|{rule.price_basis}"
         )
     if isinstance(rule, VendorSeenAlert):
         return f"vendor_seen|{rule.host}"
@@ -109,13 +110,31 @@ def listing_host(listing: Listing) -> str | None:
     return _canonical_host(urlparse(listing.url).netloc)
 
 
-def _cheapest(listings: list[Listing], *, condition: str | None) -> Listing | None:
+def _effective_price(listing: Listing, basis: str) -> float:
+    """The price an alert threshold compares against (ADR-059).
+
+    ``total`` = the listing's as-sold price: ``kit_price_usd`` for a kit, else
+    the single-unit price (a non-kit's as-sold price *is* its unit price).
+    ``unit`` (default) = ``unit_price_usd`` (price of one module).
+    """
+    if basis == "total" and listing.is_kit and listing.kit_price_usd is not None:
+        return listing.kit_price_usd
+    return listing.unit_price_usd
+
+
+def _basis_word(basis: str) -> str:
+    return "total" if basis == "total" else "unit"
+
+
+def _cheapest(
+    listings: list[Listing], *, condition: str | None, basis: str = "unit"
+) -> Listing | None:
     eligible = [
         lst for lst in listings if condition is None or lst.condition == condition
     ]
     if not eligible:
         return None
-    return min(eligible, key=lambda lst: lst.unit_price_usd)
+    return min(eligible, key=lambda lst: _effective_price(lst, basis))
 
 
 def _evaluate_price_below(
@@ -123,17 +142,19 @@ def _evaluate_price_below(
     current: list[Listing],
     previous: list[Listing] | None,
 ) -> FiredAlert | None:
-    curr = _cheapest(current, condition=rule.condition)
-    if curr is None or curr.unit_price_usd >= rule.threshold_usd:
+    basis = rule.price_basis
+    curr = _cheapest(current, condition=rule.condition, basis=basis)
+    if curr is None or _effective_price(curr, basis) >= rule.threshold_usd:
         return None
     if previous is not None:
-        prev = _cheapest(previous, condition=rule.condition)
-        if prev is not None and prev.unit_price_usd < rule.threshold_usd:
+        prev = _cheapest(previous, condition=rule.condition, basis=basis)
+        if prev is not None and _effective_price(prev, basis) < rule.threshold_usd:
             # Already below the threshold last run — not a transition.
             return None
     cond_phrase = f" ({rule.condition})" if rule.condition else ""
     headline = (
-        f"Cheapest{cond_phrase} dropped to ${curr.unit_price_usd:,.2f} "
+        f"Cheapest{cond_phrase} {_basis_word(basis)} price dropped to "
+        f"${_effective_price(curr, basis):,.2f} "
         f"— alert threshold ${rule.threshold_usd:,.2f}"
     )
     return FiredAlert(rule=rule, headline=headline)
@@ -150,10 +171,13 @@ def _evaluate_price_is_below(
     A missing fingerprint = armed, so a newly created/edited rule fires on its
     first below observation even if the price was already below.
     """
+    basis = rule.price_basis
     fp = rule_fingerprint(rule)
     armed = state.armed.get(fp, True)
-    curr = _cheapest(current, condition=rule.condition)
-    is_below = curr is not None and curr.unit_price_usd < rule.threshold_usd
+    curr = _cheapest(current, condition=rule.condition, basis=basis)
+    is_below = (
+        curr is not None and _effective_price(curr, basis) < rule.threshold_usd
+    )
     if not is_below:
         state.armed[fp] = True  # re-arm for the next dip
         return None
@@ -163,7 +187,8 @@ def _evaluate_price_is_below(
     assert curr is not None  # is_below implies curr is not None
     cond_phrase = f" ({rule.condition})" if rule.condition else ""
     headline = (
-        f"Cheapest{cond_phrase} is ${curr.unit_price_usd:,.2f} "
+        f"Cheapest{cond_phrase} {_basis_word(basis)} price is "
+        f"${_effective_price(curr, basis):,.2f} "
         f"— at or below your ${rule.threshold_usd:,.2f} alert"
     )
     return FiredAlert(rule=rule, headline=headline)
@@ -177,12 +202,14 @@ def _evaluate_price_while_below(
     matching cheapest is below the threshold — no per-dip dedupe, no armed
     flag. A run with no eligible listing simply does not fire (ship-simple;
     the robust "N sources errored" handling is the deferred ADR-053 item)."""
-    curr = _cheapest(current, condition=rule.condition)
-    if curr is None or curr.unit_price_usd >= rule.threshold_usd:
+    basis = rule.price_basis
+    curr = _cheapest(current, condition=rule.condition, basis=basis)
+    if curr is None or _effective_price(curr, basis) >= rule.threshold_usd:
         return None
     cond_phrase = f" ({rule.condition})" if rule.condition else ""
     headline = (
-        f"Cheapest{cond_phrase} is ${curr.unit_price_usd:,.2f} "
+        f"Cheapest{cond_phrase} {_basis_word(basis)} price is "
+        f"${_effective_price(curr, basis):,.2f} "
         f"— at or below your ${rule.threshold_usd:,.2f} alert"
     )
     return FiredAlert(rule=rule, headline=headline)

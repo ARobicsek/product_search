@@ -21,35 +21,66 @@ export type ScheduleConfig =
   | { kind: 'recurring'; cron: string }
   | { kind: 'once'; runAtIso: string }; // ISO-8601 UTC, e.g. 2026-05-17T12:30:00Z
 
-export type PresetId =
-  | 'none'
-  | 'once'
-  | 'daily'
-  | 'every6h'
-  | 'every12h'
-  | 'hourly'
-  | 'custom';
+// Guided builder model (ADR-060). The UI never shows raw cron; the user
+// picks a kind, then (for recurring) a frequency + optional time/weekdays,
+// and we generate the stored cron. `legacy` carries a pre-existing cron the
+// builder can't represent — shown read-only, replaced when the user picks any
+// real frequency.
+export type ScheduleKind = 'none' | 'once' | 'recurring';
 
-export interface SchedulePreset {
-  id: PresetId;
+export type Frequency =
+  | 'every_15_min'
+  | 'every_30_min'
+  | 'hourly'
+  | 'every_6_hours'
+  | 'every_12_hours'
+  | 'daily'
+  | 'weekdays'
+  | 'weekly'
+  | 'legacy';
+
+export interface FrequencyOption {
+  id: Frequency;
   label: string;
-  /** Fixed cron for presets that need no time input. */
-  cron?: string;
-  /** Shows the time + timezone picker. */
+  /** Shows the time-of-day + timezone picker (daily/weekdays/weekly). */
   needsTime?: boolean;
-  /** Shows the date picker (one-time only). */
-  needsDate?: boolean;
+  /** Shows the weekday checkboxes (weekly only). */
+  needsWeekdays?: boolean;
 }
 
-export const SCHEDULE_PRESETS: SchedulePreset[] = [
-  { id: 'none', label: 'No schedule (Run now only)' },
-  { id: 'once', label: 'One time only', needsTime: true, needsDate: true },
-  { id: 'daily', label: 'Every day', needsTime: true },
-  { id: 'every6h', label: 'Every 6 hours', cron: '0 */6 * * *' },
-  { id: 'every12h', label: 'Every 12 hours', cron: '0 */12 * * *' },
-  { id: 'hourly', label: 'Hourly', cron: '0 * * * *' },
-  { id: 'custom', label: 'Custom cron' },
+/** Selectable frequencies, in display order. `legacy` is intentionally not
+ *  here — it only appears when an unrecognized cron is loaded. */
+export const FREQUENCY_OPTIONS: FrequencyOption[] = [
+  { id: 'every_15_min', label: 'Every 15 minutes' },
+  { id: 'every_30_min', label: 'Every 30 minutes' },
+  { id: 'hourly', label: 'Hourly' },
+  { id: 'every_6_hours', label: 'Every 6 hours' },
+  { id: 'every_12_hours', label: 'Every 12 hours' },
+  { id: 'daily', label: 'Daily', needsTime: true },
+  { id: 'weekdays', label: 'Weekdays (Mon–Fri)', needsTime: true },
+  { id: 'weekly', label: 'Weekly', needsTime: true, needsWeekdays: true },
 ];
+
+/** 0=Sun … 6=Sat (matches JS getUTCDay and cron's day-of-week field). */
+export const WEEKDAYS: ReadonlyArray<{ id: number; short: string }> = [
+  { id: 0, short: 'Sun' },
+  { id: 1, short: 'Mon' },
+  { id: 2, short: 'Tue' },
+  { id: 3, short: 'Wed' },
+  { id: 4, short: 'Thu' },
+  { id: 5, short: 'Fri' },
+  { id: 6, short: 'Sat' },
+];
+
+const WEEKDAYS_MON_FRI = [1, 2, 3, 4, 5];
+
+const FIXED_CRON: Record<string, string> = {
+  every_15_min: '*/15 * * * *',
+  every_30_min: '*/30 * * * *',
+  hourly: '0 * * * *',
+  every_6_hours: '0 */6 * * *',
+  every_12_hours: '0 */12 * * *',
+};
 
 // Time pickers snap to 15-minute increments. The scheduler heartbeat ticks
 // every 15 min, so finer precision wouldn't be honoured anyway.
@@ -301,16 +332,173 @@ export function isoToLocalParts(
   return zonedParts(runAtIso, timeZone);
 }
 
-/** Identify which preset a stored schedule corresponds to. */
-export function detectPreset(schedule: ScheduleConfig | null): PresetId {
-  if (!schedule) return 'none';
-  if (schedule.kind === 'once') return 'once';
-  const fixed = SCHEDULE_PRESETS.find(
-    (p) => p.cron && p.cron === schedule.cron,
+// ---------------------------------------------------------------------------
+// Guided builder <-> cron round-trip (ADR-060)
+// ---------------------------------------------------------------------------
+
+const WEEKLY_CRON_RE = /^(\d{1,2}) (\d{1,2}) \* \* ([0-6](?:,[0-6])*)$/;
+
+/** Day-of-week shift (0, 1, or 6) the tz→UTC conversion applies for a given
+ *  local time-of-day, anchored on today. Used to keep weekly schedules on the
+ *  right day after the time is converted to the stored UTC cron. */
+function dayShiftForLocalTime(hhmm: string, timeZone: string): number {
+  const [h, mi] = hhmm.split(':').map(Number);
+  const today = todayInZone(timeZone);
+  const [y, mo, d] = today.split('-').map(Number);
+  const utc = zonedWallTimeToUtc(y, mo, d, h, mi, timeZone);
+  const localWeekday = new Date(Date.UTC(y, mo - 1, d)).getUTCDay();
+  return (((utc.getUTCDay() - localWeekday) % 7) + 7) % 7;
+}
+
+/** "Weekly on <local weekdays> at HH:MM <tz>" → UTC cron `M H * * D,D,…`.
+ *  DST can drift the stored time/day by ~1h/1d (same accepted tradeoff as
+ *  the daily helper). */
+export function weeklyLocalToCron(
+  hhmm: string,
+  weekdaysLocal: number[],
+  timeZone: string,
+): string {
+  const [h, mi] = hhmm.split(':').map(Number);
+  const today = todayInZone(timeZone);
+  const [y, mo, d] = today.split('-').map(Number);
+  const utc = zonedWallTimeToUtc(y, mo, d, h, mi, timeZone);
+  const shift = dayShiftForLocalTime(hhmm, timeZone);
+  const utcDays = [
+    ...new Set(weekdaysLocal.map((w) => (((w + shift) % 7) + 7) % 7)),
+  ].sort((a, b) => a - b);
+  return `${utc.getUTCMinutes()} ${utc.getUTCHours()} * * ${utcDays.join(',')}`;
+}
+
+function parseWeekly(
+  cron: string,
+  timeZone: string,
+): { timeHHMM: string; weekdays: number[] } | null {
+  const m = cron.trim().match(WEEKLY_CRON_RE);
+  if (!m) return null;
+  const minute = Number(m[1]);
+  const hour = Number(m[2]);
+  if (minute > 59 || hour > 23) return null;
+  const utcDays = m[3].split(',').map(Number);
+  const timeHHMM = dailyCronToLocalHHMM(`${minute} ${hour} * * *`, timeZone);
+  if (!timeHHMM) return null;
+  const shift = dayShiftForLocalTime(timeHHMM, timeZone);
+  const weekdays = [
+    ...new Set(utcDays.map((dd) => (((dd - shift) % 7) + 7) % 7)),
+  ].sort((a, b) => a - b);
+  return { timeHHMM, weekdays };
+}
+
+function isMonFri(days: number[]): boolean {
+  return (
+    days.length === 5 && WEEKDAYS_MON_FRI.every((d) => days.includes(d))
   );
-  if (fixed) return fixed.id;
-  if (DAILY_CRON_RE.test(schedule.cron.trim())) return 'daily';
-  return 'custom';
+}
+
+/** Builder state for a recurring schedule (used to pre-fill the editor). */
+export interface RecurringParts {
+  frequency: Frequency;
+  /** Local HH:MM for daily/weekdays/weekly. */
+  timeHHMM: string;
+  /** Local weekdays for weekly. */
+  weekdays: number[];
+  /** Raw cron when frequency === 'legacy' (unrepresentable in the builder). */
+  legacyCron: string;
+}
+
+/** Classify a stored recurring cron back into builder controls. An
+ *  unrecognized cron becomes `legacy` (shown read-only, replaced on edit). */
+export function parseRecurring(
+  cron: string,
+  timeZone: string,
+): RecurringParts {
+  const c = cron.trim();
+  const base: RecurringParts = {
+    frequency: 'legacy',
+    timeHHMM: '08:00',
+    weekdays: WEEKDAYS_MON_FRI.slice(),
+    legacyCron: c,
+  };
+  for (const [freq, expr] of Object.entries(FIXED_CRON)) {
+    if (expr === c) return { ...base, frequency: freq as Frequency };
+  }
+  if (DAILY_CRON_RE.test(c)) {
+    const t = dailyCronToLocalHHMM(c, timeZone);
+    if (t) return { ...base, frequency: 'daily', timeHHMM: t };
+  }
+  const wk = parseWeekly(c, timeZone);
+  if (wk) {
+    return {
+      ...base,
+      frequency: isMonFri(wk.weekdays) ? 'weekdays' : 'weekly',
+      timeHHMM: wk.timeHHMM,
+      weekdays: wk.weekdays,
+    };
+  }
+  return base;
+}
+
+/** Builder controls → stored cron. `legacy`/unknown returns null (the caller
+ *  keeps the existing legacy cron untouched in that case). */
+export function frequencyToCron(
+  frequency: Frequency,
+  hhmm: string,
+  weekdaysLocal: number[],
+  timeZone: string,
+): string | null {
+  if (frequency in FIXED_CRON) return FIXED_CRON[frequency];
+  if (frequency === 'daily') return dailyLocalToCron(hhmm, timeZone);
+  if (frequency === 'weekdays') {
+    return weeklyLocalToCron(hhmm, WEEKDAYS_MON_FRI, timeZone);
+  }
+  if (frequency === 'weekly') {
+    return weeklyLocalToCron(hhmm, weekdaysLocal, timeZone);
+  }
+  return null;
+}
+
+function fmt12(hhmm: string): string {
+  const [h, m] = hhmm.split(':').map(Number);
+  const ampm = h < 12 ? 'AM' : 'PM';
+  const h12 = h % 12 === 0 ? 12 : h % 12;
+  return `${h12}:${String(m).padStart(2, '0')} ${ampm}`;
+}
+
+/** Plain-English description of a stored cron (no raw cron for the common
+ *  cases; "Advanced (cron …)" only as a last resort). */
+export function cronToHuman(cron: string, timeZone: string): string {
+  const c = cron.trim();
+  if (c === FIXED_CRON.every_15_min) return 'Every 15 minutes';
+  if (c === FIXED_CRON.every_30_min) return 'Every 30 minutes';
+  if (c === FIXED_CRON.hourly) return 'Every hour';
+  if (c === FIXED_CRON.every_6_hours) return 'Every 6 hours';
+  if (c === FIXED_CRON.every_12_hours) return 'Every 12 hours';
+  if (DAILY_CRON_RE.test(c)) {
+    const t = dailyCronToLocalHHMM(c, timeZone);
+    if (t) return `Every day at ${fmt12(t)} (your time)`;
+  }
+  const wk = parseWeekly(c, timeZone);
+  if (wk) {
+    if (isMonFri(wk.weekdays)) {
+      return `Weekdays at ${fmt12(wk.timeHHMM)} (your time)`;
+    }
+    const days = wk.weekdays.map((d) => WEEKDAYS[d].short).join(', ');
+    return `Every week on ${days} at ${fmt12(wk.timeHHMM)} (your time)`;
+  }
+  return `Advanced schedule (cron ${c}, UTC)`;
+}
+
+/** One-line plain-English summary of any schedule, for the editor + cards. */
+export function humanizeSchedule(
+  config: ScheduleConfig | null,
+  timeZone: string,
+): string {
+  if (!config) return 'Runs only on demand (when you click Run now).';
+  if (config.kind === 'once') {
+    const d = new Date(config.runAtIso);
+    if (Number.isNaN(d.getTime())) return 'One-time run.';
+    return `One-time run at ${d.toLocaleString()} (your time).`;
+  }
+  return cronToHuman(config.cron, timeZone);
 }
 
 // ---------------------------------------------------------------------------

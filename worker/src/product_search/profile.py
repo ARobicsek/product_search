@@ -230,12 +230,22 @@ class PriceBelowAlert(BaseModel):
       ``alerts_state.json``. A run with no eligible listing simply does not
       fire that run (ship-simple; robust source-error handling is the deferred
       ADR-053 item).
+
+    ``price_basis`` (ADR-059) selects which price the threshold compares
+    against:
+
+    - ``unit`` (default; back-compat): ``unit_price_usd`` — the price of one
+      module. Unchanged behavior for any pre-existing serialized rule.
+    - ``total``: the listing's as-sold price — ``kit_price_usd`` for a kit,
+      else ``unit_price_usd`` (a single item's as-sold price *is* its unit
+      price). "Cheapest" is also re-ranked by this basis.
     """
 
     kind: Literal["price_below"]
     threshold_usd: float = Field(gt=0)
     condition: Literal["new", "used", "refurbished"] | None = None
     mode: Literal["drops_below", "is_below", "while_below"] = "drops_below"
+    price_basis: Literal["unit", "total"] = "unit"
 
 
 class VendorSeenAlert(BaseModel):

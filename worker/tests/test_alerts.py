@@ -41,6 +41,9 @@ def _mk_listing(
     condition: str = "new",
     source: str = "ebay_search",
     attrs: dict | None = None,
+    is_kit: bool = False,
+    kit_module_count: int = 1,
+    kit_price_usd: float | None = None,
 ) -> Listing:
     return Listing(
         source=source,
@@ -51,10 +54,10 @@ def _mk_listing(
         mpn="ACME-1",
         attrs=attrs or {},
         condition=condition,
-        is_kit=False,
-        kit_module_count=1,
+        is_kit=is_kit,
+        kit_module_count=kit_module_count,
         unit_price_usd=unit_price_usd,
-        kit_price_usd=None,
+        kit_price_usd=kit_price_usd,
         quantity_available=1,
         seller_name="someone",
         seller_rating_pct=99.0,
@@ -503,3 +506,71 @@ def test_while_below_fingerprint_distinct_from_other_modes() -> None:
         rule_fingerprint(PriceBelowAlert(**base, mode="is_below")),
         rule_fingerprint(PriceBelowAlert(**base, mode="drops_below")),
     }
+
+
+# ---------------------------------------------------------------------------
+# ADR-059 — price_basis: 'unit' (default) vs 'total' (as-sold / kit price)
+# ---------------------------------------------------------------------------
+
+
+def test_price_basis_defaults_to_unit() -> None:
+    rule = PriceBelowAlert(kind="price_below", threshold_usd=200.0)
+    assert rule.price_basis == "unit"
+
+
+def test_total_basis_uses_kit_price_and_rerank() -> None:
+    """A 4-module kit at $400 (=$100/unit) vs a single at $150. By unit the
+    kit is cheapest ($100); by total the single is ($150 < $400)."""
+    kit = _mk_listing(
+        unit_price_usd=100.0, is_kit=True, kit_module_count=4, kit_price_usd=400.0
+    )
+    single = _mk_listing(unit_price_usd=150.0)
+    listings = [kit, single]
+
+    unit_rule = PriceBelowAlert(
+        kind="price_below", threshold_usd=120.0, mode="while_below"
+    )  # default unit: cheapest unit = $100 < $120 -> fires
+    fired_unit = evaluate_alerts([unit_rule], listings, None)
+    assert len(fired_unit) == 1
+    assert "unit price is $100.00" in fired_unit[0].headline
+
+    total_rule = PriceBelowAlert(
+        kind="price_below",
+        threshold_usd=200.0,
+        mode="while_below",
+        price_basis="total",
+    )  # total: cheapest as-sold = single $150 < $200 -> fires; kit total $400 ignored
+    fired_total = evaluate_alerts([total_rule], listings, None)
+    assert len(fired_total) == 1
+    assert "total price is $150.00" in fired_total[0].headline
+
+    # total basis at $140 must NOT fire (cheapest as-sold is the $150 single;
+    # the kit's $400 total is well above) — proves it is not using unit price.
+    no_fire = PriceBelowAlert(
+        kind="price_below",
+        threshold_usd=140.0,
+        mode="while_below",
+        price_basis="total",
+    )
+    assert evaluate_alerts([no_fire], listings, None) == []
+
+
+def test_total_basis_non_kit_falls_back_to_unit_price() -> None:
+    """A non-kit listing's as-sold price IS its unit price (kit_price None)."""
+    single = _mk_listing(unit_price_usd=180.0)
+    rule = PriceBelowAlert(
+        kind="price_below",
+        threshold_usd=200.0,
+        mode="while_below",
+        price_basis="total",
+    )
+    fired = evaluate_alerts([rule], [single], None)
+    assert len(fired) == 1
+    assert "total price is $180.00" in fired[0].headline
+
+
+def test_price_basis_fingerprint_distinct() -> None:
+    base = dict(kind="price_below", threshold_usd=200.0, mode="is_below")
+    assert rule_fingerprint(
+        PriceBelowAlert(**base, price_basis="unit")
+    ) != rule_fingerprint(PriceBelowAlert(**base, price_basis="total"))

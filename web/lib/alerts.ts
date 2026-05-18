@@ -38,11 +38,20 @@ export const PRICE_BELOW_MODES: ReadonlyArray<PriceBelowMode> = [
   'drops_below',
 ];
 
+// `price_basis` mirrors profile.py:PriceBelowAlert.price_basis (ADR-059).
+//  - 'unit' (default; worker default when absent): the per-module price.
+//  - 'total': the listing's as-sold price (kit price for a kit, else the
+//    single-unit price). "Cheapest" is re-ranked by this basis too.
+export type PriceBasis = 'unit' | 'total';
+
+export const PRICE_BASES: ReadonlyArray<PriceBasis> = ['unit', 'total'];
+
 export interface PriceBelowRule {
   kind: 'price_below';
   threshold_usd: number;
   condition?: 'new' | 'used' | 'refurbished';
   mode?: PriceBelowMode;
+  price_basis?: PriceBasis;
 }
 
 export interface VendorSeenRule {
@@ -129,6 +138,10 @@ function parseRuleFields(fields: Record<string, string>): AlertRule | null {
     if (mode && (PRICE_BELOW_MODES as ReadonlyArray<string>).includes(mode)) {
       out.mode = mode as PriceBelowMode;
     }
+    const basis = fields.price_basis;
+    if (basis && (PRICE_BASES as ReadonlyArray<string>).includes(basis)) {
+      out.price_basis = basis as PriceBasis;
+    }
     return out;
   }
   if (kind === 'vendor_seen') {
@@ -147,6 +160,7 @@ function renderRule(rule: AlertRule): string {
     ];
     if (rule.condition) lines.push(`    condition: ${rule.condition}`);
     if (rule.mode) lines.push(`    mode: ${rule.mode}`);
+    if (rule.price_basis) lines.push(`    price_basis: ${rule.price_basis}`);
     return lines.join('\n');
   }
   return [`  - kind: vendor_seen`, `    host: ${rule.host}`].join('\n');
@@ -196,6 +210,12 @@ export function validateAlertRule(rule: AlertRule): string | null {
     ) {
       return `mode must be one of ${PRICE_BELOW_MODES.join(', ')}`;
     }
+    if (
+      rule.price_basis !== undefined &&
+      !(PRICE_BASES as ReadonlyArray<string>).includes(rule.price_basis)
+    ) {
+      return `price_basis must be one of ${PRICE_BASES.join(', ')}`;
+    }
     return null;
   }
   if (rule.kind === 'vendor_seen') {
@@ -216,14 +236,15 @@ export function describeRule(rule: AlertRule): string {
   if (rule.kind === 'price_below') {
     const cond = rule.condition ? ` (${rule.condition} only)` : '';
     const amount = `$${rule.threshold_usd.toLocaleString()}`;
-    // Undefined mode = the worker's drops_below default.
+    // Undefined basis/mode = the worker's defaults (unit / drops_below).
+    const basis = rule.price_basis === 'total' ? 'total price' : 'per-unit price';
     const suffix =
       rule.mode === 'while_below'
         ? `is at or below ${amount} (every run)`
         : rule.mode === 'is_below'
           ? `is at or below ${amount} (once per dip)`
           : `drops below ${amount}`;
-    return `Cheapest${cond} ${suffix}`;
+    return `Cheapest${cond} ${basis} ${suffix}`;
   }
   return `Any listing seen at ${rule.host}`;
 }

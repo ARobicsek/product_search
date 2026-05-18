@@ -9,6 +9,45 @@ Status values:
 
 ---
 
+## ADR-060 — Schedule editor: guided builder replaces preset-radios + raw cron; every-15-min, weekly/weekdays, plain-English + combined-effect summaries, copy fixes (ACCEPTED — implemented)
+
+**Status**: ACCEPTED — implemented 2026-05-18 (user request; design locked via a structured trade-off interview per memory `feedback_interview_before_ux_work`). tsc + eslint clean; **automated browser (chrome-devtools) mobile/desktop pass was BLOCKED** by a locked browser profile — visual/mobile verification deferred to the user (CLAUDE.md mobile-non-negotiable: flagged, not silently claimed).
+
+**Date**: 2026-05-18
+
+**Context**: User reviewed the Schedule & Alerts editor and asked for: (1) "Run now only" → "Run on demand"; (2) raw cron is too hard; (3) alert-kind label "Price is below threshold"; (4) an every-15-minutes option; (6) other improvements. Interview decisions: cron → **guided builder** (no raw cron in the normal path); 15-min → **add it, no cost caveat**; extra polish → **all of**: plain-English schedule summary, combined-effect summary line, weekly/weekdays presets, noisy-combo warning.
+
+**Decision** (`web/lib/schedule.ts` + `web/app/[product]/ScheduleEditorButton.tsx`):
+- Replaced `PresetId`/`SCHEDULE_PRESETS`/`detectPreset` (deleted — only the editor imported them) with a guided-builder model: a **kind** radio (`none` "No schedule (Run on demand)" | `once` | `recurring` "Repeat…") and, for recurring, a **Frequency** select: Every 15 min, Every 30 min, Hourly, Every 6 h, Every 12 h, Daily, **Weekdays (Mon–Fri)**, **Weekly** (+ weekday chips). Stored form is unchanged (5-field UTC cron / `run_at`) — `frequencyToCron`/`parseRecurring` round-trip it. Raw cron is never shown; an unrecognized stored cron becomes a read-only `legacy` notice ("…still runs as set — pick a frequency to replace it"), the same legacy-only pattern as ADR-058's `drops_below`.
+- `weeklyLocalToCron`/`parseWeekly` convert local weekday+time ↔ UTC cron with a day-shift for the tz offset (same accepted ~1 h/1 d DST drift the daily helper already documents).
+- `humanizeSchedule`/`cronToHuman`: plain-English ("Every 15 minutes", "Every day at 8:00 AM (your time)", "Weekdays at …", "Every week on Mon, Wed at …"), `Advanced (cron …)` only as last resort. Replaces the old `Recurring (cron 0 * * * * , UTC)` text.
+- Combined-effect line ("You'll be notified when: <rules> — push goes to any device with the alerts bell on") shown when scheduled + ≥1 alert. **Noisy-combo** amber warning when freq is 15/30-min **and** an alert is `while_below`.
+- Copy fixes: alert-kind label "Price drops below threshold" → **"Price is below threshold"**; empty-alerts hint "price drops" → "price is below your threshold"; the stale subscribe nudge ("Tap **Enable Alerts** in the toolbar") repointed to the ADR-055 home-screen **alerts bell**.
+
+**Consequence**:
+- No raw-cron editing in the normal path (legacy schedules still honored, read-only, replaceable). The builder covers every common cadence incl. 15-min (the finest the ~15-min trigger can deliver) and weekly/weekdays.
+- DST edge: weekly day/time can drift ≤1 h/1 d across a transition (documented, inherited from the existing daily helper — not a regression).
+- **Open verification gap**: mobile (390 px) + desktop layout of the new builder was NOT browser-verified (chrome-devtools profile locked). tsc/eslint/worker-suite green; the user must eyeball narrow-viewport before fully trusting (or close the MCP browser for an automated pass).
+
+---
+
+## ADR-059 — Per-alert `price_basis` (`unit` default vs `total` = as-sold/kit price) (ACCEPTED — implemented)
+
+**Status**: ACCEPTED — implemented 2026-05-18 (user request; interview-confirmed semantics).
+
+**Date**: 2026-05-18
+
+**Context**: User asked to choose whether a `price_below` alert's threshold applies to **total cost** or **cost per unit**. Backend: `Listing` carries `unit_price_usd` (one module) and `kit_price_usd` (kit sale price, `None` for non-kits); the evaluator previously compared `unit_price_usd` only. Interview pick for the meaning of "total": **the listing's as-sold price** — `kit_price_usd` for a kit, else the single price (a non-kit's as-sold price *is* its unit price).
+
+**Decision**: Add `price_basis: Literal["unit","total"] = "unit"` to `PriceBelowAlert` (default `unit` = back-compat, existing rules unchanged). `alerts.py`: `_effective_price(listing, basis)` (`total` → `kit_price_usd` when `is_kit and kit_price_usd is not None`, else `unit_price_usd`); `_cheapest` re-ranks by the chosen basis; all three evaluators (`drops_below`/`is_below`/`while_below`) compare and headline on the basis price ("… unit price …" / "… total price …"); `rule_fingerprint` gains `|{price_basis}` (editing it re-arms, intended — a one-time extra `is_below` notification at most, already documented in ADR-056). Web mirrors: `lib/alerts.ts` (`PriceBasis`, `PRICE_BASES`, parse/render/validate/`describeRule` "total price"/"per-unit price"), `lib/onboard/schema.ts` `ALERT_PRICE_BASES`, editor "Applies to" select (Cost per unit | Total cost (as sold)) + helper text. New rules default `unit`.
+
+**Consequence**:
+- For single-item products (e.g. the EPYC CPU) `unit` and `total` are identical — the feature only diverges for multi-module kits, where `total` now correctly tracks the as-sold kit price and re-ranks "cheapest" accordingly.
+- Changing the fingerprint format re-arms every pre-existing `is_below` rule once (≤1 extra notification, as ADR-056 already accepted for any rule edit / state reset).
+- Worker suite 259 passed (4 new in `test_alerts.py`); ruff + mypy (`--strict` on touched, plain on `src/`) clean; web tsc + eslint clean.
+
+---
+
 ## ADR-058 — Add a third `price_below` mode `while_below` (every-run, stateless); UI shows only `is_below` + `while_below` (ACCEPTED — implemented)
 
 **Status**: ACCEPTED — implemented 2026-05-18 (user request; design locked via a structured trade-off interview per memory `feedback_interview_before_ux_work`, building directly on ADR-056).

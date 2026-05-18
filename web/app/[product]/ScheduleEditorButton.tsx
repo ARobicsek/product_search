@@ -6,20 +6,22 @@ import { Bell, CalendarClock, CheckCircle2, Loader2, Pencil, Plus, Trash2, X } f
 import {
   applyScheduleToYaml,
   buildTimezoneOptions,
-  dailyCronToLocalHHMM,
-  dailyLocalToCron,
   detectBrowserTimeZone,
-  detectPreset,
+  FREQUENCY_OPTIONS,
+  frequencyToCron,
+  humanizeSchedule,
   isoToLocalParts,
   nextRunDate,
   onceLocalToIso,
+  parseRecurring,
   readScheduleFromYaml,
-  SCHEDULE_PRESETS,
   TIME_STEP_SECONDS,
   todayInZone,
   validateCron,
-  type PresetId,
+  WEEKDAYS,
+  type Frequency,
   type ScheduleConfig,
+  type ScheduleKind,
   type TzOption,
 } from '@/lib/schedule';
 import {
@@ -28,6 +30,7 @@ import {
   readAlertsFromYaml,
   validateAlertRule,
   type AlertRule,
+  type PriceBasis,
   type PriceBelowMode,
 } from '@/lib/alerts';
 
@@ -43,6 +46,7 @@ type AlertDraft =
       threshold_usd: string;
       condition: '' | 'new' | 'used' | 'refurbished';
       mode: PriceBelowMode;
+      price_basis: PriceBasis;
     }
   | { kind: 'vendor_seen'; host: string };
 
@@ -55,6 +59,7 @@ function ruleToDraft(rule: AlertRule): AlertDraft {
       // No mode in YAML = the worker's drops_below default; reflect that
       // when editing an existing rule so behavior isn't silently changed.
       mode: rule.mode ?? 'drops_below',
+      price_basis: rule.price_basis ?? 'unit',
     };
   }
   return { kind: 'vendor_seen', host: rule.host };
@@ -69,6 +74,7 @@ function draftToRule(draft: AlertDraft): { rule: AlertRule | null; error: string
     const rule: AlertRule = { kind: 'price_below', threshold_usd: threshold };
     if (draft.condition) rule.condition = draft.condition;
     rule.mode = draft.mode;
+    rule.price_basis = draft.price_basis;
     const err = validateAlertRule(rule);
     return err ? { rule: null, error: err } : { rule, error: null };
   }
@@ -76,16 +82,6 @@ function draftToRule(draft: AlertDraft): { rule: AlertRule | null; error: string
   const rule: AlertRule = { kind: 'vendor_seen', host };
   const err = validateAlertRule(rule);
   return err ? { rule: null, error: err } : { rule, error: null };
-}
-
-function describeSchedule(schedule: ScheduleConfig | null): string {
-  if (!schedule) return 'Runs only when you click Run now.';
-  if (schedule.kind === 'once') {
-    const d = new Date(schedule.runAtIso);
-    if (Number.isNaN(d.getTime())) return 'One-time run.';
-    return `One-time run at ${d.toLocaleString()} (your time).`;
-  }
-  return `Recurring (cron ${schedule.cron}, UTC).`;
 }
 
 export function ScheduleEditorButton({
@@ -102,8 +98,10 @@ export function ScheduleEditorButton({
 
   // Schedule picker state. Real values are computed in openEditor() (on the
   // client, after a user click) to avoid any SSR/hydration timezone mismatch.
-  const [presetId, setPresetId] = useState<PresetId>('none');
-  const [customCron, setCustomCron] = useState<string>('');
+  const [schedKind, setSchedKind] = useState<ScheduleKind>('none');
+  const [freq, setFreq] = useState<Frequency>('hourly');
+  const [weekdays, setWeekdays] = useState<number[]>([1, 2, 3, 4, 5]);
+  const [legacyCron, setLegacyCron] = useState<string>('');
   const [timeHHMM, setTimeHHMM] = useState<string>('08:00');
   const [dateStr, setDateStr] = useState<string>('');
   const [tz, setTz] = useState<string>('UTC');
@@ -122,6 +120,7 @@ export function ScheduleEditorButton({
     threshold_usd: '',
     condition: '',
     mode: 'is_below',
+    price_basis: 'unit',
   });
   const [editError, setEditError] = useState<string | null>(null);
   const [pushSubscribed, setPushSubscribed] = useState<boolean | null>(null);
@@ -165,23 +164,31 @@ export function ScheduleEditorButton({
     const fresh = profileYaml ? readScheduleFromYaml(profileYaml) : null;
     const zone = detectBrowserTimeZone();
     const today = todayInZone(zone);
-    const p = detectPreset(fresh);
 
     setTz(zone);
     setTzOptions(buildTimezoneOptions());
-    setPresetId(p);
-    setCustomCron(
-      p === 'custom' && fresh?.kind === 'recurring' ? fresh.cron : '',
-    );
 
     if (fresh?.kind === 'once') {
       const parts = isoToLocalParts(fresh.runAtIso, zone);
+      setSchedKind('once');
       setDateStr(parts.date);
       setTimeHHMM(parts.time);
-    } else if (fresh?.kind === 'recurring' && p === 'daily') {
+      setFreq('hourly');
+      setWeekdays([1, 2, 3, 4, 5]);
+      setLegacyCron('');
+    } else if (fresh?.kind === 'recurring') {
+      const rp = parseRecurring(fresh.cron, zone);
+      setSchedKind('recurring');
+      setFreq(rp.frequency);
+      setTimeHHMM(rp.timeHHMM);
+      setWeekdays(rp.weekdays);
+      setLegacyCron(rp.legacyCron);
       setDateStr(today);
-      setTimeHHMM(dailyCronToLocalHHMM(fresh.cron, zone) ?? '08:00');
     } else {
+      setSchedKind('none');
+      setFreq('hourly');
+      setWeekdays([1, 2, 3, 4, 5]);
+      setLegacyCron('');
       setDateStr(today);
       setTimeHHMM('08:00');
     }
@@ -196,13 +203,8 @@ export function ScheduleEditorButton({
   }
 
   function resolveSchedule(): { schedule: ScheduleConfig | null; error: string | null } {
-    if (presetId === 'none') return { schedule: null, error: null };
-    if (presetId === 'custom') {
-      const err = validateCron(customCron);
-      if (err) return { schedule: null, error: err };
-      return { schedule: { kind: 'recurring', cron: customCron.trim() }, error: null };
-    }
-    if (presetId === 'once') {
+    if (schedKind === 'none') return { schedule: null, error: null };
+    if (schedKind === 'once') {
       if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
         return { schedule: null, error: 'pick a date' };
       }
@@ -214,18 +216,25 @@ export function ScheduleEditorButton({
         error: null,
       };
     }
-    if (presetId === 'daily') {
-      if (!/^\d{1,2}:\d{2}$/.test(timeHHMM)) {
-        return { schedule: null, error: 'pick a time' };
-      }
+    // recurring
+    if (freq === 'legacy') {
+      const err = validateCron(legacyCron);
+      if (err) return { schedule: null, error: err };
       return {
-        schedule: { kind: 'recurring', cron: dailyLocalToCron(timeHHMM, tz) },
+        schedule: { kind: 'recurring', cron: legacyCron.trim() },
         error: null,
       };
     }
-    const preset = SCHEDULE_PRESETS.find((p) => p.id === presetId);
-    if (!preset || !preset.cron) return { schedule: null, error: 'invalid preset' };
-    return { schedule: { kind: 'recurring', cron: preset.cron }, error: null };
+    const opt = FREQUENCY_OPTIONS.find((o) => o.id === freq);
+    if (opt?.needsTime && !/^\d{1,2}:\d{2}$/.test(timeHHMM)) {
+      return { schedule: null, error: 'pick a time' };
+    }
+    if (freq === 'weekly' && weekdays.length === 0) {
+      return { schedule: null, error: 'pick at least one weekday' };
+    }
+    const cron = frequencyToCron(freq, timeHHMM, weekdays, tz);
+    if (!cron) return { schedule: null, error: 'invalid frequency' };
+    return { schedule: { kind: 'recurring', cron }, error: null };
   }
 
   const resolved = resolveSchedule();
@@ -251,6 +260,7 @@ export function ScheduleEditorButton({
       threshold_usd: '',
       condition: '',
       mode: 'is_below',
+      price_basis: 'unit',
     });
     setEditError(null);
   }
@@ -344,9 +354,20 @@ export function ScheduleEditorButton({
     editIdx !== null;
 
   const showSubscribeNudge = alerts.length > 0 && pushSubscribed === false;
-  const activePreset = SCHEDULE_PRESETS.find((p) => p.id === presetId);
-  const showTimeRow = activePreset?.needsTime === true;
-  const showDateRow = activePreset?.needsDate === true;
+  const activeFreq = FREQUENCY_OPTIONS.find((o) => o.id === freq);
+  const showDateRow = schedKind === 'once';
+  const showTimeRow =
+    schedKind === 'once' ||
+    (schedKind === 'recurring' && activeFreq?.needsTime === true);
+  const showWeekdays =
+    schedKind === 'recurring' && activeFreq?.needsWeekdays === true;
+  const scheduleSummary = humanizeSchedule(resolved.schedule, tz);
+  const highFreq = freq === 'every_15_min' || freq === 'every_30_min';
+  const hasEveryRunAlert = alerts.some(
+    (r) => r.kind === 'price_below' && r.mode === 'while_below',
+  );
+  const noisyCombo =
+    schedKind === 'recurring' && highFreq && hasEveryRunAlert;
 
   return (
     <div className="relative" ref={popoverRef}>
@@ -387,85 +408,100 @@ export function ScheduleEditorButton({
               <fieldset>
                 <legend className="sr-only">When should this product run?</legend>
                 <ul className="space-y-1">
-                  {SCHEDULE_PRESETS.map((p) => (
-                    <li key={p.id}>
+                  {(
+                    [
+                      ['none', 'No schedule (Run on demand)'],
+                      ['once', 'One time only'],
+                      ['recurring', 'Repeat…'],
+                    ] as [ScheduleKind, string][]
+                  ).map(([k, label]) => (
+                    <li key={k}>
                       <label
                         className={`flex items-center gap-2 rounded-lg px-2 py-1.5 cursor-pointer text-sm ${
-                          presetId === p.id
+                          schedKind === k
                             ? 'bg-blue-50 dark:bg-blue-900/30 text-gray-900 dark:text-gray-100'
                             : 'hover:bg-gray-50 dark:hover:bg-gray-900/50 text-gray-700 dark:text-gray-300'
                         }`}
                       >
                         <input
                           type="radio"
-                          name="schedule-preset"
-                          value={p.id}
-                          checked={presetId === p.id}
-                          onChange={() => setPresetId(p.id)}
+                          name="schedule-kind"
+                          value={k}
+                          checked={schedKind === k}
+                          onChange={() => setSchedKind(k)}
                           className="shrink-0"
                         />
-                        <span className="flex-1">{p.label}</span>
-                        {p.cron && (
-                          <code className="text-[10px] text-gray-500 dark:text-gray-400 hidden sm:inline">
-                            {p.cron}
-                          </code>
-                        )}
+                        <span className="flex-1">{label}</span>
                       </label>
-
-                      {presetId === p.id && p.id === 'custom' && (
-                        <>
-                          <input
-                            type="text"
-                            value={customCron}
-                            onChange={(e) => setCustomCron(e.target.value)}
-                            placeholder="0 8 * * *  (min hour dom mon dow, UTC)"
-                            spellCheck={false}
-                            autoComplete="off"
-                            className="mt-1 w-full font-mono text-xs px-2 py-1.5 border border-gray-200 dark:border-gray-700 rounded bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                          />
-                          <div className="mt-1.5 rounded-lg bg-gray-50 dark:bg-gray-900/50 px-2 py-1.5 text-[11px] text-gray-600 dark:text-gray-400 space-y-1">
-                            <div>
-                              Five fields, all times{' '}
-                              <strong>UTC</strong>:{' '}
-                              <code className="font-mono">min hour dom mon dow</code>{' '}
-                              (use <code className="font-mono">*</code> for
-                              &ldquo;any&rdquo;, <code className="font-mono">1-5</code>{' '}
-                              for a range, <code className="font-mono">*/6</code> for
-                              &ldquo;every 6&rdquo;).
-                            </div>
-                            <table className="w-full">
-                              <tbody>
-                                {[
-                                  ['0 8 * * *', 'every day at 08:00 UTC'],
-                                  ['30 13 * * 1-5', 'weekdays at 13:30 UTC'],
-                                  ['0 */6 * * *', 'every 6 hours, on the hour'],
-                                  ['15 0 1 * *', '00:15 UTC on the 1st of the month'],
-                                ].map(([expr, desc]) => (
-                                  <tr key={expr}>
-                                    <td className="pr-2 align-top">
-                                      <button
-                                        type="button"
-                                        onClick={() => setCustomCron(expr)}
-                                        className="font-mono text-blue-600 dark:text-blue-400 hover:underline"
-                                        title="Use this example"
-                                      >
-                                        {expr}
-                                      </button>
-                                    </td>
-                                    <td className="text-gray-500 dark:text-gray-500">
-                                      {desc}
-                                    </td>
-                                  </tr>
-                                ))}
-                              </tbody>
-                            </table>
-                          </div>
-                        </>
-                      )}
                     </li>
                   ))}
                 </ul>
               </fieldset>
+
+              {schedKind === 'recurring' && (
+                <div className="mt-2 ml-6 space-y-2">
+                  <div className="flex items-center gap-2">
+                    <label className="text-[11px] text-gray-600 dark:text-gray-400 shrink-0 w-20">
+                      Frequency
+                    </label>
+                    <select
+                      value={freq}
+                      onChange={(e) => setFreq(e.target.value as Frequency)}
+                      className="flex-1 text-xs px-2 py-1.5 border border-gray-200 dark:border-gray-700 rounded bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                      aria-label="How often should this product run?"
+                    >
+                      {FREQUENCY_OPTIONS.map((o) => (
+                        <option key={o.id} value={o.id}>
+                          {o.label}
+                        </option>
+                      ))}
+                      {freq === 'legacy' && (
+                        <option value="legacy">Advanced (existing cron)</option>
+                      )}
+                    </select>
+                  </div>
+
+                  {freq === 'legacy' && (
+                    <p className="text-[11px] text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-900/40 rounded-lg px-2 py-1.5">
+                      This product has an advanced custom schedule (<code className="font-mono">{legacyCron}</code>, UTC). It still runs as set — pick a frequency above to replace it with a simple one.
+                    </p>
+                  )}
+
+                  {showWeekdays && (
+                    <div className="flex items-start gap-2">
+                      <label className="text-[11px] text-gray-600 dark:text-gray-400 shrink-0 w-20 pt-1">
+                        On
+                      </label>
+                      <div className="flex flex-wrap gap-1">
+                        {WEEKDAYS.map((d) => {
+                          const on = weekdays.includes(d.id);
+                          return (
+                            <button
+                              key={d.id}
+                              type="button"
+                              aria-pressed={on}
+                              onClick={() =>
+                                setWeekdays((prev) =>
+                                  prev.includes(d.id)
+                                    ? prev.filter((x) => x !== d.id)
+                                    : [...prev, d.id].sort((a, b) => a - b),
+                                )
+                              }
+                              className={`text-[11px] px-2 py-1 rounded border transition ${
+                                on
+                                  ? 'bg-blue-600 text-white border-blue-600'
+                                  : 'bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-300 border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800'
+                              }`}
+                            >
+                              {d.short}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
 
               {(showTimeRow || showDateRow) && (
                 <div className="mt-2 ml-6 grid grid-cols-[auto_1fr] items-center gap-x-2 gap-y-2">
@@ -510,7 +546,9 @@ export function ScheduleEditorButton({
               )}
 
               <div className="text-[11px] text-gray-600 dark:text-gray-400 px-2 mt-2 space-y-0.5">
-                <div>{describeSchedule(resolved.schedule)}</div>
+                <div className="font-medium text-gray-800 dark:text-gray-200">
+                  {scheduleSummary}
+                </div>
                 {nextRun && (
                   <div>
                     Next run:{' '}
@@ -524,6 +562,20 @@ export function ScheduleEditorButton({
                   <div className="text-amber-700 dark:text-amber-400">
                     That time is in the past — it will run at the next
                     scheduler tick (within ~15 min).
+                  </div>
+                )}
+                {schedKind !== 'none' && alerts.length > 0 && (
+                  <div className="text-gray-700 dark:text-gray-300">
+                    You&apos;ll be notified when:{' '}
+                    {alerts.map(describeRule).join('; ')} — push goes to any
+                    device with the alerts bell on.
+                  </div>
+                )}
+                {noisyCombo && (
+                  <div className="text-amber-700 dark:text-amber-400">
+                    Heads up: this frequency plus an &ldquo;every run&rdquo;
+                    alert can push you as often as every{' '}
+                    {freq === 'every_15_min' ? '15' : '30'} minutes.
                   </div>
                 )}
               </div>
@@ -547,7 +599,7 @@ export function ScheduleEditorButton({
 
               {alerts.length === 0 && editIdx === null && (
                 <p className="text-[11px] text-gray-500 dark:text-gray-400 px-2 py-2 rounded-lg bg-gray-50 dark:bg-gray-900/50">
-                  No alerts configured. Add one to get a push when the price drops or a vendor surfaces a listing.
+                  No alerts configured. Add one to get a push when the price is below your threshold or a vendor surfaces a listing.
                 </p>
               )}
 
@@ -604,7 +656,7 @@ export function ScheduleEditorButton({
 
               {showSubscribeNudge && (
                 <p className="text-[11px] text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-900/40 rounded-lg px-2 py-1.5 mt-2">
-                  Tap <strong>Enable Alerts</strong> in the toolbar above to receive push notifications on this device.
+                  This device isn&apos;t subscribed to push yet — tap the <strong>alerts bell</strong> on the home screen to receive these notifications here.
                 </p>
               )}
             </section>
@@ -679,6 +731,7 @@ function AlertForm({
                 threshold_usd: '',
                 condition: '',
                 mode: 'is_below',
+                price_basis: 'unit',
               });
             } else {
               onChange({ kind: 'vendor_seen', host: '' });
@@ -686,7 +739,7 @@ function AlertForm({
           }}
           className="flex-1 text-xs px-2 py-1 border border-gray-200 dark:border-gray-700 rounded bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100"
         >
-          <option value="price_below">Price drops below threshold</option>
+          <option value="price_below">Price is below threshold</option>
           <option value="vendor_seen">Vendor surfaces a listing</option>
         </select>
       </div>
@@ -733,6 +786,27 @@ function AlertForm({
               className="flex-1 text-xs px-2 py-1 border border-gray-200 dark:border-gray-700 rounded bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100"
             />
           </div>
+          <div className="flex items-center gap-2">
+            <label className="text-[11px] text-gray-700 dark:text-gray-300 shrink-0 w-20">Applies to</label>
+            <select
+              value={draft.price_basis}
+              onChange={(e) =>
+                onChange({
+                  ...draft,
+                  price_basis: e.target.value as PriceBasis,
+                })
+              }
+              className="flex-1 text-xs px-2 py-1 border border-gray-200 dark:border-gray-700 rounded bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100"
+            >
+              <option value="unit">Cost per unit</option>
+              <option value="total">Total cost (as sold)</option>
+            </select>
+          </div>
+          <p className="text-[10px] text-gray-500 dark:text-gray-400 leading-snug">
+            {draft.price_basis === 'total'
+              ? 'Compares the listing’s as-sold price (the full kit price for a multi-unit kit; the item price otherwise).'
+              : 'Compares the price of a single unit (a kit’s per-module price). Same as total for single-item products.'}
+          </p>
           <div className="flex items-center gap-2">
             <label className="text-[11px] text-gray-700 dark:text-gray-300 shrink-0 w-20">Condition</label>
             <select

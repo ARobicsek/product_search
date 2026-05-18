@@ -286,6 +286,8 @@ const ALERT_PRICE_MODES = new Set<string>([
   'is_below',
   'while_below',
 ]);
+// Mirrors profile.py:PriceBelowAlert.price_basis (ADR-059).
+const ALERT_PRICE_BASES = new Set<string>(['unit', 'total']);
 
 function validateAlerts(alerts: unknown, ctx: ValidationContext) {
   // ``alerts`` is optional; default is []. User-supplied via the schedule
@@ -321,6 +323,14 @@ function validateAlerts(alerts: unknown, ctx: ValidationContext) {
         if (m !== null && !ALERT_PRICE_MODES.has(m)) {
           ctx.errors.push(
             `alerts[${i}].mode: must be one of ${[...ALERT_PRICE_MODES].sort().join(',')}`,
+          );
+        }
+      }
+      if (r.price_basis !== undefined && r.price_basis !== null) {
+        const b = asString(r.price_basis, `alerts[${i}].price_basis`, ctx);
+        if (b !== null && !ALERT_PRICE_BASES.has(b)) {
+          ctx.errors.push(
+            `alerts[${i}].price_basis: must be one of ${[...ALERT_PRICE_BASES].sort().join(',')}`,
           );
         }
       }
