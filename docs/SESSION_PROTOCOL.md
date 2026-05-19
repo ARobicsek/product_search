@@ -6,9 +6,9 @@ The point of this document: a Claude or Gemini dev session starts oriented and e
 
 Run this checklist. It takes <2 minutes and saves enormous token waste later.
 
-1. **Read `docs/PROGRESS.md`.** It is the source of truth for: active phase, current task, last commit, blockers. If it disagrees with what you remember, it wins.
+1. **Read `docs/PROGRESS.md`.** It is the source of truth for: active phase, current task, last commit, blockers. If it disagrees with what you remember, it wins. It is deliberately small — do **not** read `docs/PROGRESS_ARCHIVE.md` unless you need a specific superseded block (it is append-only history, not live state).
 2. **Read the active phase's brief in `docs/PHASES.md`.** Only the section for the active phase. Skip the others.
-3. **Skim `docs/DECISIONS.md` for decisions tagged with the current phase.** Don't re-debate `STATUS: ACCEPTED` items.
+3. **Skim the ADR index at the top of `docs/DECISIONS.md`** (one line per ADR) for decisions tagged with the current phase; open only those ADR bodies. Don't re-debate `STATUS: ACCEPTED` items. Don't read the whole file.
 4. **Open the files PROGRESS.md tells you to.** Don't open more than that yet.
 5. **Confirm the task.** State it back in one sentence. If anything is ambiguous, ask before coding.
 
@@ -28,10 +28,11 @@ In this exact order:
 
 1. **Make sure tests pass and the build is green locally.** No "I'll fix it next session."
 2. **Capture fixtures if you scraped anything live.** Save them under `worker/tests/fixtures/<adapter>/<descriptive-name>.html` (or `.json`). Strip any session-specific noise.
-3. **Update `docs/PROGRESS.md`:**
+3. **Update `docs/PROGRESS.md` — and keep it lean (see "File size discipline" below):**
    - Mark the current task done.
    - Set the next task explicitly. The next session should not have to think about what to do first.
-   - Note any blockers, surprising findings, or "noticed but deferred" items.
+   - Note any blockers, surprising findings, or "noticed but deferred" items — prune ones that are no longer live.
+   - **Archive, don't accumulate.** When you close a phase or inter-phase block, move the *superseded* dated status block(s) verbatim to the top of `docs/PROGRESS_ARCHIVE.md` (newest-first) and leave only the current state + forward queue in `PROGRESS.md`. Never let it grow into an append-only log again.
 4. **Append to `docs/DECISIONS.md`** if anything material was decided this session. One ADR-style entry per decision (Context / Decision / Consequence).
 5. **Commit.** One focused commit per phase is fine; multiple small commits within a phase are fine. Commit message format:
    ```
@@ -40,6 +41,15 @@ In this exact order:
    <bullet list of what changed and why>
    ```
 6. **Push** unless the user explicitly asked not to. 
+
+## File size discipline
+
+The session docs exist to *save* tokens, not burn them. They are read every session, so bloat compounds.
+
+- **`PROGRESS.md` is the live file. Hard cap: keep it readable in one pass (target ≤ ~150 lines).** If it exceeds that, you have failed to archive — move superseded dated blocks to `PROGRESS_ARCHIVE.md` until it is lean again. A `PROGRESS.md` that exceeds the Read-tool limit breaks start-of-session step 1 entirely (this happened: it reached 2621 lines / 259 KB before the 2026-05-18 split).
+- **`PROGRESS_ARCHIVE.md`** is append-only history (newest-first), never read at session start, never pruned. Nothing is lost — it just moves out of the hot path.
+- **`DECISIONS.md`** is immutable: never rewrite an ADR body. New decisions append a new ADR + a one-line entry in the index at the top. Superseding is recorded by status, not deletion.
+- Before ending a session, eyeball `wc -l docs/PROGRESS.md`. If it's drifting up, archive before you commit.
 
 ## How to brief a new session
 

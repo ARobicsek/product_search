@@ -1,0 +1,7 @@
+# The onboarding prompt source and its generated TS module must be LF on every
+# platform, so `scripts/sync-prompt.js` is a byte-stable no-op regardless of the
+# checkout's autocrlf setting. Without this, a Windows checkout (CRLF) regenerates
+# promptText.ts with \r\n escapes embedded in the JSON string and the tree is
+# perpetually dirty. (Root cause of the long-standing promptText.ts churn.)
+worker/src/product_search/onboarding/prompts/onboard_v1.txt text eol=lf
+web/lib/onboard/promptText.ts                                text eol=lf

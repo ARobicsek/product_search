@@ -9,6 +9,75 @@ Status values:
 
 ---
 
+## Index
+
+One line per ADR (newest first). Skim this; open only the bodies you need. (No ADR-036 — numbering gap.)
+
+- **ADR-063** — Delete-product: touch-reachable trigger + portaled modal + post-delete reload — ACCEPTED (impl)
+- **ADR-062** — Test/CI reference profile must be a committed fixture, never live `products/` — ACCEPTED (impl)
+- **ADR-061** — Cron in `schedule:` YAML must be quoted (leading `*` is a YAML alias) — ACCEPTED (impl)
+- **ADR-060** — Schedule editor: guided builder replaces preset-radios + raw cron — ACCEPTED (impl; mobile verify deferred)
+- **ADR-059** — Per-alert `price_basis` (`unit` default vs `total`/kit price) — ACCEPTED (impl)
+- **ADR-058** — Third `price_below` mode `while_below` (every-run, stateless) — ACCEPTED (impl)
+- **ADR-057** — Wire `WEB_URL` + `PUSH_NOTIFY_SECRET` into both search workflows — ACCEPTED (impl; out-of-repo runbook req'd)
+- **ADR-056** — Selectable `price_below` mode: `is_below` (state) vs `drops_below` (transition) — ACCEPTED (impl)
+- **ADR-055** — Single device-wide alerts bell on home (replaces per-product Subscribe) — ACCEPTED (impl)
+- **ADR-054** — Tri-state card run-status (Running-since / Waiting / idle) — ACCEPTED (impl)
+- **ADR-053** — One bounded retry on transient fetch failures in `universal_ai` — ACCEPTED (impl)
+- **ADR-052** — Reliable scheduling via external `workflow_dispatch` through the Vercel app — ACCEPTED (impl + proven)
+- **ADR-051** — Per-card run-status surface (last-run time + live "Running" dot) — ACCEPTED (impl)
+- **ADR-050** — One-time schedules + minute-aware scheduler + local-time picker — ACCEPTED (impl)
+- **ADR-049** — Tier 1.5 detail-page price extractor for single-SKU products — ACCEPTED (code; live promote = follow-up)
+- **ADR-048** — Verify CI-affecting changes in a clean Python 3.12 venv before pushing — ACCEPTED
+- **ADR-047** — Pydantic bare-domain schema validation for profile sources — ACCEPTED
+- **ADR-046** — Profile schema: `spec_filters` / `spec_flags` fully optional — ACCEPTED
+- **ADR-045** — Alerts survive onboarder edits via save-time splice — ACCEPTED
+- **ADR-044** — Profile schema: `target.configurations` / `qvl_file` RAM-only & optional — ACCEPTED
+- **ADR-043** — Abandon raw.githubusercontent.com for dynamic data (origin caching) — ACCEPTED
+- **ADR-042** — Single-commit product deletion via Git Trees API — ACCEPTED
+- **ADR-041** — AlterLab European geo-routing: strip foreign currencies → approx USD — ACCEPTED
+- **ADR-040** — Vendor-reach policy: auto-demote universal_ai after 3 zero-yield runs — ACCEPTED (policy; impl deferred)
+- **ADR-039** — Amazon-specific primary-price selector for the universal_ai adapter — ACCEPTED
+- **ADR-038** — Save-time probe gate is hard-failure-only (refines ADR-037) — ACCEPTED
+- **ADR-037** — Universal adapter quality pass: JSON-LD tier, anchor fixes, probe gate — ACCEPTED
+- **ADR-035** — Run-now UX wipe + drop `?status=completed` from Actions API (refines ADR-032) — ACCEPTED
+- **ADR-034** — Onboarder → Claude Haiku 4.5 + structured-intent JSON (supersedes ADR-015) — ACCEPTED
+- **ADR-033** — Tier-3 vendor fetcher ScrapFly → AlterLab (supersedes ADR-030) — ACCEPTED
+- **ADR-032** — Run-now freshness: `force-dynamic` + `window.location.reload()` — ACCEPTED
+- **ADR-031** — Per-run CSV under `reports/<slug>/data/` (replaces per-day worker/data) — ACCEPTED
+- **ADR-030** — ScrapFly as Tier-3 vendor fetcher — SUPERSEDED by ADR-033
+- **ADR-029** — Universal vendor scraping: anchor-first + Chrome TLS, no LLM URL invention — ACCEPTED (refines ADR-021)
+- **ADR-028** — Numbers belong to Python, words to the LLM (deterministic Bottom line/Flags) — ACCEPTED (refines ADR-001)
+- **ADR-027** — Synth retries once on `PostCheckError` with a stricter prompt — ACCEPTED
+- **ADR-026** — `brand_candidates` profile field fills eBay's missing brand — ACCEPTED
+- **ADR-025** — Per-product report columns via `report_columns:` profile field — ACCEPTED
+- **ADR-024** — Synth model Haiku 4.5 → GLM 4.5 Flash; commit-on-failure (supersedes ADR-019) — ACCEPTED
+- **ADR-023** — `ai_filter` → Claude Haiku 4.5; parser tolerates prose preambles (supersedes ADR-022 model) — ACCEPTED
+- **ADR-022** — `ai_filter` prompt sends full rule defs; per-product filter log (refines ADR-021) — ACCEPTED
+- **ADR-021** — Universal AI extraction + AI-aided filtering (supersedes ADR-011 strict rule) — ACCEPTED
+- **ADR-020** — Synthesizer URL post-check uses canonical scheme+host+path match (refines ADR-001) — ACCEPTED
+- **ADR-019** — Synth model GLM 4.5 Flash → Claude Haiku 4.5 (supersedes ADR-012) — ACCEPTED
+- **ADR-018** — Sources-searched panel is deterministic, not LLM-synthesized — ACCEPTED
+- **ADR-017** — Production runs hit live sources, not fixtures — ACCEPTED
+- **ADR-016** — Replace Vercel KV with Upstash Redis — ACCEPTED
+- **ADR-015** — Phase 10 onboarding model: Anthropic Claude Sonnet 4.6 — SUPERSEDED by ADR-034
+- **ADR-014** — `/api/dispatch` gated by a browser-exposed secret — ACCEPTED
+- **ADR-013** — LLM-aided onboarding & web search for source discovery — ACCEPTED
+- **ADR-012** — Phase 5 synthesizer model: GLM 4.5 Flash — ACCEPTED (synth model later moved; see ADR-019/024)
+- **ADR-011** — Adapter authoring philosophy ("deterministic" ≠ "site has an API") — ACCEPTED
+- **ADR-010** — iOS-installable PWA with web push for alerts — ACCEPTED
+- **ADR-009** — Mobile-first web UI — ACCEPTED
+- **ADR-008** — LLM provider abstraction with vendor benchmark — ACCEPTED
+- **ADR-007** — Product profile YAML as the generalization seam — ACCEPTED
+- **ADR-006** — On-demand and scheduled runs both in GitHub Actions — ACCEPTED
+- **ADR-005** — Web app on Vercel, Next.js App Router — ACCEPTED
+- **ADR-004** — Worker hosted on GitHub Actions only — ACCEPTED
+- **ADR-003** — eBay Browse API (not HTML scraping) for the eBay adapter — ACCEPTED
+- **ADR-002** — Repo-as-database; SQLite as workflow-local cache only — ACCEPTED
+- **ADR-001** — LLM is downstream of verified data only (architectural commitment) — ACCEPTED
+
+---
+
 ## ADR-063 — Delete-product affordance must be touch-reachable; modal must portal out of the card stacking context; delete must force a client reload (ACCEPTED — implemented)
 
 **Status**: ACCEPTED — implemented 2026-05-18 (user reported: delete impossible on the iPhone PWA; on desktop the modal text overlapped card text and the list didn't refresh after delete).

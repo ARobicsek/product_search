@@ -36,6 +36,9 @@ Thumbs.db
 .vscode/
 .idea/
 
+# Scratch / throwaway experiments — never tracked
+scratch/
+
 # Logs
 *.log
 .claude/
