@@ -12,8 +12,8 @@ from pathlib import Path
 import pytest
 
 from product_search.models import Listing
-from product_search.profile import load_profile
 from product_search.storage.diff import DiffResult, PriceChange
+from tests.conftest import load_ddr5_profile as load_profile
 from product_search.synthesizer import (
     COLUMN_DEFS,
     DEFAULT_REPORT_COLUMNS,

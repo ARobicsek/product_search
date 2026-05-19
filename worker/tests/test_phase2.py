@@ -34,6 +34,7 @@ from typing import Any
 import pytest
 
 from product_search.models import AdapterQuery, Listing
+from tests.conftest import FIXTURE_PROFILES_DIR
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -238,7 +239,14 @@ def test_llm_anthropic_raises_import_error_without_sdk(monkeypatch: pytest.Monke
 
 def test_cli_search_fixture_mode_exits_zero() -> None:
     """product-search search in fixture mode must exit 0 and print valid JSON."""
-    env = {**os.environ, "WORKER_USE_FIXTURES": "1"}
+    # PRODUCT_SEARCH_PRODUCTS_DIR points the CLI loader at the committed
+    # fixture tree (ADR-062): the live products/ entry was deleted by the web
+    # app, so the search-fixture-mode integration test must not depend on it.
+    env = {
+        **os.environ,
+        "WORKER_USE_FIXTURES": "1",
+        "PRODUCT_SEARCH_PRODUCTS_DIR": str(FIXTURE_PROFILES_DIR),
+    }
     result = subprocess.run(
         [
             sys.executable,

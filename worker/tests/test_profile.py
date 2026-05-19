@@ -11,6 +11,7 @@ Coverage:
 
 from __future__ import annotations
 
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -19,7 +20,8 @@ from typing import Any
 import pytest
 from pydantic import ValidationError
 
-from product_search.profile import Profile, Schedule, load_profile, load_qvl
+from product_search.profile import Profile, Schedule
+from tests.conftest import FIXTURE_PROFILES_DIR, load_ddr5_profile, load_ddr5_qvl
 
 # ---------------------------------------------------------------------------
 # Locate the repo root so tests can build minimal profile fixtures.
@@ -90,16 +92,21 @@ VALID_PROFILE: dict[str, Any] = {
 
 
 def test_real_ddr5_profile_valid() -> None:
-    """The committed DDR5 profile must pass schema validation."""
-    profile = load_profile(DDR5_SLUG)
+    """The committed DDR5 fixture profile must pass schema validation.
+
+    The profile lives under ``worker/tests/fixtures/profiles/`` — NOT
+    ``products/`` — because the deployed web app deletes/rewrites
+    ``products/`` on its own. See ADR-062.
+    """
+    profile = load_ddr5_profile()
     assert profile.slug == DDR5_SLUG
     assert profile.target.amount == 256
     assert len(profile.sources) >= 1
 
 
 def test_real_ddr5_qvl_valid() -> None:
-    """The committed DDR5 QVL must pass schema validation."""
-    qvl = load_qvl(DDR5_SLUG)
+    """The committed DDR5 fixture QVL must pass schema validation."""
+    qvl = load_ddr5_qvl()
     assert len(qvl.qvl) >= 1
     # Every entry must have a non-empty MPN and brand.
     for entry in qvl.qvl:
@@ -444,12 +451,18 @@ def test_rejects_empty_vendor_host() -> None:
 
 
 def test_cli_validate_ddr5_exits_zero() -> None:
-    """``product-search validate ddr5-rdimm-256gb`` must exit 0."""
+    """``product-search validate ddr5-rdimm-256gb`` must exit 0.
+
+    Points the CLI loader at the committed fixture tree (ADR-062) so the
+    integration test doesn't depend on a live ``products/`` entry the web
+    app can delete out from under CI.
+    """
     result = subprocess.run(
         [sys.executable, "-m", "product_search.cli", "validate", DDR5_SLUG],
         capture_output=True,
         text=True,
         cwd=str(REPO_ROOT / "worker"),
+        env={**os.environ, "PRODUCT_SEARCH_PRODUCTS_DIR": str(FIXTURE_PROFILES_DIR)},
     )
     assert result.returncode == 0, (
         f"CLI validate failed (exit {result.returncode}):\n"

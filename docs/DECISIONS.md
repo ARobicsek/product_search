@@ -9,6 +9,24 @@ Status values:
 
 ---
 
+## ADR-062 — Test/CI reference profile must be a committed fixture, never a live `products/` entry (ACCEPTED — implemented)
+
+**Status**: ACCEPTED — implemented 2026-05-18 (user reported recurring "Run failed: CI" emails — every push red).
+
+**Date**: 2026-05-18
+
+**Context**: CI was failing on **every** push. Root cause: the worker test suite (`test_profile.py` ×3, `test_synthesizer.py` ×~22 via `load_profile("ddr5-rdimm-256gb")`, `test_phase2.py` CLI-search integration test) **and** the CI `validate-profiles` job (`python -m product_search.cli validate ddr5-rdimm-256gb`) all hard-depended on the **live** `products/ddr5-rdimm-256gb/` profile. The deployed web app commits straight to `origin/main` and its delete-product flow removed that product (commit `5dd3da6 chore: delete product ddr5-rdimm-256gb`) — so `load_profile`/the CLI raised `FileNotFoundError: Profile not found for slug 'ddr5-rdimm-256gb'` and 27 tests + the validate job went permanently red. This is the exact app-mutates-`products/` fragility CLAUDE.md's "Syncing with origin" section warns about, and it directly violates SESSION_PROTOCOL's "use committed fixtures" rule: a profile the test suite + CI depend on must live somewhere the app never touches.
+
+**Decision**:
+- Recovered `profile.yaml` + `qvl.yaml` **verbatim** from git (`5dd3da6^`) into a committed fixture: `worker/tests/fixtures/profiles/ddr5-rdimm-256gb/` (a header comment marks it test-only; the app only ever rewrites `products/<slug>/`, never `worker/tests/`).
+- `profile.py`: added `load_profile_from_path`/`load_qvl_from_path` (general "load from explicit path" API; `load_profile`/`load_qvl` now thin wrappers) and a `PRODUCT_SEARCH_PRODUCTS_DIR` env override read by `_resolve_profile_path`/`_resolve_qvl_path` (when set, resolve `$DIR/<slug>/{profile,qvl}.yaml`; **unset in production → behavior unchanged**). The env hook is the minimal mechanism that lets the *subprocess* CLI integration tests + the CI `validate` step retarget the loader without restoring a fragile live product or deleting coverage.
+- `worker/tests/conftest.py` is the single source of truth for the fixture location (`FIXTURE_PROFILES_DIR`, `load_ddr5_profile`/`load_ddr5_qvl`, plus `ddr5_profile`/`ddr5_qvl` pytest fixtures). `test_synthesizer.py` swaps its `load_profile` import for `load_ddr5_profile` (call sites unchanged); `test_profile.py` happy-path tests use the helpers; the two subprocess tests (`test_profile.py` validate, `test_phase2.py` search) pass `PRODUCT_SEARCH_PRODUCTS_DIR`.
+- CI `validate-profiles` step now sets `PRODUCT_SEARCH_PRODUCTS_DIR: tests/fixtures/profiles` and validates the committed fixture. Deliberately **not** changed to "validate every live `products/*` profile": the app's profile/report commits bypass CI gating anyway (CI doesn't block bot commits to main), so gating on app-written profiles would only add red-CI noise without protecting anything.
+
+**Consequence**: CI is decoupled from the app-mutable `products/` tree — deleting/adding live products can no longer break the suite or the validate job. General rule for this codebase: **any profile/QVL the test suite or CI depends on must be a committed fixture under `worker/tests/`, never a `products/<slug>/` entry** (the app owns `products/`). Verification: worker `pytest` 259 passed (the 27 previously-failing now green), `ruff check src/` + `mypy src/` + `mypy --strict src/product_search/profile.py` clean, and the CI validate command reproduced locally exactly as CI runs it (cwd `worker/`, env set) → exit 0. Local run was Py3.13 vs CI's 3.12, but the diff is pure-stdlib (`os`/`pathlib`), no new deps, no version-specific syntax. **Noticed but deferred:** other adapter fixtures already live correctly under `worker/tests/fixtures/`; no other live-`products/` test coupling found in CI-run files (benchmark `fixtures/*.json` reference the slug only as opaque test data, and the benchmark isn't in CI).
+
+---
+
 ## ADR-061 — Cron in `schedule:` YAML must be quoted (leading `*` is a YAML alias) (ACCEPTED — implemented)
 
 **Status**: ACCEPTED — implemented 2026-05-18 (regression fix in the same session, found by the user testing ADR-060 in prod). Commit `c4460b0`.

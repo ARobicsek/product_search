@@ -28,7 +28,14 @@ jobs:
       - name: Install dependencies
         run: pip install -e ".[dev]"
 
-      - name: Validate DDR5 profile
+      # The DDR5 profile is a COMMITTED TEST FIXTURE, not a live product.
+      # The deployed web app deletes/rewrites products/ and commits to
+      # origin/main on its own (it deleted the live ddr5-rdimm-256gb product,
+      # which broke this step). Resolve it from the fixture tree the app
+      # never touches. See ADR-062.
+      - name: Validate the committed DDR5 fixture profile
+        env:
+          PRODUCT_SEARCH_PRODUCTS_DIR: tests/fixtures/profiles
         run: python -m product_search.cli validate ddr5-rdimm-256gb
 
 

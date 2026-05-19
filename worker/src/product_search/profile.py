@@ -17,6 +17,7 @@ called from the ``worker/`` working directory (CI) and from the repo root.
 
 from __future__ import annotations
 
+import os
 import re
 from datetime import UTC, datetime
 from pathlib import Path
@@ -474,8 +475,34 @@ def _repo_root() -> Path:
     return Path.cwd()
 
 
+# Env override: when set, profiles/QVL are resolved as
+# ``$PRODUCT_SEARCH_PRODUCTS_DIR/<slug>/{profile,qvl}.yaml`` instead of the
+# repo's ``products/`` tree. The point is decoupling the test suite + CI from
+# the live ``products/`` directory, which the deployed web app rewrites and
+# deletes from on its own (it commits straight to origin/main). A profile that
+# tests + CI depend on must live somewhere the app never touches; this hook
+# lets the CLI integration tests (and the CI ``validate`` step) point the
+# loader at the committed ``worker/tests/fixtures/profiles`` tree. Unset in
+# production, so normal runs are unchanged. See ADR-062.
+_PRODUCTS_DIR_ENV = "PRODUCT_SEARCH_PRODUCTS_DIR"
+
+
+def _products_dir_override() -> Path | None:
+    raw = os.environ.get(_PRODUCTS_DIR_ENV, "").strip()
+    return Path(raw) if raw else None
+
+
 def _resolve_profile_path(slug: str) -> Path:
-    """Return the absolute path to ``products/<slug>/profile.yaml``."""
+    """Return the absolute path to ``<products>/<slug>/profile.yaml``."""
+    override = _products_dir_override()
+    if override is not None:
+        path = override / slug / "profile.yaml"
+        if path.exists():
+            return path
+        raise FileNotFoundError(
+            f"Profile not found for slug {slug!r} under "
+            f"{_PRODUCTS_DIR_ENV}={override}. Tried:\n  {path}"
+        )
     repo_root = _repo_root()
     direct = repo_root / "products" / slug / "profile.yaml"
     if direct.exists():
@@ -491,6 +518,40 @@ def _resolve_profile_path(slug: str) -> Path:
     )
 
 
+def _resolve_qvl_path(slug: str) -> Path:
+    """Return the absolute path to ``<products>/<slug>/qvl.yaml``."""
+    override = _products_dir_override()
+    if override is not None:
+        return override / slug / "qvl.yaml"
+    repo_root = _repo_root()
+    path = repo_root / "products" / slug / "qvl.yaml"
+    if not path.exists():
+        path = Path.cwd().parent / "products" / slug / "qvl.yaml"
+    return path
+
+
+def load_profile_from_path(path: Path | str) -> Profile:
+    """Load and validate a profile YAML at an explicit path.
+
+    Raises:
+        FileNotFoundError: if the YAML file does not exist.
+        pydantic.ValidationError: if the YAML does not match the schema.
+    """
+    raw: Any = yaml.safe_load(Path(path).read_text(encoding="utf-8"))
+    return Profile.model_validate(raw)
+
+
+def load_qvl_from_path(path: Path | str) -> QVL:
+    """Load and validate a QVL YAML at an explicit path.
+
+    Raises:
+        FileNotFoundError: if the YAML file does not exist.
+        pydantic.ValidationError: if the YAML does not match the schema.
+    """
+    raw: Any = yaml.safe_load(Path(path).read_text(encoding="utf-8"))
+    return QVL.model_validate(raw)
+
+
 def load_profile(slug: str) -> Profile:
     """Load and validate the profile for *slug*.
 
@@ -498,9 +559,7 @@ def load_profile(slug: str) -> Profile:
         FileNotFoundError: if the YAML file does not exist.
         pydantic.ValidationError: if the YAML does not match the schema.
     """
-    path = _resolve_profile_path(slug)
-    raw: Any = yaml.safe_load(path.read_text(encoding="utf-8"))
-    return Profile.model_validate(raw)
+    return load_profile_from_path(_resolve_profile_path(slug))
 
 
 def load_qvl(slug: str) -> QVL:
@@ -510,9 +569,4 @@ def load_qvl(slug: str) -> QVL:
         FileNotFoundError: if the YAML file does not exist.
         pydantic.ValidationError: if the YAML does not match the schema.
     """
-    repo_root = _repo_root()
-    path = repo_root / "products" / slug / "qvl.yaml"
-    if not path.exists():
-        path = Path.cwd().parent / "products" / slug / "qvl.yaml"
-    raw: Any = yaml.safe_load(path.read_text(encoding="utf-8"))
-    return QVL.model_validate(raw)
+    return load_qvl_from_path(_resolve_qvl_path(slug))
