@@ -119,7 +119,11 @@ export function applyScheduleToYaml(
 ): string {
   let newBlock: string | null = null;
   if (schedule?.kind === 'recurring') {
-    newBlock = `schedule:\n  cron: ${schedule.cron}\n  timezone: UTC`;
+    // The cron MUST be quoted: a value starting with `*` (e.g. `*/15 * * * *`)
+    // is parsed by YAML as an alias reference and blows up the loader
+    // ("unidentified alias"). The reader strips surrounding quotes, and the
+    // worker's YAML loader treats the quoted scalar as a plain string.
+    newBlock = `schedule:\n  cron: "${schedule.cron}"\n  timezone: UTC`;
   } else if (schedule?.kind === 'once') {
     newBlock = `schedule:\n  run_at: ${schedule.runAtIso}\n  timezone: UTC`;
   }
