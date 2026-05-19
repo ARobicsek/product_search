@@ -66,12 +66,5 @@ report_columns:
   - seller
   - seller_rating
   - flags
-alerts:
-  - kind: price_below
-    threshold_usd: 500
-    mode: while_below
-    price_basis: unit
+alerts: []
 
-schedule:
-  cron: "*/15 * * * *"
-  timezone: UTC
