@@ -26,20 +26,38 @@
 
 **Inter-phase — push delivery CONFIRMED working by user; Schedule&Alerts editor UX overhaul (ADR-059 `price_basis`, ADR-060 guided schedule builder). DONE in-repo 2026-05-18.** User confirmed the ADR-057 fix delivered ("that worked!"), then asked for an editor UX pass. Interview-locked + shipped: (ADR-059) per-alert `price_basis` `unit`(default)|`total`(as-sold/kit price) — worker `profile.py`/`alerts.py` (`_effective_price`, basis-aware `_cheapest`/headlines/fingerprint) + web mirrors + editor "Applies to" select; (ADR-060) replaced preset-radios + raw-cron with a guided builder (kind radio → Frequency select incl. **every-15-min**, **Weekdays**, **Weekly**+weekday chips; raw cron never shown; unrecognized cron = read-only legacy notice), plain-English `humanizeSchedule`, combined-effect line, noisy-combo warning, and copy fixes ("Run on demand", "Price is below threshold", repointed stale subscribe nudge to the ADR-055 bell). Worker **259 passed** (4 new); ruff+mypy clean; web tsc+eslint clean. **Verification gap:** chrome-devtools mobile/desktop pass was BLOCKED (browser profile locked) — narrow-viewport layout NOT browser-verified; user to eyeball or close the MCP browser for an automated pass. See ADR-059, ADR-060 + the dated status block below.
 
-## Status as of 2026-05-18 (inter-phase — ADR-059 price_basis + ADR-060 guided schedule builder)
+**Inter-phase — ADR-061 cron-quoting regression fix (found by user testing ADR-060 in prod). DONE + pushed 2026-05-18 (`c4460b0`).** The ADR-060 `every_15_min`/`every_30_min` frequencies emit crons starting with `*` (`*/15 * * * *`); `applyScheduleToYaml` wrote them **unquoted**, and YAML reads a leading `*` as an alias → the onboard validator threw `yaml parse error: unidentified alias "/15"` and rejected the save (no corruption — validation precedes write). Old presets all started with a digit so the latent flaw never showed. Fix: cron now written quoted (`cron: "<expr>"`); reader already strips quotes; worker pyyaml+`Schedule` round-trip verified. Back-compat with existing unquoted digit-leading crons. See ADR-061.
+
+## Status as of 2026-05-18 (inter-phase — ADR-059 price_basis + ADR-060 guided schedule builder + ADR-061 cron-quote fix)
 
 ### What shipped
 
 - **ADR-059 `price_basis`**: `PriceBelowAlert.price_basis` `unit`(default, back-compat)|`total`. `total` = `kit_price_usd` for a kit else `unit_price_usd`; `_cheapest` re-ranks by basis; all 3 modes compare/headline on it; fingerprint gains `|{basis}` (re-arms once, ADR-056-accepted). Web: `lib/alerts.ts`, `lib/onboard/schema.ts`, editor "Applies to" (Cost per unit | Total cost (as sold)) + helper. Single-item products unaffected (unit==total).
 - **ADR-060 guided builder**: `lib/schedule.ts` lost `PresetId`/`SCHEDULE_PRESETS`/`detectPreset` (deleted; only the editor used them), gained `Frequency`/`FREQUENCY_OPTIONS`/`WEEKDAYS`/`frequencyToCron`/`parseRecurring`/`weeklyLocalToCron`/`humanizeSchedule`/`cronToHuman`. Editor: kind radio + Frequency select (15m/30m/hourly/6h/12h/Daily/Weekdays/Weekly) + weekday chips; legacy cron read-only; plain-English summary; combined-effect line; noisy-combo amber warning; copy fixes. Stored cron/`run_at` contract unchanged. DST weekly drift ≤1h/1d (inherited, documented).
+- **ADR-061 cron-quote fix** (`c4460b0`): `applyScheduleToYaml` now quotes the cron so `*/15`/`*/30` (and any `*`-leading expr) don't trip YAML's alias syntax. Caught by the user in prod immediately after ADR-060 deployed.
+
+### Commits this session (all on `origin/main`)
+
+`460a0fa` ADR-057+058 · `695267b` ADR-059+060 · `c4460b0` ADR-061. Local == origin/main, clean. (`460a0fa` ADR-057 push-delivery wiring also required the user's out-of-repo runbook, which they completed — push delivery **confirmed working in prod** by the user this session.)
 
 ### Verification
 
-Worker `pytest` 259 passed (4 new `test_alerts.py`), `ruff check src/` + `mypy src/` (+`--strict` touched) clean; web `tsc --noEmit` + eslint clean. **NOT done:** chrome-devtools mobile (390px)+desktop visual pass — the MCP browser profile was already locked; flagged per CLAUDE.md mobile-non-negotiable rather than silently claimed.
+Worker `pytest` 259 passed (`test_alerts.py` +4 ADR-059, +4 ADR-058), 43 schedule/profile/cron pass + explicit quoted-cron round-trip; `ruff check src/` + `mypy src/` (+`--strict` touched) clean; web `tsc --noEmit` + eslint clean. **NOT verified by Claude:** the deployed editor's actual rendering/behaviour — chrome-devtools was BLOCKED (MCP browser profile locked); flagged per CLAUDE.md mobile-non-negotiable rather than silently claimed. User is testing in prod and **we review results next session**.
 
-### Next session
+### Next session — REVIEW PROD TEST RESULTS FIRST
 
-User to confirm the new editor renders correctly at narrow viewport (or free the MCP browser for an automated pass). Phase 18 — Polish + second-product proof remains the queued phase. Carry-overs unchanged: ADR-040 auto-demote impl; ADR-053 deferred #1–#3 (now also relevant to `while_below`/`total`-basis zero-listing skips); scheduled tick #25 06:11Z failure; no in-app signal for silent external-trigger death; email-on-alert (own ADR + sign-off).
+The user is testing the new editor in prod (Vercel auto-deploys `main`). Before any new work, get their results and confirm:
+1. Editor **renders & saves** for each frequency — esp. **Every 15/30 minutes** (the ADR-061 case), **Weekly** (weekday chips) and **Weekdays**; round-trips on re-open (`parseRecurring`).
+2. **Mobile (~390px)** layout of the popover: kind radios, Frequency select, weekday chips, "Applies to" row, summary/warning lines — never browser-verified by Claude (the one true open gap).
+3. `price_basis` "Total cost (as sold)" vs "Cost per unit" behaves on a real run (only diverges for kits; single items identical).
+4. `while_below` + a high-frequency schedule actually pushes every run (now that ADR-057 delivery works) and the noisy-combo warning shows.
+5. Plain-English summary + combined-effect line read correctly; legacy-cron read-only notice appears only for an unrepresentable cron.
+
+If a defect surfaces, it's almost certainly in `web/lib/schedule.ts` (round-trip/builder) or the editor JSX — start there. Then Phase 18 — Polish + second-product proof remains the queued phase (note: `lululemon-never-lost-keychain-wordmark` + `breville-barista-express` profiles now exist on origin from the user's prod testing). Carry-overs unchanged: ADR-040 auto-demote impl; ADR-053 deferred #1–#3 (now also relevant to `while_below`/`total`-basis zero-listing skips); scheduled tick #25 06:11Z failure; no in-app signal for silent external-trigger death; email-on-alert (own ADR + sign-off).
+
+### Noticed but deferred
+
+`web/lib/onboard/promptText.ts` shows as modified in the working tree — it was auto-regenerated by the `next dev` server's `[sync-prompt]` hook (onboard_v1.txt → promptText.ts) when Claude started the dev server; **not part of this session's work and intentionally left uncommitted**. Next session: decide whether the committed `promptText.ts` is stale vs `onboard_v1.txt` (if so, regenerate + commit deliberately) or `git checkout` it to discard.
 
 ## Status as of 2026-05-18 (inter-phase — ADR-057 push-delivery root cause + fix; ADR-058 `while_below` mode)
 

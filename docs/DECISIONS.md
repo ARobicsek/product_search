@@ -9,6 +9,20 @@ Status values:
 
 ---
 
+## ADR-061 — Cron in `schedule:` YAML must be quoted (leading `*` is a YAML alias) (ACCEPTED — implemented)
+
+**Status**: ACCEPTED — implemented 2026-05-18 (regression fix in the same session, found by the user testing ADR-060 in prod). Commit `c4460b0`.
+
+**Date**: 2026-05-18
+
+**Context**: ADR-060's guided builder added the `every_15_min`/`every_30_min` frequencies → crons `*/15 * * * *` / `*/30 * * * *`. `applyScheduleToYaml` wrote the cron **unquoted** (`cron: */15 * * * *`). YAML interprets a scalar starting with `*` as an **alias reference**, so the onboard schema validator's loader threw `yaml parse error: unidentified alias "/15"` and the save was rejected (no corruption — validation runs before write). Every pre-ADR-060 preset began with a digit (`0 * * * *`, `0 */6 * * *`), so this latent flaw in the original `applyScheduleToYaml` never surfaced until now.
+
+**Decision**: Always write the cron quoted: `cron: "<expr>"`. Safe both directions — `readScheduleFromYaml` already strips surrounding quotes, and the worker's YAML loader + pydantic `Schedule` model parse the quoted scalar to the plain string (verified: `"*/15 * * * *"` → `*/15 * * * *`). Fully back-compat: existing unquoted digit-leading crons still read fine (no migration). `run_at` left unquoted (ISO timestamps have no YAML-special leading char; existing behavior proven).
+
+**Consequence**: Any cron the builder emits (or a legacy `* * * * *`) now serializes safely. General rule for this codebase: **any YAML scalar that can start with `*`, `&`, `?`, `:`, `-`, `!`, `#`, `{`, `[` must be quoted by the surgical writers** — cron was the live case. Worker 43 schedule/profile/cron tests pass + explicit quoted-cron round-trip check; web tsc + eslint clean.
+
+---
+
 ## ADR-060 — Schedule editor: guided builder replaces preset-radios + raw cron; every-15-min, weekly/weekdays, plain-English + combined-effect summaries, copy fixes (ACCEPTED — implemented)
 
 **Status**: ACCEPTED — implemented 2026-05-18 (user request; design locked via a structured trade-off interview per memory `feedback_interview_before_ux_work`). tsc + eslint clean; **automated browser (chrome-devtools) mobile/desktop pass was BLOCKED** by a locked browser profile — visual/mobile verification deferred to the user (CLAUDE.md mobile-non-negotiable: flagged, not silently claimed).
