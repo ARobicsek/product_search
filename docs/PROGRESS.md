@@ -30,6 +30,29 @@
 
 **Inter-phase — CI was red on every push; decoupled test/CI from app-mutable `products/`. DONE 2026-05-18 (ADR-062).** User reported recurring "[ARobicsek/product_search] Run failed: CI" emails. Root cause: the worker suite (27 tests) + the CI `validate-profiles` job hard-depended on the **live** `products/ddr5-rdimm-256gb/` profile, which the deployed web app's delete-product flow removed (`5dd3da6`, committed straight to origin/main) → `FileNotFoundError`. Fix: recovered `profile.yaml`+`qvl.yaml` verbatim from git into a committed fixture `worker/tests/fixtures/profiles/ddr5-rdimm-256gb/` (app never touches `worker/tests/`); added `load_profile_from_path`/`load_qvl_from_path` + a `PRODUCT_SEARCH_PRODUCTS_DIR` env override to `profile.py` (unset in prod = unchanged); new `worker/tests/conftest.py` is the single source of truth for the fixture path; repointed `test_synthesizer.py`/`test_profile.py`/`test_phase2.py` + the CI validate step. Worker **259 passed** (the 27 now green); ruff+mypy(+`--strict` on `profile.py`) clean; CI validate command reproduced locally → exit 0. See ADR-062.
 
+## Status as of 2026-05-18 (inter-phase — ADR-062: CI decoupled from app-mutable `products/`; CI GREEN again)
+
+### What shipped
+
+- **ADR-062** — CI was failing on **every** push (the user's recurring "Run failed: CI" emails). The worker suite (27 tests across `test_profile.py`/`test_synthesizer.py`/`test_phase2.py`) + the CI `validate-profiles` job hard-depended on the **live** `products/ddr5-rdimm-256gb/` profile; the deployed web app's delete-product flow removed it (`5dd3da6`, straight to origin/main) → `FileNotFoundError`. Fix: recovered `profile.yaml`+`qvl.yaml` verbatim from git (`5dd3da6^`) into a **committed fixture** `worker/tests/fixtures/profiles/ddr5-rdimm-256gb/`; `profile.py` gained `load_profile_from_path`/`load_qvl_from_path` + a `PRODUCT_SEARCH_PRODUCTS_DIR` env override (unset in prod ⇒ unchanged); new `worker/tests/conftest.py` is the single source of truth for the fixture path; `test_synthesizer.py`/`test_profile.py`/`test_phase2.py` + the CI validate step repointed at it.
+- **CLAUDE.md hard rule added**: "Tests and CI must never depend on a live `products/<slug>/` entry … use a committed fixture under `worker/tests/fixtures/`" — one-line preventive in the always-loaded primer so a future session doesn't recouple.
+
+### Commits this session (all on `origin/main`)
+
+`c0a72c7` ADR-062 fix (10 files) · `aa680ff` CLAUDE.md hard rule. Both rebased over the scheduled-report bot's commits (`d11d7a4`, `ded5848` — `reports/**` only, no conflict). Local == `origin/main` after the final docs commit (this block).
+
+### Verification
+
+Worker `pytest` **259 passed** (the 27 previously-failing now green); `ruff check src/` + `mypy src/` + `mypy --strict src/product_search/profile.py` clean; CI `validate` command reproduced locally exactly as CI runs it (cwd `worker/`, `PRODUCT_SEARCH_PRODUCTS_DIR=tests/fixtures/profiles`) → exit 0. **Live CI run `c0a72c7` (`26069815562`): completed `success`** — all three jobs (validate-profiles, worker, web) green. Local run was Py3.13 vs CI's 3.12, but the diff is pure-stdlib (`os`/`pathlib`), no new deps / no version-specific syntax — `reference_uv_match_ci_python` fresh-3.12 reproduction judged unnecessary for this change and skipped.
+
+### Next session — unchanged carry-over (CI is no longer a blocker)
+
+CI is green again; ADR-062 is closed. The prior session's queue stands: **REVIEW PROD TEST RESULTS FIRST** for the deployed Schedule&Alerts editor (ADR-059 `price_basis`, ADR-060 guided builder, ADR-061 cron-quote) — esp. the never-Claude-verified **mobile (~390px)** popover layout — then **Phase 18 — Polish + second-product proof**. Still-open carry-overs unchanged: ADR-040 auto-demote impl; ADR-053 deferred #1–#3; scheduled tick #25 06:11Z failure; no in-app signal for silent external-trigger death; email-on-alert (own ADR + sign-off).
+
+### Noticed but deferred
+
+`web/lib/onboard/promptText.ts` is still modified-but-uncommitted in the working tree (dev-server `[sync-prompt]` auto-regen; carried forward from the prior block, intentionally not part of ADR-062). Next session: decide whether the committed `promptText.ts` is stale vs `onboard_v1.txt` (regenerate + commit deliberately) or `git checkout` it to discard. Untracked scratch files (`conversation.txt`, `dialog_with_onboarder*.txt`, `error.txt`, `phase17e_*.png`, `scratch/aufschnitt.html`) left as-is — not session artifacts to commit.
+
 ## Status as of 2026-05-18 (inter-phase — ADR-059 price_basis + ADR-060 guided schedule builder + ADR-061 cron-quote fix)
 
 ### What shipped
