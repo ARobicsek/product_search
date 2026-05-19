@@ -71,4 +71,8 @@ alerts:
   - kind: price_below
     threshold_usd: 3500
     mode: while_below
+    price_basis: unit
 
+schedule:
+  cron: "*/15 * * * *"
+  timezone: UTC
