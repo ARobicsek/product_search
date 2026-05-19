@@ -69,7 +69,7 @@ report_columns:
 alerts:
   - kind: price_below
     threshold_usd: 500
-    mode: is_below
+    mode: while_below
     price_basis: unit
 
 schedule:
