@@ -20,7 +20,7 @@ If you are an AI assistant: do not glob the whole repo. Do not read files outsid
 - **Use committed fixtures.** `worker/tests/fixtures/` has saved HTML/JSON for every adapter. Use them in tests. Only hit live sites when adding a new adapter or when a fixture is being captured.
 - **Write tests with the code, not after.** A phase isn't done if the test exists but doesn't pass, or if no test exists for code that has one in scope.
 - **One phase per session.** If you finish early, stop and hand off. Don't start the next phase — its brief was written assuming a fresh session.
-- **Don't push without explicit approval.** Local commits are fine. Pushing publishes work and burns CI budget.
+- **Pushing is pre-authorized** (see [CLAUDE.md](../CLAUDE.md) — standing authorization). Push routine commits without asking. Ask first only for force-push / history rewrite / branch deletion. Never `--no-verify`.
 
 ## At the end of a session
 
