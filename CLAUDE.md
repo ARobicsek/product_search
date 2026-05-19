@@ -35,3 +35,4 @@ So your local clone goes stale between *and during* sessions. Because of this:
 - `.env` is never committed. Real secrets go in GitHub Actions secrets and Vercel environment variables. The repo only has `.env.example`.
 - Do not add abstractions, error handling, or features the current task didn't ask for. Trust the validator pipeline at the seams.
 - For the web UI, mobile layout is non-negotiable — test it at narrow viewport before claiming done.
+- Tests and CI must never depend on a live `products/<slug>/` entry — the deployed app deletes/rewrites them and commits to `origin/main` on its own (this broke CI; ADR-062). Any profile/QVL a test or CI step needs is a committed fixture under `worker/tests/fixtures/`, loaded via the conftest helpers or the `PRODUCT_SEARCH_PRODUCTS_DIR` override — never `load_profile("<live-slug>")`.
