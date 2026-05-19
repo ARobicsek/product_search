@@ -134,7 +134,7 @@ export default async function Home() {
                     status={data.status}
                     runningSinceIso={data.runningSinceIso}
                   />
-                  <div className="opacity-0 group-hover:opacity-100 transition-opacity focus-within:opacity-100 -mr-2">
+                  <div className="-mr-2">
                     <DeleteProductModal productSlug={data.product} webSecret={process.env.WEB_SHARED_SECRET || ''} />
                   </div>
                 </div>

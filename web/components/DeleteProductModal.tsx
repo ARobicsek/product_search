@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Trash2, X, AlertTriangle, Loader2 } from 'lucide-react';
 
 interface DeleteProductModalProps {
@@ -40,9 +41,12 @@ export function DeleteProductModal({ productSlug, webSecret }: DeleteProductModa
       if (!res.ok || !data.ok) {
         throw new Error(data.error || 'Failed to delete product');
       }
-      
-      // Page will revalidate and card will disappear, we can just close the modal
-      setIsOpen(false);
+
+      // Server already revalidated `/`, but the client RSC tree won't re-fetch
+      // on its own and router.refresh() is documented as insufficient against
+      // this app's caching — a full reload is the reliable path. Keep
+      // isDeleting=true so the spinner stays until the navigation happens.
+      window.location.reload();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred');
       setIsDeleting(false);
@@ -60,7 +64,7 @@ export function DeleteProductModal({ productSlug, webSecret }: DeleteProductModa
         <Trash2 className="w-4 h-4" />
       </button>
 
-      {isOpen && (
+      {isOpen && typeof document !== 'undefined' && createPortal(
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
           <div 
             className="bg-white dark:bg-gray-900 rounded-xl shadow-xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in-95 duration-200"
@@ -109,7 +113,8 @@ export function DeleteProductModal({ productSlug, webSecret }: DeleteProductModa
               </div>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body,
       )}
     </>
   );

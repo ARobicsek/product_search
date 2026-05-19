@@ -9,6 +9,26 @@ Status values:
 
 ---
 
+## ADR-063 — Delete-product affordance must be touch-reachable; modal must portal out of the card stacking context; delete must force a client reload (ACCEPTED — implemented)
+
+**Status**: ACCEPTED — implemented 2026-05-18 (user reported: delete impossible on the iPhone PWA; on desktop the modal text overlapped card text and the list didn't refresh after delete).
+
+**Date**: 2026-05-18
+
+**Context**: Three independent defects in the home-page delete-product flow:
+1. **Touch-unreachable trigger.** The trash button wrapper was `opacity-0 group-hover:opacity-100 … focus-within:opacity-100` ([web/app/page.tsx](../web/app/page.tsx)). Touch devices have no `:hover`, and the card's stretched link (`before:absolute before:inset-0`) covers the whole card, so on the iPhone PWA the icon was invisible and unfocusable — delete was simply impossible (a CLAUDE.md "mobile is non-negotiable" violation).
+2. **Modal bleed-through.** `DeleteProductModal` rendered its `fixed inset-0 z-50` overlay *inside* the card subtree, specifically inside `<div className="flex items-center gap-2 relative z-10">`. `position:relative; z-index:10` opens a stacking context, so the overlay's `z-50` was scoped *within* that card-local z-10 layer. Other cards' summaries are also `relative z-10` and, being later in document order at the same effective level, painted **on top of** the (genuinely opaque) modal panel — the "overlapping text" the user saw. Verified empirically via DevTools: panel `background-color` was opaque `lab(8% …)`, `opacity:1` — not a transparency bug, a stacking bug.
+3. **Stale list after delete.** The DELETE route already does `revalidatePath('/')` and the data layer is `cache:'no-store'` + cache-buster + `force-dynamic`, but the modal only did `setIsOpen(false)` — nothing re-fetched the RSC tree client-side, so the deleted card stayed until a manual refresh.
+
+**Decision**:
+- Removed the `opacity-0 group-hover/focus-within` gating on the trash wrapper in `page.tsx` — the icon is always rendered (already visually subtle: `text-gray-400`, reddens on hover/focus). Simplest fix that works on every input modality; no `(hover:hover)` media-variant complexity.
+- `DeleteProductModal` now renders the overlay through `createPortal(…, document.body)` (guarded by `typeof document !== 'undefined'`; the component is already `'use client'` and the modal only mounts on a post-hydration click). This escapes **all** card-local stacking contexts so `fixed z-50` truly sits above the page.
+- On a successful delete the modal calls `window.location.reload()` (keeping `isDeleting=true` so the spinner persists through navigation) instead of just closing. `router.refresh()` is documented as insufficient against this app's caching (memory `project_nextjs_cache_runnow`); a full reload is the established, reliable pattern.
+
+**Consequence**: Delete is reachable on touch/PWA; the modal renders opaque and correctly layered on every viewport; the list reflects the deletion without a manual refresh. Verified with chrome-devtools at 390px: trash icons present on every card; opened modal is opaque with zero bleed-through; portal confirmed (`overlay.parentElement === document.body`); Cancel closes. `tsc --noEmit` + `eslint` clean. **Not end-to-end verified locally:** the actual DELETE → reload path — `WEB_SHARED_SECRET` is unset in local dev (route 500s) and a real delete commits to `origin/main` (destructive); the reload is a 1-line change matching documented precedent. Next session can confirm on the deployed app.
+
+---
+
 ## ADR-062 — Test/CI reference profile must be a committed fixture, never a live `products/` entry (ACCEPTED — implemented)
 
 **Status**: ACCEPTED — implemented 2026-05-18 (user reported recurring "Run failed: CI" emails — every push red).
