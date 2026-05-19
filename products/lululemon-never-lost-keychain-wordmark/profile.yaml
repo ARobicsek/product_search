@@ -1,12 +1,9 @@
-slug: lululemon-never-lost-keychain-wordmark
+slug: "lululemon-never-lost-keychain-wordmark"
 display_name: Lululemon Never Lost Keychain (Wordmark)
 description: Track the cheapest currently-available Lululemon Never Lost Keychain (Wordmark) in muted colors, new condition only
 target:
   unit: count
   amount: 1
-  configurations:
-    - module_count: 1
-      module_capacity_gb: 1
 spec_attrs:
   condition:
     type: str
@@ -47,4 +44,28 @@ sources:
     url: https://www.etsy.com/market/lululemon_never_lost_keychain
   - id: universal_ai_search
     url: https://www.amazon.com/never-lost-keychain-lululemon/s?k=never+lost+keychain+lululemon
-qvl_file: products/lululemon-never-lost-keychain-wordmark/qvl.yaml
+  - id: universal_ai_search
+    url: https://likenew.lululemon.com/search?query=never+lost+keychain
+  - id: universal_ai_search
+    url: https://www.depop.com/search/?q=lululemon+never+lost+keychain
+  - id: universal_ai_search
+    url: https://www.pearlsandrocks.com/search?q=lululemon+never+lost+keychain
+sources_pending:
+  - id: universal_ai_search
+    url: https://www.grailed.com/search?search_query=lululemon+never+lost+keychain
+    note: "probe returned 0 candidates: fetch returned HTTP 404"
+  - id: universal_ai_search
+    url: https://us.vestiairec.com/en-gb/fashion-marketplace/?q=lululemon+never+lost+keychain
+    note: "probe returned 0 candidates: fetch failed: fetch failed"
+report_columns:
+  - rank
+  - source
+  - title
+  - price_unit
+  - condition
+  - seller
+  - seller_rating
+  - flags
+schedule:
+  cron: 0 8 * * *
+  timezone: UTC
