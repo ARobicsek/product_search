@@ -146,3 +146,91 @@ def test_probe_url_render_errors_when_alterlab_falls_through(
     with pytest.raises(SystemExit) as exc:
         _cmd_probe_url("https://example.com/", render=True)
     assert exc.value.code == 1
+
+
+def test_probe_url_with_alterlab_options(monkeypatch: pytest.MonkeyPatch) -> None:
+    """When _cmd_probe_url is called with custom country, min_tier, or wait_for,
+    they are built into alterlab_options and passed to _fetch_html."""
+    monkeypatch.setenv("ALTERLAB_API_KEY", "test-key-cli")
+
+    html = (FIXTURE_DIR / "shopify_jsonld.html").read_text(encoding="utf-8")
+    captured_opts: list[dict[str, Any] | None] = []
+
+    def _mock_fetch(url: str, timeout: float = 20.0, alterlab_options: dict[str, Any] | None = None) -> tuple[str, int, str]:
+        captured_opts.append(alterlab_options)
+        return (html, 200, "alterlab")
+
+    monkeypatch.setattr(universal_ai, "_fetch_html", _mock_fetch)
+
+    # Calling with all three custom options
+    with pytest.raises(SystemExit) as exc:
+        _cmd_probe_url(
+            "https://example.com/",
+            render=False,
+            country="gb",
+            min_tier=2,
+            wait_for=".some-class",
+        )
+    assert exc.value.code == 0
+
+    assert len(captured_opts) == 1
+    opts = captured_opts[0]
+    assert opts is not None
+    assert opts["country"] == "gb"
+    assert opts["min_tier"] == 2
+    assert opts["wait_for"] == ".some-class"
+    assert opts["render_js"] is True
+
+
+def test_probe_url_parser_setup(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The argument parser correctly parses --country, --min-tier, and --wait-for
+    and forwards them to _cmd_probe_url."""
+    import sys
+    from product_search import cli
+    from typing import Any
+
+    captured: list[dict[str, Any]] = []
+
+    def _mock_cmd_probe_url(
+        url: str,
+        *,
+        render: bool,
+        save_body: str | None = None,
+        detail: bool = False,
+        country: str | None = None,
+        min_tier: int | None = None,
+        wait_for: str | None = None,
+    ) -> None:
+        captured.append({
+            "url": url,
+            "render": render,
+            "save_body": save_body,
+            "detail": detail,
+            "country": country,
+            "min_tier": min_tier,
+            "wait_for": wait_for,
+        })
+
+    monkeypatch.setattr(cli, "_cmd_probe_url", _mock_cmd_probe_url)
+
+    # Simulate: python -m product_search.cli probe-url "https://example.com" --country us --min-tier 3 --wait-for "#grid" --render --detail
+    monkeypatch.setattr(sys, "argv", [
+        "cli.py", "probe-url", "https://example.com",
+        "--country", "us",
+        "--min-tier", "3",
+        "--wait-for", "#grid",
+        "--render",
+        "--detail",
+    ])
+
+    cli.main()
+
+    assert len(captured) == 1
+    c = captured[0]
+    assert c["url"] == "https://example.com"
+    assert c["render"] is True
+    assert c["detail"] is True
+    assert c["country"] == "us"
+    assert c["min_tier"] == 3
+    assert c["wait_for"] == "#grid"
+

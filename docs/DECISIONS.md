@@ -13,6 +13,7 @@ Status values:
 
 One line per ADR (newest first). Skim this; open only the bodies you need. (No ADR-036 — numbering gap.)
 
+- **ADR-065** — Custom AlterLab parameters mapping (country, min_tier, wait_for) for bot-block avoidance — ACCEPTED (impl)
 - **ADR-064** — Session apparatus: lean PROGRESS.md + verbatim archive, ADR index, size discipline, pre-authorized push — ACCEPTED (impl)
 - **ADR-063** — Delete-product: touch-reachable trigger + portaled modal + post-delete reload — ACCEPTED (impl)
 - **ADR-062** — Test/CI reference profile must be a committed fixture, never live `products/` — ACCEPTED (impl)
@@ -76,6 +77,24 @@ One line per ADR (newest first). Skim this; open only the bodies you need. (No A
 - **ADR-003** — eBay Browse API (not HTML scraping) for the eBay adapter — ACCEPTED
 - **ADR-002** — Repo-as-database; SQLite as workflow-local cache only — ACCEPTED
 - **ADR-001** — LLM is downstream of verified data only (architectural commitment) — ACCEPTED
+
+---
+
+## ADR-065 — Custom AlterLab parameters (country, min_tier, wait_for) for bot-block avoidance (ACCEPTED — implemented)
+
+**Status**: ACCEPTED — implemented 2026-05-20 (user request: "think about how to improve our bot-block avoidance... perhaps phase 20")
+
+**Date**: 2026-05-20
+
+**Context**: In Phase 19/20, scraping geo-restricted storefronts (like Best Buy) or extremely heavily protected anti-bot endpoints (like BackMarket or Crutchfield) requires custom proxy routing (e.g. US exit nodes) and customized headless browser options (e.g. higher-tier proxies, explicit rendering wait times). We use AlterLab for our Tier-3 scraping, which supports the parameters `country`, `min_tier`, and `wait_for` in its POST scraping request body. However, these parameters were not surfaced inside the universal adapter or the CLI's `probe-url` diagnostic utility, making it impossible to utilize them programmatically from `profile.yaml` or manually via the terminal.
+
+**Decision**:
+- **Extend Adapter Cascade**: SURFACED `alterlab_options` parameter down from the adapter's entry point `fetch()` through `_fetch_html_with_retry`, `_fetch_html`, to `_fetch_via_alterlab`. Extract `alterlab_options` from the query's extra config dictionary (`query.extra.get("alterlab_options")`) and serialize `country`, `min_tier`, and `wait_for` at the root level of the AlterLab REST payload, mapping `render_js` under the `advanced` parameter block.
+- **Maintain Anti-Fragile signature protection**: To avoid breaking the existing 250+ unit tests where mock fetchers are defined as positional-only lambdas (e.g. `lambda url, timeout=20.0: ...`), only pass the keyword-only `alterlab_options` downstream when it is not empty.
+- **Update CLI probe-url command**: Exposed `--country`, `--min-tier <int>`, and `--wait-for` arguments in `cli.py` probe-url subparser, compiling them into the `alterlab_options` dictionary, enforcing validation against `ALTERLAB_API_KEY`, and passing them to `_fetch_html` in `universal_ai.py`.
+- **Add complete test coverage**: Added unit tests verifying perfect propagation of the options from `AdapterQuery.extra` through the fetch cascade (`test_universal_ai.py`), as well as CLI parsing and command routing (`test_cli.py`).
+
+**Consequence**: We now have full programmatic control over AlterLab's proxy geo-routing and rendering waits directly from product profile sources, enabling robust bypasses for geofencing and anti-bot walls. The entire test suite remains 100% green and is fully backward-compatible with all mock-reliant test cases.
 
 ---
 

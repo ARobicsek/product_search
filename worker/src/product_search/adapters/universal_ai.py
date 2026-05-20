@@ -130,7 +130,11 @@ LAST_RUN_USAGE: dict[str, Any] | None = None
 # --- HTTP fetch with TLS impersonation -------------------------------------
 
 
-def _fetch_html(url: str, timeout: float = 20.0) -> tuple[str, int, str]:
+def _fetch_html(
+    url: str,
+    timeout: float = 20.0,
+    alterlab_options: dict[str, Any] | None = None,
+) -> tuple[str, int, str]:
     """Fetch ``url`` and return ``(html, status_code, fetcher_label)``.
 
     Three-tier fetch strategy:
@@ -160,7 +164,12 @@ def _fetch_html(url: str, timeout: float = 20.0) -> tuple[str, int, str]:
         # The outer `timeout` arg is sized for the cheap raw-HTTP fetchers and
         # would prematurely abort an in-flight render.
         try:
-            return _fetch_via_alterlab(url, alterlab_key, timeout=120.0)
+            return _fetch_via_alterlab(
+                url,
+                alterlab_key,
+                timeout=120.0,
+                alterlab_options=alterlab_options,
+            )
         except Exception as exc:
             # Check if quota/auth error and bubble it up instead of fallback
             if hasattr(exc, "response") and exc.response.status_code in (401, 403, 429):
@@ -212,7 +221,11 @@ def _fetch_html(url: str, timeout: float = 20.0) -> tuple[str, int, str]:
 
 
 def _fetch_via_alterlab(
-    url: str, api_key: str, *, timeout: float = 60.0
+    url: str,
+    api_key: str,
+    *,
+    timeout: float = 60.0,
+    alterlab_options: dict[str, Any] | None = None,
 ) -> tuple[str, int, str]:
     """Fetch ``url`` via the AlterLab API with JS rendering.
 
@@ -241,6 +254,13 @@ def _fetch_via_alterlab(
         "formats": ["html"],
         "advanced": {"render_js": True},
     }
+    if alterlab_options:
+        for key in ["country", "min_tier", "wait_for", "render_js"]:
+            if key in alterlab_options and alterlab_options[key] is not None:
+                body[key] = alterlab_options[key]
+                if key == "render_js":
+                    body["advanced"]["render_js"] = alterlab_options["render_js"]
+
     headers = {
         "X-API-Key": api_key,
         "Content-Type": "application/json",
@@ -321,7 +341,10 @@ def _is_retryable_fetch_error(exc: BaseException) -> bool:
     )
 
 
-def _fetch_html_with_retry(url: str) -> tuple[str, int, str]:
+def _fetch_html_with_retry(
+    url: str,
+    alterlab_options: dict[str, Any] | None = None,
+) -> tuple[str, int, str]:
     """``_fetch_html`` with one bounded retry on transient fetch errors.
 
     Non-retryable errors (auth/quota, parse, anything not timeout/connection
@@ -329,7 +352,10 @@ def _fetch_html_with_retry(url: str) -> tuple[str, int, str]:
     """
     for attempt in range(1, _FETCH_MAX_ATTEMPTS + 1):
         try:
-            return _fetch_html(url)
+            if alterlab_options:
+                return _fetch_html(url, alterlab_options=alterlab_options)
+            else:
+                return _fetch_html(url)
         except Exception as exc:
             if attempt < _FETCH_MAX_ATTEMPTS and _is_retryable_fetch_error(exc):
                 logger.warning(
@@ -1505,9 +1531,13 @@ def fetch(query: AdapterQuery, profile: Any | None = None) -> list[Listing]:
         logger.warning("No 'url' in profile source for universal_ai_search.")
         return []
 
+    alterlab_options = query.extra.get("alterlab_options")
+    if not isinstance(alterlab_options, dict):
+        alterlab_options = None
+
     logger.info(f"[universal_ai] Fetching {url}")
     try:
-        html, status, fetcher = _fetch_html_with_retry(url)
+        html, status, fetcher = _fetch_html_with_retry(url, alterlab_options=alterlab_options)
     except Exception as exc:
         logger.error(f"[universal_ai] Fetch failed: {type(exc).__name__}: {exc}")
         # Bubble up explicit fetch errors (like AlterLab quota/auth) so cli.py

@@ -8,26 +8,17 @@ Full session-by-session history → [PROGRESS_ARCHIVE.md](PROGRESS_ARCHIVE.md) (
 
 - **Closed:** Phases 0–16; **Phase 17** (schedule editor + alerts, reopened/extended/re-closed 2026-05-17); **Phase 19** (universal adapter accuracy & vendor reach, 2026-05-17); **Phase 20** (reliable scheduling trigger — genuinely proven end-to-end 2026-05-18, ADR-052/054).
 - **Queued (next phase):** **Phase 18 — Polish + second-product proof** ([PHASES.md](PHASES.md#phase-18--polish--second-product-proof-replaces-old-phase-12)).
-- **Most recent work:** a run of 2026-05-18 inter-phase fixes (ADR-053→063) culminating in **ADR-063** (delete-product UX), then the **2026-05-19 docs/campground cleanup + session-apparatus overhaul (ADR-064)** (this block). All inter-phase, none a Phase-18 gate.
+- **Most recent work:** a run of 2026-05-18 inter-phase fixes (ADR-053→063) culminating in **ADR-063** (delete-product UX), then the **2026-05-20 AlterLab custom parameters** (ADR-065). All inter-phase, none a Phase-18 gate.
 
-## Current state — 2026-05-19 (docs/campground cleanup — ADR-064, DONE + pushed)
+## Current state — 2026-05-20 (AlterLab custom parameters for bot-block avoidance — ADR-065, DONE)
 
-### What shipped (ADR-064; commits `f964061` then this block; on `origin/main`)
+### What shipped (ADR-065; this session; on `origin/main` after push)
 
-- **PROGRESS.md split** — was 2621 lines / 259 KB (over the Read-tool limit, so SESSION_PROTOCOL step 1 was literally impossible). All historical dated blocks moved verbatim to [PROGRESS_ARCHIVE.md](PROGRESS_ARCHIVE.md); this file is now lean live status only (~50 lines).
-- **SESSION_PROTOCOL.md** — codified a hard size cap on PROGRESS.md + an explicit archive-on-phase/inter-phase-close step + a "File size discipline" section.
-- **DECISIONS.md** — prepended a one-line-per-ADR status index (skim in seconds; ADR bodies untouched, still immutable history).
-- **scratch/** — removed 5 stale tracked experiment scripts + untracked `aufschnitt.html`/`__pycache__`; `scratch/` now gitignored.
-- **promptText.ts churn root-caused** — `.gitattributes` + `sync-prompt.js` (strips all CR) now pin LF so the generated file is byte-stable; the perpetual modified-but-uncommitted tree state is gone (no more "carried forward" note every session). The committed copy was also stale vs `onboard_v1.txt` (ADR-049 growth) — regenerated.
-- **Push is now pre-authorized** in CLAUDE.md (durable standing authorization) + SESSION_PROTOCOL aligned — routine end-of-session pushes no longer need per-instance approval (force-push/history-rewrite still do).
-
-> **Discipline for future sessions:** when you close a phase/inter-phase block, move the *superseded* dated block verbatim to the top of [PROGRESS_ARCHIVE.md](PROGRESS_ARCHIVE.md). Do **not** let this file become an append-only log again. Eyeball `wc -l docs/PROGRESS.md` before committing.
-
-### Carry-over from ADR-063 (still the authoritative forward queue)
-
-ADR-063 (delete-product: touch-reachable trigger + portaled modal + post-delete reload) is in-repo + committed (`fa03642`). **Open gap:** the real DELETE→reload path is unverified locally (`WEB_SHARED_SECRET` unset in dev → route 500s; a genuine delete commits to `origin/main`, destructive) — spot-check on the deployed app when convenient.
-
-Also still queued: **REVIEW PROD TEST RESULTS** for the deployed Schedule&Alerts editor (ADR-059 `price_basis`, ADR-060 guided builder, ADR-061 cron-quote) — especially the never-Claude-verified **mobile (~390px)** popover layout (chrome-devtools was blocked by a locked browser profile; the one true open verification gap).
+- **Adapter custom parameters** — Added `alterlab_options` propagation to `universal_ai.py` fetch cascade. Extracts `country`, `min_tier`, and `wait_for` from profile `sources` configuration (under `query.extra`) and serializes them in the AlterLab POST API payload.
+- **CLI custom parameters** — Exposed `--country`, `--min-tier <int>`, and `--wait-for` parameters in the CLI's `probe-url` diagnostic utility, enforcing validation against `ALTERLAB_API_KEY`.
+- **Anti-fragile protection** — Preserved backward compatibility for positional lambda mock definitions in all existing tests by only passing `alterlab_options` keyword-arguments when non-empty.
+- **Verification & Tests** — Added comprehensive unit tests in `test_universal_ai.py` and `test_cli.py`. The entire test suite (262 tests) is 100% green. Manually probed Best Buy successfully using `--country us --min-tier 3`.
+- **ADR-065** — Added decisions log for custom AlterLab parameter mapping inside `docs/DECISIONS.md`.
 
 ## Next session — start here
 

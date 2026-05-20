@@ -135,6 +135,22 @@ def main() -> None:
         help="Run the Tier 1.5 single-product detail extractor (ADR-049) on "
              "the fetched body and report the extracted listing",
     )
+    probe_parser.add_argument(
+        "--country",
+        default=None,
+        help="Country exit node code for AlterLab (e.g. us, gb)",
+    )
+    probe_parser.add_argument(
+        "--min-tier",
+        type=int,
+        default=None,
+        help="Minimum tier of proxies to use for AlterLab (1, 2, 3)",
+    )
+    probe_parser.add_argument(
+        "--wait-for",
+        default=None,
+        help="Selector to wait for before returning the HTML (AlterLab render)",
+    )
 
     args = parser.parse_args()
 
@@ -171,6 +187,9 @@ def main() -> None:
             render=args.render,
             save_body=args.save_body,
             detail=args.detail,
+            country=args.country,
+            min_tier=args.min_tier,
+            wait_for=args.wait_for,
         )
 
 
@@ -1118,6 +1137,9 @@ def _cmd_probe_url(
     render: bool,
     save_body: str | None = None,
     detail: bool = False,
+    country: str | None = None,
+    min_tier: int | None = None,
+    wait_for: str | None = None,
 ) -> None:
     """Diagnose a single vendor URL through the universal_ai pipeline.
 
@@ -1142,19 +1164,34 @@ def _cmd_probe_url(
 
     from product_search.adapters import universal_ai
 
-    if render and not os.environ.get("ALTERLAB_API_KEY", "").strip():
+    has_alterlab_opts = (country is not None) or (min_tier is not None) or (wait_for is not None)
+    if (render or has_alterlab_opts) and not os.environ.get("ALTERLAB_API_KEY", "").strip():
         print(
-            "ERROR: --render requires ALTERLAB_API_KEY in the environment.",
+            "ERROR: --render requires ALTERLAB_API_KEY in the environment. "
+            "AlterLab options (--country, --min-tier, --wait-for) also require it.",
             file=sys.stderr,
         )
         sys.exit(2)
 
+    alterlab_options = {}
+    if country is not None:
+        alterlab_options["country"] = country
+    if min_tier is not None:
+        alterlab_options["min_tier"] = min_tier
+    if wait_for is not None:
+        alterlab_options["wait_for"] = wait_for
+    if render or alterlab_options:
+        alterlab_options["render_js"] = True
+
     print(f"Probing: {url}", file=sys.stderr)
-    if render:
-        print("  (--render) forcing AlterLab rendered fetch", file=sys.stderr)
+    if render or has_alterlab_opts:
+        print(f"  forcing AlterLab rendered fetch with options: {alterlab_options}", file=sys.stderr)
 
     try:
-        html, status, fetcher = universal_ai._fetch_html(url)
+        if alterlab_options:
+            html, status, fetcher = universal_ai._fetch_html(url, alterlab_options=alterlab_options)
+        else:
+            html, status, fetcher = universal_ai._fetch_html(url)
     except Exception as exc:
         print(f"ERROR: fetch failed: {type(exc).__name__}: {exc}", file=sys.stderr)
         sys.exit(1)

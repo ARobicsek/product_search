@@ -1335,3 +1335,70 @@ def test_parse_pack_extracts_multi_packs() -> None:
     assert unit_p == 6.00
     assert kit_p == 30.00
 
+
+def test_alterlab_options_propagation(monkeypatch: pytest.MonkeyPatch) -> None:
+    """When AdapterQuery has alterlab_options, they are propagated through fetch
+    and correctly serialized in the AlterLab API payload."""
+    monkeypatch.setenv("ALTERLAB_API_KEY", "test-key-opts")
+
+    captured: dict[str, Any] = {}
+
+    class _StubClient:
+        def __init__(self, **kwargs: object) -> None:
+            pass
+
+        def __enter__(self) -> _StubClient:
+            return self
+
+        def __exit__(self, *_: object) -> None:
+            return None
+
+        def post(
+            self,
+            url: str,
+            *,
+            json: dict[str, Any] | None = None,
+            headers: dict[str, str] | None = None,
+        ) -> Any:
+            captured["json"] = json
+            captured["headers"] = headers
+
+            class _Resp:
+                status_code = 200
+                def raise_for_status(self) -> None:
+                    return None
+                def json(self) -> dict[str, Any]:
+                    # Return empty listing array via JSON-LD stub to terminate early without LLM call
+                    return {
+                        "status_code": 200,
+                        "content": {"html": "<html><body>stub ok</body></html>"},
+                    }
+            return _Resp()
+
+    import httpx
+    monkeypatch.setattr(httpx, "Client", _StubClient)
+
+    query = AdapterQuery(
+        source_id="universal_ai_search",
+        extra={
+            "url": "https://example.com/products",
+            "alterlab_options": {
+                "country": "us",
+                "min_tier": 3,
+                "wait_for": ".product-grid",
+                "render_js": True,
+            }
+        }
+    )
+
+    # Make fetch execute the cascade
+    universal_ai.fetch(query)
+
+    assert captured["headers"]["X-API-Key"] == "test-key-opts"
+    assert captured["json"]["url"] == "https://example.com/products"
+    assert captured["json"]["country"] == "us"
+    assert captured["json"]["min_tier"] == 3
+    assert captured["json"]["wait_for"] == ".product-grid"
+    assert captured["json"]["advanced"]["render_js"] is True
+
+
