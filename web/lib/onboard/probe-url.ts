@@ -171,11 +171,26 @@ async function fetchViaAlterlab(
     body: JSON.stringify(body),
   });
 
-  if (!resp.ok) {
-    throw new Error(`AlterLab API returned HTTP ${resp.status}: ${await resp.text()}`);
-  }
+  let payload = await resp.json();
 
-  const payload = await resp.json();
+  if (resp.status === 202 && payload.job_id) {
+    const jobId = payload.job_id;
+    for (let i = 0; i < 20; i++) {
+      await new Promise(r => setTimeout(r, 3000));
+      const jobResp = await fetch(`https://api.alterlab.io/api/v1/jobs/${jobId}`, {
+        headers: { 'X-API-Key': apiKey }
+      });
+      if (jobResp.ok) {
+        const jobPayload = await jobResp.json();
+        if (jobPayload.status === 'completed' || jobPayload.status === 'failed') {
+          payload = jobPayload.result || {};
+          break;
+        }
+      }
+    }
+  } else if (!resp.ok) {
+    throw new Error(`AlterLab API returned HTTP ${resp.status}: ${JSON.stringify(payload)}`);
+  }
   const content = payload.content;
   let html = '';
   if (content && typeof content === 'object' && !Array.isArray(content)) {

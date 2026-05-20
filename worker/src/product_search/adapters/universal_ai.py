@@ -270,8 +270,24 @@ def _fetch_via_alterlab(
     api = "https://api.alterlab.io/api/v1/scrape"
     with httpx.Client(timeout=timeout) as client:
         resp = client.post(api, json=body, headers=headers)
-    resp.raise_for_status()
-    payload = resp.json()
+        
+        if resp.status_code == 202:
+            payload = resp.json()
+            job_id = payload.get("job_id")
+            if job_id:
+                import time
+                start_time = time.time()
+                while time.time() - start_time < timeout:
+                    time.sleep(3)
+                    job_resp = client.get(f"https://api.alterlab.io/api/v1/jobs/{job_id}", headers=headers)
+                    if job_resp.status_code == 200:
+                        job_payload = job_resp.json()
+                        if job_payload.get("status") in ("completed", "failed"):
+                            payload = job_payload.get("result", {})
+                            break
+        else:
+            resp.raise_for_status()
+            payload = resp.json()
 
     content = payload.get("content")
     if isinstance(content, dict):
