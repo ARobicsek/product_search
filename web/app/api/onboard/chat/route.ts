@@ -257,7 +257,7 @@ export async function POST(request: NextRequest) {
 
             history.push({
               role: 'user',
-              content: toolResultsContent.filter(Boolean) as Array<unknown>,
+              content: toolResultsContent.filter(Boolean) as Anthropic.ToolResultBlockParam[],
             });
           }
         }

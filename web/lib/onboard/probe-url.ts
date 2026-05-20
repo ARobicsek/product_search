@@ -159,7 +159,7 @@ async function fetchViaAlterlab(
   if (options) {
     if (options.country) body.country = options.country;
     if (options.min_tier) body.min_tier = options.min_tier;
-    if (options.wait_for) body.advanced.wait_for = options.wait_for;
+    if (options.wait_for) (body.advanced as Record<string, unknown>).wait_for = options.wait_for;
   }
 
   const resp = await fetch('https://api.alterlab.io/api/v1/scrape', {

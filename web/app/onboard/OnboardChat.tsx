@@ -173,7 +173,7 @@ export function OnboardChat({ initialProfile, initialSlug }: { initialProfile?: 
             let hostStr = 'URL';
             try {
               if (payload.input?.url) {
-                hostStr = new URL(payload.input.url).host;
+                hostStr = new URL(payload.input.url as string).host;
               }
             } catch {
               hostStr = 'URL';
