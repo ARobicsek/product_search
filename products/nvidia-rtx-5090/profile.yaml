@@ -26,6 +26,3 @@ sources:
   - id: universal_ai_search
     url: https://www.newegg.com/p/pl?d=rtx+5090
 sources_pending: []
-schedule:
-  cron: 0 8 * * *
-  timezone: UTC
