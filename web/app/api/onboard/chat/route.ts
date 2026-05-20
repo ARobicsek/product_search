@@ -118,7 +118,7 @@ export async function POST(request: NextRequest) {
         let cacheCreationTokens = 0;
         let stopReason: string | null = null;
 
-        const history: any[] = trimmedMessages.map((m) => ({ role: m.role, content: m.content }));
+        const history: Anthropic.MessageParam[] = trimmedMessages.map((m) => ({ role: m.role as 'user' | 'assistant', content: m.content }));
 
         let continueLoop = true;
         let loopCount = 0;
@@ -218,18 +218,18 @@ export async function POST(request: NextRequest) {
 
           // Check if there are tool uses of probe_url
           const customToolUses = finalMsg.content.filter(
-            (block: any) => block.type === 'tool_use' && block.name === 'probe_url'
+            (block: { type: string; name?: string; id?: string; input?: unknown }) => block.type === 'tool_use' && block.name === 'probe_url'
           );
 
           if (customToolUses.length > 0) {
             continueLoop = true;
-            const toolResultsContent: any[] = [];
+            const toolResultsContent: Array<unknown> = [];
 
             for (const toolUse of customToolUses) {
               if (toolUse.type !== 'tool_use') continue;
 
               const toolUseId = toolUse.id;
-              const input = toolUse.input as { url: string; alterlab_options?: any };
+              const input = toolUse.input as { url: string; alterlab_options?: Record<string, unknown> };
               const url = input.url;
               const alterlabOptions = input.alterlab_options;
 

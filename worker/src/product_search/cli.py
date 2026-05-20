@@ -1173,7 +1173,7 @@ def _cmd_probe_url(
         )
         sys.exit(2)
 
-    alterlab_options = {}
+    alterlab_options: dict[str, Any] = {}
     if country is not None:
         alterlab_options["country"] = country
     if min_tier is not None:

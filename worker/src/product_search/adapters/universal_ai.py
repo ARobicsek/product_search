@@ -248,7 +248,7 @@ def _fetch_via_alterlab(
     """
     import httpx
 
-    body = {
+    body: dict[str, Any] = {
         "url": url,
         "sync": True,
         "formats": ["html"],

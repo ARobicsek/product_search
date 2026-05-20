@@ -67,7 +67,7 @@ export async function gateUniversalAiUrls(
       sourcesOut.push(s);
       continue;
     }
-    const extra = (s.extra && typeof s.extra === 'object') ? (s.extra as Record<string, any>) : null;
+    const extra = (s.extra && typeof s.extra === 'object') ? (s.extra as Record<string, unknown>) : null;
     const alterlabOptions = (extra && extra.alterlab_options && typeof extra.alterlab_options === 'object')
       ? extra.alterlab_options
       : undefined;

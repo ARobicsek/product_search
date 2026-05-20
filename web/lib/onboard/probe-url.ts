@@ -150,7 +150,7 @@ async function fetchViaAlterlab(
   apiKey: string,
   options?: { country?: string; min_tier?: number; wait_for?: string }
 ): Promise<{ html: string; status: number }> {
-  const body: Record<string, any> = {
+  const body: Record<string, unknown> = {
     url,
     sync: true,
     formats: ['html'],

@@ -93,6 +93,7 @@ export function OnboardChat({ initialProfile, initialSlug }: { initialProfile?: 
     return () => {
       cancelled.current = true;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   async function runTurn(history: ChatMessage[]) {
@@ -142,7 +143,7 @@ export function OnboardChat({ initialProfile, initialSlug }: { initialProfile?: 
         let payload: {
           type?: string;
           name?: string;
-          input?: any;
+          input?: Record<string, unknown>;
           text?: string;
           error?: string;
           provider?: string;
