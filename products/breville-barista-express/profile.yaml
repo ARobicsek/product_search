@@ -32,13 +32,20 @@ sources:
     url: https://remanufactured.brevilleusa.com/collections/espresso
   - id: universal_ai_search
     url: https://www.williams-sonoma.com/search?q=breville+barista+express
+    extra:
+      alterlab_options:
+        country: us
+        min_tier: 2
+  - id: universal_ai_search
+    url: https://www.bestbuy.com/site/shop/breville-barista-express-espresso-machine
+    extra:
+      alterlab_options:
+        country: us
+        min_tier: 3
   - id: universal_ai_search
     url: https://www.seattlecoffeegear.com/products/breville-barista-express-espresso-machine
     page_type: detail
-sources_pending:
-  - id: universal_ai_search
-    url: https://www.bestbuy.com/site/shop/breville-barista-express-espresso-machine
-    note: "probe returned 0 candidates: fetch failed: This operation was aborted"
+sources_pending: []
 schedule:
   cron: 0 8 * * *
   timezone: UTC

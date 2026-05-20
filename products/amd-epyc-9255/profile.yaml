@@ -41,9 +41,18 @@ sources:
   - id: universal_ai_search
     url: https://www.serversupply.com/PROCESSORS/AMD%20EPYC%2024-Core/3.2GHz/AMD/100-000000694_402211.htm
     page_type: detail
+    extra:
+      alterlab_options:
+        country: us
+        min_tier: 3
+        wait_for: ".content"
   - id: universal_ai_search
     url: https://www.centralcomputer.com/amd-epyc-9255-24c-48t-3-25ghz-processor-4-3ghz-boost-tray-128-mb-l3-cache-200w-tdp-100-000000694.html
     page_type: detail
+    extra:
+      alterlab_options:
+        country: us
+        min_tier: 2
 sources_pending:
   - id: universal_ai_search
     url: https://www.colamco.com/product/amd-epyc-9255-processor-100-000000694-2631653
