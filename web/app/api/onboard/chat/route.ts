@@ -122,7 +122,7 @@ export async function POST(request: NextRequest) {
 
         let continueLoop = true;
         let loopCount = 0;
-        const maxLoopCount = 5;
+        const maxLoopCount = 15;
 
         while (continueLoop && loopCount < maxLoopCount) {
           loopCount++;
@@ -223,41 +223,41 @@ export async function POST(request: NextRequest) {
 
           if (customToolUses.length > 0) {
             continueLoop = true;
-            const toolResultsContent: Array<unknown> = [];
+            const toolResultsContent = await Promise.all(
+              customToolUses.map(async (toolUse: { type: string; name?: string; id?: string; input?: unknown }) => {
+                if (toolUse.type !== 'tool_use') return null;
 
-            for (const toolUse of customToolUses) {
-              if (toolUse.type !== 'tool_use') continue;
+                const toolUseId = toolUse.id;
+                const input = toolUse.input as { url: string; alterlab_options?: Record<string, unknown> };
+                const url = input.url;
+                const alterlabOptions = input.alterlab_options;
 
-              const toolUseId = toolUse.id;
-              const input = toolUse.input as { url: string; alterlab_options?: Record<string, unknown> };
-              const url = input.url;
-              const alterlabOptions = input.alterlab_options;
+                // Send the detailed tool_use event so the client can display exactly what is being probed
+                send({ type: 'tool_use', name: 'probe_url', input });
 
-              // Send the detailed tool_use event so the client can display exactly what is being probed
-              send({ type: 'tool_use', name: 'probe_url', input });
+                let resultText = '';
+                try {
+                  const probeRes = await probeUrl(url, alterlabOptions);
+                  resultText = JSON.stringify(probeRes, null, 2);
+                } catch (err) {
+                  resultText = JSON.stringify({
+                    ok: false,
+                    url,
+                    error: err instanceof Error ? err.message : String(err),
+                  }, null, 2);
+                }
 
-              let resultText = '';
-              try {
-                const probeRes = await probeUrl(url, alterlabOptions);
-                resultText = JSON.stringify(probeRes, null, 2);
-              } catch (err) {
-                resultText = JSON.stringify({
-                  ok: false,
-                  url,
-                  error: err instanceof Error ? err.message : String(err),
-                }, null, 2);
-              }
-
-              toolResultsContent.push({
-                type: 'tool_result',
-                tool_use_id: toolUseId,
-                content: resultText,
-              });
-            }
+                return {
+                  type: 'tool_result',
+                  tool_use_id: toolUseId,
+                  content: resultText,
+                };
+              })
+            );
 
             history.push({
               role: 'user',
-              content: toolResultsContent,
+              content: toolResultsContent.filter(Boolean) as Array<unknown>,
             });
           }
         }
