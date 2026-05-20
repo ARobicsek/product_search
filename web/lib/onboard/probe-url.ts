@@ -143,6 +143,49 @@ async function fetchHtml(url: string): Promise<{ html: string; status: number }>
   }
 }
 
+async function fetchViaAlterlab(
+  url: string,
+  apiKey: string,
+  options?: { country?: string; min_tier?: number; wait_for?: number }
+): Promise<{ html: string; status: number }> {
+  const body: Record<string, any> = {
+    url,
+    sync: true,
+    formats: ['html'],
+    advanced: { render_js: true },
+  };
+  if (options) {
+    if (options.country) body.country = options.country;
+    if (options.min_tier) body.min_tier = options.min_tier;
+    if (options.wait_for) body.wait_for = options.wait_for;
+  }
+
+  const resp = await fetch('https://api.alterlab.io/api/v1/scrape', {
+    method: 'POST',
+    headers: {
+      'X-API-Key': apiKey,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(body),
+  });
+
+  if (!resp.ok) {
+    throw new Error(`AlterLab API returned HTTP ${resp.status}: ${await resp.text()}`);
+  }
+
+  const payload = await resp.json();
+  const content = payload.content;
+  let html = '';
+  if (content && typeof content === 'object' && !Array.isArray(content)) {
+    html = content.html || '';
+  } else if (typeof content === 'string') {
+    html = content;
+  }
+
+  const originStatus = Number(payload.status_code || 0);
+  return { html, status: originStatus };
+}
+
 // --- JSON-LD extraction ---------------------------------------------------
 
 function jsonldBlocks(html: string): unknown[] {
@@ -352,7 +395,10 @@ export function countProductAnchors(html: string, baseUrl: string): number {
 
 // --- Top-level probe ------------------------------------------------------
 
-export async function probeUrl(url: string): Promise<ProbeResult> {
+export async function probeUrl(
+  url: string,
+  alterlabOptions?: { country?: string; min_tier?: number; wait_for?: number }
+): Promise<ProbeResult> {
   let result: ProbeResult = {
     ok: false,
     url,
@@ -366,7 +412,24 @@ export async function probeUrl(url: string): Promise<ProbeResult> {
   const isAlterlabKnownGood = host !== null && ALTERLAB_KNOWN_GOOD_HOSTS.has(host);
 
   try {
-    const { html, status } = await fetchHtml(url);
+    let html: string;
+    let status: number;
+
+    if (alterlabOptions && Object.keys(alterlabOptions).length > 0) {
+      const apiKey = process.env.ALTERLAB_API_KEY;
+      if (!apiKey) {
+        result.reason = 'ALTERLAB_API_KEY not configured on server (cannot run rendered probe)';
+        return result;
+      }
+      const fetched = await fetchViaAlterlab(url, apiKey, alterlabOptions);
+      html = fetched.html;
+      status = fetched.status;
+    } else {
+      const fetched = await fetchHtml(url);
+      html = fetched.html;
+      status = fetched.status;
+    }
+
     result = { ...result, fetchStatus: status, bodyLength: html.length };
     // Hard failures only — see the policy comment at the top of the file.
     // Anything in the 2xx/3xx range with a non-trivial body passes; we
@@ -375,7 +438,7 @@ export async function probeUrl(url: string): Promise<ProbeResult> {
       // HTTP 403, 429, 502, 503, 504 from a bare datacenter-IP fetch are almost always
       // bot-blocks (Cloudflare, Akamai, Datadome, etc.), not a genuine "not found" or "gone".
       // Production uses AlterLab's rendered fetch which handles these fine.
-      if (status === 403 || status === 429 || status === 502 || status === 503 || status === 504) {
+      if (!alterlabOptions && (status === 403 || status === 429 || status === 502 || status === 503 || status === 504)) {
         result = { ...result, ok: true, reason: `bare-fetch HTTP ${status} (likely bot-block; not demoting)` };
         return result;
       }
@@ -383,7 +446,7 @@ export async function probeUrl(url: string): Promise<ProbeResult> {
       // is expected (Amazon serves 503 to datacenter IPs, etc.); production
       // AlterLab handles these fine. Record the status as a diagnostic but
       // pass the probe so the source is not demoted to sources_pending.
-      if (isAlterlabKnownGood && status >= 500) {
+      if (!alterlabOptions && isAlterlabKnownGood && status >= 500) {
         result = { ...result, ok: true, reason: `bare-fetch HTTP ${status} (host is AlterLab-known-good; not demoting)` };
         return result;
       }
@@ -393,7 +456,7 @@ export async function probeUrl(url: string): Promise<ProbeResult> {
     if (html.length < MIN_BODY_LENGTH) {
       // Same exemption: a tiny body from Amazon/Walmart is almost certainly
       // a bot-block stub, not a dead URL.
-      if (isAlterlabKnownGood) {
+      if (!alterlabOptions && isAlterlabKnownGood) {
         result = { ...result, ok: true, reason: `bare-fetch body ${html.length} chars (host is AlterLab-known-good; not demoting)` };
         return result;
       }
@@ -414,7 +477,7 @@ export async function probeUrl(url: string): Promise<ProbeResult> {
         lowerBody.includes('px-captcha') ||
         lowerBody.includes('checking your browser') ||
         lowerBody.includes('attention required');
-      if (hasSecuritySignature) {
+      if (!alterlabOptions && hasSecuritySignature) {
         result = { ...result, ok: true, reason: `bare-fetch body too short (${html.length} chars), but contains bot-block signatures; not demoting` };
         return result;
       }
@@ -426,7 +489,7 @@ export async function probeUrl(url: string): Promise<ProbeResult> {
     result = { ...result, jsonldCount: listings.length, anchorCount: anchors, ok: true };
     return result;
   } catch (err) {
-    if (isAlterlabKnownGood) {
+    if (!alterlabOptions && isAlterlabKnownGood) {
       result.ok = true;
       result.reason = `bare-fetch failed (${err instanceof Error ? err.message : String(err)}); host is AlterLab-known-good — not demoting`;
       return result;

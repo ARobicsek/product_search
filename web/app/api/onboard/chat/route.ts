@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server';
 import Anthropic from '@anthropic-ai/sdk';
 import { loadOnboardPrompt } from '@/lib/onboard/prompt';
 import { findLatestStateRaw } from '@/lib/onboard/blocks';
+import { probeUrl } from '@/lib/onboard/probe-url';
 
 export const runtime = 'edge';
 
@@ -117,57 +118,147 @@ export async function POST(request: NextRequest) {
         let cacheCreationTokens = 0;
         let stopReason: string | null = null;
 
-        const messageStream = client.messages.stream({
-          model: MODEL,
-          max_tokens: MAX_TOKENS,
-          // Cache the system prompt — it's ~7KB of stable schema docs and
-          // doesn't change between turns. Cuts repeat-turn input cost ~90%
-          // (Anthropic charges 0.1× input rate for cache reads).
-          system: [
-            {
-              type: 'text',
-              text: systemPrompt,
-              cache_control: { type: 'ephemeral' },
-            },
-          ],
-          // Server-side web search — Anthropic runs the search and feeds
-          // results back into the model in the same streaming response, so
-          // we don't need multi-turn tool roundtripping on our end.
-          tools: [
-            {
-              type: 'web_search_20250305',
-              name: 'web_search',
-              max_uses: WEB_SEARCH_MAX_USES,
-            },
-          ],
-          messages: trimmedMessages.map((m) => ({ role: m.role, content: m.content })),
-        });
+        const history: any[] = trimmedMessages.map((m) => ({ role: m.role, content: m.content }));
 
-        for await (const event of messageStream) {
-          if (event.type === 'content_block_start') {
-            const block = event.content_block;
-            // Server-tool invocation — surface as a "Searching the web…"
-            // status to the user.
-            if (block.type === 'server_tool_use' && block.name === 'web_search') {
-              send({ type: 'tool_use', name: 'web_search' });
+        let continueLoop = true;
+        let loopCount = 0;
+        const maxLoopCount = 5;
+
+        while (continueLoop && loopCount < maxLoopCount) {
+          loopCount++;
+          continueLoop = false;
+
+          const messageStream = client.messages.stream({
+            model: MODEL,
+            max_tokens: MAX_TOKENS,
+            system: [
+              {
+                type: 'text',
+                text: systemPrompt,
+                cache_control: { type: 'ephemeral' },
+              },
+            ],
+            tools: [
+              {
+                type: 'web_search_20250305',
+                name: 'web_search',
+                max_uses: WEB_SEARCH_MAX_USES,
+              },
+              {
+                name: 'probe_url',
+                description: 'Probe a vendor search or product URL to verify if listings can be extracted. Returns diagnostic details like response status, body size, JSON-LD count, and product anchor count.',
+                input_schema: {
+                  type: 'object',
+                  properties: {
+                    url: {
+                      type: 'string',
+                      description: 'The absolute URL to probe.',
+                    },
+                    alterlab_options: {
+                      type: 'object',
+                      description: 'Optional AlterLab rendering parameters (residential proxy, US exit IPs, and JS waits) to use if the site is a known hard/anti-bot vendor.',
+                      properties: {
+                        country: {
+                          type: 'string',
+                          description: 'Optional two-letter country code for the exit proxy (e.g. "us").',
+                        },
+                        min_tier: {
+                          type: 'integer',
+                          description: 'Optional minimum proxy quality tier (e.g. 3 for residential proxies).',
+                        },
+                        wait_for: {
+                          type: 'integer',
+                          description: 'Optional JS rendering wait time in seconds (e.g. 5).',
+                        },
+                      },
+                    },
+                  },
+                  required: ['url'],
+                },
+              },
+            ],
+            messages: history,
+          });
+
+          for await (const event of messageStream) {
+            if (event.type === 'content_block_start') {
+              const block = event.content_block;
+              if (block.type === 'server_tool_use' && block.name === 'web_search') {
+                send({ type: 'tool_use', name: 'web_search' });
+              } else if (block.type === 'tool_use' && block.name === 'probe_url') {
+                send({ type: 'tool_use', name: 'probe_url' });
+              }
+            } else if (event.type === 'content_block_delta') {
+              const delta = event.delta;
+              if (delta.type === 'text_delta' && delta.text) {
+                send({ type: 'delta', text: delta.text });
+              }
+            } else if (event.type === 'message_delta') {
+              if (event.delta.stop_reason) {
+                stopReason = event.delta.stop_reason;
+              }
+              if (event.usage) {
+                outputTokens += event.usage.output_tokens ?? 0;
+              }
+            } else if (event.type === 'message_start') {
+              const u = event.message.usage;
+              inputTokens += u?.input_tokens ?? 0;
+              cacheReadTokens += u?.cache_read_input_tokens ?? 0;
+              cacheCreationTokens += u?.cache_creation_input_tokens ?? 0;
             }
-          } else if (event.type === 'content_block_delta') {
-            const delta = event.delta;
-            if (delta.type === 'text_delta' && delta.text) {
-              send({ type: 'delta', text: delta.text });
+          }
+
+          const finalMsg = await messageStream.finalMessage();
+
+          // Push the assistant's response to history
+          history.push({
+            role: 'assistant',
+            content: finalMsg.content,
+          });
+
+          // Check if there are tool uses of probe_url
+          const customToolUses = finalMsg.content.filter(
+            (block: any) => block.type === 'tool_use' && block.name === 'probe_url'
+          );
+
+          if (customToolUses.length > 0) {
+            continueLoop = true;
+            const toolResultsContent: any[] = [];
+
+            for (const toolUse of customToolUses) {
+              if (toolUse.type !== 'tool_use') continue;
+
+              const toolUseId = toolUse.id;
+              const input = toolUse.input as { url: string; alterlab_options?: any };
+              const url = input.url;
+              const alterlabOptions = input.alterlab_options;
+
+              // Send the detailed tool_use event so the client can display exactly what is being probed
+              send({ type: 'tool_use', name: 'probe_url', input });
+
+              let resultText = '';
+              try {
+                const probeRes = await probeUrl(url, alterlabOptions);
+                resultText = JSON.stringify(probeRes, null, 2);
+              } catch (err) {
+                resultText = JSON.stringify({
+                  ok: false,
+                  url,
+                  error: err instanceof Error ? err.message : String(err),
+                }, null, 2);
+              }
+
+              toolResultsContent.push({
+                type: 'tool_result',
+                tool_use_id: toolUseId,
+                content: resultText,
+              });
             }
-          } else if (event.type === 'message_delta') {
-            if (event.delta.stop_reason) {
-              stopReason = event.delta.stop_reason;
-            }
-            if (event.usage) {
-              outputTokens = event.usage.output_tokens ?? outputTokens;
-            }
-          } else if (event.type === 'message_start') {
-            const u = event.message.usage;
-            inputTokens = u?.input_tokens ?? 0;
-            cacheReadTokens = u?.cache_read_input_tokens ?? 0;
-            cacheCreationTokens = u?.cache_creation_input_tokens ?? 0;
+
+            history.push({
+              role: 'user',
+              content: toolResultsContent,
+            });
           }
         }
 

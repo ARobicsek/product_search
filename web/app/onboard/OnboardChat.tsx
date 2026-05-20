@@ -141,6 +141,8 @@ export function OnboardChat({ initialProfile, initialSlug }: { initialProfile?: 
         if (!json) continue;
         let payload: {
           type?: string;
+          name?: string;
+          input?: any;
           text?: string;
           error?: string;
           provider?: string;
@@ -166,7 +168,19 @@ export function OnboardChat({ initialProfile, initialSlug }: { initialProfile?: 
             return copy;
           });
         } else if (payload.type === 'tool_use') {
-          setStatusLine('Searching the web…');
+          if (payload.name === 'probe_url') {
+            let hostStr = 'URL';
+            try {
+              if (payload.input?.url) {
+                hostStr = new URL(payload.input.url).host;
+              }
+            } catch {
+              hostStr = 'URL';
+            }
+            setStatusLine(`Probing ${hostStr}…`);
+          } else {
+            setStatusLine('Searching the web…');
+          }
         } else if (payload.type === 'usage') {
           setSessionUsage((u) => ({
             inputTokens: u.inputTokens + (payload.input_tokens ?? 0),
