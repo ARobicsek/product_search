@@ -38,26 +38,20 @@ sources:
   - id: universal_ai_search
     url: https://www.connection.com/product/amd-amd-epyc-model-9255-single/100-000000694/41871521
     page_type: detail
-sources_pending:
   - id: universal_ai_search
     url: https://www.serversupply.com/PROCESSORS/AMD%20EPYC%2024-Core/3.2GHz/AMD/100-000000694_402211.htm
-    note: detail page; AlterLab 200 / 32KB rendered body but 0 anchors and 0 price text — hard bot wall (Datadome), AlterLab only partially renders. Tier 1.5 miss confirmed 2026-05-17.
+    page_type: detail
   - id: universal_ai_search
     url: https://www.centralcomputer.com/amd-epyc-9255-24c-48t-3-25ghz-processor-4-3ghz-boost-tray-128-mb-l3-cache-200w-tdp-100-000000694.html
-    note: detail page; AlterLab 200 / 32KB rendered body but 0 anchors and 0 price text — best-effort bot wall. Tier 1.5 miss confirmed 2026-05-17.
-  - id: universal_ai_search
-    url: https://www.cdw.com/search/?key=amd+epyc+9255
-    note: search page (not a detail page); renders but returns OTHER EPYC models (9754/9374F/9124...) — CDW does not carry the 9255. Dead for this product.
-  - id: universal_ai_search
-    note: "shi.com / ipcstore.com / pcnation.com search URLs: rendered fetch returned empty/near-empty content (no 9255 in catalog or hard JS wall). Re-evaluate if those vendors start carrying the 9255."
-  - id: universal_ai_search
-    url: https://www.networkhardwares.com/products/amd-100-000000694-amd-epyc-twenty-four-core-model-9255-100-000000694
     page_type: detail
-    note: "probe returned 0 candidates: fetch failed: fetch failed"
+sources_pending:
   - id: universal_ai_search
     url: https://www.colamco.com/product/amd-epyc-9255-processor-100-000000694-2631653
     page_type: detail
     note: "probe returned 0 candidates: fetch failed: This operation was aborted"
+  - id: universal_ai_search
+    url: https://www.networkhardwares.com/collections/amd-epyc-processor
+    note: "probe returned 0 candidates: fetch failed: fetch failed"
 report_columns:
   - rank
   - source
@@ -72,4 +66,3 @@ alerts:
     threshold_usd: 3500
     mode: while_below
     price_basis: unit
-
