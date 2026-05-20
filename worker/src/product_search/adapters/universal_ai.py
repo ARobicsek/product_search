@@ -252,10 +252,11 @@ def _fetch_via_alterlab(
         "url": url,
         "sync": True,
         "formats": ["html"],
+        "asp": True,
         "advanced": {"render_js": True},
     }
     if alterlab_options:
-        for key in ["country", "min_tier", "wait_for", "render_js"]:
+        for key in ["country", "min_tier", "wait_for", "render_js", "asp"]:
             if key in alterlab_options and alterlab_options[key] is not None:
                 if key in ["wait_for", "render_js"]:
                     body["advanced"][key] = alterlab_options[key]

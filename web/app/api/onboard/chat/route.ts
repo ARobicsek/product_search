@@ -167,8 +167,8 @@ export async function POST(request: NextRequest) {
                           description: 'Optional minimum proxy quality tier (e.g. 3 for residential proxies).',
                         },
                         wait_for: {
-                          type: 'integer',
-                          description: 'Optional JS rendering wait time in seconds (e.g. 5).',
+                          type: 'string',
+                          description: 'Optional CSS selector to wait for in the DOM before extracting HTML (e.g. ".product-grid").',
                         },
                       },
                     },

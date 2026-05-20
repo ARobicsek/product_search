@@ -47,7 +47,7 @@ export async function gateUniversalAiUrls(
   type Pending = {
     source: Record<string, unknown>;
     url: string;
-    alterlabOptions?: { country?: string; min_tier?: number; wait_for?: number };
+    alterlabOptions?: { country?: string; min_tier?: number; wait_for?: string };
   };
   const toProbe: Pending[] = [];
   const sourcesOut: unknown[] = [];
