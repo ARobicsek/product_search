@@ -3,9 +3,9 @@ import { revalidatePath } from 'next/cache';
 import { commitNewProfile } from '@/lib/onboard/commit';
 import { parseAndValidateProfileYaml, ProfileValidationError } from '@/lib/onboard/schema';
 import { renderProfileYaml } from '@/lib/onboard/render-yaml';
-import { gateUniversalAiUrls, type ProbeReport } from '@/lib/onboard/gate-universal-ai';
 import { getProductProfileContent } from '@/lib/github';
 import { readAlertsFromYaml } from '@/lib/alerts';
+import { probeAndUpdateProfile } from '@/lib/onboard/probe-and-update';
 
 export const runtime = 'nodejs';
 export const maxDuration = 60;
@@ -14,6 +14,21 @@ const SLUG_RE = /^[a-z0-9][a-z0-9-]{0,63}$/;
 
 function bad(reason: string, status = 400, extra?: Record<string, unknown>) {
   return Response.json({ ok: false, error: reason, ...extra }, { status });
+}
+
+// Attempt to get the waitUntil helper from Next.js (available on Vercel
+// since Next 15). Falls back to a fire-and-forget promise on local dev.
+async function getWaitUntil(): Promise<((p: Promise<unknown>) => void) | null> {
+  try {
+    // Dynamic import — the module may not exist in older Next.js versions.
+    const mod = await import('next/server');
+    if ('waitUntil' in mod && typeof mod.waitUntil === 'function') {
+      return mod.waitUntil as (p: Promise<unknown>) => void;
+    }
+  } catch {
+    // Not available — fall through.
+  }
+  return null;
 }
 
 export async function POST(request: NextRequest) {
@@ -36,11 +51,10 @@ export async function POST(request: NextRequest) {
   // path stays for any in-flight client that hasn't reloaded since the
   // chat route was updated.
   let yamlText: string | null = null;
-  // Phase 15: probe each universal_ai_search URL on the draft path; demote
-  // 0-candidate URLs to sources_pending before YAML render. Probe reports
-  // are returned to the client so the UI can surface "we moved X to pending"
-  // instead of silently changing the user's draft.
-  let probeReports: ProbeReport[] = [];
+  // Keep a reference to the raw draft so we can pass it to the background
+  // probe step (only relevant for the `draft` path).
+  let draftForProbe: Record<string, unknown> | null = null;
+
   if (body.draft !== undefined && body.draft !== null) {
     if (typeof body.draft !== 'object' || Array.isArray(body.draft)) {
       return bad('draft must be a JSON object');
@@ -68,9 +82,10 @@ export async function POST(request: NextRequest) {
           }
         }
       }
-      const gated = await gateUniversalAiUrls(draft);
-      probeReports = gated.reports;
-      yamlText = renderProfileYaml(gated.draft);
+      // Optimistic save: render YAML directly from the draft WITHOUT
+      // running probes. Probes will run asynchronously after the response.
+      draftForProbe = { ...draft };
+      yamlText = renderProfileYaml(draft);
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'render-yaml failed';
       return bad(`failed to render YAML from draft: ${msg}`, 422);
@@ -94,13 +109,8 @@ export async function POST(request: NextRequest) {
     parsed = parseAndValidateProfileYaml(yamlText);
   } catch (err) {
     if (err instanceof ProfileValidationError) {
-      // Surface probeReports alongside the error so the UI can explain why
-      // ``sources`` ended up empty / short — otherwise the user sees a bare
-      // "sources: needs at least 1 entry" with no context for why their
-      // draft URLs got demoted.
       return bad('profile failed schema validation', 422, {
         details: err.errors,
-        probeReports,
       });
     }
     const msg = err instanceof Error ? err.message : 'profile validation failed';
@@ -120,7 +130,30 @@ export async function POST(request: NextRequest) {
     return bad(msg, 502);
   }
 
+  // Schedule background URL probes (draft path only — the legacy yaml
+  // path never ran probes). Uses waitUntil() on Vercel to keep the
+  // function alive past the response; falls back to fire-and-forget
+  // on local dev.
+  if (draftForProbe) {
+    const probePromise = probeAndUpdateProfile(slug, draftForProbe);
+    const waitUntil = await getWaitUntil();
+    if (waitUntil) {
+      waitUntil(probePromise);
+    } else {
+      // Local dev / environments without waitUntil: fire-and-forget.
+      // The promise may be cut short if the process exits, but that's
+      // acceptable for local development.
+      probePromise.catch((err) => {
+        console.error('[probe-and-update] fire-and-forget failed:', err);
+      });
+    }
+  }
+
   revalidatePath('/');
 
-  return Response.json({ ok: true, probeReports, ...result });
+  return Response.json({
+    ok: true,
+    probeStatus: draftForProbe ? 'pending' : 'skipped',
+    ...result,
+  });
 }

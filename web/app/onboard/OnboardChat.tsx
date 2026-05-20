@@ -28,7 +28,7 @@ interface ChatMessage {
 type SaveState =
   | { kind: 'idle' }
   | { kind: 'saving' }
-  | { kind: 'success'; slug: string; commitUrl: string | null }
+  | { kind: 'success'; slug: string; commitUrl: string | null; probeStatus: string }
   | { kind: 'error'; message: string; details?: string[] };
 
 function getKickoff(initialProfile?: string | null): ChatMessage {
@@ -258,38 +258,22 @@ export function OnboardChat({ initialProfile, initialSlug }: { initialProfile?: 
         commitUrl?: string | null;
         error?: string;
         details?: string[];
-        probeReports?: Array<{
-          url: string;
-          ok: boolean;
-          jsonldCount: number;
-          anchorCount: number;
-          reason: string | null;
-        }>;
+        probeStatus?: string;
       };
-      // Phase 15: surface probe failures in the error path (so the user
-      // can see why ``sources`` ended up too thin to validate). On the
-      // success path, demotions are silent — they're recorded in the
-      // committed YAML's ``sources_pending`` block and the user will see
-      // them when they read the saved profile.
-      const demotions = (data.probeReports ?? []).filter((r) => !r.ok);
       if (!res.ok || !data.ok || !data.slug) {
-        const probeMessages = demotions.map(
-          (r) => `${r.url}: ${r.reason ?? 'probe returned 0 candidates'}`,
-        );
         setSaveState({
           kind: 'error',
           message: data.error ?? `Save failed (${res.status})`,
-          details: [...(data.details ?? []), ...probeMessages],
+          details: data.details,
         });
         return;
       }
-      if (demotions.length > 0) {
-        console.warn(
-          `[onboard/save] ${demotions.length} universal_ai URL(s) demoted to sources_pending:`,
-          demotions,
-        );
-      }
-      setSaveState({ kind: 'success', slug: data.slug, commitUrl: data.commitUrl ?? null });
+      setSaveState({
+        kind: 'success',
+        slug: data.slug,
+        commitUrl: data.commitUrl ?? null,
+        probeStatus: data.probeStatus ?? 'skipped',
+      });
       setTimeout(() => router.push(`/${data.slug}`), 800);
     } catch (err) {
       setSaveState({
@@ -406,7 +390,10 @@ export function OnboardChat({ initialProfile, initialSlug }: { initialProfile?: 
             <div className="flex items-center gap-2 text-[11px] text-green-700 dark:text-green-400 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-900/40 rounded-lg px-3 py-2">
               <CheckCircle2 className="w-4 h-4 shrink-0" />
               <span>
-                Saved <strong>{saveState.slug}</strong>. Opening the page…
+                Saved <strong>{saveState.slug}</strong>.
+                {saveState.probeStatus === 'pending'
+                  ? ' URL validation running in background…'
+                  : ' Opening the page…'}
               </span>
             </div>
           )}
