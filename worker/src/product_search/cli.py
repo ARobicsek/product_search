@@ -313,7 +313,8 @@ def _cmd_search(
 
     use_fixtures = os.environ.get("WORKER_USE_FIXTURES", "").strip() in ("1", "true", "yes")
     mode = "fixture" if use_fixtures else "live"
-    print(f"Searching {slug!r} via eBay [{mode} mode] ...", file=sys.stderr)
+    source_names = ", ".join(sorted(list({s.id for s in profile.sources})))
+    print(f"Searching {slug!r} via {source_names} [{mode} mode] ...", file=sys.stderr)
 
     # --- Run adapters ---------------------------------------------------------
     from product_search.models import Listing
