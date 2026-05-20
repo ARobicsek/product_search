@@ -30,14 +30,14 @@ sources:
         min_tier: 3
         wait_for: 10
   - id: universal_ai_search
-    url: https://www.bestbuy.com/site/searchpage.jsp?st=wh-1000xm5
+    url: https://www.bestbuy.com/site/searchpage.jsp?st=wh-1000xm5&intl=nosplash
     extra:
       alterlab_options:
         country: us
         min_tier: 3
         wait_for: 10
   - id: universal_ai_search
-    url: https://www.target.com/s/sony+wh1000mx5
+    url: https://www.target.com/s/sony+wh1000xm5
     extra:
       alterlab_options:
         country: us
