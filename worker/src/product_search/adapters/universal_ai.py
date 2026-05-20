@@ -1550,8 +1550,9 @@ def fetch(query: AdapterQuery, profile: Any | None = None) -> list[Listing]:
         return []
 
     alterlab_options = query.extra.get("alterlab_options")
-    if not alterlab_options and isinstance(query.extra.get("extra"), dict):
-        alterlab_options = query.extra.get("extra").get("alterlab_options")
+    nested_extra = query.extra.get("extra")
+    if not alterlab_options and isinstance(nested_extra, dict):
+        alterlab_options = nested_extra.get("alterlab_options")
     if not isinstance(alterlab_options, dict):
         alterlab_options = None
 
