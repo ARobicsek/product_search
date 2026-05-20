@@ -46,9 +46,6 @@ sources:
     url: https://www.seattlecoffeegear.com/products/breville-barista-express-espresso-machine
     page_type: detail
 sources_pending: []
-schedule:
-  cron: 0 8 * * *
-  timezone: UTC
 alerts:
   - kind: price_below
     threshold_usd: 500
