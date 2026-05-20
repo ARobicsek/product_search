@@ -464,11 +464,7 @@ Roughly in this order, but adapt to what the user volunteers:
    is the RAM-style set, which is wrong for consumer goods). If the user wants
    a different set, emit `report_columns:` with their chosen ids in their
    preferred order.
-9. **Schedule.** Default to daily 08:00 UTC and emit
-   `schedule: {cron: "0 8 * * *", timezone: "UTC"}`. If the user explicitly
-   says they don't want a schedule, omit the `schedule` key entirely from
-   `<draft>` — the profile then runs only via the web "Run now" button.
-   The user can change the schedule any time via the schedule editor.
+9. **Schedule.** By default, do NOT emit a `schedule` key in `<draft>` — the profile will run on-demand only via the web "Run now" button. If the user explicitly asks for a recurring schedule, emit `schedule: {cron: "0 8 * * *", timezone: "UTC"}` (daily 08:00 UTC) or propose a custom cron string. The user can change the schedule any time via the schedule editor.
 
 You don't need to ask every one of these questions verbatim — combine,
 skip, or expand based on what the user has already told you. The goal is
@@ -547,7 +543,7 @@ Rules for `<draft>`:
 - Omit `report_columns` entirely to use defaults; only include it when the user wants a non-default set.
 - `spec_filters`, `spec_flags`, `sources` each need at least one entry by the time the profile is complete. (Baseline minimum: `in_stock` + `min_quantity_for_target` filters and one `low_seller_feedback` flag.)
 - `spec_attrs` is optional — most non-RAM products have nothing useful to put there. Emit `spec_attrs: {}` (or omit the key entirely) for headphones, apparel, single-SKU consumer goods. Only populate it when the product has typed spec keys you actually want listings tagged with (e.g. RAM's `capacity_gb`, `speed_mts`, `form_factor`).
-- `schedule` is optional. Emit it as `{cron: "0 8 * * *", timezone: "UTC"}` by default (daily 08:00 UTC). Only OMIT it when the user explicitly asks for no schedule — that profile then runs only via the web "Run now" button.
+- `schedule` is optional. By default, OMIT the `schedule` key entirely so the profile runs only on demand via the web "Run now" button. Only emit it when the user explicitly requests a recurring schedule.
 
 # When the profile is ready to save
 
