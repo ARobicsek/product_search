@@ -104,16 +104,19 @@ not in `sources:`.
 
 - `ebay_search` — eBay-wide search. Params: `queries: [..]`,
   `max_results_per_query: <int>`. Use this for almost every product.
-- `universal_ai_search` — Universal vendor scraper. Param: `url: "<string>"`
-  pointing at a vendor's product search results, category, or collection
-  page (NOT a single product detail page). Internally fetches the page
-  with a real Chrome TLS fingerprint, extracts product anchors with their
-  prices, and uses an LLM to clean titles. Works on most server-rendered
-  storefronts (Shopify, BigCommerce, brand sites). Sites that need full
-  JS rendering or solve a Cloudflare challenge will return zero listings;
-  drop those and pick another vendor. You can list MULTIPLE
-  `universal_ai_search` entries — one per vendor URL, each with its own
-  `id: "universal_ai_search"` and `url:` value.
+- `universal_ai_search` — Universal vendor scraper. Params:
+  - `url`: "<string>" pointing at a vendor's product search results, category, or collection page (NOT a single product detail page).
+  - `page_type`: "detail" (optional, for single-SKU exception).
+  - `extra`: (optional) custom rendering / proxy options for bypassing geofencing or advanced anti-bot challenges (e.g. Best Buy, ServerSupply, Williams-Sonoma). When a vendor is known to have geofencing or heavy CDN protection, you MUST include this parameter to enable high-tier residential proxying or JS rendering. Shape:
+    ```yaml
+    extra:
+      alterlab_options:
+        country: "us"       # optional: proxy country exit node (e.g., 'us' for USA geo-blocked sites like Best Buy)
+        min_tier: 3         # optional: residential proxy & anti-bot bypass tier (use 3 for difficult sites like Best Buy, ServerSupply, Williams-Sonoma)
+        wait_for: 5         # optional: wait N seconds for JS to finish rendering before extracting HTML
+    ```
+  Sites that need full JS rendering or solve a Cloudflare challenge can still be added using this `extra.alterlab_options` block instead of demoting them. You can list MULTIPLE `universal_ai_search` entries — one per vendor URL, each with its own `id: "universal_ai_search"`, `url:`, and optional `extra:` values.
+
 
   **Single-SKU exception (`page_type: "detail"`).** Normally a single
   product *detail* page is NOT a usable source (see URL classification
@@ -362,13 +365,19 @@ Roughly in this order, but adapt to what the user volunteers:
      b. Surface the candidate URL to the user with a one-line description
         and ask them to confirm.
      c. On confirmation, add it as a `universal_ai_search` source — one
-        entry per vendor URL.
+        entry per vendor URL. If the site has heavy anti-bot protections,
+        is geofenced, or requires JS rendering (e.g. Best Buy, Williams-Sonoma,
+        ServerSupply, Central Computer, Crutchfield, etc.), configure the
+        source with the appropriate `extra.alterlab_options` parameter block.
    You can list multiple `universal_ai_search` entries in the same
    profile. Three to five vendor URLs is a reasonable target for
    coverage; fewer is fine if the user only has one or two trusted
-   vendors. Anything that requires login or solves a Cloudflare
-   challenge will silently return zero listings — call this out and
-   suggest an alternative vendor when possible.
+   vendors. If a site is geofenced or heavily protected by anti-bot walls (like
+   Cloudflare, Akamai, or Datadome), do not automatically demote it to `sources_pending`.
+   Instead, ask the user if they'd like to try adding it with our premium scraper
+   options enabled (`min_tier: 3` and/or `country: us`), then output those options.
+   Only put the vendor in `sources_pending` if it genuinely requires login or has an
+   unresolvable API-only wall.
 
    **Never silently drop a vendor the user asked for.** Phrases like
    "I ran out of search capacity" or "I'll skip this one" are NOT

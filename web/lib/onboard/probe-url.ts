@@ -52,6 +52,14 @@ const ALTERLAB_KNOWN_GOOD_HOSTS: ReadonlySet<string> = new Set([
   'www.ebay.com',
   'backmarket.com',
   'www.backmarket.com',
+  'bestbuy.com',
+  'www.bestbuy.com',
+  'williams-sonoma.com',
+  'www.williams-sonoma.com',
+  'serversupply.com',
+  'www.serversupply.com',
+  'centralcomputer.com',
+  'www.centralcomputer.com',
 ]);
 
 function hostOf(url: string): string | null {
@@ -364,13 +372,11 @@ export async function probeUrl(url: string): Promise<ProbeResult> {
     // Anything in the 2xx/3xx range with a non-trivial body passes; we
     // record JSON-LD / anchor counts as diagnostics but they don't gate.
     if (status >= 400) {
-      // HTTP 403 from a bare datacenter-IP fetch is almost always a
-      // bot-block (Cloudflare, Akamai, Datadome, etc.), not a genuine
-      // "forbidden" in the HTTP sense.  Production uses AlterLab's
-      // rendered fetch which handles these fine.  Treat 403 the same as
-      // 5xx-from-known-good: record it as a diagnostic but don't demote.
-      if (status === 403) {
-        result = { ...result, ok: true, reason: `bare-fetch HTTP 403 (likely bot-block; not demoting)` };
+      // HTTP 403, 429, 502, 503, 504 from a bare datacenter-IP fetch are almost always
+      // bot-blocks (Cloudflare, Akamai, Datadome, etc.), not a genuine "not found" or "gone".
+      // Production uses AlterLab's rendered fetch which handles these fine.
+      if (status === 403 || status === 429 || status === 502 || status === 503 || status === 504) {
+        result = { ...result, ok: true, reason: `bare-fetch HTTP ${status} (likely bot-block; not demoting)` };
         return result;
       }
       // AlterLab-known-good hosts: 5xx / bot-block from the bare-fetch probe
@@ -389,6 +395,27 @@ export async function probeUrl(url: string): Promise<ProbeResult> {
       // a bot-block stub, not a dead URL.
       if (isAlterlabKnownGood) {
         result = { ...result, ok: true, reason: `bare-fetch body ${html.length} chars (host is AlterLab-known-good; not demoting)` };
+        return result;
+      }
+      // Dynamically detect common anti-bot/WAF footprint signatures in the short body.
+      const lowerBody = html.toLowerCase();
+      const hasSecuritySignature =
+        lowerBody.includes('cloudflare') ||
+        lowerBody.includes('datadome') ||
+        lowerBody.includes('akamai') ||
+        lowerBody.includes('perimeterx') ||
+        lowerBody.includes('access denied') ||
+        lowerBody.includes('security check') ||
+        lowerBody.includes('captcha') ||
+        lowerBody.includes('turnstile') ||
+        lowerBody.includes('ray id') ||
+        lowerBody.includes('sucuri') ||
+        lowerBody.includes('shield') ||
+        lowerBody.includes('px-captcha') ||
+        lowerBody.includes('checking your browser') ||
+        lowerBody.includes('attention required');
+      if (hasSecuritySignature) {
+        result = { ...result, ok: true, reason: `bare-fetch body too short (${html.length} chars), but contains bot-block signatures; not demoting` };
         return result;
       }
       result.reason = `response body too short (${html.length} chars)`;

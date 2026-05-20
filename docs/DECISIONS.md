@@ -13,6 +13,7 @@ Status values:
 
 One line per ADR (newest first). Skim this; open only the bodies you need. (No ADR-036 — numbering gap.)
 
+- **ADR-066** — Onboarder: dynamic bot-block bypass probe + premium options schema support — ACCEPTED (impl)
 - **ADR-065** — Custom AlterLab parameters mapping (country, min_tier, wait_for) for bot-block avoidance — ACCEPTED (impl)
 - **ADR-064** — Session apparatus: lean PROGRESS.md + verbatim archive, ADR index, size discipline, pre-authorized push — ACCEPTED (impl)
 - **ADR-063** — Delete-product: touch-reachable trigger + portaled modal + post-delete reload — ACCEPTED (impl)
@@ -77,6 +78,23 @@ One line per ADR (newest first). Skim this; open only the bodies you need. (No A
 - **ADR-003** — eBay Browse API (not HTML scraping) for the eBay adapter — ACCEPTED
 - **ADR-002** — Repo-as-database; SQLite as workflow-local cache only — ACCEPTED
 - **ADR-001** — LLM is downstream of verified data only (architectural commitment) — ACCEPTED
+
+
+## ADR-066 — Onboarder: dynamic bot-block bypass probe + premium options schema support (ACCEPTED — implemented)
+
+**Status**: ACCEPTED — implemented 2026-05-20 (user request: "please update to MAXIMIZE the number of sites we'll be able to handle across a wide range of product types (ideally without adding to onboarder cost)")
+
+**Date**: 2026-05-20
+
+**Context**: With the addition of `alterlab_options` in ADR-065, we can now bypass geofencing and aggressive CDN blocking in production. However, during onboarding, the save-time probe got blocked by typical CDN and anti-bot walls (like Akamai, Cloudflare, or Datadome) for difficult sites (like Best Buy, Williams-Sonoma, ServerSupply, etc.) because these domains were not whitelisted in the probe's hardcoded check. This resulted in the probe demoting valid URLs to `sources_pending`. Furthermore, the onboarding system prompt was completely unaware of the new `extra.alterlab_options` schema, preventing it from suggesting or outputting these parameters natively.
+
+**Decision**:
+- **Dynamic CDN/WAF Bypass Detection**: Enhanced the save-time probe in `probe-url.ts` to dynamically recognize common anti-bot/WAF footprint signatures (HTTP 403, 429, 502, 503, 504, or short response bodies containing security footprints like "cloudflare", "datadome", "perimeterx", etc.) for **any domain**. These now pass with a descriptive warning instead of being demoted.
+- **Whitelist Expansion**: Added difficult domains (`bestbuy.com`, `williams-sonoma.com`, `serversupply.com`, `centralcomputer.com`) to `ALTERLAB_KNOWN_GOOD_HOSTS`.
+- **System Prompt Updates**: Updated `onboard_v1.txt` to fully document `extra.alterlab_options` parameter schema under `universal_ai_search`, instructing the LLM to proactively suggest and configure premium scraper parameters (`min_tier: 3` and `country: us`) for geofenced or heavily defended domains rather than demoting them.
+- **Zero Cost Overhead**: Maintained prompt caching efficiency (Anthropic ephemeral caching) to keep input token counts and onboarder costs extremely low, requiring no extra API calls or complex logic.
+
+**Consequence**: The onboarding flow is now extremely robust, dynamic, and fully equipped to onboard difficult, geofenced, and heavily protected anti-bot storefronts natively across all product types. The entire system prompt synchronization is verified and Next.js builds flawlessly.
 
 ---
 
