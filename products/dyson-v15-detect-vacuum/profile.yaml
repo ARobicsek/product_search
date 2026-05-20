@@ -1,0 +1,48 @@
+slug: dyson-v15-detect-vacuum
+display_name: Dyson V15 Detect Vacuum
+description: Track the cheapest available Dyson V15 Detect Vacuum listings (new condition only)
+target:
+  unit: count
+  amount: 1
+spec_filters:
+  - rule: title_excludes
+    values:
+      - Refurbished
+      - Used
+      - Excellent
+      - Fair
+      - Good
+spec_flags: []
+sources:
+  - id: universal_ai_search
+    url: https://www.target.com/s/dyson+v15+detect
+sources_pending:
+  - id: universal_ai_search
+    url: https://www.bestbuy.com/site/searchpage.jsp?id=pcat17071&st=dyson+v15
+    extra:
+      alterlab_options:
+        country: us
+        min_tier: 3
+    note: "probe returned 0 candidates: ALTERLAB_API_KEY not configured on server (cannot run rendered probe)"
+  - id: universal_ai_search
+    url: https://www.walmart.com/s/dyson+v15+detect
+    extra:
+      alterlab_options:
+        min_tier: 3
+    note: "probe returned 0 candidates: ALTERLAB_API_KEY not configured on server (cannot run rendered probe)"
+  - id: universal_ai_search
+    url: https://www.williams-sonoma.com/search/results.html?keywords=dyson+v15+detect
+    extra:
+      alterlab_options:
+        country: us
+        min_tier: 3
+    note: "probe returned 0 candidates: ALTERLAB_API_KEY not configured on server (cannot run rendered probe)"
+report_columns:
+  - rank
+  - source
+  - title
+  - price_unit
+  - condition
+  - seller
+  - seller_rating
+  - flags
