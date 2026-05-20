@@ -4,13 +4,7 @@ description: Track the cheapest currently-available Breville Barista Express esp
 target:
   unit: count
   amount: 1
-  configurations:
-    - module_count: 1
-      module_capacity_gb: 1
-spec_attrs:
-  condition:
-    type: str
-    required: false
+spec_attrs: {}
 spec_filters:
   - rule: in_stock
   - rule: title_excludes
@@ -37,16 +31,17 @@ sources:
   - id: universal_ai_search
     url: https://remanufactured.brevilleusa.com/collections/espresso
   - id: universal_ai_search
+    url: https://www.williams-sonoma.com/search?q=breville+barista+express
+  - id: universal_ai_search
     url: https://www.seattlecoffeegear.com/products/breville-barista-express-espresso-machine
+    page_type: detail
 sources_pending:
   - id: universal_ai_search
-    url: https://www.williams-sonoma.com/products/breville-barista-express-espresso-maker/
-    note: "probe returned 0 candidates: fetch returned HTTP 403"
-  - id: universal_ai_search
-    url: https://www.bestbuy.com/site/breville-the-barista-express-espresso-machine-with-15-bars-of-pressure-milk-frother-and-intergrated-grinder-stainless-steel/6291169.p?skuId=6291169
+    url: https://www.bestbuy.com/site/shop/breville-barista-express-espresso-machine
     note: "probe returned 0 candidates: fetch failed: This operation was aborted"
-qvl_file: products/breville-barista-express/qvl.yaml
-
+schedule:
+  cron: 0 8 * * *
+  timezone: UTC
 alerts:
   - kind: price_below
     threshold_usd: 500
