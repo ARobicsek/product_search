@@ -1,0 +1,31 @@
+slug: nvidia-rtx-5090
+display_name: NVIDIA RTX 5090 Graphics Card
+description: Track the cheapest currently-available NVIDIA RTX 5090 graphics cards (new condition) across major retailers.
+target:
+  unit: count
+  amount: 1
+spec_filters:
+  - rule: title_excludes
+    values:
+      - Non-Working
+      - Refurbished
+      - Used
+      - Open Box
+spec_flags: []
+sources:
+  - id: universal_ai_search
+    url: https://www.bestbuy.com/site/searchpage.jsp?id=pcat17071&st=rtx+5090
+    extra:
+      alterlab_options:
+        country: us
+        min_tier: 3
+  - id: universal_ai_search
+    url: https://www.microcenter.com/site/brands/nvidia-geforce-rtx5000_series.aspx
+  - id: universal_ai_search
+    url: https://www.bhphotovideo.com/c/buy/rtx-5090/ci/60217
+  - id: universal_ai_search
+    url: https://www.newegg.com/p/pl?d=rtx+5090
+sources_pending: []
+schedule:
+  cron: 0 8 * * *
+  timezone: UTC
