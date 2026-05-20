@@ -257,9 +257,10 @@ def _fetch_via_alterlab(
     if alterlab_options:
         for key in ["country", "min_tier", "wait_for", "render_js"]:
             if key in alterlab_options and alterlab_options[key] is not None:
-                body[key] = alterlab_options[key]
-                if key == "render_js":
-                    body["advanced"]["render_js"] = alterlab_options["render_js"]
+                if key in ["wait_for", "render_js"]:
+                    body["advanced"][key] = alterlab_options[key]
+                else:
+                    body[key] = alterlab_options[key]
 
     headers = {
         "X-API-Key": api_key,

@@ -148,7 +148,7 @@ async function fetchHtml(url: string): Promise<{ html: string; status: number }>
 async function fetchViaAlterlab(
   url: string,
   apiKey: string,
-  options?: { country?: string; min_tier?: number; wait_for?: number }
+  options?: { country?: string; min_tier?: number; wait_for?: string }
 ): Promise<{ html: string; status: number }> {
   const body: Record<string, any> = {
     url,
@@ -159,7 +159,7 @@ async function fetchViaAlterlab(
   if (options) {
     if (options.country) body.country = options.country;
     if (options.min_tier) body.min_tier = options.min_tier;
-    if (options.wait_for) body.wait_for = options.wait_for;
+    if (options.wait_for) body.advanced.wait_for = options.wait_for;
   }
 
   const resp = await fetch('https://api.alterlab.io/api/v1/scrape', {
@@ -399,7 +399,7 @@ export function countProductAnchors(html: string, baseUrl: string): number {
 
 export async function probeUrl(
   url: string,
-  alterlabOptions?: { country?: string; min_tier?: number; wait_for?: number }
+  alterlabOptions?: { country?: string; min_tier?: number; wait_for?: string }
 ): Promise<ProbeResult> {
   let result: ProbeResult = {
     ok: false,

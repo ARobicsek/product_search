@@ -1398,7 +1398,5 @@ def test_alterlab_options_propagation(monkeypatch: pytest.MonkeyPatch) -> None:
     assert captured["json"]["url"] == "https://example.com/products"
     assert captured["json"]["country"] == "us"
     assert captured["json"]["min_tier"] == 3
-    assert captured["json"]["wait_for"] == ".product-grid"
+    assert captured["json"]["advanced"]["wait_for"] == ".product-grid"
     assert captured["json"]["advanced"]["render_js"] is True
-
-
