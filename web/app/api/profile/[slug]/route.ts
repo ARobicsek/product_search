@@ -3,7 +3,7 @@ import { revalidatePath } from 'next/cache';
 import { deleteProductTree } from '@/lib/onboard/commit';
 
 export const runtime = 'nodejs';
-export const maxDuration = 30;
+export const maxDuration = 60;
 
 function bad(reason: string, status = 400, extra?: Record<string, unknown>) {
   return Response.json({ ok: false, error: reason, ...extra }, { status });

@@ -8,7 +8,7 @@ import { getProductProfileContent } from '@/lib/github';
 import { readAlertsFromYaml } from '@/lib/alerts';
 
 export const runtime = 'nodejs';
-export const maxDuration = 30;
+export const maxDuration = 60;
 
 const SLUG_RE = /^[a-z0-9][a-z0-9-]{0,63}$/;
 
