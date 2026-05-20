@@ -60,6 +60,8 @@ const ALTERLAB_KNOWN_GOOD_HOSTS: ReadonlySet<string> = new Set([
   'www.serversupply.com',
   'centralcomputer.com',
   'www.centralcomputer.com',
+  'target.com',
+  'www.target.com',
 ]);
 
 function hostOf(url: string): string | null {

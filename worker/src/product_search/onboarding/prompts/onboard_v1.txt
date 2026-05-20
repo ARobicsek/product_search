@@ -49,6 +49,8 @@ Certain domains have advanced anti-bot challenges, Cloudflare Turnstile, geofenc
 
 - **Best Buy (`bestbuy.com`)**: Geofenced. Needs US residential proxies.
   * `alterlab_options`: `{ country: "us", min_tier: 3 }`
+- **Target (`target.com`)**: Akamai geoblocks/anti-bot. Needs US residential proxies.
+  * `alterlab_options`: `{ country: "us", min_tier: 3 }`
 - **Micro Center (`microcenter.com`)**: Cloudflare Turnstile protection. Needs US residential proxies and JS wait time.
   * `alterlab_options`: `{ country: "us", min_tier: 3, wait_for: 5 }`
 - **B&H Photo (`bhphotovideo.com`)**: Cloudflare Turnstile protection. Needs US residential proxies and JS wait time.
