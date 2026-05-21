@@ -1520,8 +1520,12 @@ def test_alterlab_options_propagation(monkeypatch: pytest.MonkeyPatch) -> None:
 
     assert captured["headers"]["X-API-Key"] == "test-key-opts"
     assert captured["json"]["url"] == "https://example.com/products"
-    assert captured["json"]["country"] == "us"
-    assert captured["json"]["min_tier"] == 3
+    # ADR-071: documented nested wire shape — flat country/min_tier are mapped to
+    # location.country / cost_controls.max_tier and must NOT appear at top level.
+    assert captured["json"]["location"] == {"country": "us"}
+    assert captured["json"]["cost_controls"] == {"max_tier": "3"}
+    assert "country" not in captured["json"]
+    assert "min_tier" not in captured["json"]
     assert captured["json"]["advanced"]["wait_condition"] == "networkidle"
     # ADR-071: wait_for is the broken legacy param and must never reach the wire.
     assert "wait_for" not in captured["json"]["advanced"]
@@ -1590,8 +1594,10 @@ def test_alterlab_options_propagation_nested(monkeypatch: pytest.MonkeyPatch) ->
 
     assert captured["headers"]["X-API-Key"] == "test-key-opts-nested"
     assert captured["json"]["url"] == "https://example.com/products-nested"
-    assert captured["json"]["country"] == "us"
-    assert captured["json"]["min_tier"] == 3
+    assert captured["json"]["location"] == {"country": "us"}
+    assert captured["json"]["cost_controls"] == {"max_tier": "3"}
+    assert "country" not in captured["json"]
+    assert "min_tier" not in captured["json"]
     assert captured["json"]["advanced"]["wait_condition"] == "networkidle"
     assert "wait_for" not in captured["json"]["advanced"]
     assert captured["json"]["advanced"]["render_js"] is True
@@ -1615,15 +1621,20 @@ def test_weak_render_reason_detects_failures() -> None:
 
 def test_escalation_ladder_dedupes_strong_options() -> None:
     """The ladder skips a rung that would re-send an already-present option, and
-    NEVER bumps min_tier to 4 (the R2-proven 202-hang; ADR-071)."""
-    # networkidle already present → no extra rung.
-    ladder = universal_ai._escalation_ladder({"min_tier": 3, "wait_condition": "networkidle"})
+    escalates to tier 4 via the documented cost_controls.max_tier path (ADR-071)."""
+    # networkidle present + already tier 4 → no extra rung.
+    ladder = universal_ai._escalation_ladder({"min_tier": 4, "wait_condition": "networkidle"})
     assert len(ladder) == 1
-    # Plain options → 2-rung ladder (base, +networkidle). No tier-4 rung.
+    # networkidle present, tier 3 → one extra rung that bumps to tier 4.
+    ladder_t4 = universal_ai._escalation_ladder({"min_tier": 3, "wait_condition": "networkidle"})
+    assert len(ladder_t4) == 2
+    assert ladder_t4[1]["min_tier"] == 4
+    # Plain options → 3-rung ladder (base, +networkidle, +tier4).
     ladder2 = universal_ai._escalation_ladder({"country": "us", "min_tier": 3})
-    assert len(ladder2) == 2
+    assert len(ladder2) == 3
     assert ladder2[1]["wait_condition"] == "networkidle"
-    assert all((rung or {}).get("min_tier") != 4 for rung in ladder2)
+    assert ladder2[2]["min_tier"] == 4
+    assert ladder2[2]["wait_condition"] == "networkidle"  # carried forward
 
 
 def _stub_escalation_fetches(
@@ -1670,16 +1681,20 @@ def test_no_escalation_on_healthy_first_render(monkeypatch: pytest.MonkeyPatch) 
 
 
 def test_escalation_returns_best_effort_when_all_weak(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Every rung weak → return the largest body seen (2-rung ladder; ADR-071)."""
+    """Every rung weak → return the largest body seen (3-rung ladder; ADR-071)."""
     seen = _stub_escalation_fetches(
         monkeypatch,
-        [("Just a moment" + "x" * 3000, 200), ("Just a moment" + "y" * 9000, 200)],
+        [
+            ("Just a moment" + "x" * 3000, 200),
+            ("Just a moment" + "y" * 9000, 200),
+            ("Just a moment" + "z" * 5000, 200),
+        ],
     )
     html, status, fetcher, attempts = universal_ai._fetch_with_escalation(
         "https://walled.example/p", {"country": "us", "min_tier": 3}
     )
-    assert len(attempts) == 2  # exhausted the ladder
+    assert len(attempts) == 3  # exhausted the ladder (base, networkidle, tier4)
     assert "y" * 9000 in html  # largest body kept
-    # Never escalates min_tier to the harmful tier 4.
-    assert all((opt or {}).get("min_tier") != 4 for opt in seen)
+    # Final rung escalates to tier 4 via the documented cost_controls.max_tier path.
+    assert seen[-1] is not None and seen[-1]["min_tier"] == 4
 

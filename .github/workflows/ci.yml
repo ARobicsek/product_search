@@ -114,5 +114,11 @@ jobs:
       - name: Type-check (tsc)
         run: npx tsc --noEmit
 
+      # T5 anti-drift guard (ADR-071): the TS onboarder-probe AlterLab body
+      # builder must match the Python runtime adapter byte-for-byte. Offline,
+      # no live calls — asserts against the shared parity fixture.
+      - name: AlterLab probe<->runtime parity (node --test)
+        run: npm run test:parity
+
       - name: Build
         run: npm run build

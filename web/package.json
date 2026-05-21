@@ -8,7 +8,8 @@
     "prebuild": "node scripts/sync-prompt.js",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "test:parity": "node --test --experimental-strip-types scripts/check-alterlab-parity.test.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.91.1",

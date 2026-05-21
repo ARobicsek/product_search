@@ -13,7 +13,8 @@ Status values:
 
 One line per ADR (newest first). Skim this; open only the bodies you need. (No ADR-036 — numbering gap.)
 
-- **ADR-071** — Extraction reliability (Phase 21): `wait_for` is a non-existent AlterLab param that 202-hangs → body 0 (migrate to `wait_condition`); legacy `min_tier:4` escalation also 202-hangs; the DOCUMENTED body shape (`location`/`cost_controls.max_tier`/`wait_condition`, keep `asp`) is 3/3 vs legacy 0/3 on Target detail. T1 (wait_for fix) + safe weak-render retry ACCEPTED/impl; documented-shape body migration ACCEPTED (user-approved 2026-05-21, implement next session)
+- **ADR-072** — Documented-shape AlterLab body migration LANDED (Phase 21, executes ADR-071's approved next-session plan): runtime + probe build the documented nested body via a pure builder; tier-4 escalation restored through `cost_controls.max_tier`; T5 probe↔runtime parity guard (shared fixture + pytest + `node --test` in CI). Live E1: Target detail 1.5 MB render, `$249.99` — ACCEPTED (impl + live-verified)
+- **ADR-071** — Extraction reliability (Phase 21): `wait_for` is a non-existent AlterLab param that 202-hangs → body 0 (migrate to `wait_condition`); legacy `min_tier:4` escalation also 202-hangs; the DOCUMENTED body shape (`location`/`cost_controls.max_tier`/`wait_condition`, keep `asp`) is 3/3 vs legacy 0/3 on Target detail. T1 (wait_for fix) + safe weak-render retry ACCEPTED/impl; documented-shape body migration ACCEPTED (user-approved 2026-05-21, implemented in ADR-072)
 - **ADR-070** — Probe Tier 1.5 mirror was unfaithful: TS `fetchViaAlterlab` omitted `asp:true`, so AlterLab returned partial/Cloudflare-challenge renders and `detailExtractable` was a false negative for valid detail URLs (Target). Add `asp:true` to match the runtime — ACCEPTED (impl)
 - **ADR-069** — Detail-URL probe gap: `probe_url` evaluates `page_type:"detail"` URLs by a faithful Tier 1.5 mirror (`detailExtractable`), not list-anchor count, ending false demotion of valid detail pages — ACCEPTED (impl)
 - **ADR-068** — Vendor quirks registry: single source of truth (`worker/src/product_search/vendor_quirks.yaml`) for per-vendor URL transforms / default alterlab_options / known failures, consumed by adapter + onboarder prompt + save-time gate — ACCEPTED (impl)
@@ -84,6 +85,27 @@ One line per ADR (newest first). Skim this; open only the bodies you need. (No A
 - **ADR-002** — Repo-as-database; SQLite as workflow-local cache only — ACCEPTED
 - **ADR-001** — LLM is downstream of verified data only (architectural commitment) — ACCEPTED
 
+
+## ADR-072 — Documented-shape AlterLab body migration landed + probe↔runtime parity guard (Phase 21)
+
+**Status**: ACCEPTED — implemented + live-verified 2026-05-21. Executes the next-session plan ADR-071 already accepted (user-approved 2026-05-21); no new sign-off needed.
+
+**Date**: 2026-05-21
+
+**Context**: ADR-071 proved (R2 matrix) that the legacy flat AlterLab body (`country`/`min_tier` top-level) 202-hangs to body 0 on hard sites, while the documented nested shape (`location.country` + `cost_controls.max_tier` + `advanced.wait_condition`, keep `asp:true`) renders Target detail 3/3 with `$249.99`. T1 + a safe (no-tier-4) weak-render retry shipped that session; the body migration itself was accepted but deferred to this session.
+
+**Decision**:
+- **Runtime body builder.** Extracted a pure `_build_alterlab_body(url, opts)` in `worker/src/product_search/adapters/universal_ai.py` (so the parity guard can assert it without I/O); `_fetch_via_alterlab` now calls it. It maps the flat internal option keys onto the documented nested wire shape: `country`→`location.country`, `min_tier`→`cost_controls.max_tier` (string, clamped 1..4), `wait_condition`/`render_js`→`advanced.*`, `asp` stays top-level (default true), cache left at default. The flat internal representation (registry/source/profile) is unchanged — only the wire mapping moved.
+- **Probe body builder.** TS `buildAlterlabBody` in `web/lib/onboard/alterlab-shared.ts` mirrors the same mapping; `probe-url.ts` imports it, so the onboard-time probe inherits the documented shape automatically.
+- **Tier-4 escalation via the documented path.** Both escalation ladders (`_escalation_ladder` / `alterlabEscalationLadder`) now append a 3rd rung that sets `min_tier:4`, which the builders map to `cost_controls.max_tier:"4"` — a fast sync 200 that escalates UP TO tier 4, NOT the legacy top-level `min_tier:4` that R2 proved 202-hangs. The ADR-071-era "deliberately no tier-4" guard was a property of the old flat shape and is correctly lifted now that the shape supports safe tier-4.
+- **T5 anti-drift parity guard.** Shared fixture `worker/tests/fixtures/alterlab_parity/body_cases.json` of `{options → expected_body}` is asserted by BOTH `worker/tests/test_alterlab_parity.py` (pytest, against `_build_alterlab_body`) and `web/scripts/check-alterlab-parity.test.mjs` (`node --test --experimental-strip-types`, against `buildAlterlabBody`), the latter wired into the web CI job via `npm run test:parity`. If the two builders drift (as with the missing `asp`, ADR-070), one suite goes red. Both run offline against the committed fixture — no live calls, honors the no-live-slug rule.
+
+**Consequence**:
+- The 0/3→3/3 reliability win is now in the production runtime AND the onboarder probe, end-to-end. Live E1 (single contained `cli probe-url` call, no origin commit / no GH Action): the Target WH-1000XM5 detail URL returned origin 200 + a 1,544,723-char render, and Tier 1.5 extracted `Sony WH-1000XM5 — $249.99 (new)` — the predicted result, produced by the migrated path.
+- Worker `pytest` 286 passed, `ruff`/`mypy` clean; web `tsc`/`eslint` clean; `npm run test:parity` green; `sync-prompt.js` shows no artifact drift (registry untouched this session).
+- **Deferred (not regressions, scope/risk-bounded):** T4 (multi-URL/vendor), T6 (re-measure B&H detail under the documented shape — never measured; R2 was cut short), and E2–E4 (full prod onboarding e2e on a throwaway slug). E2–E4 mutate `origin/main` + spend a GH-Action run, so they were deliberately not run autonomously in the same session as the core change; E1 already proves the runtime path works.
+
+---
 
 ## ADR-071 — Extraction reliability: `wait_for` is a phantom param, `min_tier:4` 202-hangs, the documented AlterLab body shape is the fix (Phase 21)
 

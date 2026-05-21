@@ -42,12 +42,18 @@ export function buildAlterlabBody(
     advanced,
   };
   if (options) {
-    if (options.country) body.country = options.country;
+    // ADR-071: the DOCUMENTED nested wire shape. The flat internal keys
+    // (country / min_tier) map to location.country / cost_controls.max_tier —
+    // the only shape that reliably renders hard sites (Target detail 3/3 vs
+    // legacy flat 0/3). cost_controls.max_tier (string) escalates UP TO that
+    // tier while returning a fast sync 200, unlike legacy top-level min_tier:4.
+    if (options.country) body.location = { country: options.country };
     if (options.min_tier != null) {
-      body.min_tier = Math.max(1, Math.min(4, Math.trunc(options.min_tier)));
+      const tier = Math.max(1, Math.min(4, Math.trunc(options.min_tier)));
+      body.cost_controls = { max_tier: String(tier) };
     }
-    // ADR-071: `wait_for` is a non-existent AlterLab param (forces a never-
-    // completing 202 job -> body 0). Migrate legacy values to the real
+    // `wait_for` is a non-existent AlterLab param (forces a never-completing
+    // 202 job -> body 0). Migrate legacy values to the real
     // `advanced.wait_condition`, validate, and never send `wait_for`.
     let wc = options.wait_condition;
     if (wc == null && options.wait_for != null) wc = 'networkidle';
@@ -71,15 +77,18 @@ export function weakRenderReason(html: string, status: number): string | null {
   return null;
 }
 
-// Mirror of universal_ai._escalation_ladder. Does NOT escalate min_tier to 4 —
-// the R2 matrix proved legacy min_tier:4 forces a never-completing 202 job
-// (body 0). Tier escalation must go through the documented cost_controls.max_tier
-// body shape (queued next-session migration). See docs/ALTERLAB_OPTIONS.md.
+// Mirror of universal_ai._escalation_ladder. Tier-4 escalation goes through the
+// documented cost_controls.max_tier body shape (buildAlterlabBody maps min_tier
+// -> cost_controls.max_tier), which returns a fast sync 200 — NOT the legacy
+// top-level min_tier:4 that the R2 matrix proved 202-hangs. See ADR-071.
 export function alterlabEscalationLadder(base?: AlterlabOptions): AlterlabOptions[] {
   const rungs: AlterlabOptions[] = [{ ...(base ?? {}) }];
   const last = () => rungs[rungs.length - 1];
   if (last().wait_condition !== 'networkidle') {
     rungs.push({ ...last(), wait_condition: 'networkidle' });
+  }
+  if (last().min_tier !== 4) {
+    rungs.push({ ...last(), min_tier: 4 });
   }
   return rungs;
 }

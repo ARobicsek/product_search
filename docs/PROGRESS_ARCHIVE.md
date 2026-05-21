@@ -8,6 +8,24 @@ so the live file stays small while nothing is lost. See
 
 ---
 
+## Current state — 2026-05-21 Phase 21 in progress (T1 + safe retry shipped; documented-shape migration was the next-session task) (SUPERSEDED by the 2026-05-21 documented-shape migration landing, ADR-072)
+
+**The headline finding (ADR-071, evidence-backed):** the production AlterLab calls are unreliable because of the **request body shape**, not (only) bot-walls.
+- `wait_for` is a **phantom AlterLab param**: sending it (the registry's `wait_for: 5`, or any value) forces an async `202` job that never completes in our 120 s poll → **body 0**. This *is* the B&H/Target body-0 bug. Real knob = `advanced.wait_condition` (`networkidle`), returns sync 200.
+- Legacy body shape (top-level `asp`/`country`/`min_tier:3`): Target detail **0/3** (202-hangs + a cached challenge stub). Legacy **`min_tier:4` is worse — 0/3, always 202-hangs** (so the "escalate to tier 4" idea in the original brief is wrong).
+- **DOCUMENTED body shape** (`location.country` + `cost_controls.max_tier:"4"` + `wait_condition:networkidle`, keep `asp:true`, default cache): Target detail **3/3** with `$249.99`. ← the real fix.
+- `cache:false` is harmful (0/3); leave cache default.
+
+**Shipped that session (safe, green, no regression risk):**
+- **T1** — `wait_for` → `wait_condition` end-to-end: `vendor_quirks.yaml` (bhphoto/newegg/microcenter), new `vendor_quirks.normalize_alterlab_options()` (migrates legacy `wait_for`→`networkidle`, validates `wait_condition` enum, clamps `min_tier` 1..4), runtime `_fetch_via_alterlab`, CLI (`--wait-condition`), onboarder tool schema + `onboard_v1.txt`, TS probe; web artifacts regenerated.
+- **T2/T3** — cheap `_weak_render_reason` predicate + bounded retry-on-weak-render in the runtime (`_fetch_with_escalation`) and mirrored in the probe. **Escalation deliberately did NOT use `min_tier:4`** (proven harmful under the legacy shape); only added a harmless `networkidle` rung.
+- **Refactor for T5** — pure helpers (`buildAlterlabBody`, weak-render, ladder, strip/price) extracted to new dependency-free `web/lib/onboard/alterlab-shared.ts`.
+- **R1 doc** — `docs/ALTERLAB_OPTIONS.md`. Fixtures: `worker/tests/fixtures/universal_ai/{bh_silver-good,bh_silver-challenge,target_detail-challenge}-2026-05-21.html`.
+
+**Checks:** worker `pytest` 285 passed, `ruff` + `mypy` clean; web `tsc` + `eslint` clean.
+
+---
+
 ## Current state — 2026-05-21 ADR-070 implemented + ADR-069 partially verified live (SUPERSEDED by Phase 21 / ADR-071, 2026-05-21)
 
 ADR-069 was verified against the live Sony WH-1000XM5 detail URLs by running the **deployed** `probeUrl()` (via a temporary local Next route, since `probe-url.ts` is `server-only` and there is no web test harness) against B&H + Target with the registry's AlterLab options, and cross-checking with the **runtime** `cli probe-url --render --detail`. Findings:

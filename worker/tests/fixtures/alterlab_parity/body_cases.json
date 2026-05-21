@@ -1,0 +1,80 @@
+{
+  "_comment": "T5 probe<->runtime parity contract (ADR-071). Each case asserts that the Python _build_alterlab_body (worker/.../adapters/universal_ai.py) and the TS buildAlterlabBody (web/lib/onboard/alterlab-shared.ts) produce the SAME AlterLab POST body for the same options. Asserted by worker/tests/test_alterlab_parity.py (pytest) AND web/scripts/check-alterlab-parity.test.mjs (node --test). Would have caught the missing asp (ADR-070) instantly. URL is constant; vary only options.",
+  "url": "https://example.com/p/item-123",
+  "cases": [
+    {
+      "name": "no options -> base documented body",
+      "options": null,
+      "expected_body": {
+        "url": "https://example.com/p/item-123",
+        "sync": true,
+        "formats": ["html"],
+        "asp": true,
+        "advanced": { "render_js": true }
+      }
+    },
+    {
+      "name": "country + min_tier:3 + networkidle (registry default for hard sites)",
+      "options": { "country": "us", "min_tier": 3, "wait_condition": "networkidle" },
+      "expected_body": {
+        "url": "https://example.com/p/item-123",
+        "sync": true,
+        "formats": ["html"],
+        "asp": true,
+        "location": { "country": "us" },
+        "cost_controls": { "max_tier": "3" },
+        "advanced": { "render_js": true, "wait_condition": "networkidle" }
+      }
+    },
+    {
+      "name": "tier-4 escalation rung maps to cost_controls.max_tier:4",
+      "options": { "country": "us", "min_tier": 4, "wait_condition": "networkidle" },
+      "expected_body": {
+        "url": "https://example.com/p/item-123",
+        "sync": true,
+        "formats": ["html"],
+        "asp": true,
+        "location": { "country": "us" },
+        "cost_controls": { "max_tier": "4" },
+        "advanced": { "render_js": true, "wait_condition": "networkidle" }
+      }
+    },
+    {
+      "name": "country only -> location set, no cost_controls",
+      "options": { "country": "gb" },
+      "expected_body": {
+        "url": "https://example.com/p/item-123",
+        "sync": true,
+        "formats": ["html"],
+        "asp": true,
+        "location": { "country": "gb" },
+        "advanced": { "render_js": true }
+      }
+    },
+    {
+      "name": "legacy wait_for migrates to wait_condition:networkidle, never sent verbatim",
+      "options": { "country": "us", "min_tier": 3, "wait_for": 5 },
+      "expected_body": {
+        "url": "https://example.com/p/item-123",
+        "sync": true,
+        "formats": ["html"],
+        "asp": true,
+        "location": { "country": "us" },
+        "cost_controls": { "max_tier": "3" },
+        "advanced": { "render_js": true, "wait_condition": "networkidle" }
+      }
+    },
+    {
+      "name": "min_tier clamps to 1..4",
+      "options": { "min_tier": 9 },
+      "expected_body": {
+        "url": "https://example.com/p/item-123",
+        "sync": true,
+        "formats": ["html"],
+        "asp": true,
+        "cost_controls": { "max_tier": "4" },
+        "advanced": { "render_js": true }
+      }
+    }
+  ]
+}

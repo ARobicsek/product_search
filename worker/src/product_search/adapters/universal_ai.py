@@ -229,6 +229,51 @@ def _fetch_html(
         return httpx_resp.text or "", httpx_resp.status_code, "httpx"
 
 
+def _build_alterlab_body(
+    url: str,
+    alterlab_options: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Build the AlterLab POST body in the DOCUMENTED nested shape (ADR-071).
+
+    Pure (no I/O) so the T5 parity guard can assert it byte-for-byte equals the
+    TS ``buildAlterlabBody`` in ``web/lib/onboard/alterlab-shared.ts`` for the
+    same options — the systemic anti-drift fix that would have caught the
+    missing ``asp`` (ADR-070) instantly. The flat internal keys
+    (``country`` / ``min_tier`` / ``wait_condition`` / ``render_js`` / ``asp``)
+    are mapped onto ``location`` / ``cost_controls.max_tier`` / ``advanced.*``.
+
+    Defensive normalization runs here (ADR-071): callers that skip vendor_quirks
+    (``skip_vendor_quirks``, the CLI probe) reach this with raw options, and
+    ``wait_for`` is a non-existent AlterLab param that silently zeros the body
+    via a never-completing 202 job — this is the last line of defence before it
+    would hit the wire.
+    """
+    advanced: dict[str, Any] = {"render_js": True}
+    body: dict[str, Any] = {
+        "url": url,
+        "sync": True,
+        "formats": ["html"],
+        "asp": True,
+        "advanced": advanced,
+    }
+    opts = normalize_alterlab_options(alterlab_options)
+    if opts:
+        if opts.get("country"):
+            body["location"] = {"country": opts["country"]}
+        if opts.get("min_tier") is not None:
+            # max_tier escalates UP TO this tier from cheap, returning a fast
+            # sync 200 — the reliable "use tier 4 if needed" knob. String per docs.
+            tier = max(1, min(4, int(opts["min_tier"])))
+            body["cost_controls"] = {"max_tier": str(tier)}
+        if opts.get("wait_condition") is not None:
+            advanced["wait_condition"] = opts["wait_condition"]
+        if opts.get("render_js") is not None:
+            advanced["render_js"] = opts["render_js"]
+        if opts.get("asp") is not None:
+            body["asp"] = opts["asp"]
+    return body
+
+
 def _fetch_via_alterlab(
     url: str,
     api_key: str,
@@ -245,40 +290,29 @@ def _fetch_via_alterlab(
     or a non-2xx with an error JSON; both cases raise so the caller's
     try/except routes to the fallback tiers or bubbles up auth/quota errors.
 
-    Wire format (per https://alterlab.io/docs/api/rest):
+    Wire format — the DOCUMENTED body shape (ADR-071, docs/ALTERLAB_OPTIONS.md):
       POST https://api.alterlab.io/api/v1/scrape
       Header: X-API-Key: <key>
-      Body:   {"url": ..., "sync": true, "formats": ["html"],
-               "advanced": {"render_js": true}}
+      Body:   {"url": ..., "sync": true, "formats": ["html"], "asp": true,
+               "location": {"country": "us"},
+               "cost_controls": {"max_tier": "4"},
+               "advanced": {"render_js": true, "wait_condition": "networkidle"}}
       Resp:   {"status_code": <origin>, "content": {"html": "..."} | "..."}
+
+    The internal options dict still uses the flat keys ``country`` / ``min_tier``
+    / ``wait_condition`` (the registry + source representation); they are mapped
+    here to the documented nested wire fields. The R2 matrix proved this shape
+    is reliable (Target detail 3/3 with ``$249.99``) where the legacy flat
+    ``country``/``min_tier`` shape 202-hung (0/3), and that ``min_tier`` mapped
+    to ``cost_controls.max_tier`` returns a fast sync 200 — unlike the legacy
+    top-level ``min_tier:4`` that always 202-hangs (ADR-071).
 
     ``formats: ["html"]`` makes ``content`` deterministically an object
     with an ``html`` field (vs a bare string in some sync responses).
     """
     import httpx
 
-    body: dict[str, Any] = {
-        "url": url,
-        "sync": True,
-        "formats": ["html"],
-        "asp": True,
-        "advanced": {"render_js": True},
-    }
-    # Defensive normalization (ADR-071): the merge path already normalizes, but
-    # callers that skip vendor_quirks (skip_vendor_quirks, the CLI probe) reach
-    # here with raw options. ``wait_for`` is a non-existent AlterLab param that
-    # silently zeros the body via a never-completing 202 job, so this is the
-    # last line of defence before it would hit the wire.
-    opts = normalize_alterlab_options(alterlab_options)
-    if opts:
-        # Top-level keys vs `advanced.*` keys (per docs/ALTERLAB_OPTIONS.md).
-        _ADVANCED_KEYS = {"wait_condition", "render_js"}
-        for key in ["country", "min_tier", "asp", "wait_condition", "render_js"]:
-            if key in opts and opts[key] is not None:
-                if key in _ADVANCED_KEYS:
-                    body["advanced"][key] = opts[key]
-                else:
-                    body[key] = opts[key]
+    body = _build_alterlab_body(url, alterlab_options)
 
     headers = {
         "X-API-Key": api_key,
@@ -463,17 +497,17 @@ def _escalation_ladder(
 
     attempt 1: options as given (registry-merged).
     attempt 2: + wait_condition:networkidle (let async-rendered prices settle).
+    attempt 3: + min_tier:4 (escalate to the browser tier).
     Duplicate rungs (when the base already carries the option) are skipped so we
     never burn an attempt sending an identical body.
 
-    DELIBERATELY does NOT escalate ``min_tier`` to 4: the Phase 21 R2 matrix
-    proved that the legacy ``min_tier:4`` forces AlterLab's synchronous browser
-    tier, which it queues as a 202 job that does not complete inside our poll
-    window -> body 0 (Target 0/3, B&H 0/3). Tier escalation must instead go
-    through the DOCUMENTED ``cost_controls.max_tier`` body shape, which returns a
-    fast sync 200 (Target detail 3/3). That body-shape migration is the queued
-    next-session task; until it lands, escalation is limited to the (harmless,
-    sync-200) networkidle rung. See docs/ALTERLAB_OPTIONS.md + ADR-071.
+    Tier-4 escalation now goes through the DOCUMENTED ``cost_controls.max_tier``
+    body shape (``_fetch_via_alterlab`` maps ``min_tier`` -> ``cost_controls.
+    max_tier``), which escalates UP TO tier 4 while returning a fast sync 200
+    (Target detail 3/3). This is NOT the legacy top-level ``min_tier:4`` that the
+    R2 matrix proved 202-hangs to body 0 — that failure was a property of the
+    old flat wire shape, which the documented-shape migration removed. See
+    docs/ALTERLAB_OPTIONS.md + ADR-071.
     """
     rungs: list[dict[str, Any] | None] = [base]
     step2 = dict(base or {})
@@ -481,6 +515,10 @@ def _escalation_ladder(
         step2["wait_condition"] = "networkidle"
         step2.setdefault("render_js", True)
         rungs.append(step2)
+    step3 = dict(rungs[-1] or {})
+    if step3.get("min_tier") != 4:
+        step3["min_tier"] = 4
+        rungs.append(step3)
     return rungs
 
 

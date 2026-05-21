@@ -7,38 +7,30 @@ Full session-by-session history → [PROGRESS_ARCHIVE.md](PROGRESS_ARCHIVE.md) (
 ## Active phase
 
 - **Closed:** Phases 0–16; **Phase 17** (schedule editor + alerts); **Phase 19** (universal adapter accuracy & vendor reach); **Phase 20** (reliable scheduling trigger).
-- **IN PROGRESS:** **Phase 21 — Extraction reliability** ([PHASES.md#phase-21](PHASES.md#phase-21--extraction-reliability-hard-site-render-hit-rate-proposed--confirm-design-before-coding)). Research done; T1 + safe retry shipped; **the big fix (documented AlterLab body shape) is USER-APPROVED (2026-05-21) and queued for next session** — see ADR-071.
+- **IN PROGRESS:** **Phase 21 — Extraction reliability** ([PHASES.md#phase-21](PHASES.md#phase-21--extraction-reliability-hard-site-render-hit-rate-proposed--confirm-design-before-coding)). T1 + safe retry (prior session); **the headline fix — documented AlterLab body shape + tier-4 escalation — LANDED + live-verified 2026-05-21 (ADR-072).** Remaining: T4, T6, E2–E4.
 - **Queued after:** **Phase 18 — Polish + second-product proof**.
-- **Most recent work:** 2026-05-21 **Phase 21 R1/R2 + ADR-071**. Live AlterLab probes overturned the phase's assumed approach (see below).
+- **Most recent work:** 2026-05-21 **documented-shape body migration (ADR-072)** — the 0/3→3/3 fix from ADR-071, now in the runtime + probe + a CI parity guard; live E1 confirmed.
 
-## Current state — 2026-05-21 Phase 21 in progress (T1 + safe retry shipped; documented-shape migration is the next-session task)
+## Current state — 2026-05-21 Phase 21: documented-shape migration LANDED + live-verified (ADR-072)
 
-**The headline finding (ADR-071, evidence-backed):** the production AlterLab calls are unreliable because of the **request body shape**, not (only) bot-walls.
-- `wait_for` is a **phantom AlterLab param**: sending it (the registry's `wait_for: 5`, or any value) forces an async `202` job that never completes in our 120 s poll → **body 0**. This *is* the B&H/Target body-0 bug. Real knob = `advanced.wait_condition` (`networkidle`), returns sync 200.
-- Legacy body shape (top-level `asp`/`country`/`min_tier:3`): Target detail **0/3** (202-hangs + a cached challenge stub). Legacy **`min_tier:4` is worse — 0/3, always 202-hangs** (so the "escalate to tier 4" idea in the original brief is wrong).
-- **DOCUMENTED body shape** (`location.country` + `cost_controls.max_tier:"4"` + `wait_condition:networkidle`, keep `asp:true`, default cache): Target detail **3/3** with `$249.99`. ← the real fix.
-- `cache:false` is harmful (0/3); leave cache default.
+**Shipped this session (all green, live-verified):**
+- **Documented-shape body migration (the ADR-071 headline fix).** `worker/.../adapters/universal_ai.py` now builds the AlterLab POST body via a new pure `_build_alterlab_body(url, opts)`, mapping flat internal keys → documented nested shape: `country`→`location.country`, `min_tier`→`cost_controls.max_tier` (string), `wait_condition`/`render_js`→`advanced.*`, keep `asp:true`, default cache. TS `buildAlterlabBody` (`web/lib/onboard/alterlab-shared.ts`) mirrors it; the probe inherits it (imports the shared helper).
+- **Tier-4 escalation restored via the documented path.** Both ladders (`_escalation_ladder` / `alterlabEscalationLadder`) now add a 3rd rung `min_tier:4` → `cost_controls.max_tier:"4"` (fast sync 200, NOT the legacy 202-hanging top-level `min_tier:4`).
+- **T5 probe↔runtime parity guard (anti-drift).** Shared fixture `worker/tests/fixtures/alterlab_parity/body_cases.json` asserted by BOTH `worker/tests/test_alterlab_parity.py` (pytest) and `web/scripts/check-alterlab-parity.test.mjs` (`node --test --experimental-strip-types`, wired into the web CI job as `npm run test:parity`). Would have caught the missing `asp` (ADR-070) instantly.
+- Updated the Python body-shape + escalation-ladder tests for the new shape/tier-4 rung.
 
-**Shipped this session (safe, green, no regression risk):**
-- **T1** — `wait_for` → `wait_condition` end-to-end: `vendor_quirks.yaml` (bhphoto/newegg/microcenter), new `vendor_quirks.normalize_alterlab_options()` (migrates legacy `wait_for`→`networkidle`, validates `wait_condition` enum, clamps `min_tier` 1..4), runtime `_fetch_via_alterlab`, CLI (`--wait-condition`), onboarder tool schema + `onboard_v1.txt`, TS probe; web artifacts regenerated.
-- **T2/T3** — cheap `_weak_render_reason` predicate + bounded retry-on-weak-render in the runtime (`_fetch_with_escalation`) and mirrored in the probe. **Escalation deliberately does NOT use `min_tier:4`** (proven harmful); until the documented-shape migration lands it only adds a harmless `networkidle` rung.
-- **Refactor for T5** — pure helpers (`buildAlterlabBody`, weak-render, ladder, strip/price) extracted to new dependency-free `web/lib/onboard/alterlab-shared.ts` so a `node --test` parity guard can import them.
-- **R1 doc** — `docs/ALTERLAB_OPTIONS.md` (full param reference + the legacy-vs-documented schism + measured hit-rates).
-- Fixtures captured: `worker/tests/fixtures/universal_ai/{bh_silver-good,bh_silver-challenge,target_detail-challenge}-2026-05-21.html`.
+**Live E1 verification (single contained probe, no origin commit / no GH Action):** `cli probe-url <target …/A-86777236> --render --detail --country us --min-tier 4 --wait-condition networkidle` → origin 200, **1,544,723-char** render, Tier 1.5 extracted **Sony WH-1000XM5 — $249.99 (new)**. The migrated runtime path produces the predicted 3/3 result end-to-end.
 
-**Checks:** worker `pytest` 285 passed, `ruff` + `mypy` clean; web `tsc` + `eslint` clean.
+**Checks:** worker `pytest` **286 passed**, `ruff` + `mypy` clean; web `tsc` + `eslint` (0 errors) clean; `npm run test:parity` green; `sync-prompt.js` → no artifact drift (registry untouched).
 
 ## Next session — start here
 
-1. **Phase 21, the actual fix (USER-APPROVED 2026-05-21 — no further sign-off needed, implement directly): migrate the AlterLab wire body to the documented shape.** In `worker/.../adapters/universal_ai.py::_fetch_via_alterlab` AND `web/lib/onboard/alterlab-shared.ts::buildAlterlabBody`, build `{url, sync, formats:["html"], asp:true, location:{country}, cost_controls:{max_tier:"<tier>"}, advanced:{render_js:true, wait_condition}}` instead of top-level `country`/`min_tier`. Map registry `min_tier` → `cost_controls.max_tier` (string). Keep `asp:true`. Leave cache default. This is what turned Target detail **0/3 → 3/3**. Re-run the R2 harness logic to confirm ≥4/5 before/after.
-2. **Make escalation use `cost_controls.max_tier`** (now that the body supports it) — restore a real tier-4 rung via the documented path (NOT legacy `min_tier:4`).
-3. **T4** — multi-URL per vendor for multi-variant single SKUs (onboarder prompt + registry hint).
-4. **T5** — write the probe↔runtime parity test: shared JSON fixture of `{options→expected_body}` + `{html→stripped/price-verdict}`, asserted by a Python test (pytest) and a `node --test --experimental-strip-types` script importing `alterlab-shared.ts` (verified locally to run on Node 22.16). Wire the node script into web CI.
-5. **T6** — re-measure B&H detail under the documented shape; if still walled, record `known_failure` in `vendor_quirks.yaml`.
-6. **E1–E4** — self-driven e2e: re-measure hit-rate; onboard a **throwaway** slug (`wh1000xm5-e2e-test`, NOT live `sony-wh-1000xm5`) via Chrome DevTools MCP; save + Run-now; assert correct Target price in the committed report; delete the test slug.
-7. **Then** the prior queue: Schedule&Alerts editor prod verification (ADR-059/060/061), mobile popover layout, delete→reload spot check (ADR-063); then **Phase 18**.
+1. **T4 — multi-URL per vendor for multi-variant single SKUs** (onboarder prompt + optional `vendor_quirks` variant hint). No adapter change (multi-source already dedupes by canonical URL); cap ≤3 detail URLs/vendor.
+2. **T6 — re-measure B&H detail under the now-migrated documented shape.** If still walled (Cloudflare), record `known_failure`/`prefer_page_type` in `vendor_quirks.yaml` and regenerate web artifacts. (Documented-shape B&H was never measured — R2 was cut short.)
+3. **E2–E4 — self-driven prod e2e** (mutates origin/main + spends a GH-Action run, so deliberately deferred from the migration session): onboard a **throwaway** slug (`wh1000xm5-e2e-test`, NOT live `sony-wh-1000xm5`) via Chrome DevTools MCP; confirm the onboarder keeps Target search + detail backup; **save** + **Run-now**; assert the correct Target price in the committed `reports/<slug>/<date>.md` (post-check clean); then **delete** the test slug (Phase 16 button) and confirm `products/`+`reports/` are gone.
+4. **Then** the prior queue: Schedule&Alerts editor prod verification (ADR-059/060/061), mobile popover layout, delete→reload spot check (ADR-063); then **Phase 18**.
 
-> Throwaway harness `worker/_phase21_probe.py` (+ `_phase21_*.html/.json`) was deleted at wrap-up; its logic is summarized in ADR-071 / ALTERLAB_OPTIONS.md. Recreate from there if needed.
+> Re-running an R2-style N=5 hit-rate harness needs only the `cli probe-url` loop above; the throwaway harness was deleted — recreate from ADR-071 / ALTERLAB_OPTIONS.md if a full before/after table is wanted.
 
 ## Blockers
 
