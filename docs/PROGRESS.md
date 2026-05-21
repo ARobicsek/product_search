@@ -7,25 +7,31 @@ Full session-by-session history → [PROGRESS_ARCHIVE.md](PROGRESS_ARCHIVE.md) (
 ## Active phase
 
 - **Closed:** Phases 0–16; **Phase 17** (schedule editor + alerts); **Phase 19** (universal adapter accuracy & vendor reach); **Phase 20** (reliable scheduling trigger).
-- **IN PROGRESS:** **Phase 21 — Extraction reliability** ([PHASES.md#phase-21](PHASES.md#phase-21--extraction-reliability-hard-site-render-hit-rate-proposed--confirm-design-before-coding)). T1 + safe retry + documented body shape + tier-4 escalation + T5 parity guard all landed (prior sessions); **T4 multi-variant detail-URL redundancy LANDED 2026-05-21 (ADR-073).** Remaining: T6, E2–E4.
+- **IN PROGRESS:** **Phase 21 — Extraction reliability** ([PHASES.md#phase-21](PHASES.md#phase-21--extraction-reliability-hard-site-render-hit-rate-proposed--confirm-design-before-coding)). T1 + safe retry + documented body shape + tier-4 escalation + T5 parity guard + T4 multi-variant + **E2–E4 prod e2e all done (2026-05-21, ADR-074).** Remaining: **T6 only** (re-measure B&H detail under the migrated documented body shape).
 - **Queued after:** **Phase 18 — Polish + second-product proof**.
-- **Most recent work:** 2026-05-21 **T4 (ADR-073)** — onboarder prompt now adds up to 3 cosmetic-variant detail URLs per vendor (instead of skipping the detail backup for multi-variant products), for more independent render attempts. Prompt-only.
+- **Most recent work:** 2026-05-21 **E2–E4 prod e2e verification (ADR-074)** — full Chrome-DevTools-MCP-driven onboard → save → Run-now → delete on throwaway `wh1000xm5-e2e-test`. Committed report shows Target detail URL extracted live `$249.99` (the predicted ADR-071 price, end-to-end through the deployed documented-shape body — the 0/3 → 3/3 win is now real in prod, not just in the contained `cli probe-url`). T4 + ADR-067 backups behaved as designed.
 
-## Current state — 2026-05-21 Phase 21: T4 multi-variant detail-URL redundancy LANDED (ADR-073)
+## Current state — 2026-05-21 Phase 21: E2–E4 prod e2e PASSED (ADR-074)
 
-**Shipped this session (prompt-only, all green):**
-- **T4 — multi-variant single-SKU detail-URL redundancy.** `worker/.../onboarding/prompts/onboard_v1.txt`: removed the "multi-variant ⇒ skip the redundant detail URL" rule; replaced it with guidance to add the search URL PLUS up to **3** cosmetic-variant detail URLs (color/finish, same price, user indifferent), each a `page_type:"detail"` `universal_ai_search` source, preferred variant first, kept only if `detailExtractable:true`. Cap ≤3 detail URLs/vendor. Carve-out preserved: spec variants (capacity/size/RAM/trim) or a hard variant requirement ("must be black") → track ONLY the wanted variant. No adapter change (multi-source already dedupes by canonical URL + takes cheapest passing).
-- **No `vendor_quirks` change** (the brief's "optional variant hint" — declined; multi-variant is a generic product property, not a per-vendor quirk, and enriching `force_detail_backup` from a bool would force TS-consumer changes for no gain). Registry untouched → `vendor-quirks-data.ts` correctly did not regenerate; only `promptText.ts` did.
+**Verified this session against `ari-product-search.vercel.app`:**
+- **Target detail URL extracted `$249.99` live in the committed report's `.filter.jsonl`** — same price ADR-071 predicted, now produced by the deployed adapter (ADR-072 documented-shape body in production). The row was correctly post-check-rejected by `in_stock failed: quantity_available is 0` (Target reports Black variant OOS today). Phase 21's "Target detail probe hit-rate materially up" criterion is now satisfied end-to-end, not just in the contained E1.
+- **Best Buy detail backup → $248.00, B&H Black detail URL → $248.00** — ADR-067 redundancy is doing its job in prod.
+- **T4 multi-variant working as designed**: onboarder offered Black/Silver/Smoky Pink B&H detail URLs (ADR-073's new behavior), probe correctly demoted Silver/Pink as `detailExtractable:false` (still Cloudflare-walled, will be the focus of T6) and kept Black.
+- **Delete clean**: throwaway `products/wh1000xm5-e2e-test/` + `reports/wh1000xm5-e2e-test/` gone from origin in one commit; live `sony-wh-1000xm5` untouched (ADR-063 still working).
 
-**Checks:** worker `pytest` **286 passed**; web `tsc` + `eslint` (0 errors, 4 pre-existing SW warnings) clean; `npm run test:parity` green; `sync-prompt.js` regenerated only `promptText.ts`.
+**Followups noticed this session (queued, not blocking) — full detail in ADR-074:**
+1. **Onboarder doesn't translate "new only" hard requirement into a YAML `condition` filter** — user said "new only, no refurbished/open-box/used" in chat but saved YAML had only `spec_filters: [in_stock]`. Result: 24 of 30 ranked rows were used eBay listings (cheapest = used "ALWAYS LOW BATTERY" Sony at $89.99). Fix at the onboarder prompt + profile-schema layer.
+2. **Save-time validator requires `description:` but onboarder LLM omits it on first draft** — first Save returned `profile failed schema validation: description: expected string`. Make `description:` optional w/ default, OR have the prompt include it from turn 1. Concrete UX paper-cut on every new onboard.
+3. **Target search URL fetches 0 candidates** — documented-shape body fixes Target *detail*, but Target's search-tile walker still gets nothing (`target.com | ok | 0 | 0`). ADR-067 detail backup compensates for now; investigate alongside B&H search-tile (the existing deferred item).
 
 ## Next session — start here
 
-1. **T6 — re-measure B&H detail under the now-migrated documented shape.** If still walled (Cloudflare), record `known_failure`/`prefer_page_type` in `vendor_quirks.yaml` and regenerate web artifacts. (Documented-shape B&H was never measured — R2 was cut short.)
-2. **E2–E4 — self-driven prod e2e** (mutates origin/main + spends a GH-Action run, so deliberately deferred): onboard a **throwaway** slug (`wh1000xm5-e2e-test`, NOT live `sony-wh-1000xm5`) via Chrome DevTools MCP; confirm the onboarder keeps Target search + detail backup (and, per T4, multiple B&H color detail URLs); **save** + **Run-now**; assert the correct Target price in the committed `reports/<slug>/<date>.md` (post-check clean); then **delete** the test slug (Phase 16 button) and confirm `products/`+`reports/` are gone.
-3. **Then** the prior queue: Schedule&Alerts editor prod verification (ADR-059/060/061), mobile popover layout, delete→reload spot check (ADR-063); then **Phase 18**.
+1. **T6 — re-measure B&H detail under the now-migrated documented shape.** If still walled (Cloudflare, as this session's probe re-confirmed for Silver/Pink), record `known_failure`/`prefer_page_type` in `vendor_quirks.yaml` and regenerate web artifacts. (Documented-shape B&H was never measured in an N=5 matrix — R2 was cut short.)
+2. **Followup #1 from ADR-074** — onboarder "new only" → YAML `condition` filter. Cheapest fix: prompt change (onboarder must emit a `condition_in: [new]` spec_filter when user states "new only"); maybe a save-time schema warning if a chat-stated hard condition disappears in the YAML. Regenerate `promptText.ts` via `sync-prompt.js`.
+3. **Followup #2 from ADR-074** — `description:` schema vs onboarder gap (one-line fix either way).
+4. **Then** the prior queue: Schedule&Alerts editor prod verification (ADR-059/060/061), mobile popover layout; then **Phase 18**.
 
-> Re-running an R2-style N=5 hit-rate harness needs only the `cli probe-url` loop above; the throwaway harness was deleted — recreate from ADR-071 / ALTERLAB_OPTIONS.md if a full before/after table is wanted.
+> The R2-style N=5 hit-rate harness needs only the `cli probe-url` loop documented in ADR-071 / `docs/ALTERLAB_OPTIONS.md`.
 
 ## Blockers
 

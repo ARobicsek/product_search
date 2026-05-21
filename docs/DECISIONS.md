@@ -13,6 +13,7 @@ Status values:
 
 One line per ADR (newest first). Skim this; open only the bodies you need. (No ADR-036 — numbering gap.)
 
+- **ADR-074** — Phase 21 E2–E4 prod e2e verified: throwaway `wh1000xm5-e2e-test` slug onboarded → saved → Run-now → committed report shows Target detail URL extracted exactly `$249.99` (the predicted ADR-071/072 result, post-checked-out by `in_stock` on Black variant); Best Buy + B&H detail backups both at `$248.00`; T4 multi-variant probe correctly demoted unrenderable B&H Silver/Pink and kept Black; slug deletion left live `sony-wh-1000xm5` untouched — ACCEPTED (live-verified)
 - **ADR-073** — T4 multi-variant detail-URL redundancy (Phase 21): onboarder prompt now tells it to add up to 3 cosmetic-variant detail URLs (color/finish, same price) per stable-URL vendor — instead of skipping the detail backup for multi-variant products — for more independent render attempts; cap ≤3 detail URLs/vendor; spec variants (capacity/size) and hard variant requirements still track only the wanted one. Prompt-only, no adapter/registry change — ACCEPTED (impl)
 - **ADR-072** — Documented-shape AlterLab body migration LANDED (Phase 21, executes ADR-071's approved next-session plan): runtime + probe build the documented nested body via a pure builder; tier-4 escalation restored through `cost_controls.max_tier`; T5 probe↔runtime parity guard (shared fixture + pytest + `node --test` in CI). Live E1: Target detail 1.5 MB render, `$249.99` — ACCEPTED (impl + live-verified)
 - **ADR-071** — Extraction reliability (Phase 21): `wait_for` is a non-existent AlterLab param that 202-hangs → body 0 (migrate to `wait_condition`); legacy `min_tier:4` escalation also 202-hangs; the DOCUMENTED body shape (`location`/`cost_controls.max_tier`/`wait_condition`, keep `asp`) is 3/3 vs legacy 0/3 on Target detail. T1 (wait_for fix) + safe weak-render retry ACCEPTED/impl; documented-shape body migration ACCEPTED (user-approved 2026-05-21, implemented in ADR-072)
@@ -86,6 +87,34 @@ One line per ADR (newest first). Skim this; open only the bodies you need. (No A
 - **ADR-002** — Repo-as-database; SQLite as workflow-local cache only — ACCEPTED
 - **ADR-001** — LLM is downstream of verified data only (architectural commitment) — ACCEPTED
 
+
+## ADR-074 — Phase 21 E2–E4 prod e2e verification: Target $249.99 extracted live; T4 + ADR-067 backups confirmed; "new only" → YAML gap noted
+
+**Status**: ACCEPTED — live-verified 2026-05-21. Executes the E2–E4 tasks from the Phase 21 brief on the throwaway slug `wh1000xm5-e2e-test`; no new sign-off needed.
+
+**Date**: 2026-05-21
+
+**Context**: ADR-072 landed the documented-shape AlterLab body migration + T5 parity guard; ADR-073 landed T4 multi-variant detail-URL redundancy in the onboarder prompt. Both were green on the worker suite and the contained `cli probe-url` E1 (Target detail single 1.5 MB render → `$249.99`). The Phase 21 brief required a full self-driven prod e2e (E2–E4) on a throwaway slug before declaring the phase reliability win real — mutates `origin/main` + spends a GH Action run, so was deliberately deferred from the implementation session.
+
+**Decision (what was done this session)**: drove a full onboarding → save → Run-now → report-verify → delete cycle on a throwaway slug via Chrome DevTools MCP, against prod (`ari-product-search.vercel.app`), using `wh1000xm5-e2e-test` so the live `sony-wh-1000xm5` profile was never touched.
+
+**Evidence (committed reports, since-purged by the E4 deletion — preserved here)**:
+- **E2 — Onboarding**. Five vendors (eBay, Best Buy, Amazon, B&H, Target) requested. After probing, the onboarder produced: eBay search; Best Buy search + detail backup (`6577091.p`); Amazon search; B&H Black detail URL (`1706293-REG`); Target search + detail backup (`A-86314264`). **T4 was actively exercised**: the LLM proactively asked whether to add Silver/Smoky Pink B&H detail URLs (the new ADR-073 behavior); on probe, both variants returned `detailExtractable:false` and were correctly demoted (B&H Silver/Pink remain Cloudflare-walled per ADR-068's deferred bhphoto-search-walker note), Black kept. The onboarder also added the Target detail backup on request (ADR-067), which the prior session's broken AlterLab body would have demoted.
+- **E3 — Run-now**. GH Action committed `reports/wh1000xm5-e2e-test/2026-05-21.md` (and `data/2026-05-21T23-36-08Z.csv`) ~330 s after Run-now. The `.filter.jsonl` shows the Target detail URL extracted exactly: `{"title":"Sony WH-1000XM5 Bluetooth Wireless Noise-Canceling Headphones - Black","price":249.99,"url":".../A-86314264"}` — the **identical price ADR-071 predicted, now produced via the deployed documented-shape AlterLab path end-to-end** (not in a contained probe). It was correctly filtered out by post-check (`in_stock failed: quantity_available is 0`) — Target reports the Black variant out of stock today, so the validator rightly rejected it. Best Buy detail URL → $248.00 (in stock, passed); B&H Photo Black detail URL → $248.00 (in stock, passed); both ADR-067 detail-backup successes. Post-check also rejected an Amazon "Renewed" listing for in_stock/refurbished.
+- **E4 — Cleanup**. Delete-product confirm dialog → `Delete` → 15 s later origin shows `products/wh1000xm5-e2e-test/` and `reports/wh1000xm5-e2e-test/` both gone; `products/sony-wh-1000xm5` + `reports/sony-wh-1000xm5` untouched (ADR-063 single-commit Trees-API delete still working).
+
+**Consequence**:
+- The Phase 21 reliability win (Target detail 0/3 → 3/3 via documented-shape AlterLab body) is now **proven in deployed production**, not just in the contained ADR-072 E1 — closes the phase's "Done when" criterion for the Target detail-URL hit-rate.
+- ADR-067 detail backups (Best Buy + Target) and ADR-073 T4 multi-variant detail-URL redundancy (offered Black/Silver/Pink, kept whichever probed cleanly) both behave end-to-end as the prompt now describes.
+- The save-time schema validator + Trees-API delete both pass; no UI regressions surfaced.
+- **Noticed but deferred (not blocking, not regressions)**:
+  1. **Onboarder doesn't translate user-stated hard "new only" condition into a YAML `spec_filters` rule** — the chat captured "new condition only, no refurbished/open-box/used" as a stated hard requirement but the saved YAML only had `spec_filters: [in_stock]`, no `condition`-based rule. Result: 24 of 30 ranked rows in the report were used eBay listings (the cheapest at $89.99 was a used Sony with "ALWAYS LOW BATTERY"). The `ai_filter` correctly rejected a "Renewed" Amazon row via the `in_stock` rule (treating refurbished as not-new) but used items passed because nothing rejects "used". Onboarder prompt needs a condition-filter rule when the user states "new only". File the fix at the prompt+schema layer (prompt change in `worker/.../onboarding/prompts/onboard_v1.txt`, plus a profile-schema check that a stated `new`-only condition becomes a real filter), regenerate via `sync-prompt.js`.
+  2. **Save-time schema requires `description:` but onboarder LLM frequently omits it** — first Save attempt failed with `profile failed schema validation: description: expected string`. After a corrective user nudge, the LLM regenerated with a description and Save succeeded. Either make `description:` optional with a sensible default, or have the onboarder prompt always include it in the draft from turn 1 (so a normal "Save" works without a corrective round-trip). Either is fine; pick at fix-time. Affects every new user onboard — concrete UX paper-cut.
+  3. **Target search URL itself still returns 0 listings** — the documented-shape body works for Target *detail* URLs (extracted `$249.99`) but the search URL fetched 0 candidates in this run (`target.com | ok | 0 | 0`). Worth a future investigation, but the ADR-067 detail backup compensates today (Target detail extracted the live price). Possibly a search-tile-walker gap like B&H's deferred issue.
+
+**Operational note (no decision needed)**: the chat input in `app/onboard/page.tsx` is a React-controlled `<input type="text">` where the Send button gates on React state. Programmatic UI driving via MCP `fill()` sets DOM `value` but not React state — had to use the React native-setter shim (`Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set` + dispatch a bubbling `input` event) to nudge state. Native human typing has no such issue. Not a bug; just a future-MCP-session note.
+
+---
 
 ## ADR-073 — T4: multi-variant detail-URL redundancy in the onboarder prompt (Phase 21)
 

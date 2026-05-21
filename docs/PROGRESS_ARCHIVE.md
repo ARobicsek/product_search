@@ -8,6 +8,16 @@ so the live file stays small while nothing is lost. See
 
 ---
 
+## Current state — 2026-05-21 Phase 21: T4 multi-variant detail-URL redundancy LANDED (ADR-073) (SUPERSEDED by the 2026-05-21 E2–E4 prod e2e verification, ADR-074)
+
+**Shipped this session (prompt-only, all green):**
+- **T4 — multi-variant single-SKU detail-URL redundancy.** `worker/.../onboarding/prompts/onboard_v1.txt`: removed the "multi-variant ⇒ skip the redundant detail URL" rule; replaced it with guidance to add the search URL PLUS up to **3** cosmetic-variant detail URLs (color/finish, same price, user indifferent), each a `page_type:"detail"` `universal_ai_search` source, preferred variant first, kept only if `detailExtractable:true`. Cap ≤3 detail URLs/vendor. Carve-out preserved: spec variants (capacity/size/RAM/trim) or a hard variant requirement ("must be black") → track ONLY the wanted variant. No adapter change (multi-source already dedupes by canonical URL + takes cheapest passing).
+- **No `vendor_quirks` change** (the brief's "optional variant hint" — declined; multi-variant is a generic product property, not a per-vendor quirk, and enriching `force_detail_backup` from a bool would force TS-consumer changes for no gain). Registry untouched → `vendor-quirks-data.ts` correctly did not regenerate; only `promptText.ts` did.
+
+**Checks:** worker `pytest` **286 passed**; web `tsc` + `eslint` (0 errors, 4 pre-existing SW warnings) clean; `npm run test:parity` green; `sync-prompt.js` regenerated only `promptText.ts`.
+
+---
+
 ## Current state — 2026-05-21 Phase 21: documented-shape migration LANDED + live-verified (ADR-072) (SUPERSEDED by the 2026-05-21 T4 multi-variant landing, ADR-073)
 
 **Shipped this session (all green, live-verified):**
