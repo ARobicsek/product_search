@@ -8,6 +8,20 @@ so the live file stays small while nothing is lost. See
 
 ---
 
+## Current state — 2026-05-21 Phase 21: documented-shape migration LANDED + live-verified (ADR-072) (SUPERSEDED by the 2026-05-21 T4 multi-variant landing, ADR-073)
+
+**Shipped this session (all green, live-verified):**
+- **Documented-shape body migration (the ADR-071 headline fix).** `worker/.../adapters/universal_ai.py` now builds the AlterLab POST body via a new pure `_build_alterlab_body(url, opts)`, mapping flat internal keys → documented nested shape: `country`→`location.country`, `min_tier`→`cost_controls.max_tier` (string), `wait_condition`/`render_js`→`advanced.*`, keep `asp:true`, default cache. TS `buildAlterlabBody` (`web/lib/onboard/alterlab-shared.ts`) mirrors it; the probe inherits it (imports the shared helper).
+- **Tier-4 escalation restored via the documented path.** Both ladders (`_escalation_ladder` / `alterlabEscalationLadder`) now add a 3rd rung `min_tier:4` → `cost_controls.max_tier:"4"` (fast sync 200, NOT the legacy 202-hanging top-level `min_tier:4`).
+- **T5 probe↔runtime parity guard (anti-drift).** Shared fixture `worker/tests/fixtures/alterlab_parity/body_cases.json` asserted by BOTH `worker/tests/test_alterlab_parity.py` (pytest) and `web/scripts/check-alterlab-parity.test.mjs` (`node --test --experimental-strip-types`, wired into the web CI job as `npm run test:parity`). Would have caught the missing `asp` (ADR-070) instantly.
+- Updated the Python body-shape + escalation-ladder tests for the new shape/tier-4 rung.
+
+**Live E1 verification (single contained probe, no origin commit / no GH Action):** `cli probe-url <target …/A-86777236> --render --detail --country us --min-tier 4 --wait-condition networkidle` → origin 200, **1,544,723-char** render, Tier 1.5 extracted **Sony WH-1000XM5 — $249.99 (new)**. The migrated runtime path produces the predicted 3/3 result end-to-end.
+
+**Checks:** worker `pytest` **286 passed**, `ruff` + `mypy` clean; web `tsc` + `eslint` (0 errors) clean; `npm run test:parity` green; `sync-prompt.js` → no artifact drift (registry untouched).
+
+---
+
 ## Current state — 2026-05-21 Phase 21 in progress (T1 + safe retry shipped; documented-shape migration was the next-session task) (SUPERSEDED by the 2026-05-21 documented-shape migration landing, ADR-072)
 
 **The headline finding (ADR-071, evidence-backed):** the production AlterLab calls are unreliable because of the **request body shape**, not (only) bot-walls.

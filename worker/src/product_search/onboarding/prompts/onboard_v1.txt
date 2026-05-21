@@ -192,9 +192,6 @@ not in `sources:`.
   Both sources run on every scheduled execution; results merge + dedupe
   on URL, so the detail URL acts as a deterministic fallback when the
   search URL misses the product. Skip the redundant detail URL when:
-    - The product is multi-variant (color/size/capacity) and the
-      detail page only shows one default variant — the detail URL
-      may consistently surface the wrong variant.
     - The vendor's product URLs are unstable (some Shopify stores
       rotate slugs; some legacy stores reuse URLs across SKUs).
     - The vendor is eBay or another marketplace — every listing has
@@ -204,6 +201,36 @@ not in `sources:`.
   Tell the user when you add a redundant detail URL: e.g. "Added a
   direct product-detail backup for Target so we don't miss the product
   on runs where their search hiccups."
+
+  **Multi-variant single SKUs — add MULTIPLE detail URLs (capped),
+  don't skip.** A single model is often sold as several cosmetic
+  variants on the same vendor (e.g. the Sony WH-1000XM5 in Black /
+  Silver / Smoky Pink), each on its own product-detail URL at the same
+  price. Hard sites render non-deterministically, so the one variant
+  URL you picked may come back blocked/partial on a run where a sibling
+  variant's URL would have rendered cleanly. When the user is
+  INDIFFERENT to the variant (color / finish is incidental and every
+  variant is the same price and equally acceptable), add the search URL
+  PLUS up to THREE variant detail URLs — each its own
+  `universal_ai_search` source with `page_type: "detail"` and the same
+  `extra.alterlab_options`, the user's preferred variant listed first.
+  More independent URLs means more render attempts, so the odds that
+  ≥1 yields the live price on a given run go up. Rules:
+    - **Cap: ≤3 detail URLs per vendor** (plus the one search URL).
+      Don't enumerate every color — three is plenty for redundancy and
+      keeps per-run fetch cost bounded.
+    - Probe each variant URL with `page_type: "detail"` and keep only
+      the ones that return `detailExtractable: true`.
+  Do NOT spread across variants when the "variants" are really
+  different products at different prices (storage capacity, screen
+  size, RAM amount, trim level) OR when the user requires one specific
+  variant (e.g. "must be black"). In those cases track ONLY the wanted
+  variant's detail URL — a sibling would surface the wrong product at
+  the wrong price (or be filtered out, wasting the fetch).
+
+  Tell the user, e.g. "Added Black + Silver + Smoky Pink detail URLs
+  for B&H so at least one renders even when a single color page
+  hiccups."
 - `nemixram_storefront` — NEMIX Ram's Shopify storefront. Param:
   `storefront_url`. RAM-specific.
 - `cloudstoragecorp_ebay` — CloudStorageCorp's eBay store. Param:

@@ -13,6 +13,7 @@ Status values:
 
 One line per ADR (newest first). Skim this; open only the bodies you need. (No ADR-036 — numbering gap.)
 
+- **ADR-073** — T4 multi-variant detail-URL redundancy (Phase 21): onboarder prompt now tells it to add up to 3 cosmetic-variant detail URLs (color/finish, same price) per stable-URL vendor — instead of skipping the detail backup for multi-variant products — for more independent render attempts; cap ≤3 detail URLs/vendor; spec variants (capacity/size) and hard variant requirements still track only the wanted one. Prompt-only, no adapter/registry change — ACCEPTED (impl)
 - **ADR-072** — Documented-shape AlterLab body migration LANDED (Phase 21, executes ADR-071's approved next-session plan): runtime + probe build the documented nested body via a pure builder; tier-4 escalation restored through `cost_controls.max_tier`; T5 probe↔runtime parity guard (shared fixture + pytest + `node --test` in CI). Live E1: Target detail 1.5 MB render, `$249.99` — ACCEPTED (impl + live-verified)
 - **ADR-071** — Extraction reliability (Phase 21): `wait_for` is a non-existent AlterLab param that 202-hangs → body 0 (migrate to `wait_condition`); legacy `min_tier:4` escalation also 202-hangs; the DOCUMENTED body shape (`location`/`cost_controls.max_tier`/`wait_condition`, keep `asp`) is 3/3 vs legacy 0/3 on Target detail. T1 (wait_for fix) + safe weak-render retry ACCEPTED/impl; documented-shape body migration ACCEPTED (user-approved 2026-05-21, implemented in ADR-072)
 - **ADR-070** — Probe Tier 1.5 mirror was unfaithful: TS `fetchViaAlterlab` omitted `asp:true`, so AlterLab returned partial/Cloudflare-challenge renders and `detailExtractable` was a false negative for valid detail URLs (Target). Add `asp:true` to match the runtime — ACCEPTED (impl)
@@ -85,6 +86,29 @@ One line per ADR (newest first). Skim this; open only the bodies you need. (No A
 - **ADR-002** — Repo-as-database; SQLite as workflow-local cache only — ACCEPTED
 - **ADR-001** — LLM is downstream of verified data only (architectural commitment) — ACCEPTED
 
+
+## ADR-073 — T4: multi-variant detail-URL redundancy in the onboarder prompt (Phase 21)
+
+**Status**: ACCEPTED — implemented 2026-05-21. Executes the T4 task from the ADR-071-approved next-session queue; no new sign-off needed.
+
+**Date**: 2026-05-21
+
+**Context**: ADR-067 added a single redundant product-detail URL backup for single-SKU products on stable-URL vendors, but the prompt told the onboarder to *skip* that backup whenever the product was "multi-variant (color/size/capacity)" — on the theory that one detail URL "may consistently surface the wrong variant." The 2026-05-21 prod onboard exposed the real cost of that blanket skip: the Sony WH-1000XM5 sells as Black/Silver/Smoky Pink on B&H, each its own detail URL at the same price, and hard sites render non-deterministically (ADR-070/071) — on an unlucky run the one variant URL you happened to pick comes back a Cloudflare challenge / partial render while a sibling color's URL would have rendered cleanly. So "multi-variant ⇒ skip the detail backup" actively removed the redundancy the phase wants. Phase 21 brief task T4 (user-approved): add multiple URLs per vendor for multi-variant single SKUs.
+
+**Decision**:
+- **Prompt-only change** to `worker/src/product_search/onboarding/prompts/onboard_v1.txt` (regenerated into `web/lib/onboard/promptText.ts` via `sync-prompt.js`). No adapter change — the multi-source runtime already merges + dedupes by canonical URL and takes the cheapest passing, so N detail URLs for one vendor is N independent render attempts at no new logic.
+- **Removed** the "multi-variant ⇒ skip the redundant detail URL" bullet. Replaced it with a "Multi-variant single SKUs — add MULTIPLE detail URLs (capped), don't skip" subsection: when the user is INDIFFERENT to the variant (cosmetic color/finish, every variant the same price and equally acceptable), add the search URL PLUS up to THREE variant detail URLs (each its own `universal_ai_search` source with `page_type: "detail"` + the same `extra.alterlab_options`), preferred variant first, probing each and keeping only `detailExtractable: true`.
+- **Cap: ≤3 detail URLs per vendor** (plus the one search URL) — bounds per-run fetch cost; the cost guardrail the brief asked to confirm.
+- **Carve-out preserved**: do NOT spread across variants when they are really different products at different prices (storage capacity, screen size, RAM, trim) OR when the user requires one specific variant ("must be black") — track ONLY the wanted variant's detail URL, since a sibling would surface the wrong product/price or be filtered out (wasted fetch). This keeps the report clean for genuine spec-variant / hard-requirement cases.
+- **No `vendor_quirks` change.** The brief listed an "optional `vendor_quirks` variant hint" — declined: multi-variant-ness is a generic product property, not a per-vendor quirk, and enriching `force_detail_backup` from a bool would force changes in the TS save-time-gate consumers (`vendor-quirks-data.ts` + `adr067-check.ts`) for no gain. Registry left untouched; `vendor-quirks-data.ts` correctly did not regenerate.
+
+**Consequence**:
+- A fresh onboarding of a cosmetic-multi-variant single SKU (headphones, etc.) on a hard vendor now keeps several independent detail URLs, materially raising the odds ≥1 renders the live price per run — the render-reliability win the phase targets, with cost bounded at ≤3 URLs/vendor.
+- Risk: for a vendor where colors are priced differently and the user is indifferent, "cheapest passing" could surface a non-preferred color as the headline price; acceptable (report shows the listing title incl. color) and the carve-out routes genuine spec/hard-requirement cases to a single URL.
+- Checks: worker `pytest` 286 passed, web `tsc`/`eslint` clean (0 errors), `npm run test:parity` green; `sync-prompt.js` regenerated only `promptText.ts` (registry untouched).
+- **Deferred (unchanged from ADR-072):** T6 (re-measure B&H detail under the documented shape) and E2–E4 (full prod onboarding e2e on a throwaway slug — mutates origin/main + spends a GH-Action run).
+
+---
 
 ## ADR-072 — Documented-shape AlterLab body migration landed + probe↔runtime parity guard (Phase 21)
 

@@ -7,28 +7,23 @@ Full session-by-session history → [PROGRESS_ARCHIVE.md](PROGRESS_ARCHIVE.md) (
 ## Active phase
 
 - **Closed:** Phases 0–16; **Phase 17** (schedule editor + alerts); **Phase 19** (universal adapter accuracy & vendor reach); **Phase 20** (reliable scheduling trigger).
-- **IN PROGRESS:** **Phase 21 — Extraction reliability** ([PHASES.md#phase-21](PHASES.md#phase-21--extraction-reliability-hard-site-render-hit-rate-proposed--confirm-design-before-coding)). T1 + safe retry (prior session); **the headline fix — documented AlterLab body shape + tier-4 escalation — LANDED + live-verified 2026-05-21 (ADR-072).** Remaining: T4, T6, E2–E4.
+- **IN PROGRESS:** **Phase 21 — Extraction reliability** ([PHASES.md#phase-21](PHASES.md#phase-21--extraction-reliability-hard-site-render-hit-rate-proposed--confirm-design-before-coding)). T1 + safe retry + documented body shape + tier-4 escalation + T5 parity guard all landed (prior sessions); **T4 multi-variant detail-URL redundancy LANDED 2026-05-21 (ADR-073).** Remaining: T6, E2–E4.
 - **Queued after:** **Phase 18 — Polish + second-product proof**.
-- **Most recent work:** 2026-05-21 **documented-shape body migration (ADR-072)** — the 0/3→3/3 fix from ADR-071, now in the runtime + probe + a CI parity guard; live E1 confirmed.
+- **Most recent work:** 2026-05-21 **T4 (ADR-073)** — onboarder prompt now adds up to 3 cosmetic-variant detail URLs per vendor (instead of skipping the detail backup for multi-variant products), for more independent render attempts. Prompt-only.
 
-## Current state — 2026-05-21 Phase 21: documented-shape migration LANDED + live-verified (ADR-072)
+## Current state — 2026-05-21 Phase 21: T4 multi-variant detail-URL redundancy LANDED (ADR-073)
 
-**Shipped this session (all green, live-verified):**
-- **Documented-shape body migration (the ADR-071 headline fix).** `worker/.../adapters/universal_ai.py` now builds the AlterLab POST body via a new pure `_build_alterlab_body(url, opts)`, mapping flat internal keys → documented nested shape: `country`→`location.country`, `min_tier`→`cost_controls.max_tier` (string), `wait_condition`/`render_js`→`advanced.*`, keep `asp:true`, default cache. TS `buildAlterlabBody` (`web/lib/onboard/alterlab-shared.ts`) mirrors it; the probe inherits it (imports the shared helper).
-- **Tier-4 escalation restored via the documented path.** Both ladders (`_escalation_ladder` / `alterlabEscalationLadder`) now add a 3rd rung `min_tier:4` → `cost_controls.max_tier:"4"` (fast sync 200, NOT the legacy 202-hanging top-level `min_tier:4`).
-- **T5 probe↔runtime parity guard (anti-drift).** Shared fixture `worker/tests/fixtures/alterlab_parity/body_cases.json` asserted by BOTH `worker/tests/test_alterlab_parity.py` (pytest) and `web/scripts/check-alterlab-parity.test.mjs` (`node --test --experimental-strip-types`, wired into the web CI job as `npm run test:parity`). Would have caught the missing `asp` (ADR-070) instantly.
-- Updated the Python body-shape + escalation-ladder tests for the new shape/tier-4 rung.
+**Shipped this session (prompt-only, all green):**
+- **T4 — multi-variant single-SKU detail-URL redundancy.** `worker/.../onboarding/prompts/onboard_v1.txt`: removed the "multi-variant ⇒ skip the redundant detail URL" rule; replaced it with guidance to add the search URL PLUS up to **3** cosmetic-variant detail URLs (color/finish, same price, user indifferent), each a `page_type:"detail"` `universal_ai_search` source, preferred variant first, kept only if `detailExtractable:true`. Cap ≤3 detail URLs/vendor. Carve-out preserved: spec variants (capacity/size/RAM/trim) or a hard variant requirement ("must be black") → track ONLY the wanted variant. No adapter change (multi-source already dedupes by canonical URL + takes cheapest passing).
+- **No `vendor_quirks` change** (the brief's "optional variant hint" — declined; multi-variant is a generic product property, not a per-vendor quirk, and enriching `force_detail_backup` from a bool would force TS-consumer changes for no gain). Registry untouched → `vendor-quirks-data.ts` correctly did not regenerate; only `promptText.ts` did.
 
-**Live E1 verification (single contained probe, no origin commit / no GH Action):** `cli probe-url <target …/A-86777236> --render --detail --country us --min-tier 4 --wait-condition networkidle` → origin 200, **1,544,723-char** render, Tier 1.5 extracted **Sony WH-1000XM5 — $249.99 (new)**. The migrated runtime path produces the predicted 3/3 result end-to-end.
-
-**Checks:** worker `pytest` **286 passed**, `ruff` + `mypy` clean; web `tsc` + `eslint` (0 errors) clean; `npm run test:parity` green; `sync-prompt.js` → no artifact drift (registry untouched).
+**Checks:** worker `pytest` **286 passed**; web `tsc` + `eslint` (0 errors, 4 pre-existing SW warnings) clean; `npm run test:parity` green; `sync-prompt.js` regenerated only `promptText.ts`.
 
 ## Next session — start here
 
-1. **T4 — multi-URL per vendor for multi-variant single SKUs** (onboarder prompt + optional `vendor_quirks` variant hint). No adapter change (multi-source already dedupes by canonical URL); cap ≤3 detail URLs/vendor.
-2. **T6 — re-measure B&H detail under the now-migrated documented shape.** If still walled (Cloudflare), record `known_failure`/`prefer_page_type` in `vendor_quirks.yaml` and regenerate web artifacts. (Documented-shape B&H was never measured — R2 was cut short.)
-3. **E2–E4 — self-driven prod e2e** (mutates origin/main + spends a GH-Action run, so deliberately deferred from the migration session): onboard a **throwaway** slug (`wh1000xm5-e2e-test`, NOT live `sony-wh-1000xm5`) via Chrome DevTools MCP; confirm the onboarder keeps Target search + detail backup; **save** + **Run-now**; assert the correct Target price in the committed `reports/<slug>/<date>.md` (post-check clean); then **delete** the test slug (Phase 16 button) and confirm `products/`+`reports/` are gone.
-4. **Then** the prior queue: Schedule&Alerts editor prod verification (ADR-059/060/061), mobile popover layout, delete→reload spot check (ADR-063); then **Phase 18**.
+1. **T6 — re-measure B&H detail under the now-migrated documented shape.** If still walled (Cloudflare), record `known_failure`/`prefer_page_type` in `vendor_quirks.yaml` and regenerate web artifacts. (Documented-shape B&H was never measured — R2 was cut short.)
+2. **E2–E4 — self-driven prod e2e** (mutates origin/main + spends a GH-Action run, so deliberately deferred): onboard a **throwaway** slug (`wh1000xm5-e2e-test`, NOT live `sony-wh-1000xm5`) via Chrome DevTools MCP; confirm the onboarder keeps Target search + detail backup (and, per T4, multiple B&H color detail URLs); **save** + **Run-now**; assert the correct Target price in the committed `reports/<slug>/<date>.md` (post-check clean); then **delete** the test slug (Phase 16 button) and confirm `products/`+`reports/` are gone.
+3. **Then** the prior queue: Schedule&Alerts editor prod verification (ADR-059/060/061), mobile popover layout, delete→reload spot check (ADR-063); then **Phase 18**.
 
 > Re-running an R2-style N=5 hit-rate harness needs only the `cli probe-url` loop above; the throwaway harness was deleted — recreate from ADR-071 / ALTERLAB_OPTIONS.md if a full before/after table is wanted.
 
