@@ -8,63 +8,32 @@ Full session-by-session history → [PROGRESS_ARCHIVE.md](PROGRESS_ARCHIVE.md) (
 
 - **Closed:** Phases 0–16; **Phase 17** (schedule editor + alerts, reopened/extended/re-closed 2026-05-17); **Phase 19** (universal adapter accuracy & vendor reach, 2026-05-17); **Phase 20** (reliable scheduling trigger — genuinely proven end-to-end 2026-05-18, ADR-052/054).
 - **Queued (next phase):** **Phase 18 — Polish + second-product proof** ([PHASES.md](PHASES.md#phase-18--polish--second-product-proof-replaces-old-phase-12)).
-- **Most recent work:** a run of 2026-05-18 inter-phase fixes (ADR-053→063) culminating in **ADR-063** (delete-product UX), then the **2026-05-20 AlterLab custom parameters** (ADR-065), then a same-day **sony-wh-1000xm5 vendor-URL unblock** pass (target typo + bestbuy nosplash; microcenter/bhpv deferred), then an **accessory-bundle pack_size guard** in `_parse_pack` (Best Buy bundles were reported at half price), then **ADR-067** (onboarder adds redundant detail-URL backup per vendor for single-SKU products). All inter-phase, none a Phase-18 gate.
+- **Most recent work:** 2026-05-20 inter-phase fixes — ADR-065 (AlterLab custom params), ADR-067 (onboarder redundant detail-URL backup), plus profile-URL fixes for sony-wh-1000xm5 and an accessory-bundle `pack_size` guard. Full detail in [PROGRESS_ARCHIVE.md](PROGRESS_ARCHIVE.md).
 
-## Current state — 2026-05-20 (AlterLab custom parameters — ADR-065 DONE; sony-wh-1000xm5 vendor-URL follow-up DONE)
+## Current state — 2026-05-20 closed at `7515e77`; next session validates ADR-067
 
-### What shipped earlier today (ADR-065; on `origin/main`)
+All 2026-05-20 follow-ups are on `origin/main`:
+- `e93fd47` — sony-wh-1000xm5 profile URL fixes (target typo + bestbuy `&intl=nosplash`)
+- `4c61507` — `_parse_pack` accessory-bundle guard + SYSTEM_PROMPT clarification (regression test added; worker 264/264 green)
+- `7515e77` — ADR-067 onboarder prompt update for redundant detail-URL backup (no adapter changes)
 
-- **Adapter custom parameters** — Added `alterlab_options` propagation to `universal_ai.py` fetch cascade. Extracts `country`, `min_tier`, and `wait_for` from profile `sources` configuration (under `query.extra`) and serializes them in the AlterLab POST API payload.
-- **CLI custom parameters** — Exposed `--country`, `--min-tier <int>`, and `--wait-for` parameters in the CLI's `probe-url` diagnostic utility, enforcing validation against `ALTERLAB_API_KEY`.
-- **Anti-fragile protection** — Preserved backward compatibility for positional lambda mock definitions in all existing tests by only passing `alterlab_options` keyword-arguments when non-empty.
-- **Verification & Tests** — Added comprehensive unit tests in `test_universal_ai.py` and `test_cli.py`. The entire test suite (262 tests) is 100% green. Manually probed Best Buy successfully using `--country us --min-tier 3`.
-- **ADR-065** — Added decisions log for custom AlterLab parameter mapping inside `docs/DECISIONS.md`.
-
-### Follow-up (this session — vendor-URL fixes on `origin/main` after push)
-
-The first scheduled run after ADR-065 deployed still returned 0 listings passed for `sony-wh-1000xm5` (target.com 37/0; microcenter/bhpv/bestbuy all 0/0). Live probing with the profile's exact `alterlab_options` showed **`alterlab_options` propagation itself works correctly** — three different vendor-side failures. Two fixed at the profile-URL level:
-
-- **target.com**: URL typo `sony+wh1000mx5` (m/x swapped) → `sony+wh1000xm5`. Caused unreliable fuzz matches across runs; an earlier same-day run got 43/1 by luck, the prod run got 37/0.
-- **bestbuy.com**: Best Buy serves a country-selector splash on first visit *despite* `country: us` AlterLab routing — fixed by appending `&intl=nosplash`. Verified live (body 7 KB → 1.6 MB; anchor candidates 0 → 12).
-
-Two deferred (see "Noticed but deferred"):
-
-- **microcenter.com**: AlterLab returns a Cloudflare challenge page even at `min_tier: 3`; `min_tier: 4` silently fails (body_len 0).
-- **bhphotovideo.com**: page renders fully (200 KB body, 24 WH-1000XM5 mentions, prices visible) but `_extract_candidates` finds only 4 anchors — search-result tiles aren't in the static-HTML shape the walker recognises.
-
-Profile change: only [products/sony-wh-1000xm5/profile.yaml](../products/sony-wh-1000xm5/profile.yaml) — 2 URL edits. No code changes, no new ADR (tactical per-profile fix).
-
-### Follow-up #2 — accessory-bundle pack_size guard (this session)
-
-The first run after the URL fixes returned passing listings from Best Buy, but **bundle prices were reported at half**: e.g. the "WH-1000XM5 ... + Wood Headphone Stand Bundle" page-price $269.99 was reported as $135 unit-price. Tier 2's LLM was tagging accessory-bundle listings as `pack_size=2` (because the SYSTEM_PROMPT listed "bundle" alongside true homogeneous multi-pack patterns), and `_parse_pack` halved the price.
-
-Fix (`universal_ai.py`):
-- SYSTEM_PROMPT: removed "bundle" from the pack_size examples and added an explicit instruction that `pack_size > 1` applies ONLY to homogeneous multi-packs ("2-pack", "8x32GB", "kit of 4"); accessory bundles (different items) keep `pack_size=1`.
-- `_parse_pack`: defensive guard added. When the title contains "bundle" but no explicit homogeneous-multi-pack pattern, an LLM-claimed `pack_size > 1` is downgraded to 1. Tests added (`test_parse_pack_accessory_bundle_guard`).
-
-Worker test suite 264/264 green.
-
-### Follow-up #3 — redundant detail-URL backup pattern (ADR-067; this session)
-
-User asked for a **general** strategy to improve hit rate on flaky search vendors (Target's same search URL randomly returned the product or didn't, run-to-run). Picked: onboarder-time URL redundancy + eager fetch every run.
-
-Onboarder prompt change ([worker/src/product_search/onboarding/prompts/onboard_v1.txt](../worker/src/product_search/onboarding/prompts/onboard_v1.txt)) plus regenerated [web/lib/onboard/promptText.ts](../web/lib/onboard/promptText.ts) via `sync-prompt.js`: for single-SKU products on stable-URL vendors, the onboarder now adds BOTH a search URL AND a direct product-detail URL (with `page_type: "detail"`) as two separate `universal_ai_search` sources per vendor. Both fetch every run; results merge + dedupe by URL. No adapter changes — schema and `_cmd_search` already support multiple entries per vendor.
-
-Caveats:
-- Skip conditions documented in the prompt (multi-variant products, slug-rotating stores, marketplaces).
-- **Existing profiles do NOT auto-upgrade.** sony-wh-1000xm5 etc. keep their single search URL until manually re-onboarded or edited via the chat.
-
-Full rationale in ADR-067.
+The user planned to re-onboard the sony-wh-1000xm5 product (or a similar single-SKU one) after deploy to exercise the new ADR-067 behavior. Reviewing what the onboarder actually produced is the next session's first task.
 
 ## Next session — start here
 
-1. Get the user's **prod test results** for the Schedule&Alerts editor (ADR-059/060/061) and confirm the never-verified mobile (~390px) popover layout. If a defect surfaces it's almost certainly in `web/lib/schedule.ts` (round-trip/builder) or the editor JSX.
-2. Spot-check the real delete→reload on the deployed app (ADR-063).
-3. Then start **Phase 18 — Polish + second-product proof**. (Profiles `lululemon-never-lost-keychain-wordmark` + `breville-barista-express` now exist on origin from the user's prod testing.)
+1. **Validate ADR-067 against the user's re-onboard attempt.** The user will arrive saying they tried onboarding a product again. Open the resulting profile under `products/<slug>/profile.yaml` and check:
+   - For each stable-URL retail vendor (Target, Best Buy, Walmart, Amazon, …) that the user kept: are there **two** `universal_ai_search` source entries — one search URL and one `page_type: "detail"` URL? Both with the same `extra.alterlab_options`?
+   - Did the onboarder skip the detail URL correctly when the product is multi-variant, when the vendor is eBay/marketplace, or when URLs aren't stable?
+   - Did the onboarder tell the user in chat that it added a detail-URL backup (per the prompt's "Tell the user when you add a redundant detail URL" instruction)?
+   - On the next scheduled run for that profile, is hit rate visibly better than the same product's prior runs?
+   Likely failure modes if the LLM doesn't comply with the new prompt: it forgets the detail URL entirely; it picks a wrong / out-of-stock variant; it tries to add a detail URL on eBay (should refuse); the runtime then double-counts the same listing via search + detail (dedupe should catch this — verify in the data CSV).
+   Source of the prompt change: [worker/src/product_search/onboarding/prompts/onboard_v1.txt](../worker/src/product_search/onboarding/prompts/onboard_v1.txt) (search "Redundant detail-URL backup"). Full rationale in [DECISIONS.md ADR-067](DECISIONS.md).
+2. **Optional retro-fit decision for sony-wh-1000xm5.** Existing profile still has only its Target search URL, so it will keep showing Target variance until manually re-onboarded or edited. Decide whether to retro-fit (30s YAML edit) or leave alone.
+3. **Then** the prior queue still applies: prod test results for Schedule&Alerts editor (ADR-059/060/061) + mobile (~390px) popover layout verification; delete→reload spot check (ADR-063); then start **Phase 18 — Polish + second-product proof**.
 
 ## Blockers
 
-None. (CI is green again — ADR-062 decoupled the worker suite + `validate-profiles` from app-mutable `products/`.)
+None. CI is green (ADR-062 decoupled the worker suite + `validate-profiles` from app-mutable `products/`). Worker test suite ran 264/264 green at end of 2026-05-20 session.
 
 ## Noticed but deferred (live only)
 

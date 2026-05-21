@@ -8,6 +8,55 @@ so the live file stays small while nothing is lost. See
 
 ---
 
+## Status as of 2026-05-20 (ADR-065 + sony-wh-1000xm5 vendor-URL/bundle/onboarder follow-ups — ALL DONE + pushed)
+
+### What shipped earlier today (ADR-065; on `origin/main`)
+
+- **Adapter custom parameters** — Added `alterlab_options` propagation to `universal_ai.py` fetch cascade. Extracts `country`, `min_tier`, and `wait_for` from profile `sources` configuration (under `query.extra`) and serializes them in the AlterLab POST API payload.
+- **CLI custom parameters** — Exposed `--country`, `--min-tier <int>`, and `--wait-for` parameters in the CLI's `probe-url` diagnostic utility, enforcing validation against `ALTERLAB_API_KEY`.
+- **Anti-fragile protection** — Preserved backward compatibility for positional lambda mock definitions in all existing tests by only passing `alterlab_options` keyword-arguments when non-empty.
+- **Verification & Tests** — Added comprehensive unit tests in `test_universal_ai.py` and `test_cli.py`. The entire test suite (262 tests) is 100% green. Manually probed Best Buy successfully using `--country us --min-tier 3`.
+- **ADR-065** — Added decisions log for custom AlterLab parameter mapping inside `docs/DECISIONS.md`.
+
+### Follow-up #1 — sony-wh-1000xm5 vendor-URL fixes (on `origin/main` after push; commit `e93fd47`)
+
+The first scheduled run after ADR-065 deployed still returned 0 listings passed for `sony-wh-1000xm5` (target.com 37/0; microcenter/bhpv/bestbuy all 0/0). Live probing with the profile's exact `alterlab_options` showed **`alterlab_options` propagation itself works correctly** — three different vendor-side failures. Two fixed at the profile-URL level:
+
+- **target.com**: URL typo `sony+wh1000mx5` (m/x swapped) → `sony+wh1000xm5`. Caused unreliable fuzz matches across runs; an earlier same-day run got 43/1 by luck, the prod run got 37/0.
+- **bestbuy.com**: Best Buy serves a country-selector splash on first visit *despite* `country: us` AlterLab routing — fixed by appending `&intl=nosplash`. Verified live (body 7 KB → 1.6 MB; anchor candidates 0 → 12).
+
+Two deferred (microcenter Cloudflare challenge, bhphotovideo extractor structural mismatch) — see live `PROGRESS.md` "Noticed but deferred".
+
+### Follow-up #2 — accessory-bundle pack_size guard (commit `4c61507`)
+
+The first run after the URL fixes returned passing listings from Best Buy, but **bundle prices were reported at half**: e.g. the "WH-1000XM5 ... + Wood Headphone Stand Bundle" page-price $269.99 was reported as $135 unit-price. Tier 2's LLM was tagging accessory-bundle listings as `pack_size=2` (because the SYSTEM_PROMPT listed "bundle" alongside true homogeneous multi-pack patterns), and `_parse_pack` halved the price.
+
+Fix (`universal_ai.py`):
+- SYSTEM_PROMPT: removed "bundle" from the pack_size examples and added an explicit instruction that `pack_size > 1` applies ONLY to homogeneous multi-packs ("2-pack", "8x32GB", "kit of 4"); accessory bundles (different items) keep `pack_size=1`.
+- `_parse_pack`: defensive guard added. When the title contains "bundle" but no explicit homogeneous-multi-pack pattern, an LLM-claimed `pack_size > 1` is downgraded to 1. Tests added (`test_parse_pack_accessory_bundle_guard`).
+
+Worker test suite 264/264 green.
+
+### Follow-up #3 — ADR-067 redundant detail-URL backup pattern (commit `7515e77`)
+
+User asked for a **general** strategy to improve hit rate on flaky search vendors (Target's same search URL randomly returned the product or didn't, run-to-run). Picked: onboarder-time URL redundancy + eager fetch every run.
+
+Onboarder prompt change (`worker/src/product_search/onboarding/prompts/onboard_v1.txt`) plus regenerated `web/lib/onboard/promptText.ts` via `sync-prompt.js`: for single-SKU products on stable-URL vendors, the onboarder now adds BOTH a search URL AND a direct product-detail URL (with `page_type: "detail"`) as two separate `universal_ai_search` sources per vendor. Both fetch every run; results merge + dedupe by URL. No adapter changes — schema and `_cmd_search` already support multiple entries per vendor.
+
+Caveats:
+- Skip conditions documented in the prompt (multi-variant products, slug-rotating stores, marketplaces).
+- **Existing profiles do NOT auto-upgrade.** sony-wh-1000xm5 etc. keep their single search URL until manually re-onboarded or edited via the chat.
+
+Full rationale in ADR-067.
+
+### Session housekeeping (2026-05-20)
+
+- Discarded a stale local-CLI run modification of `reports/sony-wh-1000xm5/2026-05-20.md` / `.filter.jsonl` that disagreed with the newer prod run on `origin`. Fast-forwarded to origin before any edits.
+- Deleted prior-session debug artifacts at user confirmation: `scratch.py`, `session_handoff.md`, `target.html`, `target2.html`, `ws.html`, `test-alterlab{,2..6}.js`, `test-probe.js`, `worker/{bb,bh,bh_detail,mc,mc_search}.html`, `reports/sony-wh-1000xm5/data/2026-05-20T19-19-43Z.csv`. Plus four `_probe_*.html` files this session created.
+- Per user instruction, future sessions should NOT maintain a `session_handoff.md` — use the session management pattern (PROGRESS.md + DECISIONS.md + PROGRESS_ARCHIVE.md) exclusively.
+
+---
+
 ## Status as of 2026-05-19 (docs/campground cleanup — ADR-064, DONE + pushed)
 
 ### What shipped (ADR-064; commits `f964061` then this block; on `origin/main`)
