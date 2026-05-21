@@ -6,6 +6,7 @@ import { renderProfileYaml } from '@/lib/onboard/render-yaml';
 import { getProductProfileContent } from '@/lib/github';
 import { readAlertsFromYaml } from '@/lib/alerts';
 import { probeAndUpdateProfile } from '@/lib/onboard/probe-and-update';
+import { checkForceDetailBackup, type Adr067Warning } from '@/lib/onboard/adr067-check';
 
 export const runtime = 'nodejs';
 export const maxDuration = 60;
@@ -54,6 +55,7 @@ export async function POST(request: NextRequest) {
   // Keep a reference to the raw draft so we can pass it to the background
   // probe step (only relevant for the `draft` path).
   let draftForProbe: Record<string, unknown> | null = null;
+  let adr067Warnings: Adr067Warning[] = [];
 
   if (body.draft !== undefined && body.draft !== null) {
     if (typeof body.draft !== 'object' || Array.isArray(body.draft)) {
@@ -85,6 +87,9 @@ export async function POST(request: NextRequest) {
       // Optimistic save: render YAML directly from the draft WITHOUT
       // running probes. Probes will run asynchronously after the response.
       draftForProbe = { ...draft };
+      // ADR-067/068: deterministic guardrail for force_detail_backup vendors.
+      // Computed before commit; surfaced as soft warnings in the response.
+      adr067Warnings = checkForceDetailBackup(draft);
       yamlText = renderProfileYaml(draft);
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'render-yaml failed';
@@ -154,6 +159,7 @@ export async function POST(request: NextRequest) {
   return Response.json({
     ok: true,
     probeStatus: draftForProbe ? 'pending' : 'skipped',
+    warnings: adr067Warnings,
     ...result,
   });
 }

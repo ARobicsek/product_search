@@ -40,33 +40,18 @@ const MIN_BODY_LENGTH = 500;
 // false negative. The probe still surfaces the failure as a *warning* in
 // reports[].reason but does not move the source to ``sources_pending``.
 //
-// Keep this list aligned with the verdicts in docs/VENDOR_REACH.md. Add a host
-// when both (a) AlterLab can reach it and (b) the universal_ai adapter has
-// extracted real candidates from it in a production run.
-const ALTERLAB_KNOWN_GOOD_HOSTS: ReadonlySet<string> = new Set([
-  'amazon.com',
-  'www.amazon.com',
-  'walmart.com',
-  'www.walmart.com',
-  'ebay.com',
-  'www.ebay.com',
-  'backmarket.com',
-  'www.backmarket.com',
-  'bestbuy.com',
-  'www.bestbuy.com',
-  'williams-sonoma.com',
-  'www.williams-sonoma.com',
-  'serversupply.com',
-  'www.serversupply.com',
-  'centralcomputer.com',
-  'www.centralcomputer.com',
-  'target.com',
-  'www.target.com',
-]);
+// The list is the single-source-of-truth vendor quirks registry
+// (worker/src/product_search/vendor_quirks.yaml, `alterlab_known_good: true`), rendered to
+// vendor-quirks-data.ts by scripts/sync-prompt.js at build time (ADR-068). Add
+// a host by editing the YAML — not here — when both (a) AlterLab can reach it
+// and (b) the universal_ai adapter has extracted real candidates in prod.
+import { ALTERLAB_KNOWN_GOOD_HOSTS } from '@/lib/onboard/vendor-quirks-data';
 
 function hostOf(url: string): string | null {
+  // Normalize to the www-stripped form the registry is keyed on.
   try {
-    return new URL(url).host.toLowerCase();
+    const h = new URL(url).host.toLowerCase();
+    return h.startsWith('www.') ? h.slice(4) : h;
   } catch {
     return null;
   }

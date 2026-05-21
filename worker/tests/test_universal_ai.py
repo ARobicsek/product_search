@@ -130,7 +130,7 @@ def test_fetch_emits_listings_with_verbatim_urls(monkeypatch: pytest.MonkeyPatch
     URLs are exact candidate URLs (no LLM URL hallucination possible)."""
     monkeypatch.setattr(
         universal_ai, "_fetch_html",
-        lambda url, timeout=20.0: (_load_html(), 200, "stub"),
+        lambda url, timeout=20.0, **_kw: (_load_html(), 200, "stub"),
     )
 
     def _llm(**kwargs: object) -> LLMResponse:
@@ -189,7 +189,7 @@ def test_fetch_drops_invented_indices(monkeypatch: pytest.MonkeyPatch) -> None:
     or emit Listings with bogus URLs."""
     monkeypatch.setattr(
         universal_ai, "_fetch_html",
-        lambda url, timeout=20.0: (_load_html(), 200, "stub"),
+        lambda url, timeout=20.0, **_kw: (_load_html(), 200, "stub"),
     )
     monkeypatch.setattr(universal_ai, "call_llm", _stub_llm_response(
         '{"listings": ['
@@ -205,7 +205,7 @@ def test_fetch_tolerates_prose_preamble(monkeypatch: pytest.MonkeyPatch) -> None
     """The shared _extract_json walks past a prose preamble (mirrors ai_filter)."""
     monkeypatch.setattr(
         universal_ai, "_fetch_html",
-        lambda url, timeout=20.0: (_load_html(), 200, "stub"),
+        lambda url, timeout=20.0, **_kw: (_load_html(), 200, "stub"),
     )
     monkeypatch.setattr(universal_ai, "call_llm", _stub_llm_response(
         'Here are the listings I found:\n\n'
@@ -219,6 +219,98 @@ def test_fetch_tolerates_prose_preamble(monkeypatch: pytest.MonkeyPatch) -> None
 def test_fetch_returns_empty_when_no_url(monkeypatch: pytest.MonkeyPatch) -> None:
     query = AdapterQuery(source_id="universal_ai_search", extra={})
     assert universal_ai.fetch(query) == []
+
+
+# --- ADR-068: vendor_quirks registry integration --------------------------
+
+
+def _capture_fetch_args(monkeypatch: pytest.MonkeyPatch) -> dict[str, Any]:
+    """Replace _fetch_html_with_retry with a stub that records its args
+    and returns an empty body so the rest of the pipeline short-circuits."""
+    captured: dict[str, Any] = {}
+
+    def _stub(url: str, alterlab_options: dict[str, Any] | None = None) -> tuple[str, int, str]:
+        captured["url"] = url
+        captured["alterlab_options"] = alterlab_options
+        return ("", 200, "stub")
+
+    monkeypatch.setattr(universal_ai, "_fetch_html_with_retry", _stub)
+    return captured
+
+
+def test_vendor_quirks_applies_bestbuy_nosplash_transform(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The adapter must rewrite Best Buy search URLs to include
+    intl=nosplash — the regression guard for the e93fd47 fix."""
+    captured = _capture_fetch_args(monkeypatch)
+    query = AdapterQuery(
+        source_id="universal_ai_search",
+        extra={"url": "https://www.bestbuy.com/site/searchpage.jsp?st=wh-1000xm5"},
+    )
+    universal_ai.fetch(query)
+    assert "intl=nosplash" in captured["url"], captured["url"]
+
+
+def test_vendor_quirks_merges_default_alterlab_options(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A Best Buy URL with no source-level alterlab_options must pick up
+    {country:us, min_tier:3} from the registry defaults."""
+    captured = _capture_fetch_args(monkeypatch)
+    query = AdapterQuery(
+        source_id="universal_ai_search",
+        extra={"url": "https://www.bestbuy.com/site/searchpage.jsp?st=foo"},
+    )
+    universal_ai.fetch(query)
+    assert captured["alterlab_options"] == {"country": "us", "min_tier": 3}
+
+
+def test_vendor_quirks_source_alterlab_options_override_defaults(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Source-level options win on key conflict; defaults fill in the rest."""
+    captured = _capture_fetch_args(monkeypatch)
+    query = AdapterQuery(
+        source_id="universal_ai_search",
+        extra={
+            "url": "https://www.bestbuy.com/site/searchpage.jsp?st=foo",
+            "alterlab_options": {"min_tier": 4, "wait_for": 10},
+        },
+    )
+    universal_ai.fetch(query)
+    opts = captured["alterlab_options"]
+    assert opts["min_tier"] == 4   # source-level override
+    assert opts["wait_for"] == 10  # source-only
+    assert opts["country"] == "us"  # filled from defaults
+
+
+def test_vendor_quirks_skip_opt_out(monkeypatch: pytest.MonkeyPatch) -> None:
+    """extra.skip_vendor_quirks: true must bypass BOTH URL transforms AND
+    default option merging — escape hatch for profiles that intentionally
+    want the raw URL/options."""
+    captured = _capture_fetch_args(monkeypatch)
+    raw_url = "https://www.bestbuy.com/site/searchpage.jsp?st=foo"
+    query = AdapterQuery(
+        source_id="universal_ai_search",
+        extra={"url": raw_url, "skip_vendor_quirks": True},
+    )
+    universal_ai.fetch(query)
+    assert captured["url"] == raw_url  # not transformed
+    assert captured["alterlab_options"] is None  # defaults not merged
+
+
+def test_vendor_quirks_unknown_host_unchanged(monkeypatch: pytest.MonkeyPatch) -> None:
+    """An unregistered host must pass through untouched."""
+    captured = _capture_fetch_args(monkeypatch)
+    raw_url = "https://unknown-vendor.example/search?q=x"
+    query = AdapterQuery(
+        source_id="universal_ai_search",
+        extra={"url": raw_url},
+    )
+    universal_ai.fetch(query)
+    assert captured["url"] == raw_url
+    assert captured["alterlab_options"] is None
 
 
 # --- ADR-053: bounded retry on transient fetch failures --------------------
@@ -501,7 +593,7 @@ def test_fetch_uses_jsonld_and_skips_llm(monkeypatch: pytest.MonkeyPatch) -> Non
     that's the whole point of the tier (zero-cost extraction)."""
     monkeypatch.setattr(
         universal_ai, "_fetch_html",
-        lambda url, timeout=20.0: (
+        lambda url, timeout=20.0, **_kw: (
             SHOPIFY_JSONLD_FIXTURE.read_text(encoding="utf-8"), 200, "stub",
         ),
     )
@@ -533,7 +625,7 @@ def test_fetch_returns_empty_when_html_has_no_anchors(monkeypatch: pytest.Monkey
     challenge_html = "<html><body><p>Just a Cloudflare challenge.</p></body></html>"
     monkeypatch.setattr(
         universal_ai, "_fetch_html",
-        lambda url, timeout=20.0: (challenge_html, 200, "stub"),
+        lambda url, timeout=20.0, **_kw: (challenge_html, 200, "stub"),
     )
 
     def _should_not_be_called(**_: object) -> LLMResponse:  # pragma: no cover
@@ -838,7 +930,7 @@ def test_fetch_extracts_listings_offline_from_target_fixture(
     html = TARGET_FIXTURE.read_text(encoding="utf-8")
     monkeypatch.setattr(
         universal_ai, "_fetch_html",
-        lambda url, timeout=20.0: (html, 200, "stub"),
+        lambda url, timeout=20.0, **_kw: (html, 200, "stub"),
     )
 
     def _llm(**kwargs: object) -> LLMResponse:
@@ -1050,7 +1142,7 @@ def test_tier15_emits_single_listing_with_source_url(
     extractor tagged detail_llm, price taken from the body."""
     monkeypatch.setattr(
         universal_ai, "_fetch_html",
-        lambda url, timeout=20.0: (_detail_html(), 200, "stub"),
+        lambda url, timeout=20.0, **_kw: (_detail_html(), 200, "stub"),
     )
     monkeypatch.setattr(universal_ai, "call_llm", _stub_llm_response(
         '{"found": true, "title": "AMD EPYC 9255 24-Core 3.25GHz Processor", '
@@ -1083,7 +1175,7 @@ def test_tier15_out_of_stock_sets_quantity_zero(
     (reject when qty <= 0) can drop it downstream."""
     monkeypatch.setattr(
         universal_ai, "_fetch_html",
-        lambda url, timeout=20.0: (_detail_html(), 200, "stub"),
+        lambda url, timeout=20.0, **_kw: (_detail_html(), 200, "stub"),
     )
     monkeypatch.setattr(universal_ai, "call_llm", _stub_llm_response(
         '{"found": true, "title": "AMD EPYC 9255", "price_usd": 2335, '
@@ -1103,7 +1195,7 @@ def test_tier15_drops_fabricated_price(monkeypatch: pytest.MonkeyPatch) -> None:
     is dropped — the guard is stricter than the anchor tier (ADR-001)."""
     monkeypatch.setattr(
         universal_ai, "_fetch_html",
-        lambda url, timeout=20.0: (_detail_html(), 200, "stub"),
+        lambda url, timeout=20.0, **_kw: (_detail_html(), 200, "stub"),
     )
     monkeypatch.setattr(universal_ai, "call_llm", _stub_llm_response(
         '{"found": true, "title": "AMD EPYC 9255", "price_usd": 4567.89, '
@@ -1121,7 +1213,7 @@ def test_tier15_found_false_returns_empty(
 ) -> None:
     monkeypatch.setattr(
         universal_ai, "_fetch_html",
-        lambda url, timeout=20.0: (_detail_html(), 200, "stub"),
+        lambda url, timeout=20.0, **_kw: (_detail_html(), 200, "stub"),
     )
     monkeypatch.setattr(
         universal_ai, "call_llm", _stub_llm_response('{"found": false}')
@@ -1140,7 +1232,7 @@ def test_tier15_explicit_detail_does_not_fall_through_to_anchor(
     second (anchor-tier) LLM call — the page IS one product."""
     monkeypatch.setattr(
         universal_ai, "_fetch_html",
-        lambda url, timeout=20.0: (_detail_html(), 200, "stub"),
+        lambda url, timeout=20.0, **_kw: (_detail_html(), 200, "stub"),
     )
     calls: list[str] = []
 
@@ -1168,7 +1260,7 @@ def test_tier15_auto_mode_falls_through_to_anchor_tier(
     page is never regressed."""
     monkeypatch.setattr(
         universal_ai, "_fetch_html",
-        lambda url, timeout=20.0: (_detail_html(), 200, "stub"),
+        lambda url, timeout=20.0, **_kw: (_detail_html(), 200, "stub"),
     )
     state = {"n": 0}
 
@@ -1291,7 +1383,7 @@ def test_fetch_tier15_wiredzone_fixture_end_to_end(
     ).read_text(encoding="utf-8")
     monkeypatch.setattr(
         universal_ai, "_fetch_html",
-        lambda url, timeout=20.0: (html, 200, "stub"),
+        lambda url, timeout=20.0, **_kw: (html, 200, "stub"),
     )
     monkeypatch.setattr(universal_ai, "call_llm", _stub_llm_response(
         '{"found": true, "title": "AMD 100-000000694 EPYC 9255 24-Core", '

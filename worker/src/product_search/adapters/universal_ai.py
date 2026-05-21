@@ -39,6 +39,7 @@ from urllib.parse import urljoin, urlparse
 
 from product_search.llm import Message, call_llm
 from product_search.models import AdapterQuery, Listing
+from product_search.vendor_quirks import apply_url_transforms, merge_alterlab_options
 
 logger = logging.getLogger(__name__)
 
@@ -1578,6 +1579,30 @@ def fetch(query: AdapterQuery, profile: Any | None = None) -> list[Listing]:
         alterlab_options = nested_extra.get("alterlab_options")
     if not isinstance(alterlab_options, dict):
         alterlab_options = None
+
+    # ADR-068: vendor quirks registry. Defaults from product_search/vendor_quirks.yaml
+    # are merged UNDER explicit per-source options (source wins on conflict), and
+    # registered URL transforms (e.g. Best Buy ?intl=nosplash) are applied before
+    # fetch. Source can opt out with extra.skip_vendor_quirks: true — required
+    # for the rare case where a profile intentionally needs the raw URL/options.
+    skip_quirks = bool(query.extra.get("skip_vendor_quirks"))
+    if not skip_quirks and isinstance(nested_extra, dict):
+        skip_quirks = bool(nested_extra.get("skip_vendor_quirks"))
+    applied_transforms: list[str] = []
+    if not skip_quirks:
+        merged = merge_alterlab_options(url, alterlab_options)
+        if merged != alterlab_options:
+            logger.info(
+                f"[universal_ai] vendor_quirks: merged alterlab_options "
+                f"{alterlab_options or {}} <- defaults => {merged}"
+            )
+        alterlab_options = merged
+        transformed_url, applied_transforms = apply_url_transforms(url)
+        if applied_transforms:
+            logger.info(
+                f"[universal_ai] vendor_quirks: applied {applied_transforms} -> {transformed_url}"
+            )
+            url = transformed_url
 
     logger.info(f"[universal_ai] Fetching {url}")
     try:

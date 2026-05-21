@@ -13,6 +13,7 @@ Status values:
 
 One line per ADR (newest first). Skim this; open only the bodies you need. (No ADR-036 — numbering gap.)
 
+- **ADR-068** — Vendor quirks registry: single source of truth (`worker/src/product_search/vendor_quirks.yaml`) for per-vendor URL transforms / default alterlab_options / known failures, consumed by adapter + onboarder prompt + save-time gate — ACCEPTED (impl)
 - **ADR-067** — Onboarder: redundant product-detail URL backup for single-SKU products on stable-URL vendors — ACCEPTED (impl)
 - **ADR-066** — Onboarder: dynamic bot-block bypass probe + premium options schema support — ACCEPTED (impl)
 - **ADR-065** — Custom AlterLab parameters mapping (country, min_tier, wait_for) for bot-block avoidance — ACCEPTED (impl)
@@ -80,6 +81,29 @@ One line per ADR (newest first). Skim this; open only the bodies you need. (No A
 - **ADR-002** — Repo-as-database; SQLite as workflow-local cache only — ACCEPTED
 - **ADR-001** — LLM is downstream of verified data only (architectural commitment) — ACCEPTED
 
+
+## ADR-068 — Vendor quirks registry: one source of truth for per-vendor knowledge (ACCEPTED — implemented)
+
+**Status**: ACCEPTED — implemented 2026-05-20 (user request: "I'd like to harden our system to avoid errors in the future", after a re-onboard of sony-wh-1000xm5 silently dropped Best Buy and mis-applied ADR-067).
+
+**Date**: 2026-05-20
+
+**Context**: Vendor-specific knowledge lived in three uncoordinated places: (1) the onboarder prompt's hand-authored "Hard-Domain Knowledge Map"; (2) per-profile `profile.yaml` patches; (3) `web/lib/onboard/probe-url.ts`'s `ALTERLAB_KNOWN_GOOD_HOSTS` allowlist. There was no path from "a session learned a vendor quirk" to "the system uses it." The concrete failure: commit `e93fd47` fixed Best Buy by appending `&intl=nosplash` *directly to one profile's URL* (bypasses a country-selector splash that survives `country: us` AlterLab routing). That knowledge never reached the prompt, so when the user re-onboarded the same product the onboarder hit HTTP/2 errors on Best Buy and gave up. Two more latent gaps surfaced the same way: microcenter.com's Cloudflare-vs-tier ceiling (the onboarder happily promised listings a scheduled run would silently return 0 for), and ADR-067 compliance drift (the prompt told the LLM to add both a search and a detail URL; it added one).
+
+**Decision**:
+- **Registry as single source of truth**: `worker/src/product_search/vendor_quirks.yaml`, keyed by `www`-stripped host. Per-host fields: `default_alterlab_options`, `url_transforms` (conditional query-param rewrites), `force_detail_backup` (ADR-067 flag), `alterlab_known_good`, `prefer_page_type`, `known_failure` (severity + summary + onboarder_action), `notes`.
+- **Consumer A — runtime adapter** (`adapters/universal_ai.py` via new `vendor_quirks.py` loader): on each fetch, merge `default_alterlab_options` UNDER the source's explicit options (source wins on key conflict), apply `url_transforms` before fetch, log every applied transform. Opt-out per source with `extra.skip_vendor_quirks: true`. **Old profiles benefit automatically** — the registry makes the per-profile `nosplash` patch redundant.
+- **Consumer B — onboarder prompt**: the hand-authored knowledge map in `onboard_v1.txt` is replaced by `<!-- VENDOR_QUIRKS_BEGIN/END -->` markers; `web/scripts/sync-prompt.js` renders the YAML into prose between them at build time. Prompt and adapter can no longer drift.
+- **Consumer C — save-time gate** (`web/lib/onboard/adr067-check.ts`): for `force_detail_backup` hosts, a single-SKU product missing either a search URL or a `page_type:"detail"` URL produces a **soft warning** returned in the `/api/onboard/save` response and surfaced in the chat UI. Soft (not a hard block) because legitimate edge cases exist (multi-variant detail pages, slug-rotating stores); the save still commits. The probe-url `ALTERLAB_KNOWN_GOOD_HOSTS` set is also now generated from the same registry (`vendor-quirks-data.ts`).
+- **Process rule**: a one-line hard rule in CLAUDE.md + the detail in SESSION_PROTOCOL.md: when a session patches a single profile to fix a vendor-level quirk, it MUST update the registry in the same session. Per-profile patches without a registry update are the drift this ADR exists to prevent.
+
+**Consequences**:
+- One YAML edit now propagates to the adapter (runtime), the onboarder (prompt), and the save gate — no more three-place drift.
+- Risk: an adapter-level URL transform that silently goes stale (e.g. if `nosplash` stops working) breaks every profile on that host at once. Mitigated by per-transform logging (`applied_vendor_quirks` in adapter logs) and the `skip_vendor_quirks` opt-out.
+- Existing profiles do NOT need re-onboarding to benefit from transforms/defaults (adapter applies them at fetch time); they DO keep their own `extra.alterlab_options` which still take precedence.
+- Generated artifacts (`promptText.ts`, `vendor-quirks-data.ts`) must be regenerated via `sync-prompt.js` (runs on `predev`/`prebuild`) after any registry edit.
+
+---
 
 ## ADR-067 — Onboarder: redundant product-detail URL backup for single-SKU products on stable-URL vendors (ACCEPTED — implemented)
 

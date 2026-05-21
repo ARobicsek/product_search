@@ -45,22 +45,13 @@ You MUST proactively use the `probe_url` tool to validate any vendor search or p
 If the URL gets blocked (status 403, 429, 502, 503, 504), returns a body under 500 characters, or yields 0 JSON-LD and 0 product-anchors, you should optimize the request by supplying the appropriate `alterlab_options` parameter block.
 
 ### Hard-Domain Knowledge Map
-Certain domains have advanced anti-bot challenges, Cloudflare Turnstile, geofencing, or asynchronous (JS) price rendering. Use the following knowledge map to configure `alterlab_options` for both probing (as tool arguments) and the final draft `extra.alterlab_options` config:
+Certain domains have advanced anti-bot challenges, Cloudflare Turnstile, geofencing, or asynchronous (JS) price rendering. Use the following knowledge map to configure `alterlab_options` for both probing (as tool arguments) and the final draft `extra.alterlab_options` config.
 
-- **Best Buy (`bestbuy.com`)**: Geofenced. Needs US residential proxies.
-  * `alterlab_options`: `{ country: "us", min_tier: 3 }`
-- **Target (`target.com`)**: Akamai geoblocks/anti-bot. Needs US residential proxies.
-  * `alterlab_options`: `{ country: "us", min_tier: 3 }`
-- **Micro Center (`microcenter.com`)**: Cloudflare Turnstile protection. Needs US residential proxies and JS wait time.
-  * `alterlab_options`: `{ country: "us", min_tier: 3, wait_for: 5 }`
-- **B&H Photo (`bhphotovideo.com`)**: Cloudflare Turnstile protection. Needs US residential proxies and JS wait time.
-  * `alterlab_options`: `{ country: "us", min_tier: 3, wait_for: 5 }`
-- **Newegg (`newegg.com`)**: Asynchronous JS page rendering for pricing. Needs JS wait time.
-  * `alterlab_options`: `{ wait_for: 5 }`
-- **Williams-Sonoma (`williams-sonoma.com`)**: Geofenced. Needs US residential proxies.
-  * `alterlab_options`: `{ country: "us", min_tier: 3 }`
-- **Walmart (`walmart.com`)**: Advanced anti-bot footprint. Needs high-tier residential proxying.
-  * `alterlab_options`: `{ min_tier: 3 }`
+The block below is AUTO-RENDERED from `worker/src/product_search/vendor_quirks.yaml` by `web/scripts/sync-prompt.js` at build time — do NOT hand-edit it here. To add or change a vendor quirk, edit the YAML registry (ADR-068); the runtime adapter reads the same file, so the prompt and the adapter can never drift apart. When the registry lists `default_alterlab_options` for a host, the adapter merges them automatically (your explicit per-source values still win), and when it lists `url_transforms`, the adapter applies them before fetch — but you should STILL set `extra.alterlab_options` on the source and probe with them, both so probing succeeds and so the saved profile is self-documenting.
+
+<!-- VENDOR_QUIRKS_BEGIN -->
+(vendor knowledge is injected here from worker/src/product_search/vendor_quirks.yaml during the build; if you are reading this literal placeholder, run `node web/scripts/sync-prompt.js`)
+<!-- VENDOR_QUIRKS_END -->
 
 ### Guidelines for Probing
 1. When you identify a candidate URL for a "hard domain" from the list above, immediately invoke `probe_url` with the specified `alterlab_options` configured in the tool's `alterlab_options` parameter block.

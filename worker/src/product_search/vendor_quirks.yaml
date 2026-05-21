@@ -1,0 +1,164 @@
+# Vendor quirks registry — SINGLE SOURCE OF TRUTH for per-vendor knowledge.
+#
+# Why this file exists (ADR-068): vendor-specific knowledge (URL transforms,
+# default alterlab_options, known failures, AlterLab-known-good status) used to
+# live in three uncoordinated places — the onboarder prompt, per-profile YAML
+# patches, and web/lib/onboard/probe-url.ts. Knowledge learned by patching one
+# profile (e.g. Best Buy `&intl=nosplash` in e93fd47) never made it back into
+# the system, so the next onboarding repeated the same mistake. This registry
+# is the one place it lives now.
+#
+# Consumed by:
+#   - worker/.../adapters/universal_ai.py
+#       → merges `default_alterlab_options` under source-level options
+#       → applies `url_transforms` before fetch
+#       → logs every applied transform for debug
+#   - web/lib/onboard/vendor-quirks-data.ts  (generated at build time)
+#       → enforces `force_detail_backup` (ADR-067) at save time (soft warning)
+#       → drives the probe-url AlterLab-known-good allowlist
+#   - web/lib/onboard/promptText.ts  (generated at build time)
+#       → rendered vendor knowledge replaces the hand-authored list in the
+#         onboarder prompt so prompt and adapter never drift apart.
+#
+# Hosts are keyed WITHOUT the `www.` prefix; the loader strips it before
+# lookup. Add/edit entries when you learn a vendor-level fact — do NOT patch a
+# per-product profile.yaml instead (that's the drift this registry exists to
+# prevent — see SESSION_PROTOCOL.md).
+
+# --- Schema (per host) ----------------------------------------------------
+#
+# default_alterlab_options:        # merged under source-level extra.alterlab_options
+#   country: <str>                 # e.g. "us"
+#   min_tier: <int>                # 1..4
+#   wait_for: <int|str>            # seconds OR a CSS selector to wait on
+#
+# url_transforms:                  # ordered list, evaluated top-to-bottom
+#   - when:                        # all conditions must match; omit `when` to apply unconditionally
+#       path_prefix: <str>         # URL path startswith
+#       path_includes: <str>       # URL path contains
+#       query_includes:            # all given query params must match exactly
+#         <key>: <value>
+#     append_query:                # add ?k=v ONLY if k not already present
+#       <key>: <value>
+#     reason: |                    # free-text, surfaces in adapter logs
+#       Why this transform exists. Cite the commit/incident.
+#
+# force_detail_backup: true        # ADR-067: single-SKU products on this vendor
+#                                  # MUST have BOTH a search URL AND a
+#                                  # page_type:"detail" URL. Save-time soft
+#                                  # warning when violated.
+#
+# alterlab_known_good: true        # probe-url.ts: bare datacenter fetch may
+#                                  # fail (5xx, tiny body) but production
+#                                  # AlterLab handles it. Don't demote on probe.
+#
+# prefer_page_type: detail         # Onboarder hint: this vendor's search-tile
+#                                  # walker is unreliable; prefer detail URLs
+#                                  # via Tier 1.5 extractor.
+#
+# known_failure:                   # Vendor is currently broken; onboarder
+#                                  # should put URLs in sources_pending.
+#   severity: blocker | warning
+#   summary: |                     # what's wrong
+#   onboarder_action: |            # what the onboarder should do instead
+#
+# notes: |                         # free-text rendered into onboarder prompt
+
+# --- Entries (alphabetical by host) ----------------------------------------
+
+amazon.com:
+  alterlab_known_good: true
+
+backmarket.com:
+  alterlab_known_good: true
+
+bestbuy.com:
+  default_alterlab_options:
+    country: us
+    min_tier: 3
+  url_transforms:
+    - when:
+        path_prefix: /site/searchpage.jsp
+      append_query:
+        intl: nosplash
+      reason: |
+        Best Buy serves a country-selector splash on first visit even when
+        AlterLab is already routing through country:us. The intl=nosplash
+        query param skips it. Discovered 2026-05-20 (commit e93fd47): body
+        went 7 KB -> 1.6 MB, anchor candidates 0 -> 12. Without this, fresh
+        onboardings get HTTP/2 protocol errors and zero listings.
+  force_detail_backup: true
+  alterlab_known_good: true
+
+bhphotovideo.com:
+  default_alterlab_options:
+    country: us
+    min_tier: 3
+    wait_for: 5
+  prefer_page_type: detail
+  notes: |
+    B&H search-result tile walker misses tiles: a fully-rendered page (200 KB,
+    24 product mentions, prices visible) yields only 4 anchors to the static-
+    HTML walker. Use direct product-detail URLs with page_type:"detail" — the
+    Tier 1.5 detail extractor reads them reliably.
+
+centralcomputer.com:
+  alterlab_known_good: true
+
+ebay.com:
+  alterlab_known_good: true
+
+newegg.com:
+  default_alterlab_options:
+    wait_for: 5
+  notes: |
+    Newegg renders pricing asynchronously via JS — give it wait time before
+    extracting. No adapter yet for a dedicated Newegg source; route via
+    universal_ai_search.
+
+microcenter.com:
+  default_alterlab_options:
+    country: us
+    min_tier: 3
+    wait_for: 5
+  known_failure:
+    severity: blocker
+    summary: |
+      Cloudflare challenge served even at min_tier:3. Bumping to min_tier:4
+      produces silent AlterLab failure (body_len=0). No working path today —
+      this is a vendor-level outage waiting on AlterLab tier investigation.
+    onboarder_action: |
+      Put microcenter.com URLs in `sources_pending` (NOT `sources`) with this
+      summary as the note. Do not promise the user microcenter listings until
+      this is resolved.
+
+serversupply.com:
+  alterlab_known_good: true
+
+target.com:
+  default_alterlab_options:
+    country: us
+    min_tier: 3
+  force_detail_backup: true
+  alterlab_known_good: true
+  notes: |
+    Target search results are non-deterministic: the same `target.com/s/...`
+    URL surfaces the user's exact product on one run and only refurbished/
+    unrelated variants on the next (sony-wh-1000xm5 hit this 2026-05-20 —
+    43/1 vs 37/0 on same-day runs of the same URL). ADR-067 detail-URL
+    backup is essential for any single-SKU Target product.
+
+walmart.com:
+  default_alterlab_options:
+    min_tier: 3
+  alterlab_known_good: true
+  notes: |
+    Advanced anti-bot footprint — needs high-tier residential proxying.
+
+williams-sonoma.com:
+  default_alterlab_options:
+    country: us
+    min_tier: 3
+  alterlab_known_good: true
+  notes: |
+    Geofenced — needs US residential proxies.

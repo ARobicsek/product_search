@@ -28,7 +28,7 @@ interface ChatMessage {
 type SaveState =
   | { kind: 'idle' }
   | { kind: 'saving' }
-  | { kind: 'success'; slug: string; commitUrl: string | null; probeStatus: string }
+  | { kind: 'success'; slug: string; commitUrl: string | null; probeStatus: string; warnings: string[] }
   | { kind: 'error'; message: string; details?: string[] };
 
 function getKickoff(initialProfile?: string | null): ChatMessage {
@@ -259,6 +259,7 @@ export function OnboardChat({ initialProfile, initialSlug }: { initialProfile?: 
         error?: string;
         details?: string[];
         probeStatus?: string;
+        warnings?: Array<{ host: string; message: string }>;
       };
       if (!res.ok || !data.ok || !data.slug) {
         setSaveState({
@@ -268,13 +269,20 @@ export function OnboardChat({ initialProfile, initialSlug }: { initialProfile?: 
         });
         return;
       }
+      const warnings = (data.warnings ?? []).map((w) => w.message);
       setSaveState({
         kind: 'success',
         slug: data.slug,
         commitUrl: data.commitUrl ?? null,
         probeStatus: data.probeStatus ?? 'skipped',
+        warnings,
       });
-      setTimeout(() => router.push(`/${data.slug}`), 800);
+      // When there are advisory warnings (ADR-067), don't whisk the user away
+      // before they can read them — let them choose to navigate. Otherwise
+      // auto-open the saved product page as before.
+      if (warnings.length === 0) {
+        setTimeout(() => router.push(`/${data.slug}`), 800);
+      }
     } catch (err) {
       setSaveState({
         kind: 'error',
@@ -387,14 +395,34 @@ export function OnboardChat({ initialProfile, initialSlug }: { initialProfile?: 
             </div>
           )}
           {saveState.kind === 'success' && (
-            <div className="flex items-center gap-2 text-[11px] text-green-700 dark:text-green-400 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-900/40 rounded-lg px-3 py-2">
-              <CheckCircle2 className="w-4 h-4 shrink-0" />
-              <span>
-                Saved <strong>{saveState.slug}</strong>.
-                {saveState.probeStatus === 'pending'
-                  ? ' URL validation running in background…'
-                  : ' Opening the page…'}
-              </span>
+            <div className="space-y-2">
+              <div className="flex items-center gap-2 text-[11px] text-green-700 dark:text-green-400 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-900/40 rounded-lg px-3 py-2">
+                <CheckCircle2 className="w-4 h-4 shrink-0" />
+                <span>
+                  Saved <strong>{saveState.slug}</strong>.
+                  {saveState.probeStatus === 'pending'
+                    ? ' URL validation running in background…'
+                    : saveState.warnings.length === 0
+                      ? ' Opening the page…'
+                      : ''}
+                </span>
+              </div>
+              {saveState.warnings.length > 0 && (
+                <div className="text-[11px] text-amber-800 dark:text-amber-300 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-900/40 rounded-lg px-3 py-2 space-y-1">
+                  <div className="font-medium">Heads up — coverage could be better:</div>
+                  <ul className="list-disc ml-4 space-y-0.5">
+                    {saveState.warnings.map((w, i) => (
+                      <li key={i}>{w}</li>
+                    ))}
+                  </ul>
+                  <a
+                    href={`/${saveState.slug}`}
+                    className="inline-block mt-1 underline hover:no-underline"
+                  >
+                    Open {saveState.slug} anyway →
+                  </a>
+                </div>
+              )}
             </div>
           )}
           <button
