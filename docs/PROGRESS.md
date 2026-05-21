@@ -17,7 +17,7 @@ All 2026-05-20 follow-ups are on `origin/main`:
 - `4c61507` — `_parse_pack` accessory-bundle guard + SYSTEM_PROMPT clarification (regression test added; worker 264/264 green)
 - `7515e77` — ADR-067 onboarder prompt update for redundant detail-URL backup (no adapter changes)
 
-The user planned to re-onboard the sony-wh-1000xm5 product (or a similar single-SKU one) after deploy to exercise the new ADR-067 behavior. Reviewing what the onboarder actually produced is the next session's first task.
+After this session closed, the deployed app committed `c190034 chore: delete product sony-wh-1000xm5` — the user deleted the existing profile so they could **re-onboard the product from scratch** under the new ADR-067 behavior. Reviewing the resulting profile (whatever slug they use) is the next session's first task.
 
 ## Next session — start here
 
@@ -28,8 +28,7 @@ The user planned to re-onboard the sony-wh-1000xm5 product (or a similar single-
    - On the next scheduled run for that profile, is hit rate visibly better than the same product's prior runs?
    Likely failure modes if the LLM doesn't comply with the new prompt: it forgets the detail URL entirely; it picks a wrong / out-of-stock variant; it tries to add a detail URL on eBay (should refuse); the runtime then double-counts the same listing via search + detail (dedupe should catch this — verify in the data CSV).
    Source of the prompt change: [worker/src/product_search/onboarding/prompts/onboard_v1.txt](../worker/src/product_search/onboarding/prompts/onboard_v1.txt) (search "Redundant detail-URL backup"). Full rationale in [DECISIONS.md ADR-067](DECISIONS.md).
-2. **Optional retro-fit decision for sony-wh-1000xm5.** Existing profile still has only its Target search URL, so it will keep showing Target variance until manually re-onboarded or edited. Decide whether to retro-fit (30s YAML edit) or leave alone.
-3. **Then** the prior queue still applies: prod test results for Schedule&Alerts editor (ADR-059/060/061) + mobile (~390px) popover layout verification; delete→reload spot check (ADR-063); then start **Phase 18 — Polish + second-product proof**.
+2. **Then** the prior queue still applies: prod test results for Schedule&Alerts editor (ADR-059/060/061) + mobile (~390px) popover layout verification; delete→reload spot check (ADR-063); then start **Phase 18 — Polish + second-product proof**.
 
 ## Blockers
 
@@ -43,7 +42,7 @@ None. CI is green (ADR-062 decoupled the worker suite + `validate-profiles` from
 - **No in-app signal for silent external-trigger death** — a redundant independent trigger (e.g. Cloudflare Workers cron) is the only true fix; user was offered it, deferred.
 - **Email-on-alert** — deferred to its own ADR + sign-off (push delivery is confirmed working in prod, ADR-057).
 - **Phase 5 benchmark fixtures vs live data** — synth picks not re-confirmed against live `anthropic/claude-haiku-4-5` payloads (per ADR-019; not blocking, live data proves Haiku works).
-- **`sony-wh-1000xm5` microcenter.com Cloudflare bypass** — challenge page served, not solved at `min_tier: 3`; bumping to tier 4 produces silent AlterLab failure (`body_len=0`). Needs deeper AlterLab tier investigation or alternate anti-bot path.
-- **`sony-wh-1000xm5` bhphotovideo.com structural extraction mismatch** — full page renders but anchor walker finds only 4 candidates. Likely needs a `wait_for: <css-selector>` against the tile container, or a B&H-specific extractor tweak.
+- **microcenter.com Cloudflare bypass** (vendor-level, surfaced by sony-wh-1000xm5 on 2026-05-20) — challenge page served at `min_tier: 3`; bumping to tier 4 produces silent AlterLab failure (`body_len=0`). Affects any product the onboarder tries to route via microcenter.com. Needs deeper AlterLab tier investigation or alternate anti-bot path.
+- **bhphotovideo.com structural extraction mismatch** (vendor-level, surfaced by sony-wh-1000xm5 on 2026-05-20) — full page renders (200 KB, 24 product mentions) but `_extract_candidates` finds only 4 anchors — search-result tiles aren't in the static-HTML shape the walker recognises. Likely needs a `wait_for: <css-selector>` against the tile container, or a B&H-specific extractor tweak.
 
 > Older "noticed but deferred" / open-questions / per-phase notes (Phase 10–12 era) live in [PROGRESS_ARCHIVE.md](PROGRESS_ARCHIVE.md); they were stale fossils, not live items.
