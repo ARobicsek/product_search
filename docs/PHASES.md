@@ -486,3 +486,52 @@ Why this shape: cron-job.org only ever holds a low-value shared secret + a URL. 
 - ADR-052 flipped PROPOSED → ACCEPTED (implemented); cron-job.org job + Vercel env var documented in PROGRESS.md.
 
 **Out of scope**: replacing GitHub Actions as the executor; per-product external scheduling (one tick still fans out to all due profiles, unchanged); a dead-man's-switch / uptime monitor on the tick (noted as an optional later hardening in ADR-052); the Cloudflare Workers self-owned variant (documented as the considered-but-not-chosen alternative in ADR-052 — revisit only if cron-job.org proves unreliable or we want zero third-party schedulers).
+
+---
+
+## Phase 21 — Extraction reliability: hard-site render hit-rate (PROPOSED — confirm design before coding)
+
+**Status of this brief**: design choices below are **PROPOSED**; the user asked for a plan to review async (stepping away 2026-05-21) and will confirm/adjust before implementation. Lock the chosen approach into ADR-071 at implementation time.
+
+**Goal**: raise the hit-rate of `universal_ai` extraction against hard, bot-walled, JS-heavy vendors (Target, B&H, Best Buy, …) so that (a) the onboarder probe stops false-negatively dropping valid detail backups, and (b) scheduled/Run-now runs reliably return the correct live price instead of intermittently yielding 0. The user has explicitly approved **multiple fetch attempts and/or multiple URLs per vendor** as acceptable cost.
+
+**Why (evidence from the 2026-05-21 prod re-onboard, ADR-070 follow-up)**: After fixing the missing `asp:true` (ADR-070), a live `sony-wh-1000xm5` onboarding showed extraction is **non-deterministic per URL/run**. In one run: B&H **Silver** detail (`1706394`) → `detailExtractable:true` (the asp fix demonstrably works — a B&H detail page passing the probe was impossible before), but Target detail, B&H **Black** (`1706293`), and B&H **Smoky Pink** (`1860582`) all → `false`. The `false`s were not the code bug — they were partial renders (Target's "There was a temporary issue" stub) or challenge pages returned with HTTP 200. Net effect: on an unlucky run the onboarder drops the ADR-067 detail backup, and a scheduled run can return 0 for a vendor that would have yielded on a retry. Separately, B&H runtime returned **body 0** with `wait_for:'5'` — a likely `wait_for` int-seconds-vs-CSS-selector bug.
+
+**Root-cause framing (systemic, not per-vendor — ADR-067/068 ethos)**: the system fetches each URL **once** and trusts the first 200. The runtime's existing retry (`_fetch_html_with_retry`, ADR-053) only retries transient *exceptions*, not a 200-with-an-unusable-body. The onboarder probe doesn't retry at all. The fix is to treat "200 but the render is weak/blocked/empty-of-candidates" as a retryable condition with bounded escalation, and to harden the fetch params — applied uniformly via the vendor-quirks registry, not per profile.
+
+**Tasks** (do research first; it's cheap and de-risks the rest):
+
+1. **R1 — AlterLab API capability audit.** Read the AlterLab API docs (`api.alterlab.io` / `alterlab.io/docs`). Produce a short matrix of every render-quality knob and its cost: `wait` vs `wait_for` semantics (milliseconds? CSS selector? — this resolves the `wait_for:'5'` bug), `wait_until`/networkidle, scroll/`js_scenario`, `min_tier` tiers (what does 3 vs 4 actually buy — residential vs datacenter?), `country`, `session`, `block_resources`, any built-in retry. Output → a new `docs/ALTERLAB_OPTIONS.md` (or a section) + informs T1/T2.
+
+2. **R2 — Quantify the baseline flakiness.** Probe the Target WH-1000XM5 detail URL + the 3 B&H variant detail URLs + the Target search URL **N=5 times each** with current registry options; record hit-rate (extractable / total) and body-size distribution. This is the before-number we improve against (evidence-based; ~20 AlterLab calls ≈ a few cents). Save representative good + bad rendered bodies as fixtures under `worker/tests/fixtures/universal_ai/`.
+
+3. **T1 — Fix `wait_for` semantics** end-to-end (registry → adapter → probe → schema). Based on R1: if AlterLab `wait_for` is a CSS selector, registry numeric values (`wait_for:5`) are bugs that must become either a numeric `wait_ms`/`wait` field OR a real selector; add Pydantic + TS schema validation so a malformed `wait_for` can't be silently sent (it currently yields body 0). Regenerate web artifacts via `sync-prompt.js`.
+
+4. **T2 — Retry-on-weak-render in the runtime adapter.** Extend `_fetch_html_with_retry` (or wrap `_fetch_via_alterlab`) with a "result-unusable" predicate: HTTP 200 but (body < a per-vendor expected floor) OR (challenge/footprint signature present) OR (0 candidates / detail not extractable). On unusable → retry with **bounded escalation** (cap ≈ 3 attempts, backoff): attempt 1 = registry defaults; attempt 2 = add wait/networkidle; attempt 3 = `min_tier` 4. Escalation runs ONLY on detected-weak renders, so the happy path (most pages succeed on attempt 1) costs nothing extra. Log every attempt + the final verdict (`applied_vendor_quirks`-style).
+
+5. **T3 — Mirror the retry/escalation in the onboarder probe** (`probe-url.ts`) so onboard-time `detailExtractable` reflects the runtime's best effort, not one unlucky fetch. This is the direct fix for "the probe dropped a valid backup."
+
+6. **T4 — Multiple URLs per vendor for multi-variant single SKUs.** Onboarder prompt update: for a single SKU sold as multiple variants (colors) on a stable-URL vendor, propose the search URL + the target-variant detail URL + (optionally, capped) sibling-variant detail URLs as separate `universal_ai_search` sources; runtime already merges + dedupes by canonical URL and takes the cheapest passing. Raises the odds ≥1 URL renders per run. Keep a cap (e.g. ≤3 detail URLs/vendor) for cost. No adapter change (multi-source already supported); prompt + possibly `vendor_quirks` (`force_detail_backup` → a variant hint) only.
+
+7. **T5 — Probe↔runtime faithfulness guard (systemic anti-drift).** The missing `asp` (ADR-070) and the strip-method differences are symptoms of the TS probe being a hand-maintained parallel of the Python runtime. Add a **zero-cost unit test asserting the AlterLab request body the TS probe builds equals the one the Python adapter builds** for the same options dict (would have caught `asp` instantly), plus a fixture-based test that the TS strip→price-verify and Python strip→price-verify agree on the same saved HTML. Fail CI on divergence. (Both run offline against committed fixtures — no live calls, honors the no-live-slug rule.)
+
+8. **T6 — Documented fallback for genuinely-walled vendors.** If R2/T2 show a vendor still can't be reliably rendered even with escalation (B&H may be Cloudflare-walled like microcenter — only Silver rendered), record it in `vendor_quirks.yaml` as a `known_failure`/`prefer_page_type` nuance so the onboarder routes it to `sources_pending` rather than the system retrying forever. "More reliable," not "infinite retries."
+
+**End-to-end testing the implementer (Claude) runs itself this phase** (the user asked for full self-driven e2e incl. onboarding + running the slug; the user will be away):
+
+- **E1** — Re-run R2's probe hit-rate measurement after T1–T3; show the improvement vs baseline (target: Target detail ≥4/5; B&H best variant ≥4/5, or documented as walled per T6).
+- **E2** — Drive a **full onboarding via Chrome DevTools MCP** on a **throwaway test slug** (e.g. `wh1000xm5-e2e-test`, NOT the live `sony-wh-1000xm5` — do not clobber the good committed profile). Confirm the onboarder keeps Target search + detail backup and ≥1 B&H URL reliably.
+- **E3** — **Save** the test profile (this commits to `origin/main`), then **Run-now** via the UI; poll the GH Action; read the committed `reports/<slug>/<date>.md` + per-run CSV. Assert ≥1 vendor reports the correct live price (Target ≈ $249.99 ± tax/discount) and the post-check found no fabricated price/URL.
+- **E4** — **Delete the test slug** via the Phase 16 delete button and confirm `products/<slug>/` + `reports/<slug>/` are gone (honors the CLAUDE.md rule that no test/CI artifact may depend on a live slug). Capture any newly-seen live bodies as fixtures, strip session noise.
+
+**Done when**:
+- Target detail probe hit-rate materially up vs the R2 baseline (proposed bar: ≥4/5), measured and recorded.
+- A fresh onboarding reliably keeps the ADR-067 detail backup (no silent drop on a single weak render).
+- A Run-now/scheduled run on the test slug produces the correct Target price in the committed report, post-check clean.
+- `wait_for` semantics corrected; the `wait_for:'5'` → body-0 class of bug is gone (schema-validated).
+- Probe↔runtime AlterLab-request-body parity test (+ strip parity) in CI, green; guards against the next `asp`-style drift.
+- ADR-071 (retry-on-weak-render + escalation + multi-URL policy) written; `vendor_quirks.yaml` updated for any confirmed-walled vendor; test slug deleted; PROGRESS updated.
+
+**Cost guardrails / trade-offs to confirm (PROPOSED defaults)**: retries are bounded (≤3) and fire only on detected-weak renders, so steady-state run cost is ~unchanged; the worst case is ~3× one fetch for a genuinely flaky vendor. Multi-URL is capped at ≤3 detail URLs/vendor. E2E testing spends a handful of AlterLab calls + one Haiku onboarding + one search run (low single-digit cents). Confirm these caps are acceptable.
+
+**Out of scope**: native per-vendor adapters (still Tier-A, separate); replacing AlterLab (separate evaluation); fixing the B&H *search-tile* walker (still deferred — detail URLs are the path for B&H).

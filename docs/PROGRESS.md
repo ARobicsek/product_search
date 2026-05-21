@@ -19,13 +19,22 @@ ADR-069 was verified against the live Sony WH-1000XM5 detail URLs by running the
 
 Changed this session: [probe-url.ts](../web/lib/onboard/probe-url.ts) (`asp:true` in the AlterLab request body). `tsc --noEmit` clean, `eslint` 0 errors, `next build` green. No runtime/worker code changed.
 
+### 2026-05-21 prod re-onboard verification (post-ADR-070) — what we learned
+
+Drove a live `sony-wh-1000xm5` onboarding through the deployed onboarder (Chrome DevTools, deploy `27269f7` confirmed live). Results:
+- **ADR-070 `asp:true` fix works in prod**: B&H **Silver** detail (`1706394`) → `detailExtractable:true` — a B&H detail page passing the probe was impossible before (was always a Cloudflare challenge). The onboarder also correctly read the vendor-quirks registry ("B&H is a hard domain per the vendor quirks") and passed `page_type:"detail"`.
+- **But extraction is non-deterministic per URL/run**: same run, Target detail + B&H Black (`1706293`) + B&H Smoky Pink (`1860582`) all → `detailExtractable:false` (partial renders / "temporary issue" stub at HTTP 200, not the code bug). So the onboarder dropped the ADR-067 Target detail backup on this run.
+- Mobile onboarder layout at 390px is clean (amber `force_detail_backup` warning not exercised — it only shows after a save, which would clobber the live profile; not done).
+- **Did NOT save** — draft (Target search only) is worse than the committed profile.
+
+→ This motivated **Phase 21** (below): the root issue is single-fetch trust of a flaky 200; fix = retry-on-weak-render + escalation + multi-URL, applied via the registry.
+
 ## Next session — start here
 
-1. **Finish the ADR-069 live verification through the actual onboarder LLM** (this session verified the probe *mechanism* directly, not the chat path). Re-onboard sony-wh-1000xm5 in prod and watch that the onboarder (a) passes `page_type:"detail"` to `probe_url`, (b) now KEEPS a Target (and any other asp-needing) detail backup because the probe returns `detailExtractable:true`, and (c) still correctly routes B&H to `sources_pending` (B&H detail genuinely doesn't extract — see below). The `asp:true` fix is on `origin/main`; confirm Vercel redeployed it before testing.
-2. **B&H detail vendor-reach (NEW, deferred):** B&H's WH-1000XM5 detail URL returns empty (runtime) / Cloudflare challenge (probe) even at `min_tier:3, asp:true`. Investigate: (a) the `wait_for` type ambiguity — registry has `wait_for:5` (int seconds) but `cli --wait-for`/AlterLab may treat it as a CSS selector; (b) whether a different tier/wait clears B&H's Cloudflare. Until solved, B&H stays in `sources_pending`. Consider recording it as a `known_failure` in `vendor_quirks.yaml` like microcenter so the onboarder is told to park it.
-3. **(Optional, lower priority)** The onboarder LLM still may not proactively add the ADR-067 detail URLs even though the prompt + `force_detail_backup` tell it to. The save-time guardrail catches it, so this is a nicety, not a gate.
-4. **UI not yet browser-verified:** the OnboardChat amber warnings panel was NOT checked at ~390px mobile width — verify per the mobile-layout rule.
-5. **Then** the prior queue still applies: prod test results for Schedule&Alerts editor (ADR-059/060/061) + mobile (~390px) popover layout verification; delete→reload spot check (ADR-063); then start **Phase 18 — Polish + second-product proof**.
+1. **Phase 21 — Extraction reliability (hard-site render hit-rate)** is the queued next phase. Brief: [PHASES.md#phase-21](PHASES.md#phase-21--extraction-reliability-hard-site-render-hit-rate-proposed--confirm-design-before-coding). Design choices are **PROPOSED — the user reviews them async before coding** (asked for a plan to implement next session, incl. Claude self-driving full e2e: onboarding + running a throwaway test slug + deleting it). Confirm the cost-guardrail caps, then write ADR-071 and implement R1→T6 + E1→E4.
+2. **(Folded into Phase 21)** `wait_for` int-seconds-vs-CSS-selector bug (B&H runtime body-0 with `wait_for:'5'`) = Phase 21 T1. B&H walled-vendor fallback = Phase 21 T6.
+3. **(Optional, lower priority)** Onboarder LLM may still not proactively add ADR-067 detail URLs; save-time `force_detail_backup` guardrail catches it, so a nicety not a gate.
+4. **Then** the prior queue still applies: prod test results for Schedule&Alerts editor (ADR-059/060/061) + mobile (~390px) popover layout verification; delete→reload spot check (ADR-063); then **Phase 18 — Polish + second-product proof**.
 
 ## Blockers
 
