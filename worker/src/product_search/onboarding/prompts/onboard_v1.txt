@@ -169,6 +169,44 @@ not in `sources:`.
   search-results-URL-preferred guidance — do NOT set `page_type:
   "detail"` on those. A source entry looks like:
   `{"id": "universal_ai_search", "url": "https://vendor.com/<sku-page>", "page_type": "detail"}`.
+
+  **Redundant detail-URL backup (single-SKU products on stable-URL
+  vendors) — strongly preferred for reliability.** Search engines on
+  big retailers (Target, Best Buy, Walmart, …) are *flaky*: the same
+  query can surface the user's exact product on one run and silently
+  miss it on the next, leaving the runtime adapter to extract only
+  unrelated products. A direct product-detail URL is deterministic.
+  So whenever the user's product is a **single SKU** AND the vendor
+  has stable product-detail URLs (most retail sites), add BOTH a
+  search URL AND a direct product-detail URL as **two separate**
+  `universal_ai_search` source entries for that vendor. Workflow:
+
+    1. Find and probe a working search URL for the vendor (current
+       guidance applies — see "STRONGLY PREFER SEARCH-STYLE URLs"
+       below). Add it as a `universal_ai_search` source.
+    2. From the search results (or via `web_search` if needed),
+       identify the actual product-detail URL for the user's target
+       product on that vendor. Probe it with the same
+       `alterlab_options` you used for the search URL.
+    3. If the probe yields a priced detail page, add it as a SECOND
+       `universal_ai_search` source on the same vendor with
+       `page_type: "detail"`. Use the same `extra.alterlab_options`.
+
+  Both sources run on every scheduled execution; results merge + dedupe
+  on URL, so the detail URL acts as a deterministic fallback when the
+  search URL misses the product. Skip the redundant detail URL when:
+    - The product is multi-variant (color/size/capacity) and the
+      detail page only shows one default variant — the detail URL
+      may consistently surface the wrong variant.
+    - The vendor's product URLs are unstable (some Shopify stores
+      rotate slugs; some legacy stores reuse URLs across SKUs).
+    - The vendor is eBay or another marketplace — every listing has
+      its own ephemeral URL, so a single detail URL isn't a sensible
+      backup.
+
+  Tell the user when you add a redundant detail URL: e.g. "Added a
+  direct product-detail backup for Target so we don't miss the product
+  on runs where their search hiccups."
 - `nemixram_storefront` — NEMIX Ram's Shopify storefront. Param:
   `storefront_url`. RAM-specific.
 - `cloudstoragecorp_ebay` — CloudStorageCorp's eBay store. Param:

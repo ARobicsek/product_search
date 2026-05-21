@@ -8,7 +8,7 @@ Full session-by-session history → [PROGRESS_ARCHIVE.md](PROGRESS_ARCHIVE.md) (
 
 - **Closed:** Phases 0–16; **Phase 17** (schedule editor + alerts, reopened/extended/re-closed 2026-05-17); **Phase 19** (universal adapter accuracy & vendor reach, 2026-05-17); **Phase 20** (reliable scheduling trigger — genuinely proven end-to-end 2026-05-18, ADR-052/054).
 - **Queued (next phase):** **Phase 18 — Polish + second-product proof** ([PHASES.md](PHASES.md#phase-18--polish--second-product-proof-replaces-old-phase-12)).
-- **Most recent work:** a run of 2026-05-18 inter-phase fixes (ADR-053→063) culminating in **ADR-063** (delete-product UX), then the **2026-05-20 AlterLab custom parameters** (ADR-065), then a same-day **sony-wh-1000xm5 vendor-URL unblock** pass (target typo + bestbuy nosplash; microcenter/bhpv deferred), then an **accessory-bundle pack_size guard** in `_parse_pack` (Best Buy bundles were reported at half price). All inter-phase, none a Phase-18 gate.
+- **Most recent work:** a run of 2026-05-18 inter-phase fixes (ADR-053→063) culminating in **ADR-063** (delete-product UX), then the **2026-05-20 AlterLab custom parameters** (ADR-065), then a same-day **sony-wh-1000xm5 vendor-URL unblock** pass (target typo + bestbuy nosplash; microcenter/bhpv deferred), then an **accessory-bundle pack_size guard** in `_parse_pack` (Best Buy bundles were reported at half price), then **ADR-067** (onboarder adds redundant detail-URL backup per vendor for single-SKU products). All inter-phase, none a Phase-18 gate.
 
 ## Current state — 2026-05-20 (AlterLab custom parameters — ADR-065 DONE; sony-wh-1000xm5 vendor-URL follow-up DONE)
 
@@ -44,9 +44,17 @@ Fix (`universal_ai.py`):
 
 Worker test suite 264/264 green.
 
-### Open (this session — to address next)
+### Follow-up #3 — redundant detail-URL backup pattern (ADR-067; this session)
 
-User asked for a **general** strategy to improve hit rate on flaky search vendors (Target's search sometimes returns the actual product, sometimes doesn't, regardless of query spelling). Concrete options pending discussion: multi-URL per source in profile, adapter-side fallback chain, onboarder-time URL redundancy, vendor-specific extractors. **Not yet decided / coded.**
+User asked for a **general** strategy to improve hit rate on flaky search vendors (Target's same search URL randomly returned the product or didn't, run-to-run). Picked: onboarder-time URL redundancy + eager fetch every run.
+
+Onboarder prompt change ([worker/src/product_search/onboarding/prompts/onboard_v1.txt](../worker/src/product_search/onboarding/prompts/onboard_v1.txt)) plus regenerated [web/lib/onboard/promptText.ts](../web/lib/onboard/promptText.ts) via `sync-prompt.js`: for single-SKU products on stable-URL vendors, the onboarder now adds BOTH a search URL AND a direct product-detail URL (with `page_type: "detail"`) as two separate `universal_ai_search` sources per vendor. Both fetch every run; results merge + dedupe by URL. No adapter changes — schema and `_cmd_search` already support multiple entries per vendor.
+
+Caveats:
+- Skip conditions documented in the prompt (multi-variant products, slug-rotating stores, marketplaces).
+- **Existing profiles do NOT auto-upgrade.** sony-wh-1000xm5 etc. keep their single search URL until manually re-onboarded or edited via the chat.
+
+Full rationale in ADR-067.
 
 ## Next session — start here
 

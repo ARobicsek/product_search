@@ -13,6 +13,7 @@ Status values:
 
 One line per ADR (newest first). Skim this; open only the bodies you need. (No ADR-036 — numbering gap.)
 
+- **ADR-067** — Onboarder: redundant product-detail URL backup for single-SKU products on stable-URL vendors — ACCEPTED (impl)
 - **ADR-066** — Onboarder: dynamic bot-block bypass probe + premium options schema support — ACCEPTED (impl)
 - **ADR-065** — Custom AlterLab parameters mapping (country, min_tier, wait_for) for bot-block avoidance — ACCEPTED (impl)
 - **ADR-064** — Session apparatus: lean PROGRESS.md + verbatim archive, ADR index, size discipline, pre-authorized push — ACCEPTED (impl)
@@ -79,6 +80,25 @@ One line per ADR (newest first). Skim this; open only the bodies you need. (No A
 - **ADR-002** — Repo-as-database; SQLite as workflow-local cache only — ACCEPTED
 - **ADR-001** — LLM is downstream of verified data only (architectural commitment) — ACCEPTED
 
+
+## ADR-067 — Onboarder: redundant product-detail URL backup for single-SKU products on stable-URL vendors (ACCEPTED — implemented)
+
+**Status**: ACCEPTED — implemented 2026-05-20 (user request: "is there something we can do that will improve our likelihood to hit for hard sites like target, such as multiple ways of searching? (I'm not interested in solving the issue of THIS item; I want to solve the general problem of searching target.)")
+
+**Date**: 2026-05-20
+
+**Context**: Big-retailer search engines (Target, Best Buy, Walmart, …) are non-deterministic for the same query: the user's exact product surfaces on one run, vanishes on the next. The sony-wh-1000xm5 run on 2026-05-20 made this concrete — same Target search URL yielded `target.com 43/1` at 19:19Z (the WH-1000XM5 at $249.99 passed) and `target.com 37/0` at 21:21Z (only a refurbished variant came back, excluded by the title-excludes filter). A direct product-detail URL doesn't have this variance: if the page exists and shows a price, Tier 1.5's detail extractor recovers it deterministically. Verified live for the sony-wh-1000xm5 Target case: detail page yielded `unit_price_usd: 249.99` cleanly.
+
+**Decision**:
+- **Onboarder prompt update** (`onboard_v1.txt`): When the user's product is a **single SKU** AND the vendor has stable product-detail URLs (most retail sites: Target, Best Buy, Walmart, Amazon's `/dp/` URLs), the onboarder MUST add BOTH a search URL AND a direct product-detail URL as **two separate** `universal_ai_search` source entries for that vendor. The search URL is primary; the detail URL has `page_type: "detail"` and acts as a deterministic fallback.
+- **Skip conditions** documented in the prompt: multi-variant products where the detail page may show the wrong default variant; vendors with unstable URLs (slug-rotating Shopify stores); marketplaces with ephemeral per-listing URLs (eBay).
+- **Cost stance**: per the user's explicit choice on 2026-05-20, both sources fetch on every scheduled run (eager redundancy), not lazy-on-miss. Results merge + dedupe by URL. ~+1 fetch + 1 LLM call per affected vendor per run.
+- **No adapter changes**: the profile schema and `_cmd_search` already support multiple `universal_ai_search` entries per vendor; no code changes were needed besides the prompt update + `sync-prompt.js` regeneration of `web/lib/onboard/promptText.ts`.
+- **Existing profiles** (pre-ADR-067) do NOT auto-upgrade. They keep only their search URL until manually edited via the chat or onboarder.
+
+**Consequence**: New profiles produced after the deploy will have a deterministic detail-URL fallback per vendor wherever the product is a single SKU. Hit rate on flaky retailer search engines improves materially without per-vendor adapter code. Recurring run cost rises slightly per affected vendor (one extra Tier 1.5 LLM call). The change is purely additive and does not affect runs of existing profiles; users can retro-fit by re-onboarding or editing.
+
+---
 
 ## ADR-066 — Onboarder: dynamic bot-block bypass probe + premium options schema support (ACCEPTED — implemented)
 
