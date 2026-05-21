@@ -13,7 +13,7 @@ Status values:
 
 One line per ADR (newest first). Skim this; open only the bodies you need. (No ADR-036 — numbering gap.)
 
-- **ADR-071** — Extraction reliability (Phase 21): `wait_for` is a non-existent AlterLab param that 202-hangs → body 0 (migrate to `wait_condition`); legacy `min_tier:4` escalation also 202-hangs; the DOCUMENTED body shape (`location`/`cost_controls.max_tier`/`wait_condition`, keep `asp`) is 3/3 vs legacy 0/3 on Target detail. T1 (wait_for fix) + safe weak-render retry ACCEPTED/impl; documented-shape body migration PROPOSED (next session)
+- **ADR-071** — Extraction reliability (Phase 21): `wait_for` is a non-existent AlterLab param that 202-hangs → body 0 (migrate to `wait_condition`); legacy `min_tier:4` escalation also 202-hangs; the DOCUMENTED body shape (`location`/`cost_controls.max_tier`/`wait_condition`, keep `asp`) is 3/3 vs legacy 0/3 on Target detail. T1 (wait_for fix) + safe weak-render retry ACCEPTED/impl; documented-shape body migration ACCEPTED (user-approved 2026-05-21, implement next session)
 - **ADR-070** — Probe Tier 1.5 mirror was unfaithful: TS `fetchViaAlterlab` omitted `asp:true`, so AlterLab returned partial/Cloudflare-challenge renders and `detailExtractable` was a false negative for valid detail URLs (Target). Add `asp:true` to match the runtime — ACCEPTED (impl)
 - **ADR-069** — Detail-URL probe gap: `probe_url` evaluates `page_type:"detail"` URLs by a faithful Tier 1.5 mirror (`detailExtractable`), not list-anchor count, ending false demotion of valid detail pages — ACCEPTED (impl)
 - **ADR-068** — Vendor quirks registry: single source of truth (`worker/src/product_search/vendor_quirks.yaml`) for per-vendor URL transforms / default alterlab_options / known failures, consumed by adapter + onboarder prompt + save-time gate — ACCEPTED (impl)
@@ -87,9 +87,9 @@ One line per ADR (newest first). Skim this; open only the bodies you need. (No A
 
 ## ADR-071 — Extraction reliability: `wait_for` is a phantom param, `min_tier:4` 202-hangs, the documented AlterLab body shape is the fix (Phase 21)
 
-**Status**: PARTIALLY ACCEPTED/implemented + PROPOSED.
+**Status**: PARTIALLY ACCEPTED/implemented + ACCEPTED (user-approved 2026-05-21; implement next session).
 - **ACCEPTED + implemented this session**: T1 (`wait_for` → `wait_condition` everywhere + schema validation), the cheap weak-render predicate, and a *safe* bounded retry (no `min_tier:4`).
-- **PROPOSED (next session, needs the documented-shape body migration)**: replace the legacy AlterLab body shape with the documented one, and escalate via `cost_controls.max_tier`. Do NOT re-debate the *evidence* below — it's measured — but the body-shape migration is a real change to the production fetch path and is flagged for sign-off.
+- **ACCEPTED 2026-05-21 — user approved the next-session plan**: replace the legacy AlterLab body shape with the documented one, and escalate via `cost_controls.max_tier`. The user reviewed the R1/R2 evidence and signed off on the full next-session queue (documented-shape body migration + T2-escalation/T4/T5/T6/E1–E4). **No further sign-off required — implement directly.**
 
 **Date**: 2026-05-21
 

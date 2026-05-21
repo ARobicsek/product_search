@@ -7,7 +7,7 @@ Full session-by-session history → [PROGRESS_ARCHIVE.md](PROGRESS_ARCHIVE.md) (
 ## Active phase
 
 - **Closed:** Phases 0–16; **Phase 17** (schedule editor + alerts); **Phase 19** (universal adapter accuracy & vendor reach); **Phase 20** (reliable scheduling trigger).
-- **IN PROGRESS:** **Phase 21 — Extraction reliability** ([PHASES.md#phase-21](PHASES.md#phase-21--extraction-reliability-hard-site-render-hit-rate-proposed--confirm-design-before-coding)). Research done; T1 + safe retry shipped; **the big fix (documented AlterLab body shape) is queued for next session pending sign-off** — see ADR-071.
+- **IN PROGRESS:** **Phase 21 — Extraction reliability** ([PHASES.md#phase-21](PHASES.md#phase-21--extraction-reliability-hard-site-render-hit-rate-proposed--confirm-design-before-coding)). Research done; T1 + safe retry shipped; **the big fix (documented AlterLab body shape) is USER-APPROVED (2026-05-21) and queued for next session** — see ADR-071.
 - **Queued after:** **Phase 18 — Polish + second-product proof**.
 - **Most recent work:** 2026-05-21 **Phase 21 R1/R2 + ADR-071**. Live AlterLab probes overturned the phase's assumed approach (see below).
 
@@ -30,7 +30,7 @@ Full session-by-session history → [PROGRESS_ARCHIVE.md](PROGRESS_ARCHIVE.md) (
 
 ## Next session — start here
 
-1. **Phase 21, the actual fix (PROPOSED — quick sign-off, then implement): migrate the AlterLab wire body to the documented shape.** In `worker/.../adapters/universal_ai.py::_fetch_via_alterlab` AND `web/lib/onboard/alterlab-shared.ts::buildAlterlabBody`, build `{url, sync, formats:["html"], asp:true, location:{country}, cost_controls:{max_tier:"<tier>"}, advanced:{render_js:true, wait_condition}}` instead of top-level `country`/`min_tier`. Map registry `min_tier` → `cost_controls.max_tier` (string). Keep `asp:true`. Leave cache default. This is what turned Target detail **0/3 → 3/3**. Re-run the R2 harness logic to confirm ≥4/5 before/after.
+1. **Phase 21, the actual fix (USER-APPROVED 2026-05-21 — no further sign-off needed, implement directly): migrate the AlterLab wire body to the documented shape.** In `worker/.../adapters/universal_ai.py::_fetch_via_alterlab` AND `web/lib/onboard/alterlab-shared.ts::buildAlterlabBody`, build `{url, sync, formats:["html"], asp:true, location:{country}, cost_controls:{max_tier:"<tier>"}, advanced:{render_js:true, wait_condition}}` instead of top-level `country`/`min_tier`. Map registry `min_tier` → `cost_controls.max_tier` (string). Keep `asp:true`. Leave cache default. This is what turned Target detail **0/3 → 3/3**. Re-run the R2 harness logic to confirm ≥4/5 before/after.
 2. **Make escalation use `cost_controls.max_tier`** (now that the body supports it) — restore a real tier-4 rung via the documented path (NOT legacy `min_tier:4`).
 3. **T4** — multi-URL per vendor for multi-variant single SKUs (onboarder prompt + registry hint).
 4. **T5** — write the probe↔runtime parity test: shared JSON fixture of `{options→expected_body}` + `{html→stripped/price-verdict}`, asserted by a Python test (pytest) and a `node --test --experimental-strip-types` script importing `alterlab-shared.ts` (verified locally to run on Node 22.16). Wire the node script into web CI.
