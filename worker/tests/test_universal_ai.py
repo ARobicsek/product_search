@@ -1336,6 +1336,32 @@ def test_parse_pack_extracts_multi_packs() -> None:
     assert kit_p == 30.00
 
 
+def test_parse_pack_accessory_bundle_guard() -> None:
+    """A title containing 'Bundle' (no homogeneous-multi-pack pattern) downgrades
+    LLM-claimed pack_size > 1 back to 1.
+
+    Regression for the 2026-05-20 Best Buy sony-wh-1000xm5 case where Tier 2's
+    LLM tagged accessory bundles ("WH-1000XM5 ... + Wood Headphone Stand Bundle")
+    as pack_size=2; ``_parse_pack`` halved the bundle price and reported the
+    headphone at $135 instead of the actual $269.99.
+    """
+    title = "Sony - WH-1000XM5 Wireless Noise Canceling Headphones, Silver + Wood Headphone Stand Bundle"
+    is_kit, count, unit_p, kit_p = universal_ai._parse_pack(title, 269.99, llm_pack_size=2)
+    assert is_kit is False
+    assert count == 1
+    assert unit_p == 269.99
+    assert kit_p is None
+
+    # An explicit homogeneous multi-pack still wins even when "bundle" is in title.
+    is_kit, count, unit_p, kit_p = universal_ai._parse_pack(
+        "WidgetCorp Bundle: 4-pack", 80.00, llm_pack_size=4
+    )
+    assert is_kit is True
+    assert count == 4
+    assert unit_p == 20.00
+    assert kit_p == 80.00
+
+
 def test_alterlab_options_propagation(monkeypatch: pytest.MonkeyPatch) -> None:
     """When AdapterQuery has alterlab_options, they are propagated through fetch
     and correctly serialized in the AlterLab API payload."""

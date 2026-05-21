@@ -63,8 +63,12 @@ For each kept candidate, return:
   - "price_usd": numeric only (e.g. 47.99). Pick the most plausible price
     from price_hints + context. If you cannot identify a price, OMIT this
     candidate entirely.
-  - "pack_size": integer. If the title or context indicates a multi-pack, bundle, count,
-    or kit (e.g. "2-pack", "5 pack", "6 count", "8x32GB"), extract the number of items/units sold. Default to 1.
+  - "pack_size": integer. ONLY set > 1 when the listing sells multiple
+    units of the SAME product (true homogeneous multi-packs: "2-pack",
+    "5 pack", "6 count", "8x32GB", "kit of 4"). If the listing is one
+    product bundled with a DIFFERENT accessory (e.g. "headphones + stand",
+    "camera + lens", "console + game"), pack_size MUST be 1 — the base
+    product is still one unit. Default to 1.
   - "condition": one of "new", "used", "refurbished" (default "new")
 
 Output a JSON object: {"listings": [...]}
@@ -531,6 +535,16 @@ _PACK_PATTERNS = re.compile(
     re.IGNORECASE,
 )
 
+# Accessory-bundle marker: a title saying "Bundle" without an explicit
+# homogeneous-multi-pack pattern almost always means "product + different
+# accessory" (e.g. "WH-1000XM5 ... + Wood Headphone Stand Bundle"), NOT
+# 2-of-the-same-item. Sony-wh-1000xm5 Best Buy bundles (2026-05-20) were
+# reported at half-price ($269.99 -> $135) because the LLM classified the
+# bundle as pack_size=2 and ``_parse_pack`` divided. Used as a guard to
+# downgrade LLM-claimed pack_size > 1 back to 1 when only an accessory
+# bundle marker is present.
+_ACCESSORY_BUNDLE_MARKER = re.compile(r"\bbundle\b", re.IGNORECASE)
+
 
 def _parse_pack(
     title: str, price_usd: float, llm_pack_size: int = 1
@@ -545,6 +559,15 @@ def _parse_pack(
                 count = int(count_str)
             except ValueError:
                 count = 1
+    # Guard: an LLM-claimed pack_size > 1 is overridden back to 1 when the
+    # title contains an accessory-bundle marker ("bundle") but NO explicit
+    # numeric multi-pack pattern. See _ACCESSORY_BUNDLE_MARKER above.
+    if (
+        count > 1
+        and _ACCESSORY_BUNDLE_MARKER.search(title)
+        and not _PACK_PATTERNS.search(title)
+    ):
+        count = 1
     if count > 1:
         return True, count, round(price_usd / count, 2), price_usd
     return False, 1, price_usd, None

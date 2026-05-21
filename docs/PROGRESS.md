@@ -8,7 +8,7 @@ Full session-by-session history → [PROGRESS_ARCHIVE.md](PROGRESS_ARCHIVE.md) (
 
 - **Closed:** Phases 0–16; **Phase 17** (schedule editor + alerts, reopened/extended/re-closed 2026-05-17); **Phase 19** (universal adapter accuracy & vendor reach, 2026-05-17); **Phase 20** (reliable scheduling trigger — genuinely proven end-to-end 2026-05-18, ADR-052/054).
 - **Queued (next phase):** **Phase 18 — Polish + second-product proof** ([PHASES.md](PHASES.md#phase-18--polish--second-product-proof-replaces-old-phase-12)).
-- **Most recent work:** a run of 2026-05-18 inter-phase fixes (ADR-053→063) culminating in **ADR-063** (delete-product UX), then the **2026-05-20 AlterLab custom parameters** (ADR-065), then a same-day **sony-wh-1000xm5 vendor-URL unblock** pass (target typo + bestbuy nosplash; microcenter/bhpv deferred). All inter-phase, none a Phase-18 gate.
+- **Most recent work:** a run of 2026-05-18 inter-phase fixes (ADR-053→063) culminating in **ADR-063** (delete-product UX), then the **2026-05-20 AlterLab custom parameters** (ADR-065), then a same-day **sony-wh-1000xm5 vendor-URL unblock** pass (target typo + bestbuy nosplash; microcenter/bhpv deferred), then an **accessory-bundle pack_size guard** in `_parse_pack` (Best Buy bundles were reported at half price). All inter-phase, none a Phase-18 gate.
 
 ## Current state — 2026-05-20 (AlterLab custom parameters — ADR-065 DONE; sony-wh-1000xm5 vendor-URL follow-up DONE)
 
@@ -33,6 +33,20 @@ Two deferred (see "Noticed but deferred"):
 - **bhphotovideo.com**: page renders fully (200 KB body, 24 WH-1000XM5 mentions, prices visible) but `_extract_candidates` finds only 4 anchors — search-result tiles aren't in the static-HTML shape the walker recognises.
 
 Profile change: only [products/sony-wh-1000xm5/profile.yaml](../products/sony-wh-1000xm5/profile.yaml) — 2 URL edits. No code changes, no new ADR (tactical per-profile fix).
+
+### Follow-up #2 — accessory-bundle pack_size guard (this session)
+
+The first run after the URL fixes returned passing listings from Best Buy, but **bundle prices were reported at half**: e.g. the "WH-1000XM5 ... + Wood Headphone Stand Bundle" page-price $269.99 was reported as $135 unit-price. Tier 2's LLM was tagging accessory-bundle listings as `pack_size=2` (because the SYSTEM_PROMPT listed "bundle" alongside true homogeneous multi-pack patterns), and `_parse_pack` halved the price.
+
+Fix (`universal_ai.py`):
+- SYSTEM_PROMPT: removed "bundle" from the pack_size examples and added an explicit instruction that `pack_size > 1` applies ONLY to homogeneous multi-packs ("2-pack", "8x32GB", "kit of 4"); accessory bundles (different items) keep `pack_size=1`.
+- `_parse_pack`: defensive guard added. When the title contains "bundle" but no explicit homogeneous-multi-pack pattern, an LLM-claimed `pack_size > 1` is downgraded to 1. Tests added (`test_parse_pack_accessory_bundle_guard`).
+
+Worker test suite 264/264 green.
+
+### Open (this session — to address next)
+
+User asked for a **general** strategy to improve hit rate on flaky search vendors (Target's search sometimes returns the actual product, sometimes doesn't, regardless of query spelling). Concrete options pending discussion: multi-URL per source in profile, adapter-side fallback chain, onboarder-time URL redundancy, vendor-specific extractors. **Not yet decided / coded.**
 
 ## Next session — start here
 
