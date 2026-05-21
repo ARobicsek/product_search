@@ -2,6 +2,20 @@ import 'server-only';
 
 import Anthropic from '@anthropic-ai/sdk';
 
+// Pure, dependency-free AlterLab helpers live in alterlab-shared.ts so the T5
+// parity guard can import them from a plain node process (ADR-071).
+import {
+  type AlterlabOptions,
+  buildAlterlabBody,
+  weakRenderReason,
+  alterlabEscalationLadder,
+  stripToMainText,
+  priceInText,
+} from '@/lib/onboard/alterlab-shared';
+
+export type { AlterlabOptions } from '@/lib/onboard/alterlab-shared';
+export { stripToMainText, priceInText, buildAlterlabBody } from '@/lib/onboard/alterlab-shared';
+
 // TypeScript port of the worker's universal_ai probe (Phase 15 task 5).
 //
 // Why a TS port and not a subprocess to the Python CLI: the onboarder runs
@@ -49,29 +63,11 @@ const FETCH_TIMEOUT_MS = 8000;
 const MIN_BODY_LENGTH = 500;
 
 // --- Tier 1.5 detail-extraction mirror (page_type:"detail" only) ----------
-// These mirror worker/src/product_search/adapters/universal_ai.py so the
-// probe's verdict for a detail URL matches what the runtime adapter will
-// actually extract in production.
+// The strip + price-verify helpers live in alterlab-shared.ts (imported above);
+// only the LLM model + prompt stay here (they pull in the Anthropic SDK).
 
-const DETAIL_MAX_CHARS = 16000;
 const DETAIL_MODEL = 'claude-haiku-4-5';
 
-// Block-level tags whose contents are dropped wholesale before flattening to
-// text (mirrors _DETAIL_STRIP_TAGS).
-const DETAIL_STRIP_TAGS = [
-  'script', 'style', 'noscript', 'template', 'svg',
-  'nav', 'header', 'footer', 'iframe',
-];
-
-// Amazon-style split price spans flatten to "$ 329 99"; rejoin to "$329.99"
-// (mirrors _SPLIT_PRICE_RE / _canonicalize_prices). The "." in the gap covers
-// Amazon's literal decimal span.
-const SPLIT_PRICE_RE = /\$\s+(\d{1,4}(?:,\d{3})*)[\s.]+(\d{2})\b/g;
-
-// Foreign-currency amounts leaked by AlterLab's European exit IPs (mirrors
-// _FOREIGN_CURRENCY_RE) — stripped so the model can't read EUR/GBP as USD.
-const FOREIGN_CURRENCY_RE =
-  /(?:EUR\s*€|\bEUR[\s ]+(?=\d)|€|GBP\s*£|£|CA?\$|A\$|¥|₹|\bCHF\s+)\s*\d{1,6}(?:[.,]\d{2,3})*/gi;
 
 // Verbatim copy of DETAIL_SYSTEM_PROMPT from universal_ai.py — the probe must
 // ask the model exactly what the runtime asks so the verdict matches.
@@ -210,26 +206,9 @@ async function fetchHtml(url: string): Promise<{ html: string; status: number }>
 async function fetchViaAlterlab(
   url: string,
   apiKey: string,
-  options?: { country?: string; min_tier?: number; wait_for?: string }
+  options?: AlterlabOptions,
 ): Promise<{ html: string; status: number }> {
-  const body: Record<string, unknown> = {
-    url,
-    sync: true,
-    formats: ['html'],
-    // asp = AlterLab anti-scraping/anti-bot bypass. The runtime adapter
-    // (universal_ai._fetch_via_alterlab) always sends this; without it AlterLab
-    // returns partial or Cloudflare-challenge renders (Target's "temporary
-    // issue" stub, B&H's "Just a moment..." page) and the probe falsely reports
-    // detailExtractable:false for a detail URL the runtime extracts fine
-    // (ADR-070). Must stay in sync with the runtime to keep the mirror faithful.
-    asp: true,
-    advanced: { render_js: true },
-  };
-  if (options) {
-    if (options.country) body.country = options.country;
-    if (options.min_tier) body.min_tier = options.min_tier;
-    if (options.wait_for) (body.advanced as Record<string, unknown>).wait_for = options.wait_for;
-  }
+  const body = buildAlterlabBody(url, options);
 
   const resp = await fetch('https://api.alterlab.io/api/v1/scrape', {
     method: 'POST',
@@ -480,64 +459,7 @@ export function countProductAnchors(html: string, baseUrl: string): number {
 }
 
 // --- Tier 1.5 detail extraction (mirror of universal_ai._extract_detail_listing)
-
-const HTML_ENTITIES: Record<string, string> = {
-  '&nbsp;': ' ', '&amp;': '&', '&lt;': '<', '&gt;': '>',
-  '&quot;': '"', '&apos;': "'", '&#39;': "'", '&#36;': '$',
-};
-
-function decodeEntities(s: string): string {
-  let out = s.replace(/&nbsp;|&amp;|&lt;|&gt;|&quot;|&apos;|&#39;|&#36;/g, (m) => HTML_ENTITIES[m] ?? m);
-  // Numeric entities (decimal + hex).
-  out = out.replace(/&#(\d+);/g, (_, d) => {
-    const code = Number(d);
-    return Number.isFinite(code) ? String.fromCodePoint(code) : _;
-  });
-  out = out.replace(/&#x([0-9a-fA-F]+);/g, (_, h) => {
-    const code = parseInt(h, 16);
-    return Number.isFinite(code) ? String.fromCodePoint(code) : _;
-  });
-  return out;
-}
-
-// Mirror of _strip_to_main_text. No DOM parser on the edge runtime, so this is
-// a regex flatten rather than selectolax — close enough that the model sees
-// the price + title and the verbatim guard checks the same haystack.
-export function stripToMainText(html: string): string {
-  let s = html;
-  for (const tag of DETAIL_STRIP_TAGS) {
-    s = s.replace(new RegExp(`<${tag}\\b[^>]*>[\\s\\S]*?<\\/${tag}>`, 'gi'), ' ');
-    s = s.replace(new RegExp(`<${tag}\\b[^>]*/?>`, 'gi'), ' ');
-  }
-  s = s.replace(/<[^>]+>/g, ' ');
-  s = decodeEntities(s);
-  s = s.replace(/\s+/g, ' ').trim();
-  // _canonicalize_prices: rejoin "$ 329 99" → "$329.99".
-  s = s.replace(SPLIT_PRICE_RE, '$$$1.$2');
-  // _strip_foreign_currencies.
-  s = s.replace(FOREIGN_CURRENCY_RE, '');
-  if (s.length > DETAIL_MAX_CHARS) s = s.slice(0, DETAIL_MAX_CHARS);
-  return s;
-}
-
-// Mirror of _price_in_text — the ADR-001 anti-hallucination guard. True iff
-// `price` occurs verbatim in `text` under the same normalisation the runtime
-// uses (strip $, commas, whitespace; accept common printed forms).
-export function priceInText(price: number, text: string): boolean {
-  const norm = text.replace(/[\s,$]/g, '');
-  const forms = new Set<string>();
-  forms.add(price.toFixed(2));
-  if (price === Math.trunc(price)) {
-    forms.add(String(Math.trunc(price)));
-    forms.add(`${Math.trunc(price)}.00`);
-  }
-  const trimmed = price.toFixed(2).replace(/0+$/, '').replace(/\.$/, '');
-  if (trimmed) forms.add(trimmed);
-  for (const f of forms) {
-    if (f && norm.includes(f)) return true;
-  }
-  return false;
-}
+// stripToMainText / priceInText now live in alterlab-shared.ts (imported above).
 
 function parseDetailJson(raw: string): Record<string, unknown> | null {
   // The prompt asks for bare JSON, but tolerate fences / prose preambles.
@@ -606,7 +528,7 @@ async function extractDetailListing(html: string, url: string): Promise<boolean>
 
 export async function probeUrl(
   url: string,
-  alterlabOptions?: { country?: string; min_tier?: number; wait_for?: string },
+  alterlabOptions?: AlterlabOptions,
   pageType?: 'search' | 'detail',
 ): Promise<ProbeResult> {
   let result: ProbeResult = {
@@ -632,9 +554,24 @@ export async function probeUrl(
         result.reason = 'ALTERLAB_API_KEY not configured on server (cannot run rendered probe)';
         return result;
       }
-      const fetched = await fetchViaAlterlab(url, apiKey, alterlabOptions);
-      html = fetched.html;
-      status = fetched.status;
+      // ADR-071: retry-on-weak-render with bounded escalation, mirroring the
+      // runtime adapter (_fetch_with_escalation). A single unlucky fetch (a
+      // Cloudflare "Just a moment…" challenge, Target's "temporary issue" stub)
+      // used to make the probe report detailExtractable:false and silently drop
+      // a perfectly-good detail backup. Re-fetch with progressively stronger
+      // options; stop at the first non-weak body, else keep the largest.
+      const ladder = alterlabEscalationLadder(alterlabOptions);
+      let best: { html: string; status: number } | null = null;
+      for (const opts of ladder) {
+        const fetched = await fetchViaAlterlab(url, apiKey, opts);
+        if (!weakRenderReason(fetched.html, fetched.status)) {
+          best = fetched;
+          break;
+        }
+        if (!best || fetched.html.length > best.html.length) best = fetched;
+      }
+      html = best!.html;
+      status = best!.status;
     } else {
       const fetched = await fetchHtml(url);
       html = fetched.html;

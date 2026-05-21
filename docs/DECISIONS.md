@@ -13,6 +13,7 @@ Status values:
 
 One line per ADR (newest first). Skim this; open only the bodies you need. (No ADR-036 — numbering gap.)
 
+- **ADR-071** — Extraction reliability (Phase 21): `wait_for` is a non-existent AlterLab param that 202-hangs → body 0 (migrate to `wait_condition`); legacy `min_tier:4` escalation also 202-hangs; the DOCUMENTED body shape (`location`/`cost_controls.max_tier`/`wait_condition`, keep `asp`) is 3/3 vs legacy 0/3 on Target detail. T1 (wait_for fix) + safe weak-render retry ACCEPTED/impl; documented-shape body migration PROPOSED (next session)
 - **ADR-070** — Probe Tier 1.5 mirror was unfaithful: TS `fetchViaAlterlab` omitted `asp:true`, so AlterLab returned partial/Cloudflare-challenge renders and `detailExtractable` was a false negative for valid detail URLs (Target). Add `asp:true` to match the runtime — ACCEPTED (impl)
 - **ADR-069** — Detail-URL probe gap: `probe_url` evaluates `page_type:"detail"` URLs by a faithful Tier 1.5 mirror (`detailExtractable`), not list-anchor count, ending false demotion of valid detail pages — ACCEPTED (impl)
 - **ADR-068** — Vendor quirks registry: single source of truth (`worker/src/product_search/vendor_quirks.yaml`) for per-vendor URL transforms / default alterlab_options / known failures, consumed by adapter + onboarder prompt + save-time gate — ACCEPTED (impl)
@@ -83,6 +84,35 @@ One line per ADR (newest first). Skim this; open only the bodies you need. (No A
 - **ADR-002** — Repo-as-database; SQLite as workflow-local cache only — ACCEPTED
 - **ADR-001** — LLM is downstream of verified data only (architectural commitment) — ACCEPTED
 
+
+## ADR-071 — Extraction reliability: `wait_for` is a phantom param, `min_tier:4` 202-hangs, the documented AlterLab body shape is the fix (Phase 21)
+
+**Status**: PARTIALLY ACCEPTED/implemented + PROPOSED.
+- **ACCEPTED + implemented this session**: T1 (`wait_for` → `wait_condition` everywhere + schema validation), the cheap weak-render predicate, and a *safe* bounded retry (no `min_tier:4`).
+- **PROPOSED (next session, needs the documented-shape body migration)**: replace the legacy AlterLab body shape with the documented one, and escalate via `cost_controls.max_tier`. Do NOT re-debate the *evidence* below — it's measured — but the body-shape migration is a real change to the production fetch path and is flagged for sign-off.
+
+**Date**: 2026-05-21
+
+**Context**: After ADR-070, a live re-onboard showed `universal_ai` extraction is non-deterministic per URL/run. Phase 21 set out to add retry + escalation. R1 (AlterLab capability audit → `docs/ALTERLAB_OPTIONS.md`) + R2 (live N≥3 hit-rate probes with our key, against the Target WH-1000XM5 detail URL whose true price is `$249.99`, and the B&H Silver detail URL) produced evidence that **overturned the phase's assumed approach**:
+
+1. **`wait_for` is not a real AlterLab parameter.** Sending `advanced.wait_for` (int *or* string) pushes the request into AlterLab's async `202` job queue, which does not complete inside our 120 s poll → empty body. This is the exact body-0 failure seen for B&H/Target. The registry (`bhphotovideo`/`newegg`/`microcenter`) shipped `wait_for: 5`, and the onboarder tool schema advertised it as a "CSS selector" — both wrong. The real knob is `advanced.wait_condition` (`domcontentloaded`|`networkidle`|`load`), which returns a sync 200.
+2. **The legacy body shape is unreliable.** With top-level `asp`/`country`/`min_tier:3` (+ optional `wait_condition`), Target detail hit **0/3** (two `202`-timeouts → body 0, one cached "temporary issue" challenge stub). B&H Silver detail **1/3**.
+3. **Legacy `min_tier:4` escalation is actively harmful** — it forces AlterLab's synchronous browser tier, queued as a `202` job that never completes → body 0 on *every* attempt (Target 0/3, B&H 0/3). So escalating by bumping `min_tier` (the obvious move, and what the phase brief proposed) makes runs slower AND still empty.
+4. **The DOCUMENTED body shape works: 3/3.** `{location:{country:"us"}, cost_controls:{max_tier:"4"}, advanced:{render_js:true, wait_condition:"networkidle"}, asp:true}` (default cache) returned a full 1.3–1.5 MB render with `$249.99` on all 3 Target attempts (one a 2 s cache hit of the *good* render). `cost_controls.max_tier` lets AlterLab start cheap and escalate UP TO tier 4 while returning a fast sync 200 — unlike legacy `min_tier:4`.
+5. **`cache:false` is harmful** (forces fresh renders that 202-hang: documented shape went 3/3 → 0/3 with `cache:false`). The earlier "AlterLab serves cached bad bodies" observation was the *legacy* shape caching its *own* bad render; the fix is to produce good renders, not disable cache. **Leave cache at default.**
+
+**Decision**:
+- **T1 (done):** `wait_for` is migrated to `wait_condition` and validated out at every layer — registry YAML, `vendor_quirks.normalize_alterlab_options` (legacy `wait_for` → `networkidle`, validates `wait_condition` ∈ enum, clamps `min_tier` 1..4), the runtime `_fetch_via_alterlab`, the CLI (`--wait-condition`), the onboarder tool schema + prompt, and the TS probe (`buildAlterlabBody` in the new dependency-free `web/lib/onboard/alterlab-shared.ts`). Web artifacts regenerated.
+- **T2/T3 (done, made safe):** added a cheap `_weak_render_reason` predicate (empty / HTTP≥400 / <2 KB / challenge-signature) and a bounded retry that escalates ONLY on a detected weak render. The escalation ladder **deliberately does not bump `min_tier` to 4** (finding #3). Until the documented-shape migration lands it only adds a (harmless, sync-200) `networkidle` rung, so it cannot regress current runs.
+- **PROPOSED next session:** migrate the AlterLab wire body (runtime `_fetch_via_alterlab` + TS `buildAlterlabBody`) to the documented shape (keep `asp:true`; default cache), and make tier escalation use `cost_controls.max_tier`. This is the change that turns Target detail 0/3 → 3/3. Then finish T4 (multi-URL/vendor), T5 (probe↔runtime parity test — pure helpers already extracted to `alterlab-shared.ts` for a `node --test` guard), T6 (B&H walled? re-measure under documented shape), and E1–E4 self-driven e2e on a throwaway slug.
+
+**Consequence**:
+- The body-0 class of failures (phantom `wait_for`) is gone and schema-guarded.
+- No regression risk shipped: the retry never uses the harmful `min_tier:4`.
+- The actual reliability win (documented shape, 0/3 → 3/3) is evidence-backed and staged behind a one-line-flagged migration for sign-off, honoring "evidence-based root-cause + sign-off before non-trivial production-path changes".
+- Captured fixtures: `worker/tests/fixtures/universal_ai/{bh_silver-good,bh_silver-challenge,target_detail-challenge}-2026-05-21.html` for offline weak-render / strip-parity tests.
+
+---
 
 ## ADR-070 — Probe AlterLab fetch must send `asp:true` to faithfully mirror the runtime (ACCEPTED — implemented)
 

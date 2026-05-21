@@ -144,12 +144,14 @@ def main() -> None:
         "--min-tier",
         type=int,
         default=None,
-        help="Minimum tier of proxies to use for AlterLab (1, 2, 3)",
+        help="Minimum tier of proxies to use for AlterLab (1..4; 4 = browser)",
     )
     probe_parser.add_argument(
-        "--wait-for",
+        "--wait-condition",
         default=None,
-        help="Selector to wait for before returning the HTML (AlterLab render)",
+        choices=["domcontentloaded", "networkidle", "load"],
+        help="AlterLab advanced.wait_condition: wait for JS/network to settle "
+             "before capturing HTML (ADR-071; replaces the broken --wait-for)",
     )
 
     args = parser.parse_args()
@@ -189,7 +191,7 @@ def main() -> None:
             detail=args.detail,
             country=args.country,
             min_tier=args.min_tier,
-            wait_for=args.wait_for,
+            wait_condition=args.wait_condition,
         )
 
 
@@ -1140,7 +1142,7 @@ def _cmd_probe_url(
     detail: bool = False,
     country: str | None = None,
     min_tier: int | None = None,
-    wait_for: str | None = None,
+    wait_condition: str | None = None,
 ) -> None:
     """Diagnose a single vendor URL through the universal_ai pipeline.
 
@@ -1165,11 +1167,11 @@ def _cmd_probe_url(
 
     from product_search.adapters import universal_ai
 
-    has_alterlab_opts = (country is not None) or (min_tier is not None) or (wait_for is not None)
+    has_alterlab_opts = (country is not None) or (min_tier is not None) or (wait_condition is not None)
     if (render or has_alterlab_opts) and not os.environ.get("ALTERLAB_API_KEY", "").strip():
         print(
             "ERROR: --render requires ALTERLAB_API_KEY in the environment. "
-            "AlterLab options (--country, --min-tier, --wait-for) also require it.",
+            "AlterLab options (--country, --min-tier, --wait-condition) also require it.",
             file=sys.stderr,
         )
         sys.exit(2)
@@ -1179,8 +1181,8 @@ def _cmd_probe_url(
         alterlab_options["country"] = country
     if min_tier is not None:
         alterlab_options["min_tier"] = min_tier
-    if wait_for is not None:
-        alterlab_options["wait_for"] = wait_for
+    if wait_condition is not None:
+        alterlab_options["wait_condition"] = wait_condition
     if render or alterlab_options:
         alterlab_options["render_js"] = True
 

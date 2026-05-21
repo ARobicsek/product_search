@@ -75,6 +75,65 @@ def get_quirks_for_url(url: str) -> dict[str, Any]:
     return get_quirks_for_host(host)
 
 
+# Valid AlterLab `advanced.wait_condition` values (ADR-071 / docs/ALTERLAB_OPTIONS.md).
+_VALID_WAIT_CONDITIONS = {"domcontentloaded", "networkidle", "load"}
+
+
+def normalize_alterlab_options(
+    options: dict[str, Any] | None,
+) -> dict[str, Any] | None:
+    """Validate + migrate an ``alterlab_options`` dict before it hits the wire.
+
+    ADR-071. AlterLab has **no** ``wait_for`` parameter. Sending one (a numeric
+    "seconds" value from the old registry, or a CSS selector the onboarder was
+    once told to pass) forces the request into an async 202 job that never
+    resolves -> the adapter polls to timeout and returns body 0 (the B&H /
+    Target body-0 failures). The real knob is ``advanced.wait_condition``
+    (``domcontentloaded`` | ``networkidle`` | ``load``).
+
+    This function is the single choke point that keeps a malformed option off
+    the wire:
+      * legacy ``wait_for`` (any value) -> dropped, mapped to
+        ``wait_condition: "networkidle"`` (its original "wait for JS" intent)
+        unless an explicit ``wait_condition`` is already present;
+      * an invalid ``wait_condition`` is dropped (logged);
+      * ``min_tier`` is clamped to 1..4.
+
+    Returns ``None`` when the cleaned dict is empty, matching the
+    "no options -> simple fetch" contract of :func:`merge_alterlab_options`.
+    """
+    if not options:
+        return None
+    out: dict[str, Any] = dict(options)
+
+    legacy_wait_for = out.pop("wait_for", None)
+    if legacy_wait_for is not None and "wait_condition" not in out:
+        out["wait_condition"] = "networkidle"
+        logger.info(
+            "[vendor_quirks] migrated legacy alterlab_options.wait_for=%r -> "
+            "wait_condition='networkidle' (ADR-071)",
+            legacy_wait_for,
+        )
+
+    wc = out.get("wait_condition")
+    if wc is not None and wc not in _VALID_WAIT_CONDITIONS:
+        logger.warning(
+            "[vendor_quirks] dropping invalid wait_condition=%r (valid: %s)",
+            wc,
+            sorted(_VALID_WAIT_CONDITIONS),
+        )
+        out.pop("wait_condition", None)
+
+    mt = out.get("min_tier")
+    if mt is not None:
+        try:
+            out["min_tier"] = max(1, min(4, int(mt)))
+        except (TypeError, ValueError):
+            out.pop("min_tier", None)
+
+    return out or None
+
+
 def merge_alterlab_options(
     url: str,
     source_options: dict[str, Any] | None,
@@ -82,7 +141,9 @@ def merge_alterlab_options(
     """Merge vendor defaults with source-level options. Source wins on key conflict.
 
     Returns ``None`` when neither side contributes any options, so callers
-    can keep the existing "no options → simple raw fetch" code path.
+    can keep the existing "no options → simple raw fetch" code path. The
+    merged result is normalized (ADR-071) so a legacy ``wait_for`` from either
+    the registry or a serialized profile can never reach the wire.
     """
     quirks = get_quirks_for_url(url)
     defaults = quirks.get("default_alterlab_options")
@@ -98,7 +159,7 @@ def merge_alterlab_options(
         for k, v in source_options.items():
             if v is not None:
                 merged[k] = v
-    return merged or None
+    return normalize_alterlab_options(merged)
 
 
 def apply_url_transforms(url: str) -> tuple[str, list[str]]:

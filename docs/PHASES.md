@@ -489,7 +489,9 @@ Why this shape: cron-job.org only ever holds a low-value shared secret + a URL. 
 
 ---
 
-## Phase 21 — Extraction reliability: hard-site render hit-rate (PROPOSED — confirm design before coding)
+## Phase 21 — Extraction reliability: hard-site render hit-rate (IN PROGRESS — see ADR-071)
+
+> **UPDATE 2026-05-21 (R1/R2 done — this brief's escalation assumption was WRONG; read ADR-071 + docs/ALTERLAB_OPTIONS.md first).** Live measurement overturned the proposed "escalate to `min_tier:4`" plan: legacy `min_tier:4` *always* 202-hangs → body 0 (Target 0/3). The real fix is migrating the AlterLab request body to the **documented shape** (`location` + `cost_controls.max_tier` + `wait_condition`, keep `asp`), which scored Target detail **3/3** vs legacy **0/3**. T1 (`wait_for`→`wait_condition`) + a *safe* weak-render retry (no `min_tier:4`) are shipped; the documented-shape body migration is queued for next session pending sign-off. Tier escalation must use `cost_controls.max_tier`, NOT legacy `min_tier`. T2/T4/T5/T6/E1–E4 below otherwise still valid.
 
 **Status of this brief**: design choices below are **PROPOSED**; the user asked for a plan to review async (stepping away 2026-05-21) and will confirm/adjust before implementation. Lock the chosen approach into ADR-071 at implementation time.
 

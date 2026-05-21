@@ -8,6 +8,16 @@ so the live file stays small while nothing is lost. See
 
 ---
 
+## Current state — 2026-05-21 ADR-070 implemented + ADR-069 partially verified live (SUPERSEDED by Phase 21 / ADR-071, 2026-05-21)
+
+ADR-069 was verified against the live Sony WH-1000XM5 detail URLs by running the **deployed** `probeUrl()` (via a temporary local Next route, since `probe-url.ts` is `server-only` and there is no web test harness) against B&H + Target with the registry's AlterLab options, and cross-checking with the **runtime** `cli probe-url --render --detail`. Findings:
+- **The ADR-069 logic is correct** (Tier 1.5 mirror + ADR-001 verbatim-price guard never hallucinated; it correctly refused the bot-challenge pages).
+- **But the mirror was unfaithful at the fetch layer (ADR-070):** the TS `fetchViaAlterlab` omitted `asp:true`. Same Target URL, same `country:us/min_tier:3/render_js`, differing only by `asp`: TS got a 380 KB partial ("temporary issue", no price) → `detailExtractable:false`; runtime got 1.58 MB → extracted `$249.99`. **Fixed**: added `asp:true`; a fresh Target detail URL then returned `detailExtractable:true` ($249.99) via the deployed code path.
+- **B&H is a separate, still-open vendor-reach failure:** even the runtime path returned an empty body (status 0) for B&H's WH-1000XM5 detail URL; the probe got a Cloudflare "Just a moment…" challenge.
+
+### 2026-05-21 prod re-onboard verification (post-ADR-070)
+Drove a live `sony-wh-1000xm5` onboarding (Chrome DevTools, deploy `27269f7`). ADR-070 `asp:true` fix worked in prod (B&H Silver detail passed the probe — impossible before). But extraction was non-deterministic per URL/run; did NOT save. This motivated Phase 21.
+
 ## Current state — 2026-05-21 ADR-068 shipped (`e0db48b`) + validated in prod; one follow-up bug found (SUPERSEDED by ADR-069, fixed 2026-05-21)
 
 ADR-068 (vendor quirks registry) is committed/pushed and **validated by a live prod re-onboard of sony-wh-1000xm5 on 2026-05-21**. All three registry behaviors propagated to the onboarder and the deterministic guardrail fired:

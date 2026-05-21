@@ -6,35 +6,39 @@ Full session-by-session history → [PROGRESS_ARCHIVE.md](PROGRESS_ARCHIVE.md) (
 
 ## Active phase
 
-- **Closed:** Phases 0–16; **Phase 17** (schedule editor + alerts, reopened/extended/re-closed 2026-05-17); **Phase 19** (universal adapter accuracy & vendor reach, 2026-05-17); **Phase 20** (reliable scheduling trigger — genuinely proven end-to-end 2026-05-18, ADR-052/054).
-- **Queued (next phase):** **Phase 18 — Polish + second-product proof** ([PHASES.md](PHASES.md#phase-18--polish--second-product-proof-replaces-old-phase-12)).
-- **Most recent work:** 2026-05-21 **ADR-070 — probe Tier 1.5 mirror made faithful**: while verifying ADR-069 live, found the TS probe's AlterLab fetch omitted `asp:true` (the runtime always sends it), so AlterLab returned degraded/Cloudflare-challenge renders and `detailExtractable` was a false negative for a valid Target detail URL the runtime extracts cleanly. Added `asp:true`; confirmed Target detail now `detailExtractable:true` ($249.99). Preceded by ADR-069 (detail-URL probe), ADR-068 (vendor quirks registry), ADR-065/-067. Full detail in [DECISIONS.md](DECISIONS.md) + [PROGRESS_ARCHIVE.md](PROGRESS_ARCHIVE.md).
+- **Closed:** Phases 0–16; **Phase 17** (schedule editor + alerts); **Phase 19** (universal adapter accuracy & vendor reach); **Phase 20** (reliable scheduling trigger).
+- **IN PROGRESS:** **Phase 21 — Extraction reliability** ([PHASES.md#phase-21](PHASES.md#phase-21--extraction-reliability-hard-site-render-hit-rate-proposed--confirm-design-before-coding)). Research done; T1 + safe retry shipped; **the big fix (documented AlterLab body shape) is queued for next session pending sign-off** — see ADR-071.
+- **Queued after:** **Phase 18 — Polish + second-product proof**.
+- **Most recent work:** 2026-05-21 **Phase 21 R1/R2 + ADR-071**. Live AlterLab probes overturned the phase's assumed approach (see below).
 
-## Current state — 2026-05-21 ADR-070 implemented + ADR-069 partially verified live (build green, pushed)
+## Current state — 2026-05-21 Phase 21 in progress (T1 + safe retry shipped; documented-shape migration is the next-session task)
 
-ADR-069 was verified against the live Sony WH-1000XM5 detail URLs by running the **deployed** `probeUrl()` (via a temporary local Next route, since `probe-url.ts` is `server-only` and there is no web test harness) against B&H + Target with the registry's AlterLab options, and cross-checking with the **runtime** `cli probe-url --render --detail`. Findings:
-- **The ADR-069 logic is correct** (Tier 1.5 mirror + ADR-001 verbatim-price guard never hallucinated; it correctly refused the bot-challenge pages).
-- **But the mirror was unfaithful at the fetch layer (ADR-070):** the TS `fetchViaAlterlab` omitted `asp:true`. Same Target URL, same `country:us/min_tier:3/render_js`, differing only by `asp`: TS got a 380 KB partial ("temporary issue", no price) → `detailExtractable:false`; runtime got 1.58 MB → extracted `$249.99`. The probe would have wrongly told the onboarder to demote a Target detail URL — re-introducing the false-negative ADR-069 set out to kill. **Fixed**: added `asp:true`; a fresh Target detail URL then returned `detailExtractable:true` ($249.99) via the deployed code path.
-- **B&H is a separate, still-open vendor-reach failure:** even the runtime path returned an empty body (status 0) for B&H's WH-1000XM5 detail URL this session; the probe got a Cloudflare "Just a moment…" challenge. B&H detail is NOT reliably extractable in either path right now, so keeping B&H in `sources_pending` (as the committed profile does) remains correct. Likely AlterLab-vs-B&H-Cloudflare, possibly compounded by the `wait_for` int-seconds-vs-CSS-selector ambiguity.
+**The headline finding (ADR-071, evidence-backed):** the production AlterLab calls are unreliable because of the **request body shape**, not (only) bot-walls.
+- `wait_for` is a **phantom AlterLab param**: sending it (the registry's `wait_for: 5`, or any value) forces an async `202` job that never completes in our 120 s poll → **body 0**. This *is* the B&H/Target body-0 bug. Real knob = `advanced.wait_condition` (`networkidle`), returns sync 200.
+- Legacy body shape (top-level `asp`/`country`/`min_tier:3`): Target detail **0/3** (202-hangs + a cached challenge stub). Legacy **`min_tier:4` is worse — 0/3, always 202-hangs** (so the "escalate to tier 4" idea in the original brief is wrong).
+- **DOCUMENTED body shape** (`location.country` + `cost_controls.max_tier:"4"` + `wait_condition:networkidle`, keep `asp:true`, default cache): Target detail **3/3** with `$249.99`. ← the real fix.
+- `cache:false` is harmful (0/3); leave cache default.
 
-Changed this session: [probe-url.ts](../web/lib/onboard/probe-url.ts) (`asp:true` in the AlterLab request body). `tsc --noEmit` clean, `eslint` 0 errors, `next build` green. No runtime/worker code changed.
+**Shipped this session (safe, green, no regression risk):**
+- **T1** — `wait_for` → `wait_condition` end-to-end: `vendor_quirks.yaml` (bhphoto/newegg/microcenter), new `vendor_quirks.normalize_alterlab_options()` (migrates legacy `wait_for`→`networkidle`, validates `wait_condition` enum, clamps `min_tier` 1..4), runtime `_fetch_via_alterlab`, CLI (`--wait-condition`), onboarder tool schema + `onboard_v1.txt`, TS probe; web artifacts regenerated.
+- **T2/T3** — cheap `_weak_render_reason` predicate + bounded retry-on-weak-render in the runtime (`_fetch_with_escalation`) and mirrored in the probe. **Escalation deliberately does NOT use `min_tier:4`** (proven harmful); until the documented-shape migration lands it only adds a harmless `networkidle` rung.
+- **Refactor for T5** — pure helpers (`buildAlterlabBody`, weak-render, ladder, strip/price) extracted to new dependency-free `web/lib/onboard/alterlab-shared.ts` so a `node --test` parity guard can import them.
+- **R1 doc** — `docs/ALTERLAB_OPTIONS.md` (full param reference + the legacy-vs-documented schism + measured hit-rates).
+- Fixtures captured: `worker/tests/fixtures/universal_ai/{bh_silver-good,bh_silver-challenge,target_detail-challenge}-2026-05-21.html`.
 
-### 2026-05-21 prod re-onboard verification (post-ADR-070) — what we learned
-
-Drove a live `sony-wh-1000xm5` onboarding through the deployed onboarder (Chrome DevTools, deploy `27269f7` confirmed live). Results:
-- **ADR-070 `asp:true` fix works in prod**: B&H **Silver** detail (`1706394`) → `detailExtractable:true` — a B&H detail page passing the probe was impossible before (was always a Cloudflare challenge). The onboarder also correctly read the vendor-quirks registry ("B&H is a hard domain per the vendor quirks") and passed `page_type:"detail"`.
-- **But extraction is non-deterministic per URL/run**: same run, Target detail + B&H Black (`1706293`) + B&H Smoky Pink (`1860582`) all → `detailExtractable:false` (partial renders / "temporary issue" stub at HTTP 200, not the code bug). So the onboarder dropped the ADR-067 Target detail backup on this run.
-- Mobile onboarder layout at 390px is clean (amber `force_detail_backup` warning not exercised — it only shows after a save, which would clobber the live profile; not done).
-- **Did NOT save** — draft (Target search only) is worse than the committed profile.
-
-→ This motivated **Phase 21** (below): the root issue is single-fetch trust of a flaky 200; fix = retry-on-weak-render + escalation + multi-URL, applied via the registry.
+**Checks:** worker `pytest` 285 passed, `ruff` + `mypy` clean; web `tsc` + `eslint` clean.
 
 ## Next session — start here
 
-1. **Phase 21 — Extraction reliability (hard-site render hit-rate)** is the queued next phase. Brief: [PHASES.md#phase-21](PHASES.md#phase-21--extraction-reliability-hard-site-render-hit-rate-proposed--confirm-design-before-coding). Design choices are **PROPOSED — the user reviews them async before coding** (asked for a plan to implement next session, incl. Claude self-driving full e2e: onboarding + running a throwaway test slug + deleting it). Confirm the cost-guardrail caps, then write ADR-071 and implement R1→T6 + E1→E4.
-2. **(Folded into Phase 21)** `wait_for` int-seconds-vs-CSS-selector bug (B&H runtime body-0 with `wait_for:'5'`) = Phase 21 T1. B&H walled-vendor fallback = Phase 21 T6.
-3. **(Optional, lower priority)** Onboarder LLM may still not proactively add ADR-067 detail URLs; save-time `force_detail_backup` guardrail catches it, so a nicety not a gate.
-4. **Then** the prior queue still applies: prod test results for Schedule&Alerts editor (ADR-059/060/061) + mobile (~390px) popover layout verification; delete→reload spot check (ADR-063); then **Phase 18 — Polish + second-product proof**.
+1. **Phase 21, the actual fix (PROPOSED — quick sign-off, then implement): migrate the AlterLab wire body to the documented shape.** In `worker/.../adapters/universal_ai.py::_fetch_via_alterlab` AND `web/lib/onboard/alterlab-shared.ts::buildAlterlabBody`, build `{url, sync, formats:["html"], asp:true, location:{country}, cost_controls:{max_tier:"<tier>"}, advanced:{render_js:true, wait_condition}}` instead of top-level `country`/`min_tier`. Map registry `min_tier` → `cost_controls.max_tier` (string). Keep `asp:true`. Leave cache default. This is what turned Target detail **0/3 → 3/3**. Re-run the R2 harness logic to confirm ≥4/5 before/after.
+2. **Make escalation use `cost_controls.max_tier`** (now that the body supports it) — restore a real tier-4 rung via the documented path (NOT legacy `min_tier:4`).
+3. **T4** — multi-URL per vendor for multi-variant single SKUs (onboarder prompt + registry hint).
+4. **T5** — write the probe↔runtime parity test: shared JSON fixture of `{options→expected_body}` + `{html→stripped/price-verdict}`, asserted by a Python test (pytest) and a `node --test --experimental-strip-types` script importing `alterlab-shared.ts` (verified locally to run on Node 22.16). Wire the node script into web CI.
+5. **T6** — re-measure B&H detail under the documented shape; if still walled, record `known_failure` in `vendor_quirks.yaml`.
+6. **E1–E4** — self-driven e2e: re-measure hit-rate; onboard a **throwaway** slug (`wh1000xm5-e2e-test`, NOT live `sony-wh-1000xm5`) via Chrome DevTools MCP; save + Run-now; assert correct Target price in the committed report; delete the test slug.
+7. **Then** the prior queue: Schedule&Alerts editor prod verification (ADR-059/060/061), mobile popover layout, delete→reload spot check (ADR-063); then **Phase 18**.
+
+> Throwaway harness `worker/_phase21_probe.py` (+ `_phase21_*.html/.json`) was deleted at wrap-up; its logic is summarized in ADR-071 / ALTERLAB_OPTIONS.md. Recreate from there if needed.
 
 ## Blockers
 

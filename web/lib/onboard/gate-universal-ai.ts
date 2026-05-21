@@ -1,6 +1,6 @@
 import 'server-only';
 
-import { probeUrl, type ProbeResult } from '@/lib/onboard/probe-url';
+import { probeUrl, type ProbeResult, type AlterlabOptions } from '@/lib/onboard/probe-url';
 
 // Phase 15 task 5: server-side gate that runs at /api/onboard/save time.
 // For each ``universal_ai_search`` source on the draft, we probe the URL
@@ -48,7 +48,7 @@ export async function gateUniversalAiUrls(
   type Pending = {
     source: Record<string, unknown>;
     url: string;
-    alterlabOptions?: { country?: string; min_tier?: number; wait_for?: string };
+    alterlabOptions?: AlterlabOptions;
     pageType?: 'search' | 'detail';
   };
   const toProbe: Pending[] = [];
@@ -71,7 +71,7 @@ export async function gateUniversalAiUrls(
     }
     const extra = (s.extra && typeof s.extra === 'object') ? (s.extra as Record<string, unknown>) : null;
     const alterlabOptions = (extra && extra.alterlab_options && typeof extra.alterlab_options === 'object')
-      ? extra.alterlab_options
+      ? (extra.alterlab_options as AlterlabOptions)
       : undefined;
     const pageType = (extra && (extra.page_type === 'detail' || extra.page_type === 'search'))
       ? (extra.page_type as 'search' | 'detail')

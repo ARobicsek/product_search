@@ -141,8 +141,8 @@ not in `sources:`.
     extra:
       alterlab_options:
         country: "us"       # optional: proxy country exit node (e.g., 'us' for USA geo-blocked sites like Best Buy)
-        min_tier: 3         # optional: residential proxy & anti-bot bypass tier (use 3 for difficult sites like Best Buy, ServerSupply, Williams-Sonoma)
-        wait_for: 5         # optional: wait N seconds for JS to finish rendering before extracting HTML
+        min_tier: 3         # optional: residential proxy & anti-bot bypass tier (3 = stealth for difficult sites like Best Buy/ServerSupply/Williams-Sonoma; 4 = full headless browser, beats Cloudflare challenges that tier 3 cannot)
+        wait_condition: networkidle  # optional: wait for JS/network to settle before extracting HTML (domcontentloaded | networkidle | load). Use for sites that render the price asynchronously. Do NOT use the old "wait_for" field — it is not a real AlterLab parameter and silently breaks the fetch (empty body).
     ```
   Sites that need full JS rendering or solve a Cloudflare challenge can still be added using this `extra.alterlab_options` block instead of demoting them. You can list MULTIPLE `universal_ai_search` entries — one per vendor URL, each with its own `id: "universal_ai_search"`, `url:`, and optional `extra:` values.
 

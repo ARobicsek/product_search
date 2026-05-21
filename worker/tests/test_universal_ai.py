@@ -234,6 +234,12 @@ def _capture_fetch_args(monkeypatch: pytest.MonkeyPatch) -> dict[str, Any]:
         captured["alterlab_options"] = alterlab_options
         return ("", 200, "stub")
 
+    # These tests assert the MERGED options that reach the fetch layer. The
+    # ADR-071 escalation path (which re-fetches with stronger options on a weak
+    # render) only runs when ALTERLAB_API_KEY is set; the real .env can leak it
+    # into the process via another test's imports, so delete it here to keep the
+    # single-fetch capture deterministic regardless of test ordering.
+    monkeypatch.delenv("ALTERLAB_API_KEY", raising=False)
     monkeypatch.setattr(universal_ai, "_fetch_html_with_retry", _stub)
     return captured
 
@@ -275,13 +281,13 @@ def test_vendor_quirks_source_alterlab_options_override_defaults(
         source_id="universal_ai_search",
         extra={
             "url": "https://www.bestbuy.com/site/searchpage.jsp?st=foo",
-            "alterlab_options": {"min_tier": 4, "wait_for": 10},
+            "alterlab_options": {"min_tier": 4, "wait_condition": "load"},
         },
     )
     universal_ai.fetch(query)
     opts = captured["alterlab_options"]
     assert opts["min_tier"] == 4   # source-level override
-    assert opts["wait_for"] == 10  # source-only
+    assert opts["wait_condition"] == "load"  # source-only
     assert opts["country"] == "us"  # filled from defaults
 
 
@@ -1489,7 +1495,7 @@ def test_alterlab_options_propagation(monkeypatch: pytest.MonkeyPatch) -> None:
                     # Return empty listing array via JSON-LD stub to terminate early without LLM call
                     return {
                         "status_code": 200,
-                        "content": {"html": "<html><body>stub ok</body></html>"},
+                        "content": {"html": "<html><body>" + ("stub ok product " * 400) + "</body></html>"},
                     }
             return _Resp()
 
@@ -1503,7 +1509,7 @@ def test_alterlab_options_propagation(monkeypatch: pytest.MonkeyPatch) -> None:
             "alterlab_options": {
                 "country": "us",
                 "min_tier": 3,
-                "wait_for": ".product-grid",
+                "wait_condition": "networkidle",
                 "render_js": True,
             }
         }
@@ -1516,7 +1522,9 @@ def test_alterlab_options_propagation(monkeypatch: pytest.MonkeyPatch) -> None:
     assert captured["json"]["url"] == "https://example.com/products"
     assert captured["json"]["country"] == "us"
     assert captured["json"]["min_tier"] == 3
-    assert captured["json"]["advanced"]["wait_for"] == ".product-grid"
+    assert captured["json"]["advanced"]["wait_condition"] == "networkidle"
+    # ADR-071: wait_for is the broken legacy param and must never reach the wire.
+    assert "wait_for" not in captured["json"]["advanced"]
     assert captured["json"]["advanced"]["render_js"] is True
 
 
@@ -1553,7 +1561,7 @@ def test_alterlab_options_propagation_nested(monkeypatch: pytest.MonkeyPatch) ->
                 def json(self) -> dict[str, Any]:
                     return {
                         "status_code": 200,
-                        "content": {"html": "<html><body>stub ok</body></html>"},
+                        "content": {"html": "<html><body>" + ("stub ok product " * 400) + "</body></html>"},
                     }
             return _Resp()
 
@@ -1569,6 +1577,8 @@ def test_alterlab_options_propagation_nested(monkeypatch: pytest.MonkeyPatch) ->
                 "alterlab_options": {
                     "country": "us",
                     "min_tier": 3,
+                    # Legacy CSS-selector wait_for must be migrated to
+                    # wait_condition:networkidle and never sent verbatim (ADR-071).
                     "wait_for": ".product-grid-nested",
                     "render_js": True,
                 }
@@ -1582,6 +1592,94 @@ def test_alterlab_options_propagation_nested(monkeypatch: pytest.MonkeyPatch) ->
     assert captured["json"]["url"] == "https://example.com/products-nested"
     assert captured["json"]["country"] == "us"
     assert captured["json"]["min_tier"] == 3
-    assert captured["json"]["advanced"]["wait_for"] == ".product-grid-nested"
+    assert captured["json"]["advanced"]["wait_condition"] == "networkidle"
+    assert "wait_for" not in captured["json"]["advanced"]
     assert captured["json"]["advanced"]["render_js"] is True
+
+
+# --- ADR-071: retry-on-weak-render + bounded escalation --------------------
+
+
+def test_weak_render_reason_detects_failures() -> None:
+    """The cheap weak-render predicate flags empty / short / challenge / 4xx."""
+    assert universal_ai._weak_render_reason("", 200)  # empty
+    assert universal_ai._weak_render_reason("x" * 100, 200)  # too short
+    assert universal_ai._weak_render_reason("<html>" + "y" * 5000, 503)  # bad status
+    challenge = "<html><body>Just a moment... checking your browser</body></html>" + "z" * 5000
+    assert universal_ai._weak_render_reason(challenge, 200)
+    target_stub = "<html>" + "ok " * 100000 + "There was a temporary issue" + " ok" * 100
+    assert universal_ai._weak_render_reason(target_stub, 200)
+    # A healthy big body passes.
+    assert universal_ai._weak_render_reason("<html>" + "real product page " * 5000, 200) is None
+
+
+def test_escalation_ladder_dedupes_strong_options() -> None:
+    """The ladder skips a rung that would re-send an already-present option, and
+    NEVER bumps min_tier to 4 (the R2-proven 202-hang; ADR-071)."""
+    # networkidle already present → no extra rung.
+    ladder = universal_ai._escalation_ladder({"min_tier": 3, "wait_condition": "networkidle"})
+    assert len(ladder) == 1
+    # Plain options → 2-rung ladder (base, +networkidle). No tier-4 rung.
+    ladder2 = universal_ai._escalation_ladder({"country": "us", "min_tier": 3})
+    assert len(ladder2) == 2
+    assert ladder2[1]["wait_condition"] == "networkidle"
+    assert all((rung or {}).get("min_tier") != 4 for rung in ladder2)
+
+
+def _stub_escalation_fetches(
+    monkeypatch: pytest.MonkeyPatch, bodies: list[tuple[str, int]]
+) -> list[dict[str, Any] | None]:
+    """Make ``_fetch_html_with_retry`` return ``bodies`` in order; record opts."""
+    monkeypatch.setenv("ALTERLAB_API_KEY", "test-escalation-key")
+    seen_opts: list[dict[str, Any] | None] = []
+    calls = {"i": 0}
+
+    def _fake(url: str, alterlab_options: dict[str, Any] | None = None) -> tuple[str, int, str]:
+        seen_opts.append(alterlab_options)
+        html, status = bodies[min(calls["i"], len(bodies) - 1)]
+        calls["i"] += 1
+        return html, status, "alterlab"
+
+    monkeypatch.setattr(universal_ai, "_fetch_html_with_retry", _fake)
+    return seen_opts
+
+
+def test_escalation_recovers_on_second_attempt(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A weak first render escalates; a good second render is returned."""
+    good = "<html>" + "real product page " * 5000
+    seen = _stub_escalation_fetches(monkeypatch, [("Just a moment..." + "x" * 5000, 200), (good, 200)])
+    html, status, fetcher, attempts = universal_ai._fetch_with_escalation(
+        "https://hard.example/p", {"country": "us", "min_tier": 3}
+    )
+    assert html == good
+    assert len(attempts) == 2  # escalated exactly once
+    # Attempt 2 added networkidle.
+    assert seen[1] is not None and seen[1]["wait_condition"] == "networkidle"
+
+
+def test_no_escalation_on_healthy_first_render(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Happy path: a good first render costs exactly one fetch (no escalation)."""
+    good = "<html>" + "real product page " * 5000
+    seen = _stub_escalation_fetches(monkeypatch, [(good, 200)])
+    html, status, fetcher, attempts = universal_ai._fetch_with_escalation(
+        "https://easy.example/p", {"country": "us", "min_tier": 3}
+    )
+    assert html == good
+    assert len(attempts) == 1
+    assert len(seen) == 1
+
+
+def test_escalation_returns_best_effort_when_all_weak(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Every rung weak → return the largest body seen (2-rung ladder; ADR-071)."""
+    seen = _stub_escalation_fetches(
+        monkeypatch,
+        [("Just a moment" + "x" * 3000, 200), ("Just a moment" + "y" * 9000, 200)],
+    )
+    html, status, fetcher, attempts = universal_ai._fetch_with_escalation(
+        "https://walled.example/p", {"country": "us", "min_tier": 3}
+    )
+    assert len(attempts) == 2  # exhausted the ladder
+    assert "y" * 9000 in html  # largest body kept
+    # Never escalates min_tier to the harmful tier 4.
+    assert all((opt or {}).get("min_tier") != 4 for opt in seen)
 

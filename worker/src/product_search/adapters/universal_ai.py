@@ -39,7 +39,11 @@ from urllib.parse import urljoin, urlparse
 
 from product_search.llm import Message, call_llm
 from product_search.models import AdapterQuery, Listing
-from product_search.vendor_quirks import apply_url_transforms, merge_alterlab_options
+from product_search.vendor_quirks import (
+    apply_url_transforms,
+    merge_alterlab_options,
+    normalize_alterlab_options,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -260,13 +264,21 @@ def _fetch_via_alterlab(
         "asp": True,
         "advanced": {"render_js": True},
     }
-    if alterlab_options:
-        for key in ["country", "min_tier", "wait_for", "render_js", "asp"]:
-            if key in alterlab_options and alterlab_options[key] is not None:
-                if key in ["wait_for", "render_js"]:
-                    body["advanced"][key] = alterlab_options[key]
+    # Defensive normalization (ADR-071): the merge path already normalizes, but
+    # callers that skip vendor_quirks (skip_vendor_quirks, the CLI probe) reach
+    # here with raw options. ``wait_for`` is a non-existent AlterLab param that
+    # silently zeros the body via a never-completing 202 job, so this is the
+    # last line of defence before it would hit the wire.
+    opts = normalize_alterlab_options(alterlab_options)
+    if opts:
+        # Top-level keys vs `advanced.*` keys (per docs/ALTERLAB_OPTIONS.md).
+        _ADVANCED_KEYS = {"wait_condition", "render_js"}
+        for key in ["country", "min_tier", "asp", "wait_condition", "render_js"]:
+            if key in opts and opts[key] is not None:
+                if key in _ADVANCED_KEYS:
+                    body["advanced"][key] = opts[key]
                 else:
-                    body[key] = alterlab_options[key]
+                    body[key] = opts[key]
 
     headers = {
         "X-API-Key": api_key,
@@ -392,6 +404,135 @@ def _fetch_html_with_retry(
             raise
     # Unreachable: the loop either returns or raises on the final attempt.
     raise AssertionError("unreachable: _fetch_html_with_retry exhausted loop")
+
+
+# --- Retry-on-weak-render with bounded escalation (ADR-071) ----------------
+#
+# `_fetch_html_with_retry` only retries transient *exceptions*. But hard,
+# bot-walled vendors (Target, B&H, Best Buy) routinely answer HTTP 200 with an
+# UNUSABLE body: a Cloudflare "Just a moment…" challenge, Target's "There was a
+# temporary issue" stub, or an empty/short shell. The system used to trust that
+# first 200, so an unlucky fetch silently dropped a vendor (onboarder demoted a
+# good detail URL) or zeroed a scheduled run's price. ADR-071 treats a
+# weak render as a retryable condition with BOUNDED escalation: re-fetch with
+# progressively stronger AlterLab options. Escalation fires ONLY when a render
+# is detected weak, so the happy path (most pages succeed on attempt 1) costs
+# nothing extra; the worst case is ~3x one fetch for a genuinely flaky vendor.
+
+# Distinctive anti-bot / error-stub phrases. These are specific enough that a
+# real product page is very unlikely to contain them, so a whole-body search is
+# safe (the Target "temporary issue" stub can be 380 KB, so a size floor alone
+# misses it).
+_WEAK_RENDER_SIGNATURES = re.compile(
+    r"just a moment|checking your browser|attention required|"
+    r"please enable (?:js|javascript) and cookies|enable javascript to continue|"
+    r"there was a temporary issue|/cdn-cgi/challenge|captcha-delivery|"
+    r"px-captcha|verify you are (?:a )?human|access to this page has been denied",
+    re.IGNORECASE,
+)
+
+# Below this, an HTTP 200 body is almost certainly a stub/challenge shell rather
+# than a rendered storefront. A real rendered product/search page is tens to
+# hundreds of KB.
+_WEAK_BODY_FLOOR = 2000
+
+_ESCALATION_BACKOFF_SECONDS = 1.0
+
+
+def _weak_render_reason(html: str, status: int) -> str | None:
+    """Return a short reason if the fetched render is unusable, else ``None``.
+
+    Cheap, deterministic, no LLM/parse cost — meant to run on every fetch so
+    escalation only fires when something is actually wrong.
+    """
+    if not html:
+        return f"empty body (origin status={status})"
+    if status and status >= 400:
+        return f"origin HTTP {status}"
+    if len(html) < _WEAK_BODY_FLOOR:
+        return f"body too short ({len(html)} chars)"
+    if _WEAK_RENDER_SIGNATURES.search(html):
+        return "anti-bot challenge / error-stub signature in body"
+    return None
+
+
+def _escalation_ladder(
+    base: dict[str, Any] | None,
+) -> list[dict[str, Any] | None]:
+    """Build the bounded escalation ladder of AlterLab option dicts (ADR-071).
+
+    attempt 1: options as given (registry-merged).
+    attempt 2: + wait_condition:networkidle (let async-rendered prices settle).
+    Duplicate rungs (when the base already carries the option) are skipped so we
+    never burn an attempt sending an identical body.
+
+    DELIBERATELY does NOT escalate ``min_tier`` to 4: the Phase 21 R2 matrix
+    proved that the legacy ``min_tier:4`` forces AlterLab's synchronous browser
+    tier, which it queues as a 202 job that does not complete inside our poll
+    window -> body 0 (Target 0/3, B&H 0/3). Tier escalation must instead go
+    through the DOCUMENTED ``cost_controls.max_tier`` body shape, which returns a
+    fast sync 200 (Target detail 3/3). That body-shape migration is the queued
+    next-session task; until it lands, escalation is limited to the (harmless,
+    sync-200) networkidle rung. See docs/ALTERLAB_OPTIONS.md + ADR-071.
+    """
+    rungs: list[dict[str, Any] | None] = [base]
+    step2 = dict(base or {})
+    if step2.get("wait_condition") != "networkidle":
+        step2["wait_condition"] = "networkidle"
+        step2.setdefault("render_js", True)
+        rungs.append(step2)
+    return rungs
+
+
+def _fetch_with_escalation(
+    url: str,
+    alterlab_options: dict[str, Any] | None,
+) -> tuple[str, int, str, list[str]]:
+    """Fetch ``url``, escalating AlterLab options on a detected weak render.
+
+    Returns ``(html, status, fetcher, attempts_log)``. When AlterLab is not in
+    use (no API key) escalation is a no-op — the stronger options only mean
+    something to the rendered path — so we fall straight through to the single
+    transient-retry fetch and keep current behaviour.
+    """
+    attempts: list[str] = []
+    have_alterlab = bool(os.environ.get("ALTERLAB_API_KEY", "").strip())
+    if not have_alterlab:
+        html, status, fetcher = _fetch_html_with_retry(url, alterlab_options=alterlab_options)
+        return html, status, fetcher, attempts
+
+    ladder = _escalation_ladder(alterlab_options)
+    best: tuple[str, int, str] | None = None
+    for i, opts in enumerate(ladder, start=1):
+        if i > 1:
+            time.sleep(_ESCALATION_BACKOFF_SECONDS)
+        # Exceptions propagate immediately: `_fetch_html_with_retry` already
+        # did the ADR-053 transient-retry, and auth/quota / parse errors are not
+        # things a stronger render tier can fix. Escalation is ONLY for a weak
+        # render (HTTP 200 with an unusable body), never for a raised error.
+        html, status, fetcher = _fetch_html_with_retry(url, alterlab_options=opts)
+        weak = _weak_render_reason(html, status)
+        attempts.append(
+            f"attempt {i} (min_tier={opts.get('min_tier') if opts else None},"
+            f"wait_condition={opts.get('wait_condition') if opts else None}): "
+            f"status={status} len={len(html)} "
+            f"{'WEAK: ' + weak if weak else 'OK'}"
+        )
+        if not weak:
+            if i > 1:
+                logger.info(f"[universal_ai] escalation recovered {url} on attempt {i}: {attempts[-1]}")
+            return html, status, fetcher, attempts
+        # Keep the largest body seen as the fallback if every rung is weak.
+        if best is None or len(html) > len(best[0]):
+            best = (html, status, fetcher)
+        logger.warning(f"[universal_ai] weak render for {url}: {attempts[-1]}")
+
+    html, status, fetcher = best if best else ("", 0, "alterlab")
+    logger.warning(
+        f"[universal_ai] all {len(ladder)} fetch attempts weak for {url}; "
+        f"returning best-effort body (len={len(html)})."
+    )
+    return html, status, fetcher, attempts
 
 
 # --- JSON-LD / microdata extraction ----------------------------------------
@@ -1606,7 +1747,7 @@ def fetch(query: AdapterQuery, profile: Any | None = None) -> list[Listing]:
 
     logger.info(f"[universal_ai] Fetching {url}")
     try:
-        html, status, fetcher = _fetch_html_with_retry(url, alterlab_options=alterlab_options)
+        html, status, fetcher, attempts = _fetch_with_escalation(url, alterlab_options)
     except Exception as exc:
         logger.error(f"[universal_ai] Fetch failed: {type(exc).__name__}: {exc}")
         # Bubble up explicit fetch errors (like AlterLab quota/auth) so cli.py
@@ -1616,6 +1757,7 @@ def fetch(query: AdapterQuery, profile: Any | None = None) -> list[Listing]:
     logger.info(
         f"[universal_ai] Fetched via {fetcher}: status={status}, "
         f"body_len={len(html)} chars"
+        + (f" [escalated: {len(attempts)} attempts]" if len(attempts) > 1 else "")
     )
     if not html:
         logger.warning(f"[universal_ai] Empty body for {url}.")

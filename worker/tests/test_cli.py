@@ -149,8 +149,9 @@ def test_probe_url_render_errors_when_alterlab_falls_through(
 
 
 def test_probe_url_with_alterlab_options(monkeypatch: pytest.MonkeyPatch) -> None:
-    """When _cmd_probe_url is called with custom country, min_tier, or wait_for,
-    they are built into alterlab_options and passed to _fetch_html."""
+    """When _cmd_probe_url is called with custom country, min_tier, or
+    wait_condition, they are built into alterlab_options and passed to
+    _fetch_html (ADR-071)."""
     monkeypatch.setenv("ALTERLAB_API_KEY", "test-key-cli")
 
     html = (FIXTURE_DIR / "shopify_jsonld.html").read_text(encoding="utf-8")
@@ -169,7 +170,7 @@ def test_probe_url_with_alterlab_options(monkeypatch: pytest.MonkeyPatch) -> Non
             render=False,
             country="gb",
             min_tier=2,
-            wait_for=".some-class",
+            wait_condition="networkidle",
         )
     assert exc.value.code == 0
 
@@ -178,13 +179,13 @@ def test_probe_url_with_alterlab_options(monkeypatch: pytest.MonkeyPatch) -> Non
     assert opts is not None
     assert opts["country"] == "gb"
     assert opts["min_tier"] == 2
-    assert opts["wait_for"] == ".some-class"
+    assert opts["wait_condition"] == "networkidle"
     assert opts["render_js"] is True
 
 
 def test_probe_url_parser_setup(monkeypatch: pytest.MonkeyPatch) -> None:
-    """The argument parser correctly parses --country, --min-tier, and --wait-for
-    and forwards them to _cmd_probe_url."""
+    """The argument parser correctly parses --country, --min-tier, and
+    --wait-condition and forwards them to _cmd_probe_url (ADR-071)."""
     import sys
     from product_search import cli
     from typing import Any
@@ -199,7 +200,7 @@ def test_probe_url_parser_setup(monkeypatch: pytest.MonkeyPatch) -> None:
         detail: bool = False,
         country: str | None = None,
         min_tier: int | None = None,
-        wait_for: str | None = None,
+        wait_condition: str | None = None,
     ) -> None:
         captured.append({
             "url": url,
@@ -208,17 +209,17 @@ def test_probe_url_parser_setup(monkeypatch: pytest.MonkeyPatch) -> None:
             "detail": detail,
             "country": country,
             "min_tier": min_tier,
-            "wait_for": wait_for,
+            "wait_condition": wait_condition,
         })
 
     monkeypatch.setattr(cli, "_cmd_probe_url", _mock_cmd_probe_url)
 
-    # Simulate: python -m product_search.cli probe-url "https://example.com" --country us --min-tier 3 --wait-for "#grid" --render --detail
+    # Simulate: python -m product_search.cli probe-url "https://example.com" --country us --min-tier 3 --wait-condition networkidle --render --detail
     monkeypatch.setattr(sys, "argv", [
         "cli.py", "probe-url", "https://example.com",
         "--country", "us",
         "--min-tier", "3",
-        "--wait-for", "#grid",
+        "--wait-condition", "networkidle",
         "--render",
         "--detail",
     ])
@@ -232,5 +233,5 @@ def test_probe_url_parser_setup(monkeypatch: pytest.MonkeyPatch) -> None:
     assert c["detail"] is True
     assert c["country"] == "us"
     assert c["min_tier"] == 3
-    assert c["wait_for"] == "#grid"
+    assert c["wait_condition"] == "networkidle"
 

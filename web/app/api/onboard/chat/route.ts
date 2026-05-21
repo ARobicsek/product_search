@@ -169,11 +169,12 @@ export async function POST(request: NextRequest) {
                         },
                         min_tier: {
                           type: 'integer',
-                          description: 'Optional minimum proxy quality tier (e.g. 3 for residential proxies).',
+                          description: 'Optional minimum proxy/render tier 1..4 (3 = stealth/residential; 4 = full headless browser, which beats Cloudflare challenges that tier 3 cannot).',
                         },
-                        wait_for: {
+                        wait_condition: {
                           type: 'string',
-                          description: 'Optional CSS selector to wait for in the DOM before extracting HTML (e.g. ".product-grid").',
+                          enum: ['domcontentloaded', 'networkidle', 'load'],
+                          description: 'Optional: wait for the page to reach this load state before capturing HTML. Use "networkidle" for sites that render the price asynchronously via JS. (Do NOT use the old "wait_for" field — it is not a real AlterLab parameter and silently breaks the fetch.)',
                         },
                       },
                     },

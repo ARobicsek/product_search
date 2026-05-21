@@ -29,8 +29,16 @@
 #
 # default_alterlab_options:        # merged under source-level extra.alterlab_options
 #   country: <str>                 # e.g. "us"
-#   min_tier: <int>                # 1..4
-#   wait_for: <int|str>            # seconds OR a CSS selector to wait on
+#   min_tier: <int>                # 1..4 (4 = Playwright browser; beats challenges tier 3 can't)
+#   wait_condition: <str>          # domcontentloaded | networkidle | load
+#                                  # (waits for JS/network to settle before
+#                                  #  capturing HTML — use networkidle for
+#                                  #  async-rendered prices). ADR-071.
+#   # NOTE: the legacy `wait_for: <int>` field is a BUG — AlterLab has no such
+#   # param, so sending it forces the request into an async 202 job that never
+#   # resolves => body 0 (the B&H/Target body-0 failures). It is auto-migrated
+#   # to `wait_condition: networkidle` by normalize_alterlab_options (ADR-071);
+#   # do not add new `wait_for` entries.
 #
 # url_transforms:                  # ordered list, evaluated top-to-bottom
 #   - when:                        # all conditions must match; omit `when` to apply unconditionally
@@ -94,7 +102,7 @@ bhphotovideo.com:
   default_alterlab_options:
     country: us
     min_tier: 3
-    wait_for: 5
+    wait_condition: networkidle
   prefer_page_type: detail
   notes: |
     B&H search-result tile walker misses tiles: a fully-rendered page (200 KB,
@@ -110,7 +118,7 @@ ebay.com:
 
 newegg.com:
   default_alterlab_options:
-    wait_for: 5
+    wait_condition: networkidle
   notes: |
     Newegg renders pricing asynchronously via JS — give it wait time before
     extracting. No adapter yet for a dedicated Newegg source; route via
@@ -120,7 +128,7 @@ microcenter.com:
   default_alterlab_options:
     country: us
     min_tier: 3
-    wait_for: 5
+    wait_condition: networkidle
   known_failure:
     severity: blocker
     summary: |
