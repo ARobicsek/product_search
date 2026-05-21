@@ -13,6 +13,7 @@ Status values:
 
 One line per ADR (newest first). Skim this; open only the bodies you need. (No ADR-036 — numbering gap.)
 
+- **ADR-070** — Probe Tier 1.5 mirror was unfaithful: TS `fetchViaAlterlab` omitted `asp:true`, so AlterLab returned partial/Cloudflare-challenge renders and `detailExtractable` was a false negative for valid detail URLs (Target). Add `asp:true` to match the runtime — ACCEPTED (impl)
 - **ADR-069** — Detail-URL probe gap: `probe_url` evaluates `page_type:"detail"` URLs by a faithful Tier 1.5 mirror (`detailExtractable`), not list-anchor count, ending false demotion of valid detail pages — ACCEPTED (impl)
 - **ADR-068** — Vendor quirks registry: single source of truth (`worker/src/product_search/vendor_quirks.yaml`) for per-vendor URL transforms / default alterlab_options / known failures, consumed by adapter + onboarder prompt + save-time gate — ACCEPTED (impl)
 - **ADR-067** — Onboarder: redundant product-detail URL backup for single-SKU products on stable-URL vendors — ACCEPTED (impl)
@@ -82,6 +83,25 @@ One line per ADR (newest first). Skim this; open only the bodies you need. (No A
 - **ADR-002** — Repo-as-database; SQLite as workflow-local cache only — ACCEPTED
 - **ADR-001** — LLM is downstream of verified data only (architectural commitment) — ACCEPTED
 
+
+## ADR-070 — Probe AlterLab fetch must send `asp:true` to faithfully mirror the runtime (ACCEPTED — implemented)
+
+**Status**: ACCEPTED — implemented 2026-05-21 (found while verifying ADR-069 in prod).
+
+**Date**: 2026-05-21
+
+**Context**: ADR-069 added a "faithful Tier 1.5 mirror" to `web/lib/onboard/probe-url.ts` so a `page_type:"detail"` URL is judged by `detailExtractable` (a real Haiku extraction + verbatim-price guard) instead of anchor count. Verifying it against the live Sony WH-1000XM5 detail URLs exposed that the mirror was **not faithful at the fetch layer**. The TS `fetchViaAlterlab` posted `{url, sync, formats:["html"], advanced:{render_js:true}, ...}` but **omitted `asp:true`** — AlterLab's anti-scraping/anti-bot bypass — which the runtime adapter (`universal_ai._fetch_via_alterlab`, universal_ai.py:260) sends on *every* fetch. Without `asp`, AlterLab returned degraded renders: the Target detail page came back as a 380 KB partial with the price area showing "There was a temporary issue" (stripped text had the title but no price → LLM correctly returned `found:false` → `detailExtractable:false`), and B&H came back as a 31 KB Cloudflare "Just a moment…" challenge. Decisive cross-check: the **runtime** `cli probe-url --render --detail --country us --min-tier 3` on the *same* Target URL — identical `country/min_tier/render_js`, differing only by `asp:true` — fetched a full **1,576,296-char** body and extracted `$249.99 (new)` cleanly. So the probe would have told the onboarder to demote a Target detail URL the production adapter extracts perfectly — re-introducing exactly the false-negative ADR-069 set out to kill, and silently defeating the ADR-067 detail-backup it is meant to protect.
+
+**Decision**:
+- Add `asp: true` to the request body in `probe-url.ts`'s `fetchViaAlterlab`, matching the runtime's always-on default. The probe's rendered fetch now engages the same anti-bot bypass the production adapter uses, so the render the probe judges matches what the adapter will actually extract.
+- Confirmed live: with `asp:true`, a fresh (un-cached) Target WH-1000XM5 detail URL fetched a 468 KB full render and returned `detailExtractable:true` (extracted `$249.99`). Same code path the deployed onboarder runs.
+
+**Consequences**:
+- The probe no longer false-negatives on hard detail URLs (Target, and any vendor that needs anti-bot bypass to render). The `detailExtractable` signal is now trustworthy for the onboarder's keep/demote decision, restoring ADR-069's intent and protecting ADR-067 backups.
+- Cost: `asp` is a premium AlterLab feature, but (a) it's onboarding-time only (probes are infrequent vs scheduled runs) and (b) the runtime already pays it on every scheduled fetch — the probe matching it is strictly more faithful, not new recurring cost.
+- **B&H remains separately unresolved.** Even via the runtime path B&H returned an empty body (status 0) for the WH-1000XM5 detail URL in this session (with `wait_for:'5'`); the probe got a Cloudflare challenge. B&H detail is currently not reliably extractable in *either* path — a vendor-reach problem (likely AlterLab vs B&H Cloudflare, possibly compounded by the `wait_for` int-seconds-vs-CSS-selector ambiguity), tracked as a deferred item, NOT fixed here. The committed sony profile keeping B&H in `sources_pending` is therefore still appropriate today.
+
+---
 
 ## ADR-069 — Detail-URL probe judges by a faithful Tier 1.5 mirror, not anchor count (ACCEPTED — implemented)
 

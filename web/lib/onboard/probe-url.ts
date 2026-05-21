@@ -216,6 +216,13 @@ async function fetchViaAlterlab(
     url,
     sync: true,
     formats: ['html'],
+    // asp = AlterLab anti-scraping/anti-bot bypass. The runtime adapter
+    // (universal_ai._fetch_via_alterlab) always sends this; without it AlterLab
+    // returns partial or Cloudflare-challenge renders (Target's "temporary
+    // issue" stub, B&H's "Just a moment..." page) and the probe falsely reports
+    // detailExtractable:false for a detail URL the runtime extracts fine
+    // (ADR-070). Must stay in sync with the runtime to keep the mirror faithful.
+    asp: true,
     advanced: { render_js: true },
   };
   if (options) {
