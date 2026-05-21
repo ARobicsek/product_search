@@ -1,0 +1,37 @@
+slug: amd-epyc-9255
+display_name: AMD EPYC 9255
+description: Track the cheapest in-stock AMD EPYC 9255 single-socket processor listings.
+target:
+  unit: count
+  amount: 1
+spec_filters:
+  - rule: in_stock
+spec_flags: []
+sources:
+  - id: universal_ai_search
+    url: https://www.sabrepc.com/100-000000694-AMD-S137839588
+    page_type: detail
+  - id: universal_ai_search
+    url: https://www.wiredzone.com/shop/product/10032075-amd-100-000000694-epyc-9255-3-20ghz-24-core-processor-5th-generation-turin-14772
+    page_type: detail
+  - id: universal_ai_search
+    url: https://www.newegg.com/p/pl?d=epyc+9255
+  - id: universal_ai_search
+    url: https://www.serversupply.com/PROCESSORS/AMD%20EPYC%2024-Core/3.2GHz/AMD/100-000000694_402211.htm
+    page_type: detail
+  - id: universal_ai_search
+    url: https://www.cdw.com/product/amd-epyc-9255-processor/8247923
+    page_type: detail
+  - id: universal_ai_search
+    url: https://www.pcnation.com/amd-100-000000694-nt9963
+    page_type: detail
+  - id: universal_ai_search
+    url: https://www.centralcomputer.com/amd-epyc-9255-24c-48t-3-25ghz-processor-4-3ghz-boost-tray-128-mb-l3-cache-200w-tdp-100-000000694.html
+    page_type: detail
+sources_pending:
+  - id: universal_ai_search
+    note: Provantage (provantage.com) — HTTP 200 but detail extractor failed; may need JS rendering or has non-standard DOM structure. Try JS rendering if enabled.
+  - id: universal_ai_search
+    note: Connection (connection.com) — HTTP 403 bot-block on bare fetch. Needs residential proxy bypass.
+  - id: universal_ai_search
+    note: SHI (shi.com) — HTTP 403 bot-block. Needs residential proxy bypass.
