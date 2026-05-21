@@ -1,4 +1,4 @@
-slug: amd-epyc-9255
+slug: "amd-epyc-9255"
 display_name: AMD EPYC 9255
 description: Track the cheapest in-stock AMD EPYC 9255 single-socket processor listings.
 target:
@@ -8,9 +8,6 @@ spec_filters:
   - rule: in_stock
 spec_flags: []
 sources:
-  - id: universal_ai_search
-    url: https://www.sabrepc.com/100-000000694-AMD-S137839588
-    page_type: detail
   - id: universal_ai_search
     url: https://www.wiredzone.com/shop/product/10032075-amd-100-000000694-epyc-9255-3-20ghz-24-core-processor-5th-generation-turin-14772
     page_type: detail
@@ -28,9 +25,13 @@ sources:
   - id: universal_ai_search
     url: https://www.centralcomputer.com/amd-epyc-9255-24c-48t-3-25ghz-processor-4-3ghz-boost-tray-128-mb-l3-cache-200w-tdp-100-000000694.html
     page_type: detail
-sources_pending:
   - id: universal_ai_search
-    note: Provantage (provantage.com) — HTTP 200 but detail extractor failed; may need JS rendering or has non-standard DOM structure. Try JS rendering if enabled.
+    url: https://www.provantage.com/amd-100-000000694~7AAMD3R8.htm
+    page_type: detail
+    extra:
+      alterlab_options:
+        wait_for: 5
+sources_pending:
   - id: universal_ai_search
     note: Connection (connection.com) — HTTP 403 bot-block on bare fetch. Needs residential proxy bypass.
   - id: universal_ai_search
