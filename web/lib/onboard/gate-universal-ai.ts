@@ -22,6 +22,7 @@ export interface ProbeReport {
   ok: boolean;
   jsonldCount: number;
   anchorCount: number;
+  detailExtractable: boolean | null;
   reason: string | null;
 }
 
@@ -48,6 +49,7 @@ export async function gateUniversalAiUrls(
     source: Record<string, unknown>;
     url: string;
     alterlabOptions?: { country?: string; min_tier?: number; wait_for?: string };
+    pageType?: 'search' | 'detail';
   };
   const toProbe: Pending[] = [];
   const sourcesOut: unknown[] = [];
@@ -71,12 +73,15 @@ export async function gateUniversalAiUrls(
     const alterlabOptions = (extra && extra.alterlab_options && typeof extra.alterlab_options === 'object')
       ? extra.alterlab_options
       : undefined;
-    toProbe.push({ source: s, url, alterlabOptions });
+    const pageType = (extra && (extra.page_type === 'detail' || extra.page_type === 'search'))
+      ? (extra.page_type as 'search' | 'detail')
+      : undefined;
+    toProbe.push({ source: s, url, alterlabOptions, pageType });
   }
 
   // Probe in parallel; one slow vendor doesn't gate the rest.
   const results = await Promise.all(
-    toProbe.map((p) => probeUrl(p.url, p.alterlabOptions).catch((err: unknown) => {
+    toProbe.map((p) => probeUrl(p.url, p.alterlabOptions, p.pageType).catch((err: unknown) => {
       // probeUrl already catches its own errors and returns ok=false; this
       // is a paranoia layer for unexpected exceptions.
       const msg = err instanceof Error ? err.message : String(err);
@@ -87,6 +92,7 @@ export async function gateUniversalAiUrls(
         bodyLength: 0,
         jsonldCount: 0,
         anchorCount: 0,
+        detailExtractable: null,
         reason: `unexpected probe error: ${msg}`,
       } satisfies ProbeResult;
     })),
@@ -97,6 +103,7 @@ export async function gateUniversalAiUrls(
     ok: r.ok,
     jsonldCount: r.jsonldCount,
     anchorCount: r.anchorCount,
+    detailExtractable: r.detailExtractable,
     reason: r.reason,
   }));
 

@@ -13,6 +13,7 @@ Status values:
 
 One line per ADR (newest first). Skim this; open only the bodies you need. (No ADR-036 — numbering gap.)
 
+- **ADR-069** — Detail-URL probe gap: `probe_url` evaluates `page_type:"detail"` URLs by a faithful Tier 1.5 mirror (`detailExtractable`), not list-anchor count, ending false demotion of valid detail pages — ACCEPTED (impl)
 - **ADR-068** — Vendor quirks registry: single source of truth (`worker/src/product_search/vendor_quirks.yaml`) for per-vendor URL transforms / default alterlab_options / known failures, consumed by adapter + onboarder prompt + save-time gate — ACCEPTED (impl)
 - **ADR-067** — Onboarder: redundant product-detail URL backup for single-SKU products on stable-URL vendors — ACCEPTED (impl)
 - **ADR-066** — Onboarder: dynamic bot-block bypass probe + premium options schema support — ACCEPTED (impl)
@@ -81,6 +82,28 @@ One line per ADR (newest first). Skim this; open only the bodies you need. (No A
 - **ADR-002** — Repo-as-database; SQLite as workflow-local cache only — ACCEPTED
 - **ADR-001** — LLM is downstream of verified data only (architectural commitment) — ACCEPTED
 
+
+## ADR-069 — Detail-URL probe judges by a faithful Tier 1.5 mirror, not anchor count (ACCEPTED — implemented)
+
+**Status**: ACCEPTED — implemented 2026-05-21 (follow-up bug found during the 2026-05-21 prod validation of ADR-068).
+
+**Date**: 2026-05-21
+
+**Context**: During the ADR-068 prod re-onboard of sony-wh-1000xm5, B&H's `page_type:"detail"` URL was demoted to `sources_pending` because the chat-time `probe_url` tool reported `anchorCount: 0, jsonldCount: 0`. That is a false negative: a product *detail* page legitimately has ~0 list anchors and often no JSON-LD (its price lives only in DOM text). The TS `probeUrl()` only did JSON-LD extraction + `countProductAnchors()` and took no `page_type`, so it returned `{anchorCount:0, jsonldCount:0}` for a perfectly-good detail page, and the onboarder LLM read that as "can't extract" and demoted the vendor. The runtime adapter does NOT have this gap — for a detail URL it runs Tier 1.5 (`_extract_detail_listing`): one `claude-haiku-4-5` call on the stripped page text that pulls the single product's price, re-verified verbatim (ADR-001). The probe modelled none of this. The same false negative would also hit the ADR-067 detail-URL backups the onboarder is meant to add for Target/Best Buy, partly defeating both ADRs.
+
+**Decision**:
+- **`page_type` plumbed end-to-end**: added to the `probe_url` tool input schema (`web/app/api/onboard/chat/route.ts`), to `probeUrl()` (`probe-url.ts`), and read from the draft source's `extra.page_type` in `gate-universal-ai.ts` for consistency.
+- **Faithful Tier 1.5 mirror in TS** (chosen over a cheap `$X.XX`-token heuristic — user decision 2026-05-21, "Haiku mirror (faithful)"): for `page_type:"detail"`, `probeUrl()` stops gating on `anchorCount` and instead reports a `detailExtractable: boolean | null` signal. It ports `_strip_to_main_text` (regex flatten — no DOM parser on the edge runtime), the verbatim `DETAIL_SYSTEM_PROMPT`, the `_price_in_text` guard, and `_canonicalize_prices`/`_strip_foreign_currencies`, then makes one `claude-haiku-4-5` call and re-verifies the price verbatim. JSON-LD-with-price short-circuits to `true` (skips the LLM call) since the runtime Tier 1 would catch it.
+- **`ok` semantics unchanged (ADR-038 preserved)**: `detailExtractable` is a *diagnostic* signal for the chat LLM, not a new hard-failure gate. The save-time gate still demotes only on `ok:false` (hard fetch failures), so a rendered-200 detail page still survives the background gate. The chat LLM is told (prompt) to demote a detail URL only when `detailExtractable: false`.
+- **Onboarder prompt** (`onboard_v1.txt`): for a detail URL, 0 anchors is EXPECTED — judge by `detailExtractable`, never by anchor count; always pass `page_type`; detail extraction needs a rendered DOM so probe hard/JS-heavy detail URLs with `alterlab_options`. Regenerated `promptText.ts` via `sync-prompt.js`.
+
+**Consequences**:
+- Valid detail URLs (B&H, and ADR-067 Target/Best Buy backups) are no longer falsely demoted; the probe's verdict now matches what the runtime adapter actually extracts.
+- Cost: one extra Haiku call per *detail* probe that has no JSON-LD price (cheap; probes already spend AlterLab budget). Search-URL probing is unchanged (no LLM call).
+- The TS strip is a regex flatten, not selectolax, so it can diverge slightly from the runtime's stripped text; the verbatim price guard runs against the same TS-stripped text, so the probe can never *claim* extractable on a price it didn't see. Worst case is a probe false-negative (overly strict), which is the safe direction.
+- Not the culprit and intentionally untouched: the background save-time gate logic (`gate-universal-ai.ts`) still hard-failure-only.
+
+---
 
 ## ADR-068 — Vendor quirks registry: one source of truth for per-vendor knowledge (ACCEPTED — implemented)
 

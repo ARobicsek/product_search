@@ -8,6 +8,25 @@ so the live file stays small while nothing is lost. See
 
 ---
 
+## Current state — 2026-05-21 ADR-068 shipped (`e0db48b`) + validated in prod; one follow-up bug found (SUPERSEDED by ADR-069, fixed 2026-05-21)
+
+ADR-068 (vendor quirks registry) is committed/pushed and **validated by a live prod re-onboard of sony-wh-1000xm5 on 2026-05-21**. All three registry behaviors propagated to the onboarder and the deterministic guardrail fired:
+- microcenter `known_failure` → onboarder proactively warned + routed to `sources_pending` (last time it falsely promised listings);
+- B&H `prefer_page_type: detail` → onboarder tried the detail URL first;
+- Best Buy is alive again (probe 1.6 MB / 6 anchors vs the prior 7 KB / 0); the saved search URL's path is `/site/searchpage.jsp` so the runtime adapter auto-appends `&intl=nosplash`;
+- **ADR-067 save-time amber warning fired for Target AND Best Buy** (LLM still added only search URLs — the prompt half of ADR-067 didn't take, exactly the LLM drift the deterministic guardrail exists to catch; it caught it).
+
+(ADR-068 build details — see commit `e0db48b` and DECISIONS.md ADR-068.)
+
+### NEW BUG found during that validation — probe under-tests `page_type: "detail"` URLs (FIXED by ADR-069)
+
+During the same run, B&H's **detail** URL was demoted to `sources_pending` because the probe reported **0 anchors / 0 JSON-LD**. That is a **false negative**: a detail page legitimately has ~0 list anchors, and its price often lives only in DOM text (not JSON-LD). Confirmed root cause:
+- The chat-time `probe_url` tool took only `url` + `alterlab_options` — **no `page_type`** — and called `probeUrl()`, which only did JSON-LD extraction + `countProductAnchors()`. It returned `{anchorCount: 0, jsonldCount: 0}` for a perfectly-good detail page, and the **onboarder LLM interpreted that as "can't extract" and demoted the vendor**.
+- The thing the probe SHOULD model for a detail URL is the runtime **Tier 1.5 extractor** (`universal_ai.py` `_extract_detail_listing`): one `claude-haiku-4-5` call on the stripped page text that pulls the single product's price (URL is always the source URL, never LLM-produced). The TS probe did none of this.
+- **NOT the culprit:** the background save-time gate (`gate-universal-ai.ts`). `probeUrl()` returns `ok:true` for any 2xx with body ≥ 500 regardless of anchor count, and the gate only demotes on `ok:false` — so detail URLs added to a profile *survive* the background gate.
+
+→ Resolved by ADR-069 (2026-05-21): `probe_url` now takes `page_type`, and for `page_type:"detail"` reports a `detailExtractable` signal from a faithful TS port of Tier 1.5 instead of gating on anchors.
+
 ## Status as of 2026-05-20 (ADR-065 + sony-wh-1000xm5 vendor-URL/bundle/onboarder follow-ups — ALL DONE + pushed)
 
 ### What shipped earlier today (ADR-065; on `origin/main`)

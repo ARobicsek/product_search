@@ -154,6 +154,11 @@ export async function POST(request: NextRequest) {
                       type: 'string',
                       description: 'The absolute URL to probe.',
                     },
+                    page_type: {
+                      type: 'string',
+                      enum: ['search', 'detail'],
+                      description: 'Whether this URL is a search/category page (lists many products) or a single-product detail page. For a "detail" URL, 0 product anchors is EXPECTED and NOT a failure — judge extractability by the returned detailExtractable flag instead. Defaults to "search".',
+                    },
                     alterlab_options: {
                       type: 'object',
                       description: 'Optional AlterLab rendering parameters (residential proxy, US exit IPs, and JS waits) to use if the site is a known hard/anti-bot vendor.',
@@ -228,16 +233,17 @@ export async function POST(request: NextRequest) {
                 if (toolUse.type !== 'tool_use') return null;
 
                 const toolUseId = toolUse.id;
-                const input = toolUse.input as { url: string; alterlab_options?: Record<string, unknown> };
+                const input = toolUse.input as { url: string; alterlab_options?: Record<string, unknown>; page_type?: 'search' | 'detail' };
                 const url = input.url;
                 const alterlabOptions = input.alterlab_options;
+                const pageType = input.page_type;
 
                 // Send the detailed tool_use event so the client can display exactly what is being probed
                 send({ type: 'tool_use', name: 'probe_url', input });
 
                 let resultText = '';
                 try {
-                  const probeRes = await probeUrl(url, alterlabOptions);
+                  const probeRes = await probeUrl(url, alterlabOptions, pageType);
                   resultText = JSON.stringify(probeRes, null, 2);
                 } catch (err) {
                   resultText = JSON.stringify({

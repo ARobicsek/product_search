@@ -1,5 +1,7 @@
 import 'server-only';
 
+import Anthropic from '@anthropic-ai/sdk';
+
 // TypeScript port of the worker's universal_ai probe (Phase 15 task 5).
 //
 // Why a TS port and not a subprocess to the Python CLI: the onboarder runs
@@ -8,8 +10,21 @@ import 'server-only';
 // keeps the save-time gate fast (parallel fetches, no Python boot) and
 // avoids adding a worker-deployment dependency to the web app.
 //
-// What we DON'T port: the anchor + LLM tier from
-// worker/src/product_search/adapters/universal_ai.py.
+// What we DON'T port: the search-page anchor + LLM tier from
+// worker/src/product_search/adapters/universal_ai.py — for a SEARCH URL the
+// probe only counts JSON-LD listings + product anchors as a coarse signal.
+//
+// What we DO port (added 2026-05-21): the Tier 1.5 detail-page extractor
+// (_extract_detail_listing) is faithfully mirrored here for page_type:"detail"
+// URLs. A detail page legitimately has ~0 list anchors and often no JSON-LD —
+// its price lives in DOM text — so gating a detail URL on anchorCount is a
+// false negative that wrongly demotes a perfectly-good vendor (the B&H bug,
+// 2026-05-21). For a detail URL we instead report a `detailExtractable`
+// signal: strip the page to its main text, run ONE claude-haiku-4-5 call for
+// the single product's price, and re-verify that price verbatim in the
+// stripped text (ADR-001 anti-hallucination guard) — exactly what the runtime
+// adapter does. anchorCount is no longer the extractability signal for detail
+// URLs; the onboarder prompt is told to judge by detailExtractable instead.
 //
 // Probe pass/fail policy (post-2026-05-04 revision): the gate is a
 // HARD-FAILURE-ONLY filter, not a correctness gate. The first pass of this
@@ -32,6 +47,63 @@ import 'server-only';
 
 const FETCH_TIMEOUT_MS = 8000;
 const MIN_BODY_LENGTH = 500;
+
+// --- Tier 1.5 detail-extraction mirror (page_type:"detail" only) ----------
+// These mirror worker/src/product_search/adapters/universal_ai.py so the
+// probe's verdict for a detail URL matches what the runtime adapter will
+// actually extract in production.
+
+const DETAIL_MAX_CHARS = 16000;
+const DETAIL_MODEL = 'claude-haiku-4-5';
+
+// Block-level tags whose contents are dropped wholesale before flattening to
+// text (mirrors _DETAIL_STRIP_TAGS).
+const DETAIL_STRIP_TAGS = [
+  'script', 'style', 'noscript', 'template', 'svg',
+  'nav', 'header', 'footer', 'iframe',
+];
+
+// Amazon-style split price spans flatten to "$ 329 99"; rejoin to "$329.99"
+// (mirrors _SPLIT_PRICE_RE / _canonicalize_prices). The "." in the gap covers
+// Amazon's literal decimal span.
+const SPLIT_PRICE_RE = /\$\s+(\d{1,4}(?:,\d{3})*)[\s.]+(\d{2})\b/g;
+
+// Foreign-currency amounts leaked by AlterLab's European exit IPs (mirrors
+// _FOREIGN_CURRENCY_RE) — stripped so the model can't read EUR/GBP as USD.
+const FOREIGN_CURRENCY_RE =
+  /(?:EUR\s*€|\bEUR[\s ]+(?=\d)|€|GBP\s*£|£|CA?\$|A\$|¥|₹|\bCHF\s+)\s*\d{1,6}(?:[.,]\d{2,3})*/gi;
+
+// Verbatim copy of DETAIL_SYSTEM_PROMPT from universal_ai.py — the probe must
+// ask the model exactly what the runtime asks so the verdict matches.
+const DETAIL_SYSTEM_PROMPT = `You are extracting THE single product from one vendor product-detail page.
+
+The user message is the visible text of ONE product's detail page
+(navigation, header, scripts and footer already stripped). The page is for
+exactly one product for sale.
+
+Return a JSON object with EXACTLY these keys:
+  - "found": true or false
+  - "title": the product title as shown on the page
+  - "price_usd": numeric only (e.g. 2335.00). The CURRENT selling price for
+    THIS product.
+  - "condition": one of "new", "used", "refurbished" (default "new")
+  - "in_stock": true or false
+  - "pack_size": integer — units sold in one purchase (default 1)
+
+Hard rules:
+  - The price MUST appear verbatim in the provided text. If you cannot find
+    an unambiguous current selling price for THIS product, return
+    {"found": false} (the other keys then do not matter).
+  - Do NOT invent, estimate, round, or currency-convert any value. Copy the
+    price digits exactly as they appear (ignore the currency symbol and any
+    thousands separators).
+  - Use the current buy price — NOT list/MSRP/strikethrough/"was" price, NOT
+    a bundled accessory, financing installment, or "related products" price.
+  - "condition" stays "new" unless the page explicitly states otherwise.
+  - "in_stock" is false if the page says out of stock / sold out / backorder
+    / "notify me" / "email when available"; true otherwise.
+  - Output JSON ONLY. No prose preamble, no markdown fences.
+`;
 
 // Hosts known to AlterLab-render fine in production even when the bare TS
 // ``fetch`` from a Vercel datacenter IP gets a 5xx or a bot-block. Production
@@ -100,6 +172,11 @@ export interface ProbeResult {
   bodyLength: number;
   jsonldCount: number;
   anchorCount: number;
+  // For page_type:"detail" URLs: true if the Tier 1.5 mirror extracted a
+  // verbatim-verified price, false if not, null if not a detail probe (or the
+  // probe never reached extraction, e.g. a hard fetch failure). For a detail
+  // URL the onboarder must judge extractability by THIS, not anchorCount.
+  detailExtractable: boolean | null;
   reason: string | null; // populated when ok=false
 }
 
@@ -395,11 +472,135 @@ export function countProductAnchors(html: string, baseUrl: string): number {
   return seen.size;
 }
 
+// --- Tier 1.5 detail extraction (mirror of universal_ai._extract_detail_listing)
+
+const HTML_ENTITIES: Record<string, string> = {
+  '&nbsp;': ' ', '&amp;': '&', '&lt;': '<', '&gt;': '>',
+  '&quot;': '"', '&apos;': "'", '&#39;': "'", '&#36;': '$',
+};
+
+function decodeEntities(s: string): string {
+  let out = s.replace(/&nbsp;|&amp;|&lt;|&gt;|&quot;|&apos;|&#39;|&#36;/g, (m) => HTML_ENTITIES[m] ?? m);
+  // Numeric entities (decimal + hex).
+  out = out.replace(/&#(\d+);/g, (_, d) => {
+    const code = Number(d);
+    return Number.isFinite(code) ? String.fromCodePoint(code) : _;
+  });
+  out = out.replace(/&#x([0-9a-fA-F]+);/g, (_, h) => {
+    const code = parseInt(h, 16);
+    return Number.isFinite(code) ? String.fromCodePoint(code) : _;
+  });
+  return out;
+}
+
+// Mirror of _strip_to_main_text. No DOM parser on the edge runtime, so this is
+// a regex flatten rather than selectolax — close enough that the model sees
+// the price + title and the verbatim guard checks the same haystack.
+export function stripToMainText(html: string): string {
+  let s = html;
+  for (const tag of DETAIL_STRIP_TAGS) {
+    s = s.replace(new RegExp(`<${tag}\\b[^>]*>[\\s\\S]*?<\\/${tag}>`, 'gi'), ' ');
+    s = s.replace(new RegExp(`<${tag}\\b[^>]*/?>`, 'gi'), ' ');
+  }
+  s = s.replace(/<[^>]+>/g, ' ');
+  s = decodeEntities(s);
+  s = s.replace(/\s+/g, ' ').trim();
+  // _canonicalize_prices: rejoin "$ 329 99" → "$329.99".
+  s = s.replace(SPLIT_PRICE_RE, '$$$1.$2');
+  // _strip_foreign_currencies.
+  s = s.replace(FOREIGN_CURRENCY_RE, '');
+  if (s.length > DETAIL_MAX_CHARS) s = s.slice(0, DETAIL_MAX_CHARS);
+  return s;
+}
+
+// Mirror of _price_in_text — the ADR-001 anti-hallucination guard. True iff
+// `price` occurs verbatim in `text` under the same normalisation the runtime
+// uses (strip $, commas, whitespace; accept common printed forms).
+export function priceInText(price: number, text: string): boolean {
+  const norm = text.replace(/[\s,$]/g, '');
+  const forms = new Set<string>();
+  forms.add(price.toFixed(2));
+  if (price === Math.trunc(price)) {
+    forms.add(String(Math.trunc(price)));
+    forms.add(`${Math.trunc(price)}.00`);
+  }
+  const trimmed = price.toFixed(2).replace(/0+$/, '').replace(/\.$/, '');
+  if (trimmed) forms.add(trimmed);
+  for (const f of forms) {
+    if (f && norm.includes(f)) return true;
+  }
+  return false;
+}
+
+function parseDetailJson(raw: string): Record<string, unknown> | null {
+  // The prompt asks for bare JSON, but tolerate fences / prose preambles.
+  let s = raw.trim();
+  const fence = s.match(/```(?:json)?\s*([\s\S]*?)```/i);
+  if (fence) s = fence[1].trim();
+  const start = s.indexOf('{');
+  const end = s.lastIndexOf('}');
+  if (start === -1 || end === -1 || end <= start) return null;
+  try {
+    const parsed = JSON.parse(s.slice(start, end + 1));
+    return (typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed))
+      ? (parsed as Record<string, unknown>)
+      : null;
+  } catch {
+    return null;
+  }
+}
+
+// Faithful mirror of _extract_detail_listing: one Haiku call on the stripped
+// page text, then re-verify the returned price verbatim. Returns true iff a
+// priced product was extracted and verified. Any failure (no API key, LLM
+// error, no price, price not in text) → false: the runtime would emit nothing
+// either, so the URL is genuinely not extractable as a detail page.
+async function extractDetailListing(html: string, url: string): Promise<boolean> {
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+  if (!apiKey) return false;
+
+  const text = stripToMainText(html);
+  if (text.length < 20) return false;
+
+  let responseText = '';
+  try {
+    const client = new Anthropic({ apiKey });
+    const msg = await client.messages.create({
+      model: DETAIL_MODEL,
+      max_tokens: 1024,
+      system: DETAIL_SYSTEM_PROMPT,
+      messages: [{ role: 'user', content: text }],
+    });
+    for (const block of msg.content) {
+      if (block.type === 'text') responseText += block.text;
+    }
+  } catch {
+    return false;
+  }
+
+  const parsed = parseDetailJson(responseText);
+  if (!parsed || !parsed.found) return false;
+
+  const price = Number(parsed.price_usd);
+  if (!Number.isFinite(price) || price <= 0) return false;
+
+  // The architectural guard: the model never produces a price the
+  // deterministic layer didn't fetch (ADR-001). Verify against the same text.
+  if (!priceInText(price, text)) return false;
+
+  const title = typeof parsed.title === 'string' ? parsed.title.trim() : '';
+  if (!title) return false;
+
+  void url; // kept for symmetry with the runtime signature / future logging
+  return true;
+}
+
 // --- Top-level probe ------------------------------------------------------
 
 export async function probeUrl(
   url: string,
-  alterlabOptions?: { country?: string; min_tier?: number; wait_for?: string }
+  alterlabOptions?: { country?: string; min_tier?: number; wait_for?: string },
+  pageType?: 'search' | 'detail',
 ): Promise<ProbeResult> {
   let result: ProbeResult = {
     ok: false,
@@ -408,6 +609,7 @@ export async function probeUrl(
     bodyLength: 0,
     jsonldCount: 0,
     anchorCount: 0,
+    detailExtractable: null,
     reason: null,
   };
   const host = hostOf(url);
@@ -488,7 +690,21 @@ export async function probeUrl(
     }
     const listings = extractJsonldListings(html, url);
     const anchors = countProductAnchors(html, url);
-    result = { ...result, jsonldCount: listings.length, anchorCount: anchors, ok: true };
+    let detailExtractable: boolean | null = null;
+    if (pageType === 'detail') {
+      // For a detail URL, anchorCount is meaningless (~0 is expected). Judge by
+      // whether the Tier 1.5 path can pull a verbatim-verified price. JSON-LD
+      // with a price is already proof (the runtime Tier 1 would catch it), so
+      // skip the LLM call in that case to save a Haiku call.
+      detailExtractable = listings.length > 0 ? true : await extractDetailListing(html, url);
+    }
+    result = {
+      ...result,
+      jsonldCount: listings.length,
+      anchorCount: anchors,
+      detailExtractable,
+      ok: true,
+    };
     return result;
   } catch (err) {
     if (!alterlabOptions && isAlterlabKnownGood) {
