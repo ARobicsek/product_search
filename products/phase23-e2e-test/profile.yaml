@@ -8,9 +8,6 @@ spec_filters:
   - rule: condition_in
     values:
       - new
-  - rule: title_excludes
-    values:
-      - MX Master 3
 sources:
   - id: universal_ai_search
     url: https://www.bhphotovideo.com/c/product/1703321-REG/logitech_910_006558_mx_master_3s_pale.html
