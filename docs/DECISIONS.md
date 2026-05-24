@@ -13,6 +13,8 @@ Status values:
 
 One line per ADR (newest first). Skim this; open only the bodies you need. (No ADR-036 — numbering gap.)
 
+- **ADR-084** — Phase 25: source-outcome reason taxonomy. A bare "0" in the report's Sources panel is replaced by a classified, actionable reason via a deterministic `classify_source_outcome` (`worker/src/product_search/source_reasons.py`): `NO_MATCH` / `EMPTY_PAGE` / `PARSER_GAP` / `TRANSIENT` / `PERMANENT`. Rendered as a `[!NOTE]`/`[!WARNING]` callout under the table (only non-clean sources). New `LAST_FETCH_DIAGNOSTICS` (body_len/status/fetcher/degraded/pool-exhausted) from `universal_ai.fetch()` is what separates a parser gap from a genuinely-empty page — ACCEPTED (impl)
+- **ADR-083** — Phase 25: AlterLab `browser_pool_exhausted` 422 is a transient capacity error, not a malformed request, so it is now retried like a 5xx (longer backoff, `_ALTERLAB_POOL_BACKOFF_SECONDS`) before falling through — refines ADR-078's "4xx never retry" rule, which was correct for auth/quota/malformed but wrong for pool exhaustion (it dropped to a no-JS fetcher bot-walled vendors block, zeroing recall). Other 4xx unchanged. A per-fetch flag feeds ADR-084's classifier so a sustained outage is still labelled transient — ACCEPTED (impl)
 - **ADR-082** — Phase 24: vendor `alterlab_known_good: true` tag implies JS-render defaults; the registry-load consistency check now warns at import time on any host that asserts the flag without a `default_alterlab_options` block. Amazon + Backmarket get `{country: us, min_tier: 3, wait_condition: networkidle}` (Adorama's bare path already returns JSON-LD products — no defaults needed). Frozen Amazon search fixture under `worker/tests/fixtures/universal_ai/` carries the recall regression guard; CLI `probe-url` now mirrors the adapter's `merge_alterlab_options` so the diagnostic matches the runtime path — ACCEPTED (impl)
 - **ADR-081** — Phase 23: Hybrid filter restoration. Deterministic filter pre-pass (condition_in, in_stock, numeric thresholds, title_excludes) enforces hard constraints programmatically before handing survivors to ai_filter; ai_filter stays for semantic relevance only — ACCEPTED (impl)
 - **ADR-080** — Phase 22 (P1): onboarder must not emit fragile `title_excludes`. A value that is a substring of the target name silently rejects the wanted product (`"MX Master 3"` ⊂ `"MX Master 3S"`), and generic component/material words (`"bowl"`) false-reject real listings ("…with Copper Bowl" mixer). Prompt rule (never a name-substring, never a generic component word — lean on the relevance filter for accessories) + deterministic save-time soft warning (`title-excludes-check.ts`) when a value is a substring of `display_name`/slug — ACCEPTED (impl)
@@ -95,6 +97,37 @@ One line per ADR (newest first). Skim this; open only the bodies you need. (No A
 - **ADR-002** — Repo-as-database; SQLite as workflow-local cache only — ACCEPTED
 - **ADR-001** — LLM is downstream of verified data only (architectural commitment) — ACCEPTED
 
+
+## ADR-084 — Source-outcome reason taxonomy: explain every "0" in the report
+
+**Status**: ACCEPTED — Phase 25, implemented this session (2026-05-24).
+
+**Date**: 2026-05-24
+
+**Context**: The daily report's "Sources searched" panel (rendered verbatim by the web via `ReactMarkdown`) is the only final output a user sees. A vendor with no results showed `ok / 0 / 0` or `error: <raw exception string>` — the user couldn't tell a *genuinely empty* result from a *transient scraping glitch* from a *permanently broken* vendor from a *fixable-on-our-side parser gap*. A bare "0" is far less useful than a reason. (Driven by the 2026-05-24 session question about AlterLab's `browser_pool_exhausted` 422.)
+
+**Decision**:
+- New deterministic classifier `classify_source_outcome(...)` in `worker/src/product_search/source_reasons.py` — no LLM, no network, no cli import, so the synthesizer post-check (which forbids fabricated numbers) never sees it and it's trivially unit-tested. Five leaf categories: `NO_MATCH` (fetched>0, none qualified), `EMPTY_PAGE` (substantive body, listing-free), `PARSER_GAP` (substantive body ≥ `SUBSTANTIVE_BODY_FLOOR` but 0 parsed — our gap), `TRANSIENT` (AlterLab degraded / pool-exhausted / 5xx / timeout / breaker- or budget-skip / generic fetch error), `PERMANENT` (registry `known_failure`, or quota/auth).
+- The `PARSER_GAP` vs `EMPTY_PAGE` split needs a signal cli can't otherwise see (it only gets the returned Listing count): new module-level `LAST_FETCH_DIAGNOSTICS` in `universal_ai` (`{body_len, final_status, final_fetcher, alterlab_degraded, alterlab_pool_exhausted}`), reset per `fetch()` + in `reset_run_state()`, read right after `fetch()` in the cli source loop (same pattern as `LAST_SKIP_REASON`). The split is an explicit heuristic (a substantive body with 0 candidates is *more often* our parser than a truly empty page), so the message wording hedges.
+- Rendering: the 4-column table is unchanged (mobile-safe); a `> [!NOTE]`/`> [!WARNING]` callout is appended below it listing ONLY the non-clean sources, one bullet each with a category label + plain-English reason + whether/how it's fixable. `[!WARNING]` iff any source is `PERMANENT`. This folds in (replaces) the old `has_api_issue` quota/auth warning and integrates — does not duplicate — the existing `_build_filter_diagnostic_md` for the `NO_MATCH` detail.
+
+**Consequence**: Every 0-result source now carries an actionable reason, so a user (and a future dev) can tell "retry will fix it" from "this vendor is dead" from "we have parser work to do" without reading worker logs. Deterministic + fixture-tested; the web inherits it for free (markdown). Heuristic limit: a genuinely-empty substantive page is labelled `PARSER_GAP` ("likely a parser gap … rather than a true empty result"); the cautious wording owns that. Out of scope: perfect EMPTY/PARSER disambiguation, and auto-creating registry `known_failure` entries from runtime failures (stays manual).
+
+---
+
+## ADR-083 — AlterLab `browser_pool_exhausted` 422 is transient: retry it like a 5xx
+
+**Status**: ACCEPTED — Phase 25, implemented this session (2026-05-24).
+
+**Date**: 2026-05-24
+
+**Context**: ADR-078 (R1) retries the AlterLab API on a transient 5xx before falling back to curl_cffi, but raises *all* 4xx immediately on the reasoning that "a retry can't fix a wrong request shape." That's correct for 401/403/429 (auth/quota) and a genuinely malformed 422 — but **wrong for `browser_pool_exhausted`**, which AlterLab returns as a 422 yet is semantically a *transient capacity* error (their upstream Chrome pool has no free slot). The old code lumped it in with malformed 4xx: it raised immediately, dropped to curl_cffi (no JS, no proxy), and every bot-walled retailer returned 0 — silently zeroing recall on a failure a backoff could have cleared. (Surfaced 2026-05-24 when AlterLab sat in `browser_pool_exhausted` for a whole session.)
+
+**Decision**: in `_fetch_via_alterlab`, before `raise_for_status()`, inspect a 422's body (`_is_transient_alterlab_422`, matching `_ALTERLAB_422_TRANSIENT_MARKERS = {"browser_pool_exhausted"}` against the raw text). A transient 422 routes through the same bounded-retry loop as a 5xx but with a **longer** backoff (`_ALTERLAB_POOL_BACKOFF_SECONDS = 5.0` × attempt — pool exhaustion typically outlasts the 5xx 2+4s window). All other 422s and 401/403/429 still raise immediately. A per-fetch module flag `_LAST_ALTERLAB_POOL_EXHAUSTED` is set whenever the marker is seen (even if retries then fail and we fall through), folded into `LAST_FETCH_DIAGNOSTICS` so ADR-084's classifier can name the cause specifically.
+
+**Consequence**: A brief pool-exhaustion blip now gets a real retry at the rendered tier instead of dropping to a fetcher bot-walled vendors block. Honest limit: in-run retries only recover *brief* exhaustion (bounded by `_ALTERLAB_5XX_MAX_ATTEMPTS`); a sustained outage still falls through — ADR-078's circuit breaker remains the run-level guard, and ADR-084 labels the source `transient → likely resolves next run` so the user isn't left with a bare "0". Steady-state cost unchanged (retries fire only on the detected marker). Other 4xx behavior is untouched.
+
+---
 
 ## ADR-082 — Vendor `alterlab_known_good` implies JS-render defaults; registry-load consistency check
 

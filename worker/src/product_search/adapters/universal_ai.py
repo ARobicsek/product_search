@@ -322,6 +322,36 @@ def _fetch_html(
 _ALTERLAB_5XX_MAX_ATTEMPTS = 3
 _ALTERLAB_5XX_BACKOFF_SECONDS = 2.0
 
+# ADR-083: a 422 is normally a "wrong request shape" that a retry can't fix
+# (so ADR-078 raises it immediately). But `browser_pool_exhausted` is a 422
+# that is semantically a *transient capacity* error — AlterLab's upstream
+# Chrome pool has no free slot — and a backoff CAN clear it. We special-case
+# those 422s and route them through the same bounded-retry path as a 5xx, with
+# a LONGER backoff (pool exhaustion typically outlasts the 5xx 2+4s window).
+# All other 422s, and 401/403/429, still raise immediately.
+_ALTERLAB_422_TRANSIENT_MARKERS = ("browser_pool_exhausted",)
+_ALTERLAB_POOL_BACKOFF_SECONDS = 5.0
+
+# Per-fetch flag: True when AlterLab returned a transient `browser_pool_exhausted`
+# 422 during this source's fetch (even if retries then failed and we fell through
+# to a cheaper fetcher). Reset at the top of every ``fetch()`` call and folded
+# into ``LAST_FETCH_DIAGNOSTICS`` so the source-reason classifier (ADR-084) can
+# label the outcome specifically ("AlterLab pool exhausted; retry likely").
+_LAST_ALTERLAB_POOL_EXHAUSTED = False
+
+
+def _is_transient_alterlab_422(resp: Any) -> bool:
+    """True if a 422 response body names a transient (retryable) AlterLab error.
+
+    Robust to body shape — matches the marker against the raw text rather than
+    assuming a particular JSON envelope.
+    """
+    try:
+        body = (resp.text or "").lower()
+    except Exception:
+        return False
+    return any(marker in body for marker in _ALTERLAB_422_TRANSIENT_MARKERS)
+
 
 def _build_alterlab_body(
     url: str,
@@ -449,8 +479,26 @@ def _fetch_via_alterlab(
                 time.sleep(_ALTERLAB_5XX_BACKOFF_SECONDS * attempt)
                 continue
 
-            # 4xx (auth/quota/422), or a 5xx on the final attempt: raise so the
-            # caller routes to fallback tiers or bubbles up auth/quota errors.
+            # ADR-083: a transient `browser_pool_exhausted` 422 is a capacity
+            # blip, not a malformed request — retry it (longer backoff) rather
+            # than dropping to a fetcher that bot-walled vendors block. Record
+            # the flag regardless of whether the retry ultimately succeeds, so
+            # the source-reason classifier can name the cause (ADR-084).
+            if resp.status_code == 422 and _is_transient_alterlab_422(resp):
+                global _LAST_ALTERLAB_POOL_EXHAUSTED
+                _LAST_ALTERLAB_POOL_EXHAUSTED = True
+                if attempt < _ALTERLAB_5XX_MAX_ATTEMPTS:
+                    logger.warning(
+                        f"[universal_ai] AlterLab API 422 browser_pool_exhausted "
+                        f"(attempt {attempt}/{_ALTERLAB_5XX_MAX_ATTEMPTS}); retrying "
+                        f"after {_ALTERLAB_POOL_BACKOFF_SECONDS * attempt:.0f}s."
+                    )
+                    time.sleep(_ALTERLAB_POOL_BACKOFF_SECONDS * attempt)
+                    continue
+
+            # Other 4xx (auth/quota/malformed 422), or a 5xx / exhausted-pool
+            # 422 on the final attempt: raise so the caller routes to fallback
+            # tiers or bubbles up auth/quota errors.
             resp.raise_for_status()
             payload = resp.json()
             break
@@ -616,15 +664,27 @@ _run_deadline: float | None = None
 # top of every ``fetch()`` call.
 LAST_SKIP_REASON: str | None = None
 
+# ADR-084: per-source fetch facts the source-reason classifier needs but cli
+# can't otherwise see (it only gets the returned Listing count). Set by
+# ``fetch()`` after the fetch resolves, read right after ``fetch()`` in the
+# cli source loop (same pattern as ``LAST_SKIP_REASON``). ``None`` means the
+# source was skipped before fetching (circuit open / budget) — the classifier
+# falls back to ``LAST_SKIP_REASON`` in that case.
+#   {body_len, final_status, final_fetcher, alterlab_degraded, alterlab_pool_exhausted}
+LAST_FETCH_DIAGNOSTICS: dict[str, Any] | None = None
+
 
 def reset_run_state() -> None:
     """Reset the per-run circuit breaker + budget. Call once at the top of a
     search run (``cli._cmd_search``) before iterating sources, so state never
     leaks between runs in a long-lived process (or across tests)."""
     global _consecutive_alterlab_failures, _circuit_open, _run_deadline
+    global _LAST_ALTERLAB_POOL_EXHAUSTED, LAST_FETCH_DIAGNOSTICS
     _consecutive_alterlab_failures = 0
     _circuit_open = False
     _run_deadline = time.monotonic() + _RUN_BUDGET_SECONDS
+    _LAST_ALTERLAB_POOL_EXHAUSTED = False
+    LAST_FETCH_DIAGNOSTICS = None
 
 
 def _budget_exceeded() -> bool:
@@ -2466,9 +2526,12 @@ def _degrade_search_url(url: str) -> str | None:
 
 def fetch(query: AdapterQuery, profile: Any | None = None) -> list[Listing]:
     """Fetch and extract product listings from an arbitrary vendor URL."""
-    global LAST_RUN_USAGE, LAST_SKIP_REASON
+    global LAST_RUN_USAGE, LAST_SKIP_REASON, LAST_FETCH_DIAGNOSTICS
+    global _LAST_ALTERLAB_POOL_EXHAUSTED
     LAST_RUN_USAGE = None
     LAST_SKIP_REASON = None
+    LAST_FETCH_DIAGNOSTICS = None
+    _LAST_ALTERLAB_POOL_EXHAUSTED = False
 
     if os.environ.get("WORKER_USE_FIXTURES", "").strip() in ("1", "true", "yes"):
         logger.info("WORKER_USE_FIXTURES=1; universal_ai returning empty list.")
@@ -2536,11 +2599,25 @@ def fetch(query: AdapterQuery, profile: Any | None = None) -> list[Listing]:
         # A raised fetch (auth/quota, or AlterLab + curl_cffi both failing) is an
         # AlterLab-degraded outcome for breaker purposes (ADR-078, R6).
         _note_alterlab_outcome(degraded=True)
+        LAST_FETCH_DIAGNOSTICS = {
+            "body_len": 0,
+            "final_status": 0,
+            "final_fetcher": None,
+            "alterlab_degraded": True,
+            "alterlab_pool_exhausted": _LAST_ALTERLAB_POOL_EXHAUSTED,
+        }
         logger.error(f"[universal_ai] Fetch failed: {type(exc).__name__}: {exc}")
         # Bubble up explicit fetch errors (like AlterLab quota/auth) so cli.py
         # can surface them in the UI.
         raise
     _note_alterlab_outcome(alterlab_degraded)
+    LAST_FETCH_DIAGNOSTICS = {
+        "body_len": len(html),
+        "final_status": status,
+        "final_fetcher": fetcher,
+        "alterlab_degraded": alterlab_degraded,
+        "alterlab_pool_exhausted": _LAST_ALTERLAB_POOL_EXHAUSTED,
+    }
 
     logger.info(
         f"[universal_ai] Fetched via {fetcher}: status={status}, "

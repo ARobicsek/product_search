@@ -334,6 +334,9 @@ def _cmd_search(
         query = AdapterQuery.from_profile_source(source.model_dump())
         listings: list[Listing] = []
         error_msg: str | None = None
+        # ADR-084: extra per-source signal for the source-reason classifier.
+        skip_reason: str | None = None
+        diagnostics: dict[str, Any] | None = None
         try:
             if source.id == "ebay_search":
                 from product_search.adapters.ebay import EbayAuthError
@@ -364,6 +367,10 @@ def _cmd_search(
                 # Sources panel so a short-circuited run is visible, not silent.
                 if universal_ai_mod.LAST_SKIP_REASON:
                     error_msg = universal_ai_mod.LAST_SKIP_REASON
+                    skip_reason = universal_ai_mod.LAST_SKIP_REASON
+                # ADR-084: capture per-fetch diagnostics for the reason classifier.
+                if universal_ai_mod.LAST_FETCH_DIAGNOSTICS:
+                    diagnostics = dict(universal_ai_mod.LAST_FETCH_DIAGNOSTICS)
                 if universal_ai_mod.LAST_RUN_USAGE:
                     # Tag with the source URL so the cost panel can
                     # disambiguate when a profile has multiple vendor URLs.
@@ -415,6 +422,8 @@ def _cmd_search(
             "display_source": display_source,
             "fetched": len(listings),
             "error": error_msg,
+            "skip_reason": skip_reason,
+            "diagnostics": diagnostics,
         })
 
     # --- Pipeline -------------------------------------------------------------
@@ -777,6 +786,53 @@ def _build_run_cost_md(calls: list[dict[str, Any]]) -> str:
     return "\n".join(lines)
 
 
+def _build_zero_reason_callout(source_stats: list[dict[str, Any]]) -> str:
+    """Render the ADR-084 callout explaining each source that returned 0.
+
+    One bullet per non-clean source: a category tag + a plain-English reason and
+    whether/how it's fixable. Returns "" when every source produced results, so
+    a healthy run carries no extra noise. Uses a ``[!WARNING]`` admonition when
+    any source is permanently blocked, else ``[!NOTE]`` — matching the GFM-alert
+    style already rendered by the web's ReactMarkdown.
+    """
+    from product_search.source_reasons import (
+        OutcomeCategory,
+        classify_source_outcome,
+    )
+    from product_search.vendor_quirks import get_quirks_for_host
+
+    bullets: list[str] = []
+    has_permanent = False
+    for s in source_stats:
+        host = s.get("match_host")
+        known_failure = None
+        if isinstance(host, str) and host:
+            known_failure = get_quirks_for_host(host).get("known_failure")
+        outcome = classify_source_outcome(
+            fetched=int(s.get("fetched", 0) or 0),
+            passed=int(s.get("passed", 0) or 0),
+            error=s.get("error"),
+            skip_reason=s.get("skip_reason"),
+            diagnostics=s.get("diagnostics"),
+            known_failure=known_failure,
+        )
+        if outcome.is_clean:
+            continue
+        if outcome.category is OutcomeCategory.PERMANENT:
+            has_permanent = True
+        label = s.get("display_source") or s.get("source") or "?"
+        msg = str(outcome.message).replace("|", "\\|").replace("\n", " ")
+        bullets.append(f"> - **{label}** — _{outcome.label}_: {msg}")
+
+    if not bullets:
+        return ""
+
+    head = "> [!WARNING]" if has_permanent else "> [!NOTE]"
+    return "\n".join(
+        [head, "> **Why some sources returned 0 results:**", *bullets]
+    )
+
+
 def _build_sources_searched_md(
     source_stats: list[dict[str, object]],
     profile: object,
@@ -787,19 +843,6 @@ def _build_sources_searched_md(
     post-check (which forbids fabricated numbers) sees only data we control.
     """
     lines = ["**Sources searched.**", ""]
-    
-    has_api_issue = any(
-        "quota" in str(s.get("error", "")).lower()
-        or "auth" in str(s.get("error", "")).lower()
-        for s in source_stats
-    )
-    if has_api_issue:
-        lines.append("> [!WARNING]")
-        lines.append(
-            "> **Scraping API Issue:** One or more sources failed due to an API quota or "
-            "authentication error. Please check your AlterLab or eBay dashboard limits."
-        )
-        lines.append("")
 
     lines.append("| Source | Status | Fetched | Passed |")
     lines.append("|--------|--------|---------|--------|")
@@ -814,6 +857,13 @@ def _build_sources_searched_md(
         lines.append(
             f"| {label} | {status} | {s.get('fetched', 0)} | {s.get('passed', 0)} |"
         )
+
+    # ADR-084: explain every source that returned 0, so a bare "0" becomes a
+    # reason the user can act on (transient / blocked / no match / parser gap).
+    callout = _build_zero_reason_callout(source_stats)
+    if callout:
+        lines.append("")
+        lines.append(callout)
 
     pending = getattr(profile, "sources_pending", []) or []
     if pending:

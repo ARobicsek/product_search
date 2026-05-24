@@ -1802,6 +1802,129 @@ def test_alterlab_4xx_raises_immediately_no_retry(monkeypatch: pytest.MonkeyPatc
     assert counter["posts"] == 1  # no retry
 
 
+# --- ADR-083: browser_pool_exhausted 422 is transient, so retry it ---------
+
+
+def _install_stub_alterlab_client_texts(
+    monkeypatch: pytest.MonkeyPatch, items: list[tuple[int, str]]
+) -> dict[str, int]:
+    """Like ``_install_stub_alterlab_client`` but each non-200 response also
+    carries a ``.text`` body (so ``_is_transient_alterlab_422`` can inspect it).
+    ``items`` is ``[(status_code, body_text), ...]`` returned in order."""
+    counter = {"posts": 0}
+
+    class _Client:
+        def __init__(self, **_kw: object) -> None:
+            pass
+
+        def __enter__(self) -> "_Client":
+            return self
+
+        def __exit__(self, *_: object) -> None:
+            return None
+
+        def post(self, _url: str, **_kw: object) -> _StubAlterlabResp:
+            i = min(counter["posts"], len(items) - 1)
+            code, text = items[i]
+            counter["posts"] += 1
+            if code == 200:
+                resp = _StubAlterlabResp(200, {
+                    "status_code": 200,
+                    "content": {"html": "<html><body>recovered</body></html>"},
+                })
+                resp.text = "ok"  # type: ignore[attr-defined]
+                return resp
+            resp = _StubAlterlabResp(code, {"detail": text})
+            resp.text = text  # type: ignore[attr-defined]
+            return resp
+
+    import httpx
+    monkeypatch.setattr(httpx, "Client", _Client)
+    return counter
+
+
+def test_alterlab_pool_exhausted_422_retries_then_succeeds(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A 422 whose body names ``browser_pool_exhausted`` is a transient capacity
+    error — retried (not abandoned to curl_cffi) until a 200 arrives. ADR-083."""
+    monkeypatch.setattr(universal_ai.time, "sleep", lambda _s: None)
+    counter = _install_stub_alterlab_client_texts(
+        monkeypatch,
+        [(422, '{"error": "browser_pool_exhausted"}'), (200, "")],
+    )
+
+    html, status, fetcher = universal_ai._fetch_via_alterlab(
+        "https://hard.example/p", "test-key"
+    )
+    assert fetcher == "alterlab"
+    assert "recovered" in html
+    assert counter["posts"] == 2  # one retry then success
+    assert universal_ai._LAST_ALTERLAB_POOL_EXHAUSTED is True
+
+
+def test_alterlab_pool_exhausted_422_raises_after_exhausting_retries(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A persistently pool-exhausted 422 still raises after the bounded retries
+    (caller falls through), but the flag is set so the run can label it. ADR-083."""
+    import httpx
+    monkeypatch.setattr(universal_ai.time, "sleep", lambda _s: None)
+    counter = _install_stub_alterlab_client_texts(
+        monkeypatch, [(422, "browser_pool_exhausted")]
+    )
+
+    with pytest.raises(httpx.HTTPStatusError):
+        universal_ai._fetch_via_alterlab("https://busy.example/p", "test-key")
+    assert counter["posts"] == universal_ai._ALTERLAB_5XX_MAX_ATTEMPTS
+    assert universal_ai._LAST_ALTERLAB_POOL_EXHAUSTED is True
+
+
+def test_alterlab_non_transient_422_raises_immediately(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A 422 that is NOT pool-exhaustion (a genuine malformed request) still
+    raises on the first attempt — no retry, no pool flag. ADR-083."""
+    import httpx
+    monkeypatch.setattr(universal_ai.time, "sleep", lambda _s: None)
+    counter = _install_stub_alterlab_client_texts(
+        monkeypatch, [(422, '{"error": "invalid_url"}')]
+    )
+
+    with pytest.raises(httpx.HTTPStatusError):
+        universal_ai._fetch_via_alterlab("https://bad.example/p", "test-key")
+    assert counter["posts"] == 1  # no retry
+    assert universal_ai._LAST_ALTERLAB_POOL_EXHAUSTED is False
+
+
+# --- ADR-084: fetch() populates LAST_FETCH_DIAGNOSTICS ---------------------
+
+
+def test_fetch_populates_diagnostics(monkeypatch: pytest.MonkeyPatch) -> None:
+    """``fetch()`` records body_len / fetcher / degraded so the cli source-reason
+    classifier can tell a parser gap from a transient failure. ADR-084."""
+    # No AlterLab key → _fetch_with_escalation uses the single-fetch path and
+    # reports alterlab_degraded=False (the stub fetcher is not a fallback).
+    monkeypatch.delenv("ALTERLAB_API_KEY", raising=False)
+    body = "<html><body>" + "x" * 80_000 + "</body></html>"
+    monkeypatch.setattr(
+        universal_ai, "_fetch_html",
+        lambda url, timeout=20.0, **_kw: (body, 200, "stub"),
+    )
+    monkeypatch.setattr(universal_ai, "call_llm", _stub_llm_response('{"listings": []}'))
+
+    query = AdapterQuery(source_id="universal_ai_search", extra={"url": BASE_URL})
+    assert universal_ai.fetch(query) == []
+
+    diag = universal_ai.LAST_FETCH_DIAGNOSTICS
+    assert diag is not None
+    assert diag["body_len"] == len(body)
+    assert diag["final_status"] == 200
+    assert diag["final_fetcher"] == "stub"
+    assert diag["alterlab_degraded"] is False
+    assert diag["alterlab_pool_exhausted"] is False
+
+
 # --- ADR-078 (R6): per-run circuit breaker + wall-clock budget -------------
 
 

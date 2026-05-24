@@ -8,6 +8,15 @@ so the live file stays small while nothing is lost. See
 
 ---
 
+## Current state — 2026-05-24 Phase 24 closed (SUPERSEDED by 2026-05-24 Phase 25 close)
+
+**Worker (`worker/src/product_search/vendor_quirks.{yaml,py}`, `cli.py`)**:
+- `amazon.com` + `backmarket.com` in the registry now carry `default_alterlab_options: {country: us, min_tier: 3, wait_condition: networkidle}`. `adorama.com` left alone — its bare-path probe (curl_cffi fallback) returned 391 KB body with **23 JSON-LD listings including MX Master 3S at $119.99**; adding AlterLab defaults would burn cost for no recall gain. Probe evidence + decision pinned in test_vendor_quirks.py.
+- `_check_alterlab_known_good_consistency` runs every `_load_registry()` call: WARNs naming any host with `alterlab_known_good: true` and no `default_alterlab_options`. Three pre-existing gaps surfaced (`centralcomputer.com`, `ebay.com`, `serversupply.com`).
+- `_cmd_probe_url` now calls `merge_alterlab_options(url, cli_supplied_opts)` before fetching, so `cli probe-url <amazon-url>` (no flags) uses the same path the worker would.
+
+**Fixture + test guard** (`worker/tests/fixtures/universal_ai/amazon_search_logitech_mx_master_3s.html`, 1.45 MB): captured through AlterLab at the new defaults; `test_amazon_search_fixture_extracts_dp_candidates_with_prices` asserts ≥5 dp candidates with prices incl. the target. 314/314 worker tests; web tsc/lint/parity/guards/build green.
+
 ## Current state — 2026-05-24 Phase 23 Part A: headless E2E verification PASSED (SUPERSEDED by 2026-05-24 Phase 24 close)
 
 **Verified live this session against `ari-product-search.vercel.app`** (single 4m 32s run; $0.009 search-side cost + ~$0.10 onboarding):

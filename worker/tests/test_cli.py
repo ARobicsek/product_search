@@ -12,7 +12,11 @@ from pathlib import Path
 import pytest
 
 from product_search.adapters import universal_ai
-from product_search.cli import _cmd_probe_url, _passed_match_key
+from product_search.cli import (
+    _build_zero_reason_callout,
+    _cmd_probe_url,
+    _passed_match_key,
+)
 from product_search.models import Listing
 
 FIXTURE_DIR = Path(__file__).parent / "fixtures" / "universal_ai"
@@ -234,4 +238,55 @@ def test_probe_url_parser_setup(monkeypatch: pytest.MonkeyPatch) -> None:
     assert c["country"] == "us"
     assert c["min_tier"] == 3
     assert c["wait_condition"] == "networkidle"
+
+
+# --- ADR-084: zero-result reason callout -----------------------------------
+
+
+def test_zero_reason_callout_empty_when_all_sources_clean() -> None:
+    stats = [
+        {"source": "universal_ai_search", "display_source": "a.com",
+         "match_host": "a.com", "fetched": 3, "passed": 2},
+        {"source": "ebay_search", "display_source": "ebay_search",
+         "match_host": None, "fetched": 5, "passed": 1},
+    ]
+    assert _build_zero_reason_callout(stats) == ""
+
+
+def test_zero_reason_callout_classifies_and_skips_clean() -> None:
+    stats = [
+        # clean — must not appear
+        {"source": "universal_ai_search", "display_source": "good.com",
+         "match_host": "good.com", "fetched": 2, "passed": 2},
+        # transient: AlterLab pool exhausted
+        {"source": "universal_ai_search", "display_source": "amazon.com",
+         "match_host": "amazon.com", "fetched": 0, "passed": 0,
+         "diagnostics": {"body_len": 0, "alterlab_pool_exhausted": True}},
+        # parser gap: full body, 0 parsed
+        {"source": "universal_ai_search", "display_source": "bhphotovideo.com",
+         "match_host": "bhphotovideo.com", "fetched": 0, "passed": 0,
+         "diagnostics": {"body_len": 200_000}},
+        # no match: fetched but none qualified
+        {"source": "universal_ai_search", "display_source": "newegg.com",
+         "match_host": "newegg.com", "fetched": 7, "passed": 0},
+    ]
+    callout = _build_zero_reason_callout(stats)
+    assert "good.com" not in callout
+    assert "**amazon.com** — _transient_" in callout
+    assert "**bhphotovideo.com** — _needs work_" in callout
+    assert "**newegg.com** — _no match_" in callout
+    # No permanent source → NOTE, not WARNING.
+    assert callout.startswith("> [!NOTE]")
+
+
+def test_zero_reason_callout_known_failure_is_warning() -> None:
+    # microcenter.com carries a known_failure in the committed vendor_quirks.
+    stats = [
+        {"source": "universal_ai_search", "display_source": "microcenter.com",
+         "match_host": "microcenter.com", "fetched": 0, "passed": 0,
+         "diagnostics": {"body_len": 0}},
+    ]
+    callout = _build_zero_reason_callout(stats)
+    assert callout.startswith("> [!WARNING]")
+    assert "**microcenter.com** — _blocked_" in callout
 

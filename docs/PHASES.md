@@ -679,3 +679,44 @@ Three hosts are flagged as "needs AlterLab" but lack `default_alterlab_options` 
 
 ~$0.005 total: 3 confirming probes for the audit + 1 validation probe + ~1 fixture capture. No runtime cost change for already-configured vendors.
 
+## Phase 25 — "Explain the zero": classified source-outcome reasons (+ AlterLab 422 transient retry) (PROPOSED 2026-05-24)
+
+### Why
+The report (rendered verbatim by the web via `ReactMarkdown`) is the only final output a user sees. Today a vendor with no results shows `ok / 0 / 0` or `error: <raw exception string>` in the "Sources searched" table — the user can't tell *genuinely empty* from *transient glitch* from *permanently broken* from *fixable on our side*. A bare "0" is far less useful than a reason. Driven by the 2026-05-24 session question about AlterLab's `browser_pool_exhausted` 422.
+
+### Part A — `browser_pool_exhausted` 422 becomes retryable (ADR-083)
+- **Root cause**: `_fetch_via_alterlab` ([universal_ai.py](../worker/src/product_search/adapters/universal_ai.py)) only retries on `status_code >= 500`; a 422 hits `raise_for_status()` and drops straight to curl_cffi (no JS/proxy) → bot-walled vendors return 0. ADR-078 lumped *all* 4xx into "a retry can't fix this" — true for 401/403/429/malformed, **wrong** for `browser_pool_exhausted`, a transient capacity error a backoff *can* clear.
+- **Change**: before `raise_for_status()`, peek at the 422 body; if its error text matches `_ALTERLAB_422_TRANSIENT_MARKERS = {"browser_pool_exhausted"}`, route through the bounded-backoff retry path with a *longer* backoff (`_ALTERLAB_POOL_BACKOFF_SECONDS`, base 5s × attempt). All other 422s and 401/403/429 still raise immediately. Set a per-fetch module flag so Part B can label the outcome specifically.
+- **Honest limit (in the ADR)**: in-run retries only recover *brief* exhaustion; a sustained outage still falls through — the ADR-078 circuit breaker remains the run-level guard, and Part B labels it `transient → likely resolves next run`.
+
+### Part B — Source-outcome reason taxonomy + report callout (ADR-084)
+New deterministic classifier `classify_source_outcome(...)` (new module `worker/src/product_search/source_reasons.py`, no LLM, no cli import). Five leaf categories → the user's four buckets:
+
+| Category | When | Bucket |
+|----------|------|--------|
+| `NO_MATCH` | fetched>0, passed=0 | genuinely 0 (none qualified) |
+| `EMPTY_PAGE` | substantive body, 0 candidates, body listing-free | genuinely 0 |
+| `PARSER_GAP` | substantive body (≥`SUBSTANTIVE_BODY_FLOOR`), 0 candidates | resolvable w/ work |
+| `TRANSIENT` | AlterLab degraded / pool-exhausted / 5xx / timeout / breaker- or budget-skip / generic fetch error | transient |
+| `PERMANENT` | registry `known_failure`, or 401/403/429 quota/auth | unresolvable today |
+
+- **Category-4 plumbing**: add `LAST_FETCH_DIAGNOSTICS` to `universal_ai` (reset per `fetch()` + in `reset_run_state()`, read right after `fetch()` in the source loop — same pattern as `LAST_SKIP_REASON`): `{body_len, final_status, final_fetcher, alterlab_degraded, alterlab_pool_exhausted}`. This is what separates `PARSER_GAP` from `EMPTY_PAGE` (a heuristic — stated as such in the ADR, worded cautiously).
+- **Rendering**: keep the 4-column table unchanged; append a `> [!NOTE]`/`> [!WARNING]` **callout** listing only non-clean sources (passed==0 or error), one line each: category label + plain-English reason + whether/how it's fixable. Matches the existing `has_api_issue` block already in `_build_sources_searched_md` (fold that into the `PERMANENT` path). Integrate — don't duplicate — the existing `_build_filter_diagnostic_md` for `NO_MATCH` detail.
+
+### Tasks
+1. Part A retry + per-fetch pool flag in `_fetch_via_alterlab`.
+2. `LAST_FETCH_DIAGNOSTICS` plumbing in `fetch()` / `reset_run_state()`.
+3. `source_reasons.py` classifier + message builder.
+4. Wire into `cli`: attach `skip_reason`/`diagnostics`/`host` to `source_stats`; render the callout in `_build_sources_searched_md`.
+5. Tests (all fixture/mock, no live): 422 retry behavior; classifier per category; callout text; `LAST_FETCH_DIAGNOSTICS` population.
+6. ADR-083 + ADR-084; PROGRESS.md update; commit + push.
+
+### Done when
+- Both parts implemented; both ADRs written; PROGRESS.md updated.
+- New tests pass; full worker suite (314+) green; ruff/mypy clean on touched files; web `tsc`/`lint`/`test:parity`/`test:guards`/`build` green (no web code change expected).
+
+### Out of scope
+- Perfect `EMPTY_PAGE` vs `PARSER_GAP` disambiguation (heuristic + cautious wording).
+- Auto-creating registry `known_failure` entries from runtime failures (stays manual).
+- Bespoke web rendering — markdown callouts inherit via existing `ReactMarkdown`.
+
