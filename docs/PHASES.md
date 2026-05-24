@@ -720,3 +720,76 @@ New deterministic classifier `classify_source_outcome(...)` (new module `worker/
 - Auto-creating registry `known_failure` entries from runtime failures (stays manual).
 - Bespoke web rendering — markdown callouts inherit via existing `ReactMarkdown`.
 
+## Phase 26 — Cross-cutting LIVE stress test & regression sweep (Phases 20–25) (PROPOSED 2026-05-24)
+
+### Why
+Phases 20–25 layered in a lot of recall/robustness/transparency machinery — AlterLab render-path fixes, retry + circuit breaker, recall-first extraction, hybrid filtering, vendor-quirks defaults, the new source-outcome reason callout — but each was verified in isolation (unit tests + a single live probe/run). We have **not** driven the whole stack end-to-end across a *diverse, adversarial* set of vendors and products in one sweep. This phase is a deliberate, scenario-driven **live** stress test: onboard several throwaway products spanning the hard cases, run them, and confirm each improvement actually fires in production — and that the new report reasons tell the truth. The deliverable is a findings report + a defect/deferred list, not a feature.
+
+### This is a LIVE, manual verification session — read first
+- It costs real money (AlterLab + LLM). Rough budget **~$3–8** for the matrix below. If it starts ballooning past ~$10, stop and check with the user. The user prioritises recall over scrape cost (memory), so over-fetching to expose recall behaviour is fine — just be cost-aware at the run level.
+- Use **throwaway slugs** with a clear prefix: `stress26-<short>` (e.g. `stress26-mx3s`, `stress26-xm5`, `stress26-ddr5`). Never touch a live slug. **Delete every throwaway slug at the end** (Phase 16 hard delete) and confirm live products are untouched.
+- **Sync discipline (CLAUDE.md):** the deployed app + scheduled Action commit to `origin/main` on their own. `git fetch origin` and reason against `origin/main` before/after onboarding; the onboarder writes `products/<slug>/profile.yaml` directly to origin. Expect to `pull --rebase` around your own commits.
+- **CI/test-suite rule still holds (ADR-062):** this session runs live, but do NOT add any dependency on a live `products/<slug>/` to the committed suite. If you find a regression, capture it as a committed fixture under `worker/tests/fixtures/` + a unit test, per the registry/fixture discipline — don't leave the proof in a live slug.
+- **Chrome DevTools MCP is available** (memory: `reference_chrome_devtools_mcp`). Use it to drive the onboarder UI and to verify report rendering + **mobile layout** (CLAUDE.md: mobile is non-negotiable) instead of asking the user to click around.
+- The LLM-never-fabricates commitment (CLAUDE.md / ADR-001) is itself under test: spot-check that every price/URL/stock figure in each report traces to fetched bytes.
+
+### Background you need (read these, in order)
+1. `docs/PROGRESS.md` (state) + this brief.
+2. ADR index in `docs/DECISIONS.md` — open the bodies for the ADRs in the checklist below.
+3. `worker/src/product_search/vendor_quirks.yaml` — the vendor registry you'll be stressing.
+
+### Vendor matrix (pick URLs that exercise each row)
+| Vendor | What it stresses | Expected behaviour |
+|--------|------------------|--------------------|
+| amazon.com | ADR-082 JS-render defaults, ADR-077 full-HTML extraction | tier3+networkidle merged; listings extracted |
+| target.com | ADR-077 SPA full-HTML path (walker historically 0) | listings extracted from rendered DOM |
+| bhphotovideo.com | ADR-079 detail-preference, new `PARSER_GAP` reason | search demoted/handled; detail URL works; if 0, reason = "needs work" |
+| bestbuy.com | ADR-068 `intl=nosplash` transform, `force_detail_backup` | transform applied; detail backup present |
+| microcenter.com | `known_failure` routing + new `PERMANENT` reason | lands in `sources_pending`; if run, reason = "blocked" |
+| backmarket.com | ADR-082 defaults + possible Cloudflare | defaults merged; reason = transient/blocked if challenged |
+| a clean server-rendered vendor (e.g. adorama / provantage) | JSON-LD baseline | listings via JSON-LD, no AlterLab needed |
+| ebay (ebay_search) | dedicated adapter | listings via API/adapter |
+
+### Product / scenario matrix (throwaway onboards)
+1. **Single-SKU, "new only"** (e.g. Logitech MX Master 3S): stresses `condition_in` emission (ADR-075), fragile-`title_excludes` safety (ADR-080), detail backfill (ADR-076), multi-variant detail URLs (ADR-073).
+2. **Multi-variant** (color/finish, same price — e.g. Sony WH-1000XM5): ADR-073 multi-variant detail redundancy; variant-correct pricing.
+3. **Component/kit** (DDR5 RDIMM, the founding domain): kit pricing, numeric/threshold filters, QVL path.
+4. **A product whose vendor set intentionally includes a known_failure** (force microcenter into the intent): proves `sources_pending` routing + the `PERMANENT` reason in a real report.
+
+### Regression checklist — verify each fires in production
+- **ADR-082 / ADR-068**: saved `products/<slug>/profile.yaml` carries the registry `default_alterlab_options` for amazon/backmarket; `intl=nosplash` applied for Best Buy. (Diff against `origin/main` after save.)
+- **ADR-079**: a transient probe failure on a detail-preferred vendor does NOT demote it to `sources_pending` (it stays in `sources` with an advisory note).
+- **ADR-080**: no `title_excludes` value that is a substring of the product name / generic component word in any saved profile.
+- **ADR-075**: "new only" intent → `{rule: condition_in, values: [new]}` in the saved YAML AND visible in the run's filter log pass/reject reasons.
+- **ADR-081 (hybrid filter)**: the deterministic pre-pass rejects used/out-of-stock/out-of-band BEFORE ai_filter — confirm in `reports/<slug>/<date>.filter.jsonl`.
+- **ADR-076**: a `force_detail_backup` vendor saved with only a search URL gets a detail URL auto-backfilled by the post-save probe.
+- **ADR-077**: Amazon/Target search yields listings (the full-HTML tier recovers what the anchor walker can't).
+- **ADR-078 / ADR-083 (this is the headline new behaviour)**: if AlterLab is degraded/pool-exhausted during the session, confirm 5xx/422 retry fires and the circuit breaker short-circuits after the threshold — and that the report's **reason callout labels it `transient`**, not a silent 0.
+- **ADR-084 (this session)**: for EVERY 0-result source across all runs, confirm the reason CATEGORY is correct — microcenter→`blocked`, a real parse miss→`needs work`, a transient AlterLab failure→`transient`, fetched-but-filtered→`no match`, genuinely empty→`no results`. This is the primary thing to validate.
+- **ADR-020 / ADR-001**: post-check passes; every number in the report traces to fetched bytes (spot-check 2–3 listings per report against the source).
+- **Web + mobile**: each report renders in the app incl. the callout; mobile viewport clean (Chrome DevTools MCP).
+- **Phase 16**: throwaway slug deletion is clean and leaves live products intact.
+
+### Procedure (suggested)
+1. Read background; `git fetch origin`; note current live slugs (so you can prove they're untouched).
+2. For each product scenario: onboard a `stress26-*` slug (drive the onboarder via Chrome DevTools MCP), record the saved profile, run the regression checks above against it.
+3. Run each onboarded product (Run-now / `cli search`); capture the report + filter log; fill in the checklist.
+4. Where AlterLab is healthy AND degraded during the window, capture BOTH a success and a degraded report so the reason taxonomy is exercised on real data.
+5. Verify web rendering + mobile for at least 2 reports.
+6. Write the findings report; file defects; clean up all `stress26-*` slugs.
+
+### Deliverable
+- `docs/STRESS_TEST_26.md` (or a clearly-named findings file): one row per checklist item — expected / actual / PASS|FAIL|N/A — plus a prioritised defect list. Each FAIL becomes either a committed fixture+test (if a code regression) or a new "noticed but deferred" entry / ADR candidate.
+- Any genuinely cheap, in-scope fix discovered may be made inline; anything larger is written up, not implemented (one phase per session).
+
+### Done when
+- Every checklist row has a PASS/FAIL/N·A with evidence (report path, profile diff, or filter-log excerpt).
+- All `stress26-*` slugs deleted; live products confirmed untouched; `origin/main` clean.
+- Findings report committed; defects logged in PROGRESS.md "noticed but deferred" and/or DECISIONS.md.
+- Worker suite + web guards still green (any new regression fixture/test added passes).
+
+### Out of scope
+- Implementing large fixes uncovered by the sweep — capture them; don't blow the session on a rabbit hole.
+- New features. This is verification + regression only.
+- Re-deriving decided ADRs — assume them correct and test that they HOLD, don't re-debate.
+

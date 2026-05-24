@@ -7,7 +7,7 @@ Full session-by-session history → [PROGRESS_ARCHIVE.md](PROGRESS_ARCHIVE.md) (
 ## Active phase
 
 - **Closed:** Phases 0–16; **Phase 17** (schedule editor + alerts); **Phase 19** (universal adapter accuracy & vendor reach); **Phase 20** (reliable scheduling trigger); **Phase 22 — Recall reliability under degraded AlterLab + onboarder robustness** (ADR-078/079/080, 2026-05-24); **Phase 23 — Hybrid filter restoration + headless E2E verification** (both Parts A and B closed, 2026-05-24); **Phase 24 — Vendor-quirks coverage audit + Amazon JS-render fix** (ADR-082, 2026-05-24); **Phase 25 — "Explain the zero": classified source-outcome reasons + AlterLab 422 transient retry** (ADR-083/084, 2026-05-24).
-- **Queued next:** **Phase 18 — Polish + second-product proof**.
+- **Queued next:** **Phase 26 — Cross-cutting LIVE stress test & regression sweep (Phases 20–25)** — user-requested 2026-05-24; brief in PHASES.md. Then **Phase 18 — Polish + second-product proof**.
 - **Most recent work:** 2026-05-24 **Phase 25 closed.** (A) `browser_pool_exhausted` 422 is now retried like a 5xx (longer backoff `_ALTERLAB_POOL_BACKOFF_SECONDS=5s`) instead of dropping straight to curl_cffi — ADR-083 refines ADR-078's "4xx never retry" rule. (B) Every 0-result source in the report now gets a classified, plain-English reason via `source_reasons.classify_source_outcome` (`NO_MATCH`/`EMPTY_PAGE`/`PARSER_GAP`/`TRANSIENT`/`PERMANENT`), rendered as a `[!NOTE]`/`[!WARNING]` callout under the Sources table — ADR-084. New `LAST_FETCH_DIAGNOSTICS` from `universal_ai.fetch()` powers the parser-gap-vs-empty split. 334/334 worker tests; ruff/mypy clean; web tsc/lint/parity/guards/build green. Committed & pushed.
 
 ## Current state — 2026-05-24 Phase 25 closed
@@ -27,7 +27,9 @@ Full session-by-session history → [PROGRESS_ARCHIVE.md](PROGRESS_ARCHIVE.md) (
 
 ## Next session — start here
 
-**Top priority candidates** (pick one; no one phase is uniquely blocking):
+**Next session is Phase 26 — Cross-cutting LIVE stress test & regression sweep (Phases 20–25)** (user-requested 2026-05-24). Full brief + vendor/product matrix + per-ADR regression checklist in PHASES.md. This is a LIVE, costed ($3–8) manual verification session using throwaway `stress26-*` slugs (deleted at the end); deliverable is a findings report + defect list, not a feature. Several of the "candidates" below are exactly what the sweep will probe (B&H detail, Backmarket Cloudflare, the 3 consistency-flagged hosts) — fold any findings into the sweep rather than running them standalone first.
+
+**Other standing candidates** (only if Phase 26 is deferred):
 
 1. **Phase 24 follow-up — same-class audit for the 3 hosts the consistency check flagged.** `centralcomputer.com`, `ebay.com`, `serversupply.com` all have `alterlab_known_good: true` without `default_alterlab_options` and log a WARNING at every registry load. eBay has its own dedicated adapter (probably benign — `universal_ai_search` rarely routes to ebay.com); the other two are universal_ai-only and likely need the same Amazon-class fix. Repeat the Phase 24 probe-and-add pattern. ~$0.003 in probes.
 2. **B&H detail single-product URL returning 0 listings** (2026-05-24 Phase 23 Part A) — for `phase23-e2e-test`, the B&H MX Master 3S detail URL went through AlterLab `ok` but yielded 0 fetched/passed. The existing deferred item ("B&H *search-tile* mismatch") is about search, not detail. Worth investigating whether B&H detail-URL extraction (the Tier 1.5 extractor path) is also blind to B&H's tile structure on detail variant pages, or whether this was a one-off rendering miss. Probe via `cli probe-url` first to see whether it's `detailExtractable:true` today.
