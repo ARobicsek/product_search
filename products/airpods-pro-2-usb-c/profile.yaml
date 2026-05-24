@@ -1,0 +1,54 @@
+slug: airpods-pro-2-usb-c
+display_name: Apple AirPods Pro 2 (USB-C)
+description: Track the cheapest new Apple AirPods Pro 2 with USB-C charging case
+target:
+  unit: count
+  amount: 1
+spec_filters:
+  - rule: condition_in
+    values:
+      - new
+  - rule: title_excludes
+    values:
+      - Lightning
+spec_flags:
+  - rule: low_seller_feedback
+    flag: low_feedback
+    rating_pct_below: 98
+    count_below: 50
+sources:
+  - id: universal_ai_search
+    url: https://www.bestbuy.com/site/searchpage.jsp?id=pcat17071&st=airpods+pro+2
+    extra:
+      alterlab_options:
+        country: us
+        min_tier: 3
+  - id: universal_ai_search
+    url: https://www.bhphotovideo.com/c/search?Ntt=airpods+pro+2+usb+c&N=0
+    extra:
+      alterlab_options:
+        country: us
+        min_tier: 4
+        wait_condition: networkidle
+  - id: universal_ai_search
+    url: https://www.brandsmartusa.com/apple/265562/airpods-pro-2nd-generation-.htm
+    page_type: detail
+sources_pending:
+  - id: universal_ai_search
+    url: https://www.target.com/s/airpods+pro+2+usb+c
+    note: Returned 504 errors on probe; appears transient. Worth retrying on next scheduled run.
+  - id: universal_ai_search
+    url: https://www.walmart.com/search?q=airpods+pro+2+usb+c
+    note: Returned 504 errors on probe; appears transient. Worth retrying on next scheduled run.
+report_columns:
+  - rank
+  - source
+  - title
+  - price_unit
+  - condition
+  - seller
+  - seller_rating
+  - flags
+schedule:
+  cron: 0 8 * * *
+  timezone: UTC
