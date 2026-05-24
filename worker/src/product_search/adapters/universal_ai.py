@@ -315,6 +315,14 @@ def _fetch_html(
         return httpx_resp.text or "", httpx_resp.status_code, "httpx"
 
 
+# ADR-078 (R1): how many times to retry the AlterLab API on a transient 5xx
+# before letting the error propagate to the curl_cffi/httpx fallback. Linear
+# backoff (n * base) keeps the worst case bounded (~2+4 = 6s of waiting) while
+# giving a pool-exhausted AlterLab a real chance to recover.
+_ALTERLAB_5XX_MAX_ATTEMPTS = 3
+_ALTERLAB_5XX_BACKOFF_SECONDS = 2.0
+
+
 def _build_alterlab_body(
     url: str,
     alterlab_options: dict[str, Any] | None = None,
@@ -405,26 +413,47 @@ def _fetch_via_alterlab(
         "Content-Type": "application/json",
     }
     api = "https://api.alterlab.io/api/v1/scrape"
+    payload: dict[str, Any] = {}
     with httpx.Client(timeout=timeout) as client:
-        resp = client.post(api, json=body, headers=headers)
-        
-        if resp.status_code == 202:
-            payload = resp.json()
-            job_id = payload.get("job_id")
-            if job_id:
-                import time
-                start_time = time.time()
-                while time.time() - start_time < timeout:
-                    time.sleep(3)
-                    job_resp = client.get(f"https://api.alterlab.io/api/v1/jobs/{job_id}", headers=headers)
-                    if job_resp.status_code == 200:
-                        job_payload = job_resp.json()
-                        if job_payload.get("status") in ("completed", "failed"):
-                            payload = job_payload.get("result", {})
-                            break
-        else:
+        for attempt in range(1, _ALTERLAB_5XX_MAX_ATTEMPTS + 1):
+            resp = client.post(api, json=body, headers=headers)
+
+            if resp.status_code == 202:
+                payload = resp.json()
+                job_id = payload.get("job_id")
+                if job_id:
+                    start_time = time.time()
+                    while time.time() - start_time < timeout:
+                        time.sleep(3)
+                        job_resp = client.get(f"https://api.alterlab.io/api/v1/jobs/{job_id}", headers=headers)
+                        if job_resp.status_code == 200:
+                            job_payload = job_resp.json()
+                            if job_payload.get("status") in ("completed", "failed"):
+                                payload = job_payload.get("result", {})
+                                break
+                break
+
+            # ADR-078 (R1): retry AlterLab ITSELF on a transient 5xx (gateway
+            # timeout / pool exhaustion) with bounded backoff BEFORE the caller
+            # drops to curl_cffi. The R2/R3 eval (2026-05-24) showed a degraded-
+            # but-recoverable AlterLab 504 silently fell to a no-JS/no-proxy tier
+            # that every bot-walled retailer blocks, zeroing recall. A retry at
+            # the rendered tier is the right response; only after exhausting it do
+            # we let the error propagate to the curl_cffi/httpx fallback.
+            if resp.status_code >= 500 and attempt < _ALTERLAB_5XX_MAX_ATTEMPTS:
+                logger.warning(
+                    f"[universal_ai] AlterLab API HTTP {resp.status_code} "
+                    f"(attempt {attempt}/{_ALTERLAB_5XX_MAX_ATTEMPTS}); retrying "
+                    f"after {_ALTERLAB_5XX_BACKOFF_SECONDS * attempt:.0f}s."
+                )
+                time.sleep(_ALTERLAB_5XX_BACKOFF_SECONDS * attempt)
+                continue
+
+            # 4xx (auth/quota/422), or a 5xx on the final attempt: raise so the
+            # caller routes to fallback tiers or bubbles up auth/quota errors.
             resp.raise_for_status()
             payload = resp.json()
+            break
 
     content = payload.get("content")
     if isinstance(content, dict):
@@ -559,6 +588,65 @@ _WEAK_BODY_FLOOR = 2000
 _ESCALATION_BACKOFF_SECONDS = 1.0
 
 
+# --- Per-run circuit breaker + wall-clock budget (ADR-078, R6) -------------
+#
+# Under a degraded AlterLab a 7-source run took >28 min (2026-05-24 eval): each
+# source ground through the full escalation ladder (≈3 × ~60s) plus a curl_cffi
+# timeout, even though AlterLab was failing on every one. Once AlterLab is
+# clearly down for this run there's no point paying that latency per source.
+#
+# The breaker is per-RUN module state, reset by ``reset_run_state()`` at the top
+# of ``cli._cmd_search`` (mirrors the ``LAST_RUN_USAGE`` reset pattern). It opens
+# after ``_BREAKER_THRESHOLD`` consecutive AlterLab-degraded sources; once open,
+# ``fetch()`` short-circuits remaining ``universal_ai_search`` sources instead of
+# re-running the ladder. A single healthy AlterLab fetch resets the counter, so a
+# transient blip doesn't trip it. The wall-clock budget is a second, independent
+# guard: once the run has spent ``_RUN_BUDGET_SECONDS`` fetching, remaining
+# sources skip regardless of breaker state. Both surface a human-readable reason
+# via ``LAST_SKIP_REASON`` that ``cli._cmd_search`` shows in the Sources panel.
+_BREAKER_THRESHOLD = 3
+_RUN_BUDGET_SECONDS = float(os.environ.get("UNIVERSAL_AI_RUN_BUDGET_SECONDS", "600"))
+
+_consecutive_alterlab_failures = 0
+_circuit_open = False
+_run_deadline: float | None = None
+
+# Set by ``fetch()`` when it skips a source (breaker open / budget exceeded), so
+# ``cli._cmd_search`` can record the reason against that source. Cleared at the
+# top of every ``fetch()`` call.
+LAST_SKIP_REASON: str | None = None
+
+
+def reset_run_state() -> None:
+    """Reset the per-run circuit breaker + budget. Call once at the top of a
+    search run (``cli._cmd_search``) before iterating sources, so state never
+    leaks between runs in a long-lived process (or across tests)."""
+    global _consecutive_alterlab_failures, _circuit_open, _run_deadline
+    _consecutive_alterlab_failures = 0
+    _circuit_open = False
+    _run_deadline = time.monotonic() + _RUN_BUDGET_SECONDS
+
+
+def _budget_exceeded() -> bool:
+    return _run_deadline is not None and time.monotonic() >= _run_deadline
+
+
+def _note_alterlab_outcome(degraded: bool) -> None:
+    """Fold one source's AlterLab outcome into the breaker.
+
+    ``degraded`` is True when AlterLab couldn't deliver a usable rendered body
+    (5xx-exhausted, fell through to curl_cffi/httpx, or every escalation rung
+    was weak). A healthy AlterLab render resets the consecutive counter.
+    """
+    global _consecutive_alterlab_failures, _circuit_open
+    if degraded:
+        _consecutive_alterlab_failures += 1
+        if _consecutive_alterlab_failures >= _BREAKER_THRESHOLD:
+            _circuit_open = True
+    else:
+        _consecutive_alterlab_failures = 0
+
+
 def _weak_render_reason(html: str, status: int) -> str | None:
     """Return a short reason if the fetched render is unusable, else ``None``.
 
@@ -611,19 +699,26 @@ def _escalation_ladder(
 def _fetch_with_escalation(
     url: str,
     alterlab_options: dict[str, Any] | None,
-) -> tuple[str, int, str, list[str]]:
+) -> tuple[str, int, str, list[str], bool]:
     """Fetch ``url``, escalating AlterLab options on a detected weak render.
 
-    Returns ``(html, status, fetcher, attempts_log)``. When AlterLab is not in
-    use (no API key) escalation is a no-op — the stronger options only mean
-    something to the rendered path — so we fall straight through to the single
-    transient-retry fetch and keep current behaviour.
+    Returns ``(html, status, fetcher, attempts_log, alterlab_degraded)``. When
+    AlterLab is not in use (no API key) escalation is a no-op — the stronger
+    options only mean something to the rendered path — so we fall straight
+    through to the single transient-retry fetch and keep current behaviour
+    (``alterlab_degraded`` is always False, the breaker is inert without a key).
+
+    ``alterlab_degraded`` (ADR-078, R6) is True when AlterLab couldn't deliver a
+    usable rendered body: every escalation rung was weak, OR the fetch fell
+    through to curl_cffi/httpx (a usable body from a cheaper tier still means
+    AlterLab failed, so the breaker should count it and stop paying the long
+    AlterLab timeout on subsequent sources).
     """
     attempts: list[str] = []
     have_alterlab = bool(os.environ.get("ALTERLAB_API_KEY", "").strip())
     if not have_alterlab:
         html, status, fetcher = _fetch_html_with_retry(url, alterlab_options=alterlab_options)
-        return html, status, fetcher, attempts
+        return html, status, fetcher, attempts, False
 
     ladder = _escalation_ladder(alterlab_options)
     best: tuple[str, int, str] | None = None
@@ -645,7 +740,9 @@ def _fetch_with_escalation(
         if not weak:
             if i > 1:
                 logger.info(f"[universal_ai] escalation recovered {url} on attempt {i}: {attempts[-1]}")
-            return html, status, fetcher, attempts
+            # A usable body still counts AlterLab as degraded if it only arrived
+            # via the curl_cffi/httpx fallback (AlterLab itself failed).
+            return html, status, fetcher, attempts, fetcher != "alterlab"
         # Keep the largest body seen as the fallback if every rung is weak.
         if best is None or len(html) > len(best[0]):
             best = (html, status, fetcher)
@@ -656,7 +753,7 @@ def _fetch_with_escalation(
         f"[universal_ai] all {len(ladder)} fetch attempts weak for {url}; "
         f"returning best-effort body (len={len(html)})."
     )
-    return html, status, fetcher, attempts
+    return html, status, fetcher, attempts, True
 
 
 # --- JSON-LD / microdata extraction ----------------------------------------
@@ -2369,8 +2466,9 @@ def _degrade_search_url(url: str) -> str | None:
 
 def fetch(query: AdapterQuery, profile: Any | None = None) -> list[Listing]:
     """Fetch and extract product listings from an arbitrary vendor URL."""
-    global LAST_RUN_USAGE
+    global LAST_RUN_USAGE, LAST_SKIP_REASON
     LAST_RUN_USAGE = None
+    LAST_SKIP_REASON = None
 
     if os.environ.get("WORKER_USE_FIXTURES", "").strip() in ("1", "true", "yes"):
         logger.info("WORKER_USE_FIXTURES=1; universal_ai returning empty list.")
@@ -2379,6 +2477,23 @@ def fetch(query: AdapterQuery, profile: Any | None = None) -> list[Listing]:
     url = query.extra.get("url") or query.storefront_url
     if not url:
         logger.warning("No 'url' in profile source for universal_ai_search.")
+        return []
+
+    # ADR-078 (R6): short-circuit when AlterLab is clearly down for this run or
+    # the per-run fetch budget is spent — don't grind this source through the
+    # full escalation ladder + curl_cffi timeout just to fail like the last N.
+    if _circuit_open:
+        LAST_SKIP_REASON = (
+            f"skipped: AlterLab circuit open after "
+            f"{_consecutive_alterlab_failures} consecutive failures"
+        )
+        logger.warning(f"[universal_ai] {LAST_SKIP_REASON}; not fetching {url}.")
+        return []
+    if _budget_exceeded():
+        LAST_SKIP_REASON = (
+            f"skipped: per-run fetch budget ({_RUN_BUDGET_SECONDS:.0f}s) exceeded"
+        )
+        logger.warning(f"[universal_ai] {LAST_SKIP_REASON}; not fetching {url}.")
         return []
 
     alterlab_options = query.extra.get("alterlab_options")
@@ -2414,12 +2529,18 @@ def fetch(query: AdapterQuery, profile: Any | None = None) -> list[Listing]:
 
     logger.info(f"[universal_ai] Fetching {url}")
     try:
-        html, status, fetcher, attempts = _fetch_with_escalation(url, alterlab_options)
+        html, status, fetcher, attempts, alterlab_degraded = _fetch_with_escalation(
+            url, alterlab_options
+        )
     except Exception as exc:
+        # A raised fetch (auth/quota, or AlterLab + curl_cffi both failing) is an
+        # AlterLab-degraded outcome for breaker purposes (ADR-078, R6).
+        _note_alterlab_outcome(degraded=True)
         logger.error(f"[universal_ai] Fetch failed: {type(exc).__name__}: {exc}")
         # Bubble up explicit fetch errors (like AlterLab quota/auth) so cli.py
         # can surface them in the UI.
         raise
+    _note_alterlab_outcome(alterlab_degraded)
 
     logger.info(
         f"[universal_ai] Fetched via {fetcher}: status={status}, "
@@ -2501,7 +2622,9 @@ def fetch(query: AdapterQuery, profile: Any | None = None) -> list[Listing]:
                 f"keyword degradation fallback: {url} -> {degraded_url}"
             )
             try:
-                d_html, d_status, d_fetcher, d_attempts = _fetch_with_escalation(
+                # Secondary fetch of the same vendor; the breaker already noted
+                # the primary outcome, so discard this rung's degraded flag.
+                d_html, d_status, d_fetcher, d_attempts, _d_degraded = _fetch_with_escalation(
                     degraded_url, alterlab_options
                 )
             except Exception as exc:

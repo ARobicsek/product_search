@@ -537,3 +537,26 @@ Why this shape: cron-job.org only ever holds a low-value shared secret + a URL. 
 **Cost guardrails / trade-offs to confirm (PROPOSED defaults)**: retries are bounded (≤3) and fire only on detected-weak renders, so steady-state run cost is ~unchanged; the worst case is ~3× one fetch for a genuinely flaky vendor. Multi-URL is capped at ≤3 detail URLs/vendor. E2E testing spends a handful of AlterLab calls + one Haiku onboarding + one search run (low single-digit cents). Confirm these caps are acceptable.
 
 **Out of scope**: native per-vendor adapters (still Tier-A, separate); replacing AlterLab (separate evaluation); fixing the B&H *search-tile* walker (still deferred — detail URLs are the path for B&H).
+
+---
+
+## Phase 22 — Recall reliability under degraded AlterLab + onboarder robustness (DONE — ADR-078/079/080)
+
+**Goal**: implement the recall + precision fixes the user approved 2026-05-24, from the 3-product onboard+run eval (memory `project_recall_precision_eval_2026_05_24.md`): precision (Haiku filter) is excellent, recall is the bottleneck, dominated by fetch/extraction reliability and a few onboarder defects.
+
+**Diagnostic confirmation (3 spaced isolated `cli probe-url` calls, 2026-05-24)**: AlterLab was degraded — Best Buy detail → 422 → curl_cffi ReadTimeout; Allbirds default render → 200/39-char stub; same Allbirds URL at `--min-tier 4 --wait-condition networkidle` → 200/1 MB/39 candidates (recovered). Confirms: AlterLab returns recoverable-but-degraded responses; the runtime escalation ladder fixes *weak 200s* but not a *raised 5xx* (which dropped to curl_cffi), and the probe-as-gate path is independent. All four items needed.
+
+**Tasks (all implemented this session)**:
+1. **R1 — retry AlterLab on transient 5xx before the curl_cffi fallback** (ADR-078). `_fetch_via_alterlab` retries a 500/502/503/504 with bounded linear backoff (≤3 attempts); 4xx still raise immediately.
+2. **R6 — per-run circuit breaker + wall-clock budget** (ADR-078). `reset_run_state()` (called by `cli._cmd_search`); `_fetch_with_escalation` returns an `alterlab_degraded` flag; breaker opens after 3 consecutive degraded sources and short-circuits the rest; `_RUN_BUDGET_SECONDS` (default 600) is a second guard; skip reason surfaced in the Sources panel.
+3. **R2/R3 — probe advisory + registry detail-preference enforced at the save gate** (ADR-079). `detail-preference.ts` + new `PREFER_DETAIL_HOSTS`; the gate keeps a registry detail-preferred source in `sources` (advisory note) on a probe failure instead of demoting; prompt forbids swapping a registry detail vendor to a search URL and mandates one deterministic demote-with-note policy.
+4. **P1 — stop fragile `title_excludes`** (ADR-080). Prompt rule (no name-substring, no generic component word) + deterministic save-time soft warning (`title-excludes-check.ts`).
+
+**Done when** (met):
+- R1: a transient AlterLab 5xx is retried at the rendered tier before fallback; persistent 5xx exhausts retries then falls through; 4xx no-retry. (unit-tested)
+- R6: breaker opens after N consecutive AlterLab-degraded sources, resets on a healthy fetch, and the budget skips remaining sources past the deadline; skips visible in the Sources panel. (unit-tested)
+- R2/R3: a registry detail-preferred source survives a failing probe in `sources`; an ordinary source still demotes. (unit-tested)
+- P1: a `title_excludes` substring-of-name warns at save; a disjoint value doesn't. (unit-tested)
+- Green: worker ruff/mypy/pytest (305), web eslint/tsc/`test:parity`/`test:guards`/build. ADR-078/079/080 written; PROGRESS updated; 3 throwaway eval slugs deleted.
+
+**Out of scope (deferred from the eval, not in this phase)**: R4/R5 + P2–P4 (any remaining eval items); routing hard constraints back through deterministic `filters.py` instead of `ai_filter` (the architecture-drift note in the eval memory — its own ADR + sign-off); B&H search-tile walker (still deferred).

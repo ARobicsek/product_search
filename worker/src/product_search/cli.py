@@ -326,6 +326,10 @@ def _cmd_search(
     # Accumulate per-call universal_ai LLM usage so the run-cost panel
     # reflects every vendor-page extraction (one call per source entry).
     universal_ai_usage: list[dict[str, Any]] = []
+    # ADR-078 (R6): reset the per-run AlterLab circuit breaker + fetch budget
+    # before iterating sources so state never leaks between runs.
+    from product_search.adapters import universal_ai as _universal_ai_mod
+    _universal_ai_mod.reset_run_state()
     for source in profile.sources:
         query = AdapterQuery.from_profile_source(source.model_dump())
         listings: list[Listing] = []
@@ -356,6 +360,10 @@ def _cmd_search(
             elif source.id == "universal_ai_search":
                 from product_search.adapters import universal_ai as universal_ai_mod
                 listings = universal_ai_mod.fetch(query, profile=profile)
+                # ADR-078 (R6): surface a circuit-breaker / budget skip in the
+                # Sources panel so a short-circuited run is visible, not silent.
+                if universal_ai_mod.LAST_SKIP_REASON:
+                    error_msg = universal_ai_mod.LAST_SKIP_REASON
                 if universal_ai_mod.LAST_RUN_USAGE:
                     # Tag with the source URL so the cost panel can
                     # disambiguate when a profile has multiple vendor URLs.

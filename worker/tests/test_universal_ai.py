@@ -1664,11 +1664,13 @@ def test_escalation_recovers_on_second_attempt(monkeypatch: pytest.MonkeyPatch) 
     """A weak first render escalates; a good second render is returned."""
     good = "<html>" + "real product page " * 5000
     seen = _stub_escalation_fetches(monkeypatch, [("Just a moment..." + "x" * 5000, 200), (good, 200)])
-    html, status, fetcher, attempts = universal_ai._fetch_with_escalation(
+    html, status, fetcher, attempts, degraded = universal_ai._fetch_with_escalation(
         "https://hard.example/p", {"country": "us", "min_tier": 3}
     )
     assert html == good
     assert len(attempts) == 2  # escalated exactly once
+    # A recovered AlterLab render is NOT degraded (the stub fetcher is alterlab).
+    assert degraded is False
     # Attempt 2 added networkidle.
     assert seen[1] is not None and seen[1]["wait_condition"] == "networkidle"
 
@@ -1677,12 +1679,13 @@ def test_no_escalation_on_healthy_first_render(monkeypatch: pytest.MonkeyPatch) 
     """Happy path: a good first render costs exactly one fetch (no escalation)."""
     good = "<html>" + "real product page " * 5000
     seen = _stub_escalation_fetches(monkeypatch, [(good, 200)])
-    html, status, fetcher, attempts = universal_ai._fetch_with_escalation(
+    html, status, fetcher, attempts, degraded = universal_ai._fetch_with_escalation(
         "https://easy.example/p", {"country": "us", "min_tier": 3}
     )
     assert html == good
     assert len(attempts) == 1
     assert len(seen) == 1
+    assert degraded is False
 
 
 def test_escalation_returns_best_effort_when_all_weak(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -1695,13 +1698,174 @@ def test_escalation_returns_best_effort_when_all_weak(monkeypatch: pytest.Monkey
             ("Just a moment" + "z" * 5000, 200),
         ],
     )
-    html, status, fetcher, attempts = universal_ai._fetch_with_escalation(
+    html, status, fetcher, attempts, degraded = universal_ai._fetch_with_escalation(
         "https://walled.example/p", {"country": "us", "min_tier": 3}
     )
     assert len(attempts) == 3  # exhausted the ladder (base, networkidle, tier4)
     assert "y" * 9000 in html  # largest body kept
+    # Every rung weak → AlterLab is degraded for breaker purposes (ADR-078).
+    assert degraded is True
     # Final rung escalates to tier 4 via the documented cost_controls.max_tier path.
     assert seen[-1] is not None and seen[-1]["min_tier"] == 4
+
+
+# --- ADR-078 (R1): AlterLab 5xx retry before the curl_cffi fallback --------
+
+
+class _StubAlterlabResp:
+    """A stub of httpx's response object for _fetch_via_alterlab tests."""
+
+    def __init__(self, status_code: int, payload: dict[str, Any]) -> None:
+        self.status_code = status_code
+        self._payload = payload
+
+    def raise_for_status(self) -> None:
+        if self.status_code >= 400:
+            import httpx
+            raise httpx.HTTPStatusError(
+                f"HTTP {self.status_code}", request=None, response=self  # type: ignore[arg-type]
+            )
+
+    def json(self) -> dict[str, Any]:
+        return self._payload
+
+
+def _install_stub_alterlab_client(
+    monkeypatch: pytest.MonkeyPatch, statuses: list[int]
+) -> dict[str, int]:
+    """Install an httpx.Client stub whose POST returns ``statuses`` in order
+    (a 200 carries a usable HTML envelope). Returns a {"posts": n} counter."""
+    counter = {"posts": 0}
+
+    class _StubClient:
+        def __init__(self, **_kw: object) -> None:
+            pass
+
+        def __enter__(self) -> "_StubClient":
+            return self
+
+        def __exit__(self, *_: object) -> None:
+            return None
+
+        def post(self, _url: str, **_kw: object) -> _StubAlterlabResp:
+            i = min(counter["posts"], len(statuses) - 1)
+            code = statuses[i]
+            counter["posts"] += 1
+            if code == 200:
+                return _StubAlterlabResp(200, {
+                    "status_code": 200,
+                    "content": {"html": "<html><body>recovered</body></html>"},
+                })
+            return _StubAlterlabResp(code, {"detail": f"HTTP {code}"})
+
+    import httpx
+    monkeypatch.setattr(httpx, "Client", _StubClient)
+    return counter
+
+
+def test_alterlab_retries_on_5xx_then_succeeds(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A transient 503/504 from the AlterLab API is retried (not abandoned to
+    curl_cffi); a subsequent 200 is returned. ADR-078 (R1)."""
+    monkeypatch.setattr(universal_ai.time, "sleep", lambda _s: None)
+    counter = _install_stub_alterlab_client(monkeypatch, [503, 504, 200])
+
+    html, status, fetcher = universal_ai._fetch_via_alterlab(
+        "https://hard.example/p", "test-key"
+    )
+    assert fetcher == "alterlab"
+    assert status == 200
+    assert "recovered" in html
+    assert counter["posts"] == 3  # two retries then success
+
+
+def test_alterlab_5xx_raises_after_exhausting_retries(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A persistent 5xx raises after the bounded retries (caller then falls
+    through to curl_cffi). ADR-078 (R1)."""
+    import httpx
+    monkeypatch.setattr(universal_ai.time, "sleep", lambda _s: None)
+    counter = _install_stub_alterlab_client(monkeypatch, [500])
+
+    with pytest.raises(httpx.HTTPStatusError):
+        universal_ai._fetch_via_alterlab("https://down.example/p", "test-key")
+    assert counter["posts"] == universal_ai._ALTERLAB_5XX_MAX_ATTEMPTS
+
+
+def test_alterlab_4xx_raises_immediately_no_retry(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A 4xx (auth/quota/422) is NOT retried — retrying can't fix it and would
+    re-spend the long AlterLab timeout. ADR-078 (R1)."""
+    import httpx
+    monkeypatch.setattr(universal_ai.time, "sleep", lambda _s: None)
+    counter = _install_stub_alterlab_client(monkeypatch, [403])
+
+    with pytest.raises(httpx.HTTPStatusError):
+        universal_ai._fetch_via_alterlab("https://auth.example/p", "test-key")
+    assert counter["posts"] == 1  # no retry
+
+
+# --- ADR-078 (R6): per-run circuit breaker + wall-clock budget -------------
+
+
+@pytest.fixture(autouse=True)
+def _reset_breaker() -> Any:
+    """Keep breaker module state isolated per test."""
+    universal_ai.reset_run_state()
+    yield
+    universal_ai.reset_run_state()
+
+
+def test_breaker_opens_after_consecutive_failures() -> None:
+    """N consecutive AlterLab-degraded outcomes open the circuit; a healthy one
+    resets the counter. ADR-078 (R6)."""
+    universal_ai.reset_run_state()
+    assert universal_ai._circuit_open is False
+    for _ in range(universal_ai._BREAKER_THRESHOLD - 1):
+        universal_ai._note_alterlab_outcome(degraded=True)
+    assert universal_ai._circuit_open is False
+    # A healthy fetch resets the streak.
+    universal_ai._note_alterlab_outcome(degraded=False)
+    assert universal_ai._consecutive_alterlab_failures == 0
+    # Now a full streak opens it.
+    for _ in range(universal_ai._BREAKER_THRESHOLD):
+        universal_ai._note_alterlab_outcome(degraded=True)
+    assert universal_ai._circuit_open is True
+
+
+def test_fetch_short_circuits_when_breaker_open(monkeypatch: pytest.MonkeyPatch) -> None:
+    """With the circuit open, fetch() skips the source (no fetch attempt) and
+    records a skip reason. ADR-078 (R6)."""
+    universal_ai.reset_run_state()
+    for _ in range(universal_ai._BREAKER_THRESHOLD):
+        universal_ai._note_alterlab_outcome(degraded=True)
+    assert universal_ai._circuit_open is True
+
+    def _must_not_fetch(*_a: object, **_k: object) -> Any:  # pragma: no cover
+        raise AssertionError("fetch must short-circuit when breaker is open")
+
+    monkeypatch.setattr(universal_ai, "_fetch_with_escalation", _must_not_fetch)
+
+    query = AdapterQuery(source_id="universal_ai_search", extra={"url": BASE_URL})
+    results = universal_ai.fetch(query)
+    assert results == []
+    assert universal_ai.LAST_SKIP_REASON is not None
+    assert "circuit open" in universal_ai.LAST_SKIP_REASON
+
+
+def test_fetch_short_circuits_when_budget_exceeded(monkeypatch: pytest.MonkeyPatch) -> None:
+    """With the per-run budget spent, fetch() skips remaining sources. ADR-078 (R6)."""
+    universal_ai.reset_run_state()
+    # Force the deadline into the past.
+    universal_ai._run_deadline = universal_ai.time.monotonic() - 1.0
+
+    def _must_not_fetch(*_a: object, **_k: object) -> Any:  # pragma: no cover
+        raise AssertionError("fetch must short-circuit when budget exceeded")
+
+    monkeypatch.setattr(universal_ai, "_fetch_with_escalation", _must_not_fetch)
+
+    query = AdapterQuery(source_id="universal_ai_search", extra={"url": BASE_URL})
+    results = universal_ai.fetch(query)
+    assert results == []
+    assert universal_ai.LAST_SKIP_REASON is not None
+    assert "budget" in universal_ai.LAST_SKIP_REASON
 
 
 # --- ADR-077: recall-first full-HTML search extractor ----------------------

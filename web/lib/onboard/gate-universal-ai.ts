@@ -1,6 +1,11 @@
 import 'server-only';
 
 import { probeUrl, type ProbeResult, type AlterlabOptions, type JsonLdListing } from '@/lib/onboard/probe-url';
+import { isDetailPreferred } from '@/lib/onboard/detail-preference';
+import {
+  FORCE_DETAIL_BACKUP_HOSTS,
+  PREFER_DETAIL_HOSTS,
+} from '@/lib/onboard/vendor-quirks-data';
 
 // Phase 15 task 5: server-side gate that runs at /api/onboard/save time.
 // For each ``universal_ai_search`` source on the draft, we probe the URL
@@ -35,6 +40,7 @@ interface GateOutput {
 function isObject(v: unknown): v is Record<string, unknown> {
   return typeof v === 'object' && v !== null && !Array.isArray(v);
 }
+
 
 export async function gateUniversalAiUrls(
   draft: Record<string, unknown>,
@@ -113,15 +119,25 @@ export async function gateUniversalAiUrls(
   // Bucket each probed source: passing → sources, failing → sources_pending.
   const newPending: unknown[] = [...pendingIn];
   for (let i = 0; i < toProbe.length; i++) {
-    const { source } = toProbe[i];
+    const { source, url, pageType } = toProbe[i];
     const result = results[i];
     if (result.ok) {
       sourcesOut.push(source);
       continue;
     }
+    const reason = result.reason ?? 'probe returned 0 candidates';
+    // ADR-079: probe is ADVISORY for registry detail-preferred vendors — a
+    // transient probe failure keeps the source in `sources` (the runtime owns
+    // retry), annotated so the user sees it was weak at save time.
+    if (isDetailPreferred(url, pageType, FORCE_DETAIL_BACKUP_HOSTS, PREFER_DETAIL_HOSTS)) {
+      sourcesOut.push({
+        ...source,
+        note: `probe was weak at save time (advisory — kept; runtime will retry): ${reason}`,
+      });
+      continue;
+    }
     // Demote: keep the original source body intact so a later promotion
     // round-trips cleanly, but add a note explaining why it landed here.
-    const reason = result.reason ?? 'probe returned 0 candidates';
     const demoted: Record<string, unknown> = {
       ...source,
       note: `probe returned 0 candidates: ${reason}`,

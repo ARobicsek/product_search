@@ -9,3 +9,10 @@ export const FORCE_DETAIL_BACKUP_HOSTS: ReadonlySet<string> = new Set(["adorama.
 // bare datacenter fetch gets a 5xx / tiny body. Used by probe-url.ts to avoid
 // false-negative demotions.
 export const ALTERLAB_KNOWN_GOOD_HOSTS: ReadonlySet<string> = new Set(["amazon.com","backmarket.com","bestbuy.com","centralcomputer.com","ebay.com","serversupply.com","target.com","walmart.com","williams-sonoma.com"]);
+
+// Hosts (www-stripped) whose search-tile walker is blind, so the onboarder is
+// told to PREFER page_type:"detail" URLs. ADR-079: a transient probe failure on
+// such a vendor must NOT demote its detail URL — the runtime escalation ladder +
+// circuit breaker (ADR-071/078) own retry; the registry says this vendor needs
+// the detail URL, so the gate keeps it in `sources` with an advisory note.
+export const PREFER_DETAIL_HOSTS: ReadonlySet<string> = new Set(["bhphotovideo.com"]);

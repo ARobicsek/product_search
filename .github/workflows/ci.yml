@@ -120,5 +120,9 @@ jobs:
       - name: AlterLab probe<->runtime parity (node --test)
         run: npm run test:parity
 
+      # Phase 22 (ADR-079/080): onboarder save-gate guard unit tests.
+      - name: Onboarder guards (node --test)
+        run: npm run test:guards
+
       - name: Build
         run: npm run build

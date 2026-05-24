@@ -8,6 +8,7 @@ import { readAlertsFromYaml } from '@/lib/alerts';
 import { probeAndUpdateProfile } from '@/lib/onboard/probe-and-update';
 import { checkForceDetailBackup, type Adr067Warning } from '@/lib/onboard/adr067-check';
 import { checkConditionDrift } from '@/lib/onboard/condition-drift-check';
+import { checkTitleExcludes } from '@/lib/onboard/title-excludes-check';
 
 export const runtime = 'nodejs';
 export const maxDuration = 60;
@@ -100,6 +101,9 @@ export async function POST(request: NextRequest) {
           ? (body.state as Record<string, unknown>)
           : null;
       warnings.push(...checkConditionDrift(state, draft));
+      // ADR-080: warn if a title_excludes value is a substring of the product
+      // name (would reject the target product itself and zero recall).
+      warnings.push(...checkTitleExcludes(draft));
       yamlText = renderProfileYaml(draft);
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'render-yaml failed';

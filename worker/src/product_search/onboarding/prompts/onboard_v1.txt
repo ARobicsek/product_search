@@ -62,6 +62,10 @@ The block below is AUTO-RENDERED from `worker/src/product_search/vendor_quirks.y
 2. If probing a URL without options fails (e.g. status code >= 400, or — for a **search** URL — 0 JSON-LD and 0 anchors), and it belongs to a hard domain or anti-bot site, retry the probe with the recommended `alterlab_options`. For a **detail** URL, "0 anchors" is never a failure — a `detailExtractable: false` (or a status/body failure) is the only reason to retry or demote it. Note that detail extraction needs the rendered DOM, so always probe a detail URL on a hard/JS-heavy vendor WITH the appropriate `alterlab_options`.
 3. If a probe succeeds, add the URL to `<draft>.sources` and ensure you write the exact `alterlab_options` used under `extra.alterlab_options` in the source block.
 4. Let the user know the outcome of your probe (e.g. "Probed Best Buy with US residential proxies: successfully detected listings!").
+5. **The probe is ADVISORY, not a gate — one weak probe never overrides the vendor registry.** Probe results are non-deterministic per fetch (a vendor that renders fine in production can return a transient bot-challenge or "temporary issue" stub on one unlucky probe). So:
+   - For a vendor the Hard-Domain Knowledge Map marks `PREFER page_type: "detail"` or `force_detail_backup`, you MUST keep its detail URL as a `universal_ai_search` source even if `probe_url` returns `detailExtractable: false` or a transient status/body failure. **NEVER swap such a vendor's detail URL to a search URL because a probe failed** — the registry says the vendor's search-tile walker is blind, so a search URL there yields 0. The save-time gate keeps these sources and the production runtime retries with a stronger escalation ladder than the probe; a single weak probe is not evidence the source is dead.
+   - For an ordinary vendor (not in the registry, not a detail-preferred host), a clean repeated probe failure after you've already tried the recommended `alterlab_options` is still grounds to route the URL to `sources_pending` with a note. Use ONE deterministic behavior — demote with a note — not a mix of demote / silently-add / ask-the-user.
+   - Tell the user plainly when you keep a registry detail source despite a weak probe (e.g. "B&H's detail page probed weak this time, but it's a known JS-heavy vendor; I kept it — the runtime retries harder than the probe does.").
 
 # The schema you are filling in
 
@@ -252,6 +256,10 @@ not in `sources:`.
 - `single_sku_url` — no params; rejects search-page URLs
 - `title_excludes` — params: `values: ["Non-Working", "16GB", ...]`
   (Use this if the user explicitly specifies a negative constraint like "no locked", "no HP", etc.)
+  **Two hard rules — a `title_excludes` value that breaks either is a bug:**
+  1. **Never emit a value that is a (case-insensitive) substring of the target product's name.** `title_excludes` is a plain substring match, so `"MX Master 3"` would reject the wanted `"MX Master 3S"`, and `"Pro 2"` would reject `"AirPods Pro 2"`. If you need to exclude an adjacent model, use the part that does NOT appear in the target (e.g. exclude `"3S Lite"` / `"MX Master 4"`, not `"MX Master 3"`).
+  2. **Never use a generic component, material, accessory, or color word** that legitimately appears in real listings of the product itself — e.g. `"bowl"` wrongly rejected a real `"KitchenAid … with Copper Bowl"` mixer; `"stand"`, `"case"`, `"cable"`, `"black"` are the same trap. Accessory/bundle rejection is the relevance filter's job (it reads titles semantically), NOT `title_excludes`. Reserve `title_excludes` for unambiguous negative tokens the user explicitly named (`"Non-Working"`, `"for parts"`, `"locked"`, a specific wrong model number).
+  When in doubt, prefer NO `title_excludes` and let the relevance filter handle it — an over-broad exclude silently zeros recall, which is worse than a few extra rows the relevance filter then drops.
 - `condition_in` — params: `values: ["new", ...]` (allowed values are
   exactly `new`, `used`, `refurbished`). Rejects any listing whose
   condition is NOT in the list. Use this WHENEVER the user states a hard

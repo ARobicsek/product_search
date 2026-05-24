@@ -13,6 +13,9 @@ Status values:
 
 One line per ADR (newest first). Skim this; open only the bodies you need. (No ADR-036 — numbering gap.)
 
+- **ADR-080** — Phase 22 (P1): onboarder must not emit fragile `title_excludes`. A value that is a substring of the target name silently rejects the wanted product (`"MX Master 3"` ⊂ `"MX Master 3S"`), and generic component/material words (`"bowl"`) false-reject real listings ("…with Copper Bowl" mixer). Prompt rule (never a name-substring, never a generic component word — lean on the relevance filter for accessories) + deterministic save-time soft warning (`title-excludes-check.ts`) when a value is a substring of `display_name`/slug — ACCEPTED (impl)
+- **ADR-079** — Phase 22 (R2/R3): the onboarder probe is ADVISORY, not a gate. A transient probe failure on a registry detail-preferred vendor (`force_detail_backup` / `prefer_page_type:detail`, or a source's own `page_type:detail`) must NOT demote it to `sources_pending` — the runtime escalation ladder + circuit breaker own retry, and demoting silently dropped a valid backup (B&H detail→search→0 recall, 2026-05-24). Save-gate keeps such sources in `sources` with an advisory note (`detail-preference.ts` + new `PREFER_DETAIL_HOSTS`); prompt forbids swapping a registry detail vendor to a search URL and mandates ONE deterministic demote-with-note policy for ordinary vendors — ACCEPTED (impl)
+- **ADR-078** — Phase 22 (R1+R6): AlterLab reliability under degradation. (R1) `_fetch_via_alterlab` retries the AlterLab API on a transient 5xx with bounded linear backoff BEFORE the caller drops to curl_cffi — a 504 used to silently fall to a no-JS/no-proxy tier every bot-walled retailer blocks, zeroing recall; 4xx (auth/quota/422) still raise immediately. (R6) per-run circuit breaker + wall-clock budget: after N consecutive AlterLab-degraded sources the breaker opens and `fetch()` short-circuits remaining `universal_ai_search` sources (a degraded 7-source run took >28 min), a healthy fetch resets the streak, the skip reason surfaces in the Sources panel — ACCEPTED (impl)
 - **ADR-077** — ACCEPTED (user-approved 2026-05-23; implement next session, BEFORE ADR-076): recall-first search-step extraction. The `universal_ai_search` candidate set is gated by the anchor walker `_extract_candidates` (Target search → 0, B&H → 4 of 24), so products silently never enter the pipeline and no downstream filter can recover them. Add an LLM-on-rendered-HTML extraction path (verbatim-price-verified to honor the no-fabrication commitment) that enumerates ALL products on the page instead of only walker-found anchors, default `wait_condition:networkidle` for SPA vendors. Biggest recall lever — lifts every product on hard-to-parse vendors. Worker-only; committed Target/B&H search fixtures
 - **ADR-076** — ACCEPTED (user-approved 2026-05-23; implement AFTER ADR-077): recall-first auto-backfill of a missing product-detail URL in the post-save background probe (`probe-and-update.ts`) for ALL `force_detail_backup` vendors that saved with only a search URL — derive candidate detail URL(s) deterministically from the search page's JSON-LD (`extractJsonldListings`), match on title + price band (add up to the ADR-073 cap of 3 same-price variants — don't skip cosmetic variants), probe as `page_type:"detail"`, append on success. Turns the passive ADR-067 warning into an active fix. Cost-is-cheap stance → broad redundant coverage; correctness guard rejects only a *clearly-wrong* product (different model / out-of-band price), never a same-product variant
 - **ADR-075** — ADR-074 followup #1 (Phase 21): new `condition_in` deterministic filter rule (worker `filters.py` + `profile.py` allow-list + TS `schema.ts` mirror) so a stated "new only / no used / no refurbished / no open-box" hard requirement becomes a real YAML filter instead of being lost; onboarder prompt now MUST emit `{rule: "condition_in", values: ["new"]}` for such requirements; save-time soft warning (`condition-drift-check.ts`, fed the chat `<state>` ledger from the client) fires when `filters_summary` records a condition requirement absent from the draft's `spec_filters` — ACCEPTED (impl; build green, live-LLM in-app test blocked locally by edge-runtime env loading)
@@ -90,6 +93,58 @@ One line per ADR (newest first). Skim this; open only the bodies you need. (No A
 - **ADR-002** — Repo-as-database; SQLite as workflow-local cache only — ACCEPTED
 - **ADR-001** — LLM is downstream of verified data only (architectural commitment) — ACCEPTED
 
+
+## ADR-080 — Onboarder must not emit fragile `title_excludes` (P1)
+
+**Status**: ACCEPTED — Phase 22, implemented this session (2026-05-24).
+
+**Date**: 2026-05-24
+
+**Context**: The 2026-05-24 recall/precision eval caught the onboarder authoring `title_excludes` values that silently zero recall. `title_excludes` is a plain case-insensitive substring reject (`worker/.../filters.py`), so:
+- `title_excludes: ["MX Master 3"]` on a "Logitech MX Master 3S" profile rejects the target itself ("MX Master 3" ⊂ "MX Master 3S"). It only survived the eval because the Haiku relevance filter reads titles semantically and the deterministic filter happened not to be the gate — but the substring filter is a live footgun.
+- `title_excludes: ["bowl", …]` false-rejected a real "KitchenAid … with Copper Bowl" mixer — a generic component word that legitimately appears in the product's own listings.
+
+**Decision**:
+1. **Prompt rule** (`onboard_v1.txt`, under the `title_excludes` filter doc): never emit a value that is a substring of the target product's name; never use a generic component / material / accessory / color word that appears in real listings of the product itself; reserve `title_excludes` for unambiguous negative tokens the user explicitly named. Accessory/near-model rejection is the relevance filter's job. When in doubt, emit no `title_excludes`.
+2. **Deterministic save-time guard** (`web/lib/onboard/title-excludes-check.ts`, wired into `api/onboard/save`): a SOFT warning (same mechanism as ADR-067/074) when any `title_excludes` value is a substring of `display_name` or the de-hyphenated slug. The save still proceeds — the user can fix-and-resave or knowingly accept.
+
+**Consequence**: A class of recall-zeroing onboarder output is now both discouraged (prompt) and flagged (deterministic). The guard is pure + unit-tested (`scripts/check-onboard-guards.test.mjs`, in CI). It only catches the *substring-of-name* case (the generic-word case is judgement and stays prompt-only) — that's the high-confidence, deterministic subset worth a hard check.
+
+---
+
+## ADR-079 — Onboarder probe is advisory; registry detail-preference enforced at the save gate (R2/R3)
+
+**Status**: ACCEPTED — Phase 22, implemented this session (2026-05-24).
+
+**Date**: 2026-05-24
+
+**Context**: Probe results are non-deterministic per fetch — a vendor that renders fine in production can return a transient bot-challenge / "temporary issue" stub on one unlucky probe (confirmed again 2026-05-24: an isolated Best Buy detail probe 422'd and an Allbirds probe returned a 39-char body, while the same Allbirds URL at tier-4+networkidle returned 1 MB). The 2026-05-24 eval found the onboarder *overrode its own vendor registry* — it swapped B&H from a `prefer_page_type:detail` URL to a search URL after a probe failure, and B&H's search-tile walker is blind, so recall went to 0. Probe-failure handling was also inconsistent (demote / silently-add / ask-the-user — three behaviors for the same 504).
+
+**Decision**: Treat the probe as advisory and let the vendor registry (ADR-068, the single source of truth) decide demotion:
+- **Save gate** (`web/lib/onboard/gate-universal-ai.ts` + new pure `detail-preference.ts`): a `universal_ai_search` source is "detail-preferred" when its host is in `FORCE_DETAIL_BACKUP_HOSTS` or the new `PREFER_DETAIL_HOSTS` (rendered from the registry by `sync-prompt.js`), or the source carries `extra.page_type:detail`. A detail-preferred source that fails the probe is KEPT in `sources` with an advisory note instead of being demoted to `sources_pending` — the runtime escalation ladder + circuit breaker (ADR-071/078) own retry, which is strictly stronger than one probe fetch. Ordinary vendors still demote-with-note on a clean probe failure.
+- **Prompt** (`onboard_v1.txt`, probing guidelines): the probe is explicitly advisory; NEVER swap a registry detail-preferred vendor's detail URL to a search URL because a probe failed; use ONE deterministic policy (demote-with-note) for ordinary vendors, not a mix.
+
+**Consequence**: A single weak probe can no longer silently drop a valid detail backup for a known-hard vendor. The registry, not a probabilistic fetch, governs whether a detail source is dropped. `detail-preference.ts` is import-free (callers pass the host sets) so it is unit-tested directly under `node --test` (`scripts/check-onboard-guards.test.mjs`, in CI).
+
+---
+
+## ADR-078 — AlterLab reliability under degradation: 5xx retry before fallback + per-run circuit breaker (R1+R6)
+
+**Status**: ACCEPTED — Phase 22, implemented this session (2026-05-24).
+
+**Date**: 2026-05-24
+
+**Context**: The 2026-05-24 eval ran 3 products through prod under a degraded/pool-exhausted AlterLab and found recall — not precision — is the bottleneck, dominated by fetch reliability. Two structural defects, both confirmed by isolated `cli probe-url` calls this session:
+- **No AlterLab retry on a 5xx.** `_fetch_html` abandoned AlterLab on *any* non-auth error and dropped to curl_cffi (no JS, no proxy), which every bot-walled retailer blocks. The existing escalation ladder (ADR-071) only fires on a *returned* weak 200 body, never on a raised 5xx that already fell through. So a transient 504 from a recoverable-but-degraded AlterLab silently zeroed recall. (Diagnostic: a Best Buy detail probe 422'd → curl_cffi → ReadTimeout; an Allbirds probe returned a 39-char body at default tier but 1 MB at tier-4+networkidle — AlterLab was degraded, not down.)
+- **No global budget.** A 7-source run under degraded AlterLab took >28 min (≈3 escalation rungs × ~60s + a curl_cffi timeout, per source) even though AlterLab was failing on every one.
+
+**Decision**:
+- **R1 — retry AlterLab on transient 5xx before falling back.** `_fetch_via_alterlab` retries the AlterLab API on a 500/502/503/504 with bounded linear backoff (`_ALTERLAB_5XX_MAX_ATTEMPTS=3`, base 2s) before letting the error propagate to the curl_cffi/httpx fallback. 4xx (auth/quota/422) still raise immediately — a retry can't fix them and would re-spend the long AlterLab timeout.
+- **R6 — per-run circuit breaker + wall-clock budget.** Module-level state in `universal_ai`, reset by `cli._cmd_search` at the top of every run (`reset_run_state()`, mirrors the `LAST_RUN_USAGE` reset). `_fetch_with_escalation` now reports an `alterlab_degraded` flag (every rung weak, OR fell through to curl_cffi); after `_BREAKER_THRESHOLD=3` consecutive degraded sources the breaker opens and `fetch()` short-circuits remaining `universal_ai_search` sources. A healthy AlterLab fetch resets the streak. A second independent guard, `_RUN_BUDGET_SECONDS` (default 600, env-overridable), skips remaining sources once the run's fetch time is spent. Skips set `LAST_SKIP_REASON`, which `cli._cmd_search` surfaces in the Sources panel so a short-circuited run is visible, not silent.
+
+**Consequence**: A degraded-but-recoverable AlterLab now gets a real retry at the rendered tier instead of silently dropping to a tier that can't pass bot walls. A genuinely-down AlterLab no longer grinds every source through the full ladder — the breaker caps wasted time/cost after 3 failures while still surfacing why. Steady-state cost is ~unchanged (retries fire only on detected failures). Trade-off: a genuinely flaky vendor costs up to 3 AlterLab API attempts per fetch; the breaker bounds the run-level blast radius. The breaker is inert without an `ALTERLAB_API_KEY` (degraded is always False).
+
+---
 
 ## ADR-077 — Recall-first search-step extraction (LLM-on-rendered-HTML, not anchor-walker-gated)
 

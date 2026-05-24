@@ -116,14 +116,17 @@ function injectQuirks(promptTextRaw, prose) {
 function buildQuirksData(registry) {
   const forceDetailBackup = [];
   const alterlabKnownGood = [];
+  const preferDetail = [];
   for (const [host, entry] of Object.entries(registry)) {
     const h = normalizeHost(host);
     if (entry && entry.force_detail_backup === true) forceDetailBackup.push(h);
     if (entry && entry.alterlab_known_good === true) alterlabKnownGood.push(h);
+    if (entry && entry.prefer_page_type === 'detail') preferDetail.push(h);
   }
   forceDetailBackup.sort();
   alterlabKnownGood.sort();
-  return { forceDetailBackup, alterlabKnownGood };
+  preferDetail.sort();
+  return { forceDetailBackup, alterlabKnownGood, preferDetail };
 }
 
 try {
@@ -165,6 +168,15 @@ export const FORCE_DETAIL_BACKUP_HOSTS: ReadonlySet<string> = new Set(${JSON.str
 // false-negative demotions.
 export const ALTERLAB_KNOWN_GOOD_HOSTS: ReadonlySet<string> = new Set(${JSON.stringify(
     data.alterlabKnownGood,
+  )});
+
+// Hosts (www-stripped) whose search-tile walker is blind, so the onboarder is
+// told to PREFER page_type:"detail" URLs. ADR-079: a transient probe failure on
+// such a vendor must NOT demote its detail URL — the runtime escalation ladder +
+// circuit breaker (ADR-071/078) own retry; the registry says this vendor needs
+// the detail URL, so the gate keeps it in \`sources\` with an advisory note.
+export const PREFER_DETAIL_HOSTS: ReadonlySet<string> = new Set(${JSON.stringify(
+    data.preferDetail,
   )});
 `;
   fs.writeFileSync(quirksDest, dataCode);
