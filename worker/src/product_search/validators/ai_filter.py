@@ -207,7 +207,8 @@ How each rule type works (only the ones present above apply):
   when V15 is requested), or incompatible.
   IMPORTANT: You must PASS package additions, bundles, and cosmetic variations of the exact same
   base model (e.g. if 'Dyson V15 Detect' is requested, pass 'Dyson V15 Detect Extra', 'Dyson V15 Detect
-  Absolute', 'Dyson V15 Detect Complete', or color variants like 'Yellow/Nickel'), provided they contain the requested base model name.
+  Absolute', 'Dyson V15 Detect Complete', or color variants like 'Yellow/Nickel'),
+  provided they contain the requested base model name.
 - form_factor_in {{values:[...]}}: pass if attrs.form_factor is in values, OR if neither
   attrs.form_factor nor the title indicates a specific form factor. Reject only when
   attrs.form_factor is set to something not in values, OR the title clearly contains a

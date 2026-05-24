@@ -35,7 +35,15 @@ import re
 import time
 from datetime import UTC, datetime
 from typing import Any
-from urllib.parse import urljoin, urlparse
+from urllib.parse import (
+    parse_qs,
+    quote_plus,
+    unquote_plus,
+    urlencode,
+    urljoin,
+    urlparse,
+    urlunparse,
+)
 
 from product_search.llm import Message, call_llm
 from product_search.models import AdapterQuery, Listing
@@ -2306,9 +2314,6 @@ def _degrade_search_url(url: str) -> str | None:
 
     Returns the degraded URL, or None if no degradation is possible.
     """
-    from urllib.parse import urlparse, parse_qs, urlencode, urlunparse, unquote_plus, quote_plus
-    import re
-
     parsed = urlparse(url)
     query_params = parse_qs(parsed.query)
 
