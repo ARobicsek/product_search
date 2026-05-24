@@ -26,11 +26,13 @@ Full session-by-session history → [PROGRESS_ARCHIVE.md](PROGRESS_ARCHIVE.md) (
 
 ## Next session — start here
 
-1. **T6 — re-measure B&H detail under the now-migrated documented shape.** If still walled (Cloudflare, as the 2026-05-21 probe re-confirmed for Silver/Pink), record `known_failure`/`prefer_page_type` in `vendor_quirks.yaml` and regenerate web artifacts. (Documented-shape B&H was never measured in an N=5 matrix — R2 was cut short.) Single contained `cli probe-url` calls only — no `origin/main` mutation.
-2. **Followup #2 from ADR-074** — `description:` schema vs onboarder gap (one-line fix either way: optional-with-default in Pydantic+TS, OR have the prompt always emit it from turn 1).
-3. **Followup #3 from ADR-074** — Target search URL fetches 0 candidates (search-tile walker gap, like B&H's deferred issue).
-4. **ADR-076 (PROPOSED — needs sign-off before code)** — auto-backfill a missing `page_type:"detail"` URL in the post-save background probe for `force_detail_backup` vendors that saved with only a search URL. Derive the candidate detail URL deterministically from the search page's JSON-LD, single-dominant-match guard, probe as detail, append. Turns the passive ADR-067 warning into an active fix. User asked for the write-up (2026-05-23); confirm scope before implementing.
-5. **Then** the prior queue: Schedule&Alerts editor prod verification (ADR-059/060/061), mobile popover layout; then **Phase 18**.
+**Recall-maximization initiative (PROPOSED, 2026-05-23 — user-driven; confirm scope before code).** Current top priority. Philosophy: maximize recall at the fetch/extract stage; AlterLab + the Haiku filter are both cheap, so over-fetch is fine — the filter is NOT the recall bottleneck (it batches at 50, evaluates every listing, no cap; it only loses precision). Recall is won/lost in the search step. Two complementary ADRs:
+
+1. **ADR-077 FIRST (biggest lever)** — recall-first search-step extraction: stop *gating* on the anchor walker (`_extract_candidates`; Target search→0, B&H→4/24). Add full-rendered-HTML LLM extraction (verbatim-price-verified to keep the no-fabrication boundary), unioned with JSON-LD + anchor walker, `wait_condition:networkidle` default. Worker-only; needs committed Target/B&H search fixtures asserting recall ≥N where the walker found 0/4. Lifts recall for every product on hard-to-parse vendors AND unblocks ADR-076 on pure-SPA vendors.
+2. **ADR-076 SECOND** — recall-first detail-URL backfill in the post-save probe for ALL `force_detail_backup` vendors with search-only sources; derive candidate detail URL(s) from search-page JSON-LD, add same-price variants up to 3, reject only clearly-wrong products. Deterministic per-SKU recall floor (defense-in-depth atop ADR-077).
+3. Do these in SEPARATE sessions — ADR-077 is the larger/riskier (core adapter + fixtures + verbatim guard) and must not be rushed alongside ADR-076. One phase per session (SESSION_PROTOCOL).
+
+**Queue tail (after the recall initiative):** T6 (B&H detail N=5, contained `cli probe-url` only); ADR-074 followup #2 (`description:` schema-vs-onboarder gap — optional-with-default or always-emit); ADR-074 followup #3 (Target search 0 candidates — largely subsumed by ADR-077); Schedule&Alerts editor prod verification (ADR-059/060/061); mobile popover layout; then **Phase 18**.
 
 > ADR-075 (`condition_in`) was verified live in prod 2026-05-23: a "new only" onboard produced `spec_filters: [condition_in: [new], in_stock]`; the condition-drift warning correctly stayed silent (no false positive). The ADR-067 detail-backup warning fired as designed for that run's search-only Target/Best Buy URLs — which motivated ADR-076 above.
 
