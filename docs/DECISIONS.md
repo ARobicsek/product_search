@@ -13,6 +13,7 @@ Status values:
 
 One line per ADR (newest first). Skim this; open only the bodies you need. (No ADR-036 — numbering gap.)
 
+- **ADR-075** — ADR-074 followup #1 (Phase 21): new `condition_in` deterministic filter rule (worker `filters.py` + `profile.py` allow-list + TS `schema.ts` mirror) so a stated "new only / no used / no refurbished / no open-box" hard requirement becomes a real YAML filter instead of being lost; onboarder prompt now MUST emit `{rule: "condition_in", values: ["new"]}` for such requirements; save-time soft warning (`condition-drift-check.ts`, fed the chat `<state>` ledger from the client) fires when `filters_summary` records a condition requirement absent from the draft's `spec_filters` — ACCEPTED (impl; build green, live-LLM in-app test blocked locally by edge-runtime env loading)
 - **ADR-074** — Phase 21 E2–E4 prod e2e verified: throwaway `wh1000xm5-e2e-test` slug onboarded → saved → Run-now → committed report shows Target detail URL extracted exactly `$249.99` (the predicted ADR-071/072 result, post-checked-out by `in_stock` on Black variant); Best Buy + B&H detail backups both at `$248.00`; T4 multi-variant probe correctly demoted unrenderable B&H Silver/Pink and kept Black; slug deletion left live `sony-wh-1000xm5` untouched — ACCEPTED (live-verified)
 - **ADR-073** — T4 multi-variant detail-URL redundancy (Phase 21): onboarder prompt now tells it to add up to 3 cosmetic-variant detail URLs (color/finish, same price) per stable-URL vendor — instead of skipping the detail backup for multi-variant products — for more independent render attempts; cap ≤3 detail URLs/vendor; spec variants (capacity/size) and hard variant requirements still track only the wanted one. Prompt-only, no adapter/registry change — ACCEPTED (impl)
 - **ADR-072** — Documented-shape AlterLab body migration LANDED (Phase 21, executes ADR-071's approved next-session plan): runtime + probe build the documented nested body via a pure builder; tier-4 escalation restored through `cost_controls.max_tier`; T5 probe↔runtime parity guard (shared fixture + pytest + `node --test` in CI). Live E1: Target detail 1.5 MB render, `$249.99` — ACCEPTED (impl + live-verified)
@@ -87,6 +88,29 @@ One line per ADR (newest first). Skim this; open only the bodies you need. (No A
 - **ADR-002** — Repo-as-database; SQLite as workflow-local cache only — ACCEPTED
 - **ADR-001** — LLM is downstream of verified data only (architectural commitment) — ACCEPTED
 
+
+## ADR-075 — ADR-074 followup #1: `condition_in` filter + save-time condition-drift warning (Phase 21)
+
+**Status**: ACCEPTED — implemented 2026-05-23. Executes followup #1 from the ADR-074 next-session queue; no new sign-off needed.
+
+**Date**: 2026-05-23
+
+**Context**: The 2026-05-21 prod onboard (ADR-074) captured "new only, no refurbished/open-box/used" as a stated hard requirement in chat, but the saved YAML had only `spec_filters: [in_stock]` — no condition rule. Result: 24 of 30 ranked rows were used eBay listings (cheapest a used "ALWAYS LOW BATTERY" Sony at $89.99). The validator pipeline had no rule that rejects on `Listing.condition`, and the onboarder prompt offered none, so a stated condition requirement silently evaporated.
+
+**Decision**:
+- **New deterministic filter rule `condition_in`.** `reject_condition_in` in `worker/src/product_search/validators/filters.py` rejects any listing whose normalised `condition` (always one of `new`/`used`/`refurbished` — every adapter normalises) is not in `values`. Empty `values` is a no-op. Registered in the dispatcher and added to `KNOWN_FILTER_RULES` in `profile.py` and the TS mirror `web/lib/onboard/schema.ts`. Chosen over leaning on `title_excludes` because used items aren't reliably labelled "used" in the title; `condition_in` filters on the structured field.
+- **Onboarder prompt** (`onboard_v1.txt`, regenerated into `promptText.ts` via `sync-prompt.js`): added `condition_in` to the allowed-filter-rules list and made the "Hard rejecters" interview step REQUIRE emitting `{rule: "condition_in", values: ["new"]}` (or `["new","refurbished"]` etc.) whenever the user states a hard condition requirement, and to record it in `<state>.filters_summary`.
+- **Save-time soft warning.** New `web/lib/onboard/condition-drift-check.ts` compares the chat `<state>` ledger's `filters_summary` (the only place the stated-but-not-yet-structured intent lives) against the draft's `spec_filters`. If a condition-requirement phrase is present but no covering `condition_in` (or a `title_excludes` that covers used/refurbished/open-box/renewed) made it into the draft, it returns a soft warning. The client (`OnboardChat.tsx`) now sends the latest `<state>` JSON alongside the draft; the save route (`/api/onboard/save`) merges the warning into the existing ADR-067 `warnings` array surfaced in the UI. Save still proceeds — same soft-guardrail philosophy as ADR-067 `checkForceDetailBackup`.
+
+**Consequence**:
+- A fresh onboard that states "new only" now produces a real `condition_in` filter; if the LLM forgets, the save-time warning flags the drift before the user relies on the report.
+- Checks: worker `pytest` 287 passed (added `test_reject_condition_in`), `ruff`/`mypy` clean on changed files; web `tsc` 0 errors, `eslint` 0 errors (pre-existing warnings only), `npm run test:parity` 2/2, `next build` compiled. `sync-prompt.js` regenerated only `promptText.ts` (registry untouched). Drift regexes sanity-checked against representative phrases (8 match / 5 non-match / covering-exclude correct).
+- **In-app test note**: the `/onboard` page renders cleanly with the client change (no regression). The full live-LLM onboard couldn't be exercised locally — Next 16 / Turbopack does not surface `ANTHROPIC_API_KEY` to the `edge`-runtime chat route from `.env.local` in dev (env-loading quirk, unrelated to this change). Production (Vercel) has the env configured; the behavior is covered by the worker unit test + the deterministic drift check + build. Followup #1 from ADR-074 is closed.
+- **Deferred (unchanged):** T6 (re-measure B&H detail under the documented body) and ADR-074 followup #2 (`description:` schema-vs-onboarder gap) and #3 (Target search-tile 0 candidates).
+
+**Consequence on the save warning shape**: the save response `warnings` array is now `Array<{ host?: string; message: string }>` (ADR-067 entries carry `host`; condition-drift entries are message-only). The client already maps `w.message`, so no client-display change was needed.
+
+---
 
 ## ADR-074 — Phase 21 E2–E4 prod e2e verification: Target $249.99 extracted live; T4 + ADR-067 backups confirmed; "new only" → YAML gap noted
 

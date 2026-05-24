@@ -17,7 +17,7 @@ import {
   User,
 } from 'lucide-react';
 import { estimateCostUsd, formatCostUsd } from '@/lib/llm-prices';
-import { extractDraftJson, stripBlocks } from '@/lib/onboard/blocks';
+import { extractDraftJson, extractStateJson, stripBlocks } from '@/lib/onboard/blocks';
 import { renderProfileYaml } from '@/lib/onboard/render-yaml';
 
 interface ChatMessage {
@@ -48,6 +48,15 @@ function findLatestDraft(messages: ChatMessage[]): Record<string, unknown> | nul
   for (let i = messages.length - 1; i >= 0; i--) {
     if (messages[i].role !== 'assistant') continue;
     const j = extractDraftJson(messages[i].content);
+    if (j) return j;
+  }
+  return null;
+}
+
+function findLatestState(messages: ChatMessage[]): Record<string, unknown> | null {
+  for (let i = messages.length - 1; i >= 0; i--) {
+    if (messages[i].role !== 'assistant') continue;
+    const j = extractStateJson(messages[i].content);
     if (j) return j;
   }
   return null;
@@ -250,7 +259,7 @@ export function OnboardChat({ initialProfile, initialSlug }: { initialProfile?: 
       const res = await fetch('/api/onboard/save', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'x-web-secret': secret },
-        body: JSON.stringify({ draft: draftIntent, originalSlug: initialSlug }),
+        body: JSON.stringify({ draft: draftIntent, originalSlug: initialSlug, state: findLatestState(messages) }),
       });
       const data = (await res.json()) as {
         ok: boolean;

@@ -57,6 +57,7 @@ KNOWN_FILTER_RULES: frozenset[str] = frozenset(
         "in_stock",
         "single_sku_url",
         "title_excludes",
+        "condition_in",
     ]
 )
 

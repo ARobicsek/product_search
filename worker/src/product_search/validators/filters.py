@@ -96,6 +96,24 @@ def reject_single_sku_url(listing: Listing, rule: FilterRule) -> str | None:
     return None
 
 
+def reject_condition_in(listing: Listing, rule: FilterRule) -> str | None:
+    """Reject a listing whose condition is not in the allowed set.
+
+    ``listing.condition`` is always one of "new" | "used" | "refurbished"
+    (every adapter normalises to those three values), so a stated hard
+    requirement like "new only" maps to ``values: ["new"]``. A listing whose
+    condition is outside the allowed set is rejected.
+    """
+    allowed: list[str] = (rule.model_extra or {}).get("values", [])
+    if not allowed:
+        return None  # No constraint declared; nothing to reject.
+    allowed_norm = {str(v).strip().lower() for v in allowed}
+    cond = (listing.condition or "").strip().lower()
+    if cond and cond not in allowed_norm:
+        return f"condition {cond!r} not in {sorted(allowed_norm)}"
+    return None
+
+
 def reject_title_excludes(listing: Listing, rule: FilterRule) -> str | None:
     excludes: list[str] = (rule.model_extra or {}).get("values", [])
     title_lower = listing.title.lower()
@@ -117,6 +135,7 @@ _FILTER_FUNCS: dict[str, Callable[[Listing, FilterRule], str | None]] = {
     "in_stock": reject_in_stock,
     "single_sku_url": reject_single_sku_url,
     "title_excludes": reject_title_excludes,
+    "condition_in": reject_condition_in,
 }
 
 

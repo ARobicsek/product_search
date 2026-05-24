@@ -7,9 +7,9 @@ Full session-by-session history → [PROGRESS_ARCHIVE.md](PROGRESS_ARCHIVE.md) (
 ## Active phase
 
 - **Closed:** Phases 0–16; **Phase 17** (schedule editor + alerts); **Phase 19** (universal adapter accuracy & vendor reach); **Phase 20** (reliable scheduling trigger).
-- **IN PROGRESS:** **Phase 21 — Extraction reliability** ([PHASES.md#phase-21](PHASES.md#phase-21--extraction-reliability-hard-site-render-hit-rate-proposed--confirm-design-before-coding)). T1 + safe retry + documented body shape + tier-4 escalation + T5 parity guard + T4 multi-variant + **E2–E4 prod e2e all done (2026-05-21, ADR-074).** Remaining: **T6 only** (re-measure B&H detail under the migrated documented body shape).
+- **IN PROGRESS:** **Phase 21 — Extraction reliability** ([PHASES.md#phase-21](PHASES.md#phase-21--extraction-reliability-hard-site-render-hit-rate-proposed--confirm-design-before-coding)). T1 + safe retry + documented body shape + tier-4 escalation + T5 parity guard + T4 multi-variant + **E2–E4 prod e2e (2026-05-21, ADR-074)** + **ADR-074 followup #1 (`condition_in` filter, 2026-05-23, ADR-075).** Remaining: **T6 only** (re-measure B&H detail under the migrated documented body shape).
 - **Queued after:** **Phase 18 — Polish + second-product proof**.
-- **Most recent work:** 2026-05-21 **E2–E4 prod e2e verification (ADR-074)** — full Chrome-DevTools-MCP-driven onboard → save → Run-now → delete on throwaway `wh1000xm5-e2e-test`. Committed report shows Target detail URL extracted live `$249.99` (the predicted ADR-071 price, end-to-end through the deployed documented-shape body — the 0/3 → 3/3 win is now real in prod, not just in the contained `cli probe-url`). T4 + ADR-067 backups behaved as designed.
+- **Most recent work:** 2026-05-23 **ADR-074 followup #1 (ADR-075)** — new deterministic `condition_in` filter rule (worker + TS mirror) so a stated "new only / no used / no refurbished / no open-box" hard requirement becomes a real YAML filter; onboarder prompt now emits it; save-time soft warning fires when the chat `<state>` ledger records a condition requirement that's absent from the draft's `spec_filters`. Build green (worker 287 pytest, web tsc/eslint/parity/build); live-LLM in-app test blocked locally by an edge-runtime env-loading quirk (covered in prod).
 
 ## Current state — 2026-05-21 Phase 21: E2–E4 prod e2e PASSED (ADR-074)
 
@@ -26,10 +26,11 @@ Full session-by-session history → [PROGRESS_ARCHIVE.md](PROGRESS_ARCHIVE.md) (
 
 ## Next session — start here
 
-1. **T6 — re-measure B&H detail under the now-migrated documented shape.** If still walled (Cloudflare, as this session's probe re-confirmed for Silver/Pink), record `known_failure`/`prefer_page_type` in `vendor_quirks.yaml` and regenerate web artifacts. (Documented-shape B&H was never measured in an N=5 matrix — R2 was cut short.)
-2. **Followup #1 from ADR-074** — onboarder "new only" → YAML `condition` filter. Cheapest fix: prompt change (onboarder must emit a `condition_in: [new]` spec_filter when user states "new only"); maybe a save-time schema warning if a chat-stated hard condition disappears in the YAML. Regenerate `promptText.ts` via `sync-prompt.js`.
-3. **Followup #2 from ADR-074** — `description:` schema vs onboarder gap (one-line fix either way).
+1. **T6 — re-measure B&H detail under the now-migrated documented shape.** If still walled (Cloudflare, as the 2026-05-21 probe re-confirmed for Silver/Pink), record `known_failure`/`prefer_page_type` in `vendor_quirks.yaml` and regenerate web artifacts. (Documented-shape B&H was never measured in an N=5 matrix — R2 was cut short.) Single contained `cli probe-url` calls only — no `origin/main` mutation.
+2. **Followup #2 from ADR-074** — `description:` schema vs onboarder gap (one-line fix either way: optional-with-default in Pydantic+TS, OR have the prompt always emit it from turn 1).
+3. **Followup #3 from ADR-074** — Target search URL fetches 0 candidates (search-tile walker gap, like B&H's deferred issue).
 4. **Then** the prior queue: Schedule&Alerts editor prod verification (ADR-059/060/061), mobile popover layout; then **Phase 18**.
+5. **Verify ADR-075 live in prod** when convenient — onboard a throwaway product stating "new only", confirm the draft gets `condition_in` and (if the LLM forgets) the save-time warning surfaces. (Local edge-runtime env quirk prevented the live-LLM in-app test this session.)
 
 > The R2-style N=5 hit-rate harness needs only the `cli probe-url` loop documented in ADR-071 / `docs/ALTERLAB_OPTIONS.md`.
 

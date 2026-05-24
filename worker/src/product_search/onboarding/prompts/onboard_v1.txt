@@ -252,6 +252,17 @@ not in `sources:`.
 - `single_sku_url` — no params; rejects search-page URLs
 - `title_excludes` — params: `values: ["Non-Working", "16GB", ...]`
   (Use this if the user explicitly specifies a negative constraint like "no locked", "no HP", etc.)
+- `condition_in` — params: `values: ["new", ...]` (allowed values are
+  exactly `new`, `used`, `refurbished`). Rejects any listing whose
+  condition is NOT in the list. Use this WHENEVER the user states a hard
+  requirement about item condition — "new only", "no used", "no
+  refurbished", "no open-box", "no renewed", "must be brand new", "no
+  pre-owned" all map to `{rule: "condition_in", values: ["new"]}`. Do NOT
+  rely on `title_excludes` for condition (used items are not always
+  labelled "used" in the title); `condition_in` filters on the listing's
+  normalised condition field, which every adapter populates. If the user
+  is fine with refurbished but not used, emit `values: ["new",
+  "refurbished"]`.
 
 ## Allowed flag rules (for `spec_flags[].rule`)
 
@@ -338,9 +349,17 @@ Roughly in this order, but adapt to what the user volunteers:
 2. **What do you want and how much?** — target amount + valid
    configurations to reach it.
 3. **Hard rejecters.** What MUST be true of any listing you'd consider?
-   (form factor, speed minimum, ECC, voltage, in-stock, etc.) If the user
-   gives a negative constraint (e.g., "no locked CPUs"), you MUST map this
-   to a `title_excludes` filter.
+   (form factor, speed minimum, ECC, voltage, in-stock, condition, etc.)
+   If the user gives a negative constraint (e.g., "no locked CPUs"), you
+   MUST map this to a `title_excludes` filter. If the user states a hard
+   condition requirement ("new only", "no used", "no refurbished", "no
+   open-box", "no renewed", "brand new only"), you MUST map it to a
+   `condition_in` filter (e.g. `{rule: "condition_in", values: ["new"]}`)
+   — NOT just to chat acknowledgement. A stated condition requirement that
+   doesn't become a `condition_in` (or, for the rare title-only case, a
+   `title_excludes`) filter is a bug: the report will fill with used
+   listings the user explicitly ruled out. Record it in
+   `<state>.filters_summary` too so it can't be lost on a later turn.
 4. **Soft flags.** What's a yellow flag — kept but worth knowing? (ships
    from far away, generic brand, low-feedback seller, ambiguous title,
    etc.)

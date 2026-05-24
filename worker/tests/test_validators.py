@@ -68,6 +68,33 @@ def test_reject_min_quantity() -> None:
     assert apply_filters(lst, rules, profile) is not None
 
 
+def test_reject_condition_in() -> None:
+    profile = _make_profile()
+    rules = [FilterRule.model_validate({"rule": "condition_in", "values": ["new"]})]
+
+    # New passes.
+    assert apply_filters(_make_listing(condition="new"), rules, profile) is None
+
+    # Used and refurbished are rejected when only "new" is allowed.
+    used_reason = apply_filters(_make_listing(condition="used"), rules, profile)
+    assert used_reason is not None
+    assert "condition" in used_reason
+    assert "used" in used_reason
+    assert apply_filters(_make_listing(condition="refurbished"), rules, profile) is not None
+
+    # Case/whitespace-insensitive match.
+    assert apply_filters(_make_listing(condition="New"), rules, profile) is None
+
+    # Multi-value allow-list keeps both.
+    multi = [FilterRule.model_validate({"rule": "condition_in", "values": ["new", "refurbished"]})]
+    assert apply_filters(_make_listing(condition="refurbished"), multi, profile) is None
+    assert apply_filters(_make_listing(condition="used"), multi, profile) is not None
+
+    # Empty allow-list is a no-op (declares no constraint).
+    empty = [FilterRule.model_validate({"rule": "condition_in", "values": []})]
+    assert apply_filters(_make_listing(condition="used"), empty, profile) is None
+
+
 def test_flag_china_shipping() -> None:
     lst = _make_listing(ship_from_country="CN")
     rules = [

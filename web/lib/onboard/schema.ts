@@ -28,6 +28,7 @@ export const KNOWN_FILTER_RULES = new Set<string>([
   'in_stock',
   'single_sku_url',
   'title_excludes',
+  'condition_in',
 ]);
 
 export const KNOWN_FLAG_RULES = new Set<string>([

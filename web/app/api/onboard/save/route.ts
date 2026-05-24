@@ -7,6 +7,7 @@ import { getProductProfileContent } from '@/lib/github';
 import { readAlertsFromYaml } from '@/lib/alerts';
 import { probeAndUpdateProfile } from '@/lib/onboard/probe-and-update';
 import { checkForceDetailBackup, type Adr067Warning } from '@/lib/onboard/adr067-check';
+import { checkConditionDrift } from '@/lib/onboard/condition-drift-check';
 
 export const runtime = 'nodejs';
 export const maxDuration = 60;
@@ -41,7 +42,7 @@ export async function POST(request: NextRequest) {
     return bad('invalid or missing x-web-secret header', 401);
   }
 
-  let body: { yaml?: unknown; draft?: unknown; originalSlug?: string | null };
+  let body: { yaml?: unknown; draft?: unknown; originalSlug?: string | null; state?: unknown };
   try {
     body = await request.json();
   } catch {
@@ -55,7 +56,7 @@ export async function POST(request: NextRequest) {
   // Keep a reference to the raw draft so we can pass it to the background
   // probe step (only relevant for the `draft` path).
   let draftForProbe: Record<string, unknown> | null = null;
-  let adr067Warnings: Adr067Warning[] = [];
+  const warnings: Array<{ host?: string; message: string }> = [];
 
   if (body.draft !== undefined && body.draft !== null) {
     if (typeof body.draft !== 'object' || Array.isArray(body.draft)) {
@@ -89,7 +90,16 @@ export async function POST(request: NextRequest) {
       draftForProbe = { ...draft };
       // ADR-067/068: deterministic guardrail for force_detail_backup vendors.
       // Computed before commit; surfaced as soft warnings in the response.
-      adr067Warnings = checkForceDetailBackup(draft);
+      const adr067Warnings: Adr067Warning[] = checkForceDetailBackup(draft);
+      warnings.push(...adr067Warnings);
+      // ADR-074: warn if a chat-stated hard condition requirement silently
+      // disappeared from the draft (no condition_in filter). Needs the chat
+      // <state> ledger, which the client sends alongside the draft.
+      const state =
+        body.state && typeof body.state === 'object' && !Array.isArray(body.state)
+          ? (body.state as Record<string, unknown>)
+          : null;
+      warnings.push(...checkConditionDrift(state, draft));
       yamlText = renderProfileYaml(draft);
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'render-yaml failed';
@@ -159,7 +169,7 @@ export async function POST(request: NextRequest) {
   return Response.json({
     ok: true,
     probeStatus: draftForProbe ? 'pending' : 'skipped',
-    warnings: adr067Warnings,
+    warnings,
     ...result,
   });
 }
