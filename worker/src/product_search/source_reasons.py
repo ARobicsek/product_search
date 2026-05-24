@@ -103,8 +103,10 @@ def classify_source_outcome(
         return SourceOutcome(
             OutcomeCategory.NO_MATCH,
             f"Found {fetched} {plural} but none met your search criteria "
-            f"(price, condition, or keyword filters). See the AI filter "
-            f"diagnostic below for the specific rejection reasons.",
+            f"(price, condition, or keyword filters). **What to do:** nothing, "
+            f"unless you expected matches here — if so, loosen the relevant "
+            f"filter for this product. The AI filter diagnostic below lists the "
+            f"specific rejections.",
         )
 
     # 3. Vendor flagged in the registry as a known failure — permanent until
@@ -115,8 +117,10 @@ def classify_source_outcome(
         detail = f" {summary}" if summary else ""
         return SourceOutcome(
             OutcomeCategory.PERMANENT,
-            f"This vendor has no working scrape path today and won't recover "
-            f"without further work on our side.{detail}",
+            f"This vendor has no working path today, so there's nothing to "
+            f"retry — it's tracked for a fix on our side and will resume "
+            f"automatically once resolved. **What to do:** no action needed."
+            f"{detail}",
         )
 
     # 4. Quota / auth error — structural; listings can't be fetched until the
@@ -124,9 +128,9 @@ def classify_source_outcome(
     if error and _looks_like_quota_or_auth(error):
         return SourceOutcome(
             OutcomeCategory.PERMANENT,
-            "The scraping API returned a quota or authentication error. Check "
-            "your AlterLab / eBay dashboard limits — listings can't be fetched "
-            "until that's resolved.",
+            "The scraping API returned a quota or authentication error, so "
+            "listings can't be fetched until the account is fixed. **What to "
+            "do:** check your AlterLab / eBay dashboard limits, then run again.",
         )
 
     # 5. The run skipped this source (circuit breaker open / per-run budget
@@ -136,7 +140,9 @@ def classify_source_outcome(
         return SourceOutcome(
             OutcomeCategory.TRANSIENT,
             f"Skipped this run because AlterLab was failing on earlier sources "
-            f"({_short_error(skip_reason)}). Likely resolves on the next run.",
+            f"({_short_error(skip_reason)}). **What to do:** run this product "
+            f"again once AlterLab recovers — the next scheduled run also retries "
+            f"automatically.",
         )
 
     # 6. AlterLab's browser pool was exhausted — a transient capacity issue on
@@ -144,9 +150,10 @@ def classify_source_outcome(
     if diag.get("alterlab_pool_exhausted"):
         return SourceOutcome(
             OutcomeCategory.TRANSIENT,
-            "AlterLab's browser pool was exhausted (a transient capacity issue "
-            "on the scraping provider). This usually clears on its own — the "
-            "next scheduled run will likely succeed.",
+            "AlterLab's browser pool was briefly exhausted — a temporary "
+            "capacity issue at the scraping provider. **What to do:** run this "
+            "product again in a few minutes; it usually clears on its own and "
+            "the next scheduled run retries automatically.",
         )
 
     # 7. AlterLab couldn't deliver a usable rendered body (5xx-exhausted, or fell
@@ -154,8 +161,10 @@ def classify_source_outcome(
     if diag.get("alterlab_degraded"):
         return SourceOutcome(
             OutcomeCategory.TRANSIENT,
-            "AlterLab was degraded and couldn't render this vendor's page, so "
-            "no listings could be extracted. Likely resolves on the next run.",
+            "AlterLab couldn't render this vendor's page this time, so nothing "
+            "could be extracted. **What to do:** run this product again — this "
+            "is usually temporary and the next scheduled run retries "
+            "automatically.",
         )
 
     # 8. Some other fetch error (timeout, connection reset, …). Most are
@@ -163,7 +172,8 @@ def classify_source_outcome(
     if error:
         return SourceOutcome(
             OutcomeCategory.TRANSIENT,
-            f"Fetch error — may resolve on the next run: {_short_error(error)}",
+            f"Fetch error — usually temporary. **What to do:** run this product "
+            f"again. Details: {_short_error(error)}",
         )
 
     # 9. No error, but 0 candidates. Distinguish a real (substantive) page that
@@ -173,13 +183,15 @@ def classify_source_outcome(
         return SourceOutcome(
             OutcomeCategory.PARSER_GAP,
             f"Fetched a full page ({body_len:,} chars) but couldn't parse any "
-            f"product listings — most likely a parser gap with this vendor's "
-            f"page structure rather than a true empty result. Recoverable with "
-            f"extractor work on our side.",
+            f"product listings — most likely a gap in how we read this vendor's "
+            f"page, not a true empty result. **What to do:** add a direct "
+            f"product-page (detail) URL for this vendor to recover it now; "
+            f"otherwise it's flagged for an extractor fix on our side.",
         )
 
     return SourceOutcome(
         OutcomeCategory.EMPTY_PAGE,
-        "The vendor's page loaded but contained no matching products — most "
-        "likely the search genuinely returned nothing right now.",
+        "The vendor's page loaded but had no matching products — most likely "
+        "this search genuinely has nothing right now. **What to do:** no action "
+        "needed; it'll pick up automatically when the vendor lists a match.",
     )
