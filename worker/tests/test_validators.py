@@ -222,3 +222,75 @@ def test_pipeline_runs_brand_inference() -> None:
     passed, _ = run_pipeline([lst], profile, None)
     assert len(passed) == 1
     assert passed[0].brand == "Bose"
+
+
+def test_pipeline_hybrid_deterministic_pre_filters(monkeypatch) -> None:
+    # 1. Used listing with condition_in: [new] should be rejected deterministically,
+    # even when ai_filter is stubbed to pass everything.
+    profile_dict = {
+        **VALID_PROFILE,
+        "spec_filters": [
+            {"rule": "condition_in", "values": ["new"]},
+            {"rule": "in_stock"},
+        ]
+    }
+    profile = Profile.model_validate(profile_dict)
+
+    used_lst = _make_listing(condition="used", title="Used Item", attrs={"capacity_gb": 32})
+    out_of_stock_lst = _make_listing(condition="new", title="OOS Item", quantity_available=0, attrs={"capacity_gb": 32})
+    valid_lst = _make_listing(condition="new", title="Valid Item", quantity_available=5, attrs={"capacity_gb": 32})
+
+    # Stub ai_filter to return ALL inputs it receives (stub pass-all)
+    received_by_ai: list[Listing] = []
+    def dummy_ai_filter(listings: list[Listing], p: Profile) -> list[Listing]:
+        nonlocal received_by_ai
+        received_by_ai = list(listings)
+        return list(listings)
+
+    monkeypatch.setattr("product_search.validators.pipeline.ai_filter", dummy_ai_filter)
+
+    all_input = [used_lst, out_of_stock_lst, valid_lst]
+    passed, rejected_count = run_pipeline(all_input, profile, None)
+
+    # Rejection checks:
+    # used_lst: rejected by condition_in
+    # out_of_stock_lst: rejected by in_stock
+    # valid_lst: passed deterministic, reached ai_filter, passed ai_filter
+    assert len(passed) == 1
+    assert passed[0].title == "Valid Item"
+    assert rejected_count == 2
+
+    # Verify that only the valid listing reached ai_filter!
+    assert len(received_by_ai) == 1
+    assert received_by_ai[0].title == "Valid Item"
+
+
+def test_pipeline_hybrid_rejected_count_combines_deterministic_and_ai(monkeypatch) -> None:
+    profile_dict = {
+        **VALID_PROFILE,
+        "spec_filters": [
+            {"rule": "condition_in", "values": ["new"]},
+        ]
+    }
+    profile = Profile.model_validate(profile_dict)
+
+    used_lst = _make_listing(condition="used", title="Used Item", attrs={"capacity_gb": 32})
+    valid_but_rejected_by_ai = _make_listing(condition="new", title="Wrong Model", attrs={"capacity_gb": 32})
+    valid_and_passed = _make_listing(condition="new", title="Correct Model", attrs={"capacity_gb": 32})
+
+    # Stub ai_filter to only reject "Wrong Model"
+    def dummy_ai_filter(listings: list[Listing], p: Profile) -> list[Listing]:
+        return [lst for lst in listings if lst.title != "Wrong Model"]
+
+    monkeypatch.setattr("product_search.validators.pipeline.ai_filter", dummy_ai_filter)
+
+    all_input = [used_lst, valid_but_rejected_by_ai, valid_and_passed]
+    passed, rejected_count = run_pipeline(all_input, profile, None)
+
+    # Rejections:
+    # used_lst: deterministic (1)
+    # Wrong Model: AI filter (1)
+    # Correct Model: passed (1)
+    assert len(passed) == 1
+    assert passed[0].title == "Correct Model"
+    assert rejected_count == 2

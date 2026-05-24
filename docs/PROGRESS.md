@@ -6,10 +6,11 @@ Full session-by-session history → [PROGRESS_ARCHIVE.md](PROGRESS_ARCHIVE.md) (
 
 ## Active phase
 
-- **Closed:** Phases 0–16; **Phase 17** (schedule editor + alerts); **Phase 19** (universal adapter accuracy & vendor reach); **Phase 20** (reliable scheduling trigger); **Phase 22 — Recall reliability under degraded AlterLab + onboarder robustness** (ADR-078/079/080, 2026-05-24).
-- **IN PROGRESS:** **Phase 21 — Extraction reliability** ([PHASES.md#phase-21](PHASES.md#phase-21--extraction-reliability-hard-site-render-hit-rate-proposed--confirm-design-before-coding)). T1 + safe retry + documented body shape + tier-4 escalation + T5 parity guard + T4 multi-variant + **E2–E4 prod e2e (2026-05-21, ADR-074)** + **ADR-074 followup #1 (`condition_in` filter, 2026-05-23, ADR-075).** Remaining: **T6 only** (re-measure B&H detail under the migrated documented body shape).
+- **Closed:** Phases 0–16; **Phase 17** (schedule editor + alerts); **Phase 19** (universal adapter accuracy & vendor reach); **Phase 20** (reliable scheduling trigger); **Phase 22 — Recall reliability under degraded AlterLab + onboarder robustness** (ADR-078/079/080, 2026-05-24); **Phase 23 — Hybrid filter restoration** (Part B closed, 2026-05-24).
+- **IN PROGRESS:** **Phase 23 — Part A (headless E2E verification)**. Drove automated Selenium Chrome against the deployed app at `https://ari-product-search.vercel.app/onboard` to onboard throwaway slug `phase23-e2e-test`. Draft YAML successfully included Best Buy search and B&H detail URL (verifying ADR-079 detail preservation) plus `title_excludes: ["MX Master 3"]` fragile exclude (verifying ADR-080 emit). However, save button execution and subagent execution hit LLM quota rate limits (`RESOURCE_EXHAUSTED` 429), leaving E2E save+run verification to be resumed/completed once the quota resets (resets in ~4.5 hours).
 - **Queued after:** **Phase 18 — Polish + second-product proof**.
-- **Most recent work:** 2026-05-24 **Phase 22 (ADR-078/079/080)** — recall reliability. R1: `_fetch_via_alterlab` retries transient 5xx before the curl_cffi fallback (a 504 used to silently drop to a no-JS tier). R6: per-run circuit breaker (opens after 3 consecutive AlterLab-degraded sources) + wall-clock budget, reset by `_cmd_search`, skip reason in the Sources panel. R2/R3: probe is advisory — registry `force_detail_backup`/`prefer_page_type:detail` (+ new `PREFER_DETAIL_HOSTS`) sources are kept in `sources` on a probe failure (`detail-preference.ts`), prompt forbids detail→search swap. P1: `title-excludes-check.ts` save-time warning + prompt rule against name-substring / generic-component `title_excludes`. Diagnostic (3 spaced probes) confirmed AlterLab degraded-not-down. Green: worker ruff/mypy/305 pytest; web eslint/tsc/parity/guards/build. The 3 throwaway eval slugs were already absent from origin/main (removed empty local leftovers only).
+- **Most recent work:** 2026-05-24 **Phase 23 — Hybrid filter restoration (Part B)**. In `worker/.../validators/pipeline.py`, deterministic pre-filters (`apply_filters`) now run and reject listings BEFORE the `ai_filter` runs, making hard rules (`condition_in`, `in_stock`, numeric boundaries, `title_excludes`) programmatic and absolute again. Semantic `ai_filter` is retained solely for fuzzy relevance. Rejections are logged without duplication. Written ADR-081. Added hybrid validator unit/regression tests. All 307 local worker pytest suite tests are passing green.
+
 
 ## Current state — 2026-05-21 Phase 21: E2–E4 prod e2e PASSED (ADR-074)
 
@@ -26,9 +27,14 @@ Full session-by-session history → [PROGRESS_ARCHIVE.md](PROGRESS_ARCHIVE.md) (
 
 ## Next session — start here
 
-**Top priority: Phase 23 — Hybrid filter restoration + headless e2e verification of Phase 22.** Full step-by-step brief in [PHASES.md#phase-23](PHASES.md#phase-23--hybrid-filter-restoration--headless-e2e-verification-of-phase-22). It is written to be self-contained for a developer new to the repo — read it in full before coding. Two parts:
-- **Part A (do first, no sign-off):** drive a real onboarding + Run-now on a THROWAWAY slug via the **Chrome DevTools MCP** against `ari-product-search.vercel.app` to verify the Phase 22 behaviors (ADR-078/079/080) in prod, then DELETE the throwaway slug (CLAUDE.md no-live-artifact rule).
-- **Part B (SIGNED OFF 2026-05-24 = "Hybrid"):** in `pipeline.py:run_pipeline`, run the existing deterministic `apply_filters` (in `filters.py`) BEFORE `ai_filter` so hard constraints (`condition_in`, `in_stock`, numeric thresholds, `title_excludes`) are enforced by CODE again, not Haiku judgment; `ai_filter` stays for fuzzy relevance only. Write ADR-081. The decision is made — don't re-debate it.
+**Top priority: Phase 23 — Part A (headless E2E verification) resumption.** Since Part B is complete, the next session should complete Part A E2E verification (once LLM quota / rate limits reset in ~4.5 hours):
+1. Run E2E onboarding against `ari-product-search.vercel.app` using a throwaway slug `phase23-e2e-test` (for "Logitech MX Master 3S mouse" with "new only" condition and "I don't want the older MX Master 3" fragile exclude).
+2. Wait for the probes to finish and confirm the draft profile YAML contains Best Buy search, eBay search, and B&H detail URL (verifying ADR-079 detail preservation) plus `title_excludes: ["MX Master 3"]` (verifying ADR-080 emit).
+3. Click "Save profile to repo" and verify that the save-time soft warning fires in the UI (verifying ADR-080 soft warning).
+4. Open the product page at `/products/phase23-e2e-test`, click "Run now" to trigger the scraper, and poll until the GitHub Action completes.
+5. Verify the generated report (no used listings, correct Best Buy price) and circuit breaker/retry logs in the Sources panel (verifying ADR-078).
+6. Delete the throwaway slug via the home page delete button, run `git fetch origin` and confirm it is completely deleted from origin/main.
+
 
 **Recall-maximization initiative — CLOSED.** ADR-076 (detail-URL backfill), ADR-077 (recall-first full-HTML search extraction), and the programmatic recall improvements all shipped earlier. Phase 22 (ADR-078/079/080) shipped 2026-05-24: R1 (AlterLab 5xx retry), R6 (per-run circuit breaker + budget), R2/R3 (probe advisory + registry detail-preference at the save gate), P1 (anti-fragile `title_excludes`). The 3 throwaway eval slugs were already absent from origin/main (removed empty local leftovers only).
 

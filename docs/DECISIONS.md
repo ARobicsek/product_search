@@ -13,6 +13,7 @@ Status values:
 
 One line per ADR (newest first). Skim this; open only the bodies you need. (No ADR-036 — numbering gap.)
 
+- **ADR-081** — Phase 23: Hybrid filter restoration. Deterministic filter pre-pass (condition_in, in_stock, numeric thresholds, title_excludes) enforces hard constraints programmatically before handing survivors to ai_filter; ai_filter stays for semantic relevance only — ACCEPTED (impl)
 - **ADR-080** — Phase 22 (P1): onboarder must not emit fragile `title_excludes`. A value that is a substring of the target name silently rejects the wanted product (`"MX Master 3"` ⊂ `"MX Master 3S"`), and generic component/material words (`"bowl"`) false-reject real listings ("…with Copper Bowl" mixer). Prompt rule (never a name-substring, never a generic component word — lean on the relevance filter for accessories) + deterministic save-time soft warning (`title-excludes-check.ts`) when a value is a substring of `display_name`/slug — ACCEPTED (impl)
 - **ADR-079** — Phase 22 (R2/R3): the onboarder probe is ADVISORY, not a gate. A transient probe failure on a registry detail-preferred vendor (`force_detail_backup` / `prefer_page_type:detail`, or a source's own `page_type:detail`) must NOT demote it to `sources_pending` — the runtime escalation ladder + circuit breaker own retry, and demoting silently dropped a valid backup (B&H detail→search→0 recall, 2026-05-24). Save-gate keeps such sources in `sources` with an advisory note (`detail-preference.ts` + new `PREFER_DETAIL_HOSTS`); prompt forbids swapping a registry detail vendor to a search URL and mandates ONE deterministic demote-with-note policy for ordinary vendors — ACCEPTED (impl)
 - **ADR-078** — Phase 22 (R1+R6): AlterLab reliability under degradation. (R1) `_fetch_via_alterlab` retries the AlterLab API on a transient 5xx with bounded linear backoff BEFORE the caller drops to curl_cffi — a 504 used to silently fall to a no-JS/no-proxy tier every bot-walled retailer blocks, zeroing recall; 4xx (auth/quota/422) still raise immediately. (R6) per-run circuit breaker + wall-clock budget: after N consecutive AlterLab-degraded sources the breaker opens and `fetch()` short-circuits remaining `universal_ai_search` sources (a degraded 7-source run took >28 min), a healthy fetch resets the streak, the skip reason surfaces in the Sources panel — ACCEPTED (impl)
@@ -93,6 +94,25 @@ One line per ADR (newest first). Skim this; open only the bodies you need. (No A
 - **ADR-002** — Repo-as-database; SQLite as workflow-local cache only — ACCEPTED
 - **ADR-001** — LLM is downstream of verified data only (architectural commitment) — ACCEPTED
 
+
+## ADR-081 — Hybrid filter restoration: deterministic pre-pass + ai_filter for semantic relevance
+
+**Status**: ACCEPTED — Phase 23, implemented this session (2026-05-24).
+
+**Date**: 2026-05-24
+
+**Context**: At `worker/src/product_search/validators/pipeline.py` line 88, a comment note stated that the `"AI Filter replaces deterministic filters."` As a result, the programmatic `reject_*` filter functions in `worker/.../filters.py` (which implement condition, stock, capacity, and title excludes check) were bypassed completely at runtime. Hard constraints declared in profiles (`condition_in`, `in_stock`, numeric thresholds, and `title_excludes`) were enforced entirely via Haiku LLM judgment. In practice, this let used listings bypass "new only" constraints on probabilistic failures and introduced unneeded token spends. Deterministic constraints must be handled by code, while the LLM remains downstream for semantic relevance (architectural commit, ADR-001/028).
+
+**Decision**:
+Implement the **Hybrid** approach where programmatic filters and LLM filter split responsibilities:
+1. **Deterministic Filter Pre-Pass**: Before calling `ai_filter`, `run_pipeline` now runs `apply_filters(listing, profile.spec_filters, profile)` deterministically for all listings.
+2. **Early Exit and Gating**: Any listing rejected by programmatic filters is immediately dropped from the pipeline, avoiding expensive and unneeded LLM tokens. If all listings are rejected deterministically, `ai_filter` is skipped entirely.
+3. **Parity and Traceability**: Deterministic rejections are appended directly to the daily filter log and per-product log (`reports/<slug>/<date>.filter.jsonl`) with exact index mapping, matching the standard `ai_filter` logging format for complete visibility.
+4. **LLM Relevance Gate**: The survivors of the deterministic pre-pass are passed to `ai_filter` to do what code cannot: evaluate semantic relevance (discarding incorrect models, accessories, or unrelated products).
+
+**Consequence**: Hard constraints are fully programmatic, reliable, and regression-proof again. `title_excludes` substring match now runs deterministically, making ADR-080's save-time substring check highly load-bearing. Unit tests prove that a stubbed pass-all AI filter can no longer let a used or out-of-stock listing through. Rejection log formatting and counts remain 100% correct and transparent.
+
+---
 
 ## ADR-080 — Onboarder must not emit fragile `title_excludes` (P1)
 

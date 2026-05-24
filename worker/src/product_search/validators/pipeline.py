@@ -83,24 +83,99 @@ def run_pipeline(
     Returns:
         A tuple of (passed_listings, rejected_count).
     """
+    import json
+    from datetime import UTC, datetime
+    from typing import Any
+
+    from product_search.validators import ai_filter as ai_filter_mod
+    from product_search.validators.filters import apply_filters
+
+    # 1. Deterministic Filters Pass
+    deterministic_rejects: list[dict[str, Any]] = []
+    survivors: list[Listing] = []
+    survivors_indices: list[int] = []
+
+    for idx, listing in enumerate(listings):
+        reason = apply_filters(listing, profile.spec_filters, profile)
+        if reason is not None:
+            deterministic_rejects.append({
+                "index": idx,
+                "pass": False,
+                "reason": reason,
+                "title": listing.title,
+                "price": listing.unit_price_usd,
+                "url": listing.url,
+                "source": listing.source,
+            })
+        else:
+            survivors.append(listing)
+            survivors_indices.append(idx)
+
+    # 2. AI Filter Pass for Relevance
+    ai_passed_listings: list[Listing] = []
+    if survivors:
+        ai_passed_listings = ai_filter(survivors, profile)
+        
+        # Map local survivor indices in ai_filter_mod.LAST_RUN_LOG back to original indices
+        for entry in ai_filter_mod.LAST_RUN_LOG:
+            local_idx = entry.get("index")
+            if local_idx is not None and 0 <= local_idx < len(survivors_indices):
+                entry["index"] = survivors_indices[local_idx]
+        
+        complete_log = deterministic_rejects + ai_filter_mod.LAST_RUN_LOG
+    else:
+        # No survivors reached AI filter: reset LAST_RUN_LOG/USAGE to show deterministic only
+        ai_filter_mod.LAST_RUN_LOG = []
+        ai_filter_mod.LAST_RUN_USAGE = None
+        complete_log = deterministic_rejects
+
+    # Sort log entries by original index to keep input order
+    complete_log.sort(key=lambda x: x["index"])
+    ai_filter_mod.LAST_RUN_LOG = list(complete_log)
+
+    # Write the logs to daily and per-product log files without duplication
+    timestamp = datetime.now(tz=UTC).isoformat()
+    
+    # Append deterministic rejects to daily filter log
+    if deterministic_rejects:
+        rows_daily = [
+            json.dumps({"timestamp": timestamp, "product": profile.slug, **entry})
+            for entry in deterministic_rejects
+        ]
+        try:
+            with ai_filter_mod._filter_log_path().open("a", encoding="utf-8") as f:
+                f.write("\n".join(rows_daily) + ("\n" if rows_daily else ""))
+        except Exception:
+            pass
+
+    # Overwrite the per-product log with the complete set of logs (deterministic + AI)
+    rows_complete = [
+        json.dumps({"timestamp": timestamp, "product": profile.slug, **entry})
+        for entry in complete_log
+    ]
+    try:
+        per_product = ai_filter_mod._per_product_filter_log_path(profile.slug)
+        if per_product is not None:
+            with per_product.open("w", encoding="utf-8") as f:
+                f.write("\n".join(rows_complete) + ("\n" if rows_complete else ""))
+    except Exception:
+        pass
+
+    rejected_count = len(listings) - len(ai_passed_listings)
     passed: list[Listing] = []
 
-    # 1. AI Filter (replaces deterministic filters)
-    ai_passed_listings = ai_filter(listings, profile)
-    rejected_count = len(listings) - len(ai_passed_listings)
-
     for listing in ai_passed_listings:
-        # 2. Infer brand from title if the adapter left it blank
+        # Infer brand from title if the adapter left it blank
         if profile.brand_candidates:
             infer_brand_from_title(listing, profile.brand_candidates)
 
-        # 3. Annotate QVL
+        # Annotate QVL
         annotate_qvl(listing, qvl)
 
-        # 4. Apply Flags
+        # Apply Flags
         apply_flags(listing, profile.spec_flags)
 
-        # 5. Calculate total for target
+        # Calculate total for target
         listing.total_for_target_usd = _calculate_total(listing, profile)
 
         # If unknown quantity and the target requires multi-unit fulfillment,
