@@ -1,0 +1,74 @@
+slug: logitech-mx-master-3s
+display_name: Logitech MX Master 3S Wireless Mouse
+description: Track the cheapest new Logitech MX Master 3S wireless mouse (3S variant only) across major US retailers, any color.
+target:
+  unit: count
+  amount: 1
+spec_filters:
+  - rule: condition_in
+    values:
+      - new
+  - rule: title_excludes
+    values:
+      - MX Master 3
+      - non-S
+  - rule: in_stock
+spec_flags:
+  - rule: low_seller_feedback
+    flag: low_feedback
+    rating_pct_below: 98
+    count_below: 50
+  - rule: ship_from_country_in
+    flag: ships_overseas
+    values:
+      - CN
+      - HK
+      - SG
+      - JP
+sources:
+  - id: universal_ai_search
+    url: https://www.bestbuy.com/site/searchpage.jsp?st=mx+master+3s
+    extra:
+      alterlab_options:
+        country: us
+        min_tier: 3
+  - id: universal_ai_search
+    url: https://www.walmart.com/search?q=logitech+mx+master+3s
+    extra:
+      alterlab_options:
+        min_tier: 3
+  - id: universal_ai_search
+    url: https://www.target.com/s/mx+master+3s
+    extra:
+      alterlab_options:
+        country: us
+        min_tier: 3
+  - id: universal_ai_search
+    url: https://www.bhphotovideo.com/c/search?Ntt=logitech+mx+master+3s
+    extra:
+      alterlab_options:
+        country: us
+        min_tier: 3
+        wait_condition: networkidle
+  - id: universal_ai_search
+    url: https://www.staples.com/buy/mx-master-3s-0ahz01d
+  - id: universal_ai_search
+    url: https://www.adorama.com/searchsite/MX+Master+3S
+  - id: universal_ai_search
+    url: https://www.newegg.com/p/pl?d=mx+master+3s
+    extra:
+      alterlab_options:
+        wait_condition: networkidle
+sources_pending: []
+report_columns:
+  - rank
+  - source
+  - title
+  - price_unit
+  - condition
+  - seller
+  - seller_rating
+  - flags
+schedule:
+  cron: 0 8 * * *
+  timezone: UTC
