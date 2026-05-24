@@ -1,0 +1,28 @@
+slug: sony-wh-1000xm5
+display_name: Sony WH-1000XM5 Headphones
+description: Track the cheapest new Sony WH-1000XM5 wireless noise-canceling headphones in stock.
+target:
+  unit: count
+  amount: 1
+spec_filters:
+  - rule: condition_in
+    values:
+      - new
+  - rule: in_stock
+spec_flags: []
+sources:
+  - id: universal_ai_search
+    url: https://www.target.com/s?searchTerm=sony+wh-1000xm5
+    extra:
+      alterlab_options:
+        country: us
+        min_tier: 3
+  - id: universal_ai_search
+    url: https://www.bestbuy.com/site/searchpage.jsp?st=sony+wh-1000xm5
+    extra:
+      alterlab_options:
+        country: us
+        min_tier: 3
+sources_pending:
+  - id: microcenter_search
+    note: Micro Center domain currently returns 504 errors at infrastructure level even with tier-4 headless browser. Known outage awaiting AlterLab investigation — keep pending for now, revisit later.
