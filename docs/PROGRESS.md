@@ -30,7 +30,9 @@ Full session-by-session history → [PROGRESS_ARCHIVE.md](PROGRESS_ARCHIVE.md) (
 
 - **CLOSED:** **ADR-077** — recall-first search-step extraction: stop *gating* on the anchor walker. Full-rendered-HTML LLM extraction (verbatim-price-verified) implemented and unioned with JSON-LD + anchor walker. 297 tests pass cleanly, onboarding benchmark completed successfully.
 - **CLOSED:** **ADR-076** — recall-first detail-URL backfill in the post-save background probe for ALL `force_detail_backup` vendors with search-only sources. Derive candidate detail URL(s) from search-page JSON-LD, add same-price variants up to 3, reject only clearly-wrong products. Deterministic per-SKU recall floor (defense-in-depth atop ADR-077). Successfully implemented, E2E tested (Dyson V15 onboarding/save/run verification), and pushed!
-- **NEXT UP:** **T6 only** (re-measure B&H detail under the migrated documented body shape, contained `cli probe-url` loop only).
+- **NEXT UP:** **Programmatic Recall Improvements** (Refine AI relevance filter for product bundles/variants, log AlterLab 422 scrape bodies for auditing, and implement search keyword degradation fallback).
+- **T6 only** (re-measure B&H detail under the migrated documented body shape, contained `cli probe-url` loop only).
+
 
 **Queue tail (after the recall initiative):** ADR-074 followup #2 (`description:` schema-vs-onboarder gap — optional-with-default or always-emit); ADR-074 followup #3 (Target search 0 candidates — largely subsumed by ADR-077); Schedule&Alerts editor prod verification (ADR-059/060/061); mobile popover layout; then **Phase 18**.
 
