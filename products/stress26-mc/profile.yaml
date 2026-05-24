@@ -26,9 +26,9 @@ sources:
     extra:
       alterlab_options:
         wait_condition: networkidle
-sources_pending:
-  - id: microcenter_search
-    note: KNOWN FAILURE (blocker) — Microcenter detail URL probed detailExtractable=false. Cloudflare challenge served even at min_tier:3; bumping to min_tier:4 produces silent AlterLab failure. Known vendor-level outage (ADR-073) waiting on AlterLab tier investigation. Do not expect reliable Microcenter coverage until resolved, though runtime circuit breaker will absorb transient challenges.
+  - id: universal_ai_search
+    url: https://www.microcenter.com/search/search_results.aspx?N=&cat=&Ntt=AMD+Ryzen+7+9700X
+sources_pending: []
 report_columns:
   - rank
   - source
