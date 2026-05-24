@@ -1,0 +1,43 @@
+slug: stress26-mc
+display_name: AMD Ryzen 7 9700X (stress test)
+description: AMD Ryzen 7 9700X desktop CPU — single SKU, new only. Stress-test for Microcenter routing.
+target:
+  unit: count
+  amount: 1
+spec_filters:
+  - rule: condition_in
+    values:
+      - new
+  - rule: in_stock
+sources:
+  - id: ebay_search
+    queries:
+      - AMD Ryzen 7 9700X
+    max_results_per_query: 50
+  - id: universal_ai_search
+    url: https://www.amazon.com/s?k=AMD+Ryzen+7+9700X
+    extra:
+      alterlab_options:
+        country: us
+        min_tier: 3
+        wait_condition: networkidle
+  - id: universal_ai_search
+    url: https://www.newegg.com/p/pl?d=amd+ryzen+7+9700x
+    extra:
+      alterlab_options:
+        wait_condition: networkidle
+sources_pending:
+  - id: microcenter_search
+    note: KNOWN FAILURE (blocker) — Microcenter detail URL probed detailExtractable=false. Cloudflare challenge served even at min_tier:3; bumping to min_tier:4 produces silent AlterLab failure. Known vendor-level outage (ADR-073) waiting on AlterLab tier investigation. Do not expect reliable Microcenter coverage until resolved, though runtime circuit breaker will absorb transient challenges.
+report_columns:
+  - rank
+  - source
+  - title
+  - price_unit
+  - condition
+  - seller
+  - seller_rating
+  - flags
+schedule:
+  cron: 0 8 * * *
+  timezone: UTC
