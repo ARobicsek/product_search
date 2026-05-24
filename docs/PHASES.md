@@ -559,4 +559,66 @@ Why this shape: cron-job.org only ever holds a low-value shared secret + a URL. 
 - P1: a `title_excludes` substring-of-name warns at save; a disjoint value doesn't. (unit-tested)
 - Green: worker ruff/mypy/pytest (305), web eslint/tsc/`test:parity`/`test:guards`/build. ADR-078/079/080 written; PROGRESS updated; 3 throwaway eval slugs deleted.
 
-**Out of scope (deferred from the eval, not in this phase)**: R4/R5 + P2–P4 (any remaining eval items); routing hard constraints back through deterministic `filters.py` instead of `ai_filter` (the architecture-drift note in the eval memory — its own ADR + sign-off); B&H search-tile walker (still deferred).
+**Out of scope (deferred from the eval, not in this phase)**: R4/R5 + P2–P4 (any remaining eval items); routing hard constraints back through deterministic `filters.py` instead of `ai_filter` (now Phase 23); B&H search-tile walker (still deferred).
+
+---
+
+## Phase 23 — Hybrid filter restoration + headless e2e verification of Phase 22
+
+> **READ THIS WHOLE BRIEF before touching code.** This brief is written to be self-contained for someone new to the repo. Do the start-of-session checklist in [SESSION_PROTOCOL.md](SESSION_PROTOCOL.md) first (read PROGRESS.md, then this brief, then the named ADRs). Don't open files outside the list below until you've read it.
+
+**Two independent parts. Do Part A first** — it's verification, needs no design decision, and surfaces any Phase 22 regression early. **Part B is a small, already-signed-off code change.**
+
+### Background you need (read these, in order)
+1. **The decision that motivates Part B** — read ADR-001 (in [DECISIONS.md](DECISIONS.md): "LLM is downstream of verified data only") and ADR-075 (the `condition_in` deterministic filter). Then look at `worker/src/product_search/validators/pipeline.py` line 88: the comment literally says *"AI Filter (replaces deterministic filters)"*. That is the problem. The deterministic rejecters in `worker/src/product_search/validators/filters.py` (which already exist and are unit-tested) are **never called at runtime** — `ai_filter` (a Haiku LLM call) is the only thing deciding whether a "new only" / "in stock" / numeric-threshold requirement is honored. So a hard requirement is currently *model judgment*, not code. ADR-075 added `condition_in` to `filters.py` but it never actually runs.
+2. **Phase 22, which you are verifying in Part A** — read ADR-078 (AlterLab 5xx retry + per-run circuit breaker/budget), ADR-079 (onboarder probe is advisory; registry detail-preferred vendors aren't demoted on a weak probe), ADR-080 (anti-fragile `title_excludes`). These all shipped 2026-05-24.
+
+### Part A — Headless end-to-end verification of Phase 22 (do first; no sign-off needed)
+
+**Goal**: prove the Phase 22 behaviors work against the *deployed* app, not just in unit tests. You drive a real browser yourself.
+
+**Tooling**: use the **Chrome DevTools MCP** tools (`mcp__chrome-devtools__*`). They spawn their own Chromium — you do NOT need the user to drive the browser, and you do NOT run a local dev server. The deployed app is `https://ari-product-search.vercel.app`. (Background: see memory note "Chrome DevTools MCP available". Phase 21's E2–E4 did exactly this kind of self-driven onboarding; copy that shape.)
+
+**Hard rule (do not skip)**: use a **throwaway slug** like `phase23-e2e-test`. NEVER touch a live slug (`sony-wh-1000xm5`, `dyson-v15-detect-vacuum`, etc.) — the deployed app commits profiles/reports directly to `origin/main` (see CLAUDE.md "Syncing with origin"). At the end you MUST delete the throwaway slug via the app's delete button so no test artifact is left on `origin/main` with a live cron (this is the CLAUDE.md "no test/CI artifact may depend on a live slug" rule; the 2026-05-24 eval violated it and left 3 slugs running).
+
+**Steps**:
+1. Open `/onboard` in the headless browser. Onboard a single-SKU product that exercises a registry detail-preferred vendor — suggestion: **"Logitech MX Master 3S mouse"** (it has a clean Best Buy / B&H detail story, and is the exact product whose `title_excludes` was fragile in the eval). Tell the onboarder "new only" (to exercise `condition_in`) and let it propose B&H + Best Buy.
+2. **Verify ADR-079 in the transcript**: confirm the onboarder keeps B&H's `page_type:detail` URL (does NOT swap it to a search URL) even if a probe comes back weak, and says so. Take a screenshot of the draft `sources`.
+3. **Verify ADR-080**: try to get the onboarder to emit a fragile exclude (e.g. say "I don't want the older MX Master 3"). Confirm it does NOT put `"MX Master 3"` in `title_excludes` (it should refuse / narrow it). If it does emit one, Save and confirm the **save-time warning** fires (the response surfaces a `warnings[]` entry from `title-excludes-check.ts`).
+4. **Save** the throwaway slug (this commits to `origin/main`). Then **Run-now** from the product page. Poll until the GH Action completes.
+5. **Verify ADR-078** by reading the committed run output / Sources panel for the slug: every `universal_ai_search` row either returned listings or shows a clear reason. If AlterLab was degraded during the run, confirm you see breaker/budget skip reasons (`"skipped: AlterLab circuit open…"` / `"…budget…exceeded"`) in the Sources panel rather than a silent 0. (If AlterLab is healthy that day, the breaker won't trip — that's fine; just confirm no source silently vanished.)
+6. Read the committed `reports/phase23-e2e-test/<date>.md` + the per-run CSV. Confirm the post-check found no fabricated price/URL and that a "new only" run did not surface used listings.
+7. **Delete** the throwaway slug via the home-page delete button. Confirm `products/phase23-e2e-test/` and `reports/phase23-e2e-test/` are gone from `origin/main` (`git fetch origin && git ls-tree -r --name-only origin/main | grep phase23` → empty).
+8. If you captured any new live HTML bodies, save them as fixtures under `worker/tests/fixtures/universal_ai/` (strip session noise) per SESSION_PROTOCOL.
+
+### Part B — Hybrid filter restoration (SIGNED OFF 2026-05-24: "Hybrid")
+
+**The decision is made — do NOT re-debate it.** The user chose the **Hybrid** approach: deterministic `filters.py` rejecters run FIRST and are authoritative for the declared hard-constraint rules; `ai_filter` (Haiku) then runs on the survivors and keeps doing the thing `filters.py` *cannot* express — fuzzy semantic relevance (rejecting wrong models / variants / accessories for which there is no filter rule).
+
+**Why this split**: `filters.py` already has a rejecter for every declared `spec_filters` rule type (`condition_in`, `in_stock`, `single_sku_url`, `title_excludes`, `form_factor_in`, `speed_mts_min`, `ecc_required`, `voltage_eq`, `min_quantity_for_target`) and a dispatcher `apply_filters(listing, rules, profile)` at `filters.py:142`. The only thing `ai_filter` does that has no rule is "is this even the right product?" relevance. So Hybrid = run `apply_filters` for the declared rules deterministically, then hand survivors to `ai_filter` for relevance.
+
+**Exact change** (one file is the core):
+1. In `worker/src/product_search/validators/pipeline.py`, in `run_pipeline` (line 78): BEFORE the `ai_filter` call (line 89), run a deterministic pass — for each listing call `apply_filters(listing, profile.spec_filters, profile)` (import it from `product_search.validators.filters`). Drop listings it rejects; keep the rejection reason. THEN pass the survivors to `ai_filter`. Delete/replace the misleading "replaces deterministic filters" comment.
+2. **Keep `rejected_count` accurate**: it must now be `deterministic_rejects + ai_rejects`, not just the ai delta. Don't double-count a listing.
+3. **Preserve rejection visibility**: the deterministic rejects should be attributable the same way ai_filter rejects are (check how `ai_filter` logs to `worker/data/filter_logs/` and the run output — match that so a user can see *why* a row was dropped, e.g. `[condition_in] condition 'used' not in ['new']`).
+4. **`title_excludes` now runs deterministically (substring match).** This is exactly why ADR-080's save-time guard matters — a fragile exclude that is a substring of the product name would now genuinely zero recall. The guard already warns at save; that's the safety net. Do not soften the deterministic substring filter; rely on the ADR-080 guard + prompt rule to keep fragile values out.
+5. **Don't change `ai_filter`'s job.** It can keep double-checking constraints in its prompt (harmless — deterministic catches them first), but its real remaining purpose is relevance. No prompt change is required; if you do touch its prompt, keep it focused on relevance and don't claim it's the sole gate.
+
+**Tests (write with the code, in `worker/tests/`)**:
+- A `used` listing with `spec_filters: [{rule: condition_in, values: [new]}]` is rejected **deterministically** even when `ai_filter` is stubbed to pass everything (monkeypatch `pipeline.ai_filter` to return all listings; assert the used one is still dropped). This is the regression that proves the fix.
+- An out-of-stock listing with `in_stock` is dropped deterministically (same stubbed-ai_filter technique).
+- A listing that passes all hard filters reaches `ai_filter` (assert it's in the input the stub received).
+- `rejected_count` equals deterministic + ai rejects with no double-count.
+- Existing pipeline tests stay green.
+
+**Write ADR-081** documenting the Hybrid decision (Context: drift at pipeline.py:88; Decision: deterministic pre-filter authoritative for declared rules + ai_filter for relevance, signed off 2026-05-24; Consequence: hard constraints are deterministic again, ADR-080 guard becomes load-bearing for `title_excludes`). Add the one-line index entry.
+
+**Done when**:
+- `run_pipeline` runs `apply_filters` before `ai_filter`; a stubbed pass-all `ai_filter` can no longer let a `condition_in`/`in_stock`-violating listing through. (unit-tested)
+- `rejected_count` correct; rejection reasons visible in the run output / filter log.
+- Part A verification done and the throwaway slug deleted from `origin/main`.
+- Green: worker ruff (`src/`) / mypy (`src/`) / pytest; web eslint / tsc / `test:parity` / `test:guards` / build. ADR-081 written; PROGRESS updated; commit + push.
+
+**Out of scope**: changing `ai_filter`'s model or prompt structure; the remaining eval items (R4/R5/P2–P4); the B&H search-tile walker.
+
+**Cost note**: Part A spends a few cents (one Haiku onboarding + a handful of AlterLab fetches + one search run) — acceptable per the user's cost stance (memory "Maximize recall over scrape cost"). Part B is offline/unit-tested, no spend.
