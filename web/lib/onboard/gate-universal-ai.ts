@@ -1,6 +1,6 @@
 import 'server-only';
 
-import { probeUrl, type ProbeResult, type AlterlabOptions } from '@/lib/onboard/probe-url';
+import { probeUrl, type ProbeResult, type AlterlabOptions, type JsonLdListing } from '@/lib/onboard/probe-url';
 
 // Phase 15 task 5: server-side gate that runs at /api/onboard/save time.
 // For each ``universal_ai_search`` source on the draft, we probe the URL
@@ -24,6 +24,7 @@ export interface ProbeReport {
   anchorCount: number;
   detailExtractable: boolean | null;
   reason: string | null;
+  listings?: JsonLdListing[];
 }
 
 interface GateOutput {
@@ -94,6 +95,7 @@ export async function gateUniversalAiUrls(
         anchorCount: 0,
         detailExtractable: null,
         reason: `unexpected probe error: ${msg}`,
+        jsonldListings: undefined,
       } satisfies ProbeResult;
     })),
   );
@@ -105,6 +107,7 @@ export async function gateUniversalAiUrls(
     anchorCount: r.anchorCount,
     detailExtractable: r.detailExtractable,
     reason: r.reason,
+    listings: r.jsonldListings,
   }));
 
   // Bucket each probed source: passing → sources, failing → sources_pending.

@@ -151,16 +151,18 @@ export async function POST(request: NextRequest) {
   // on local dev.
   if (draftForProbe) {
     const probePromise = probeAndUpdateProfile(slug, draftForProbe);
-    const waitUntil = await getWaitUntil();
-    if (waitUntil) {
-      waitUntil(probePromise);
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`[save] Dev mode: awaiting probeAndUpdateProfile synchronously...`);
+      await probePromise;
     } else {
-      // Local dev / environments without waitUntil: fire-and-forget.
-      // The promise may be cut short if the process exits, but that's
-      // acceptable for local development.
-      probePromise.catch((err) => {
-        console.error('[probe-and-update] fire-and-forget failed:', err);
-      });
+      const waitUntil = await getWaitUntil();
+      if (waitUntil) {
+        waitUntil(probePromise);
+      } else {
+        probePromise.catch((err) => {
+          console.error('[probe-and-update] fire-and-forget failed:', err);
+        });
+      }
     }
   }
 

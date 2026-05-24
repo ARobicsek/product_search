@@ -174,6 +174,7 @@ export interface ProbeResult {
   // URL the onboarder must judge extractability by THIS, not anchorCount.
   detailExtractable: boolean | null;
   reason: string | null; // populated when ok=false
+  jsonldListings?: JsonLdListing[];
 }
 
 // --- HTTP fetch with browser-ish headers ----------------------------------
@@ -648,6 +649,7 @@ export async function probeUrl(
       anchorCount: anchors,
       detailExtractable,
       ok: true,
+      jsonldListings: listings,
     };
     return result;
   } catch (err) {

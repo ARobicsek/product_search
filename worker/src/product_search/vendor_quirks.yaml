@@ -74,6 +74,9 @@
 
 # --- Entries (alphabetical by host) ----------------------------------------
 
+adorama.com:
+  force_detail_backup: true
+
 amazon.com:
   alterlab_known_good: true
 
@@ -104,6 +107,7 @@ bhphotovideo.com:
     min_tier: 3
     wait_condition: networkidle
   prefer_page_type: detail
+  force_detail_backup: true
   notes: |
     B&H search-result tile walker misses tiles: a fully-rendered page (200 KB,
     24 product mentions, prices visible) yields only 4 anchors to the static-
@@ -113,12 +117,31 @@ bhphotovideo.com:
 centralcomputer.com:
   alterlab_known_good: true
 
+costco.com:
+  force_detail_backup: true
+
+crutchfield.com:
+  force_detail_backup: true
+
 ebay.com:
   alterlab_known_good: true
+
+gamestop.com:
+  force_detail_backup: true
+
+homedepot.com:
+  force_detail_backup: true
+
+lowes.com:
+  force_detail_backup: true
+
+macys.com:
+  force_detail_backup: true
 
 newegg.com:
   default_alterlab_options:
     wait_condition: networkidle
+  force_detail_backup: true
   notes: |
     Newegg renders pricing asynchronously via JS — give it wait time before
     extracting. No adapter yet for a dedicated Newegg source; route via
@@ -140,8 +163,14 @@ microcenter.com:
       summary as the note. Do not promise the user microcenter listings until
       this is resolved.
 
+rei.com:
+  force_detail_backup: true
+
 serversupply.com:
   alterlab_known_good: true
+
+sweetwater.com:
+  force_detail_backup: true
 
 target.com:
   default_alterlab_options:
@@ -159,6 +188,7 @@ target.com:
 walmart.com:
   default_alterlab_options:
     min_tier: 3
+  force_detail_backup: true
   alterlab_known_good: true
   notes: |
     Advanced anti-bot footprint — needs high-tier residential proxying.
@@ -167,6 +197,7 @@ williams-sonoma.com:
   default_alterlab_options:
     country: us
     min_tier: 3
+  force_detail_backup: true
   alterlab_known_good: true
   notes: |
     Geofenced — needs US residential proxies.

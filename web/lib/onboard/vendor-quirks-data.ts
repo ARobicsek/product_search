@@ -3,7 +3,7 @@
 
 // Hosts (www-stripped) whose single-SKU products must carry BOTH a search URL
 // and a page_type:"detail" URL — ADR-067 force_detail_backup enforcement.
-export const FORCE_DETAIL_BACKUP_HOSTS: ReadonlySet<string> = new Set(["bestbuy.com","target.com"]);
+export const FORCE_DETAIL_BACKUP_HOSTS: ReadonlySet<string> = new Set(["adorama.com","bestbuy.com","bhphotovideo.com","costco.com","crutchfield.com","gamestop.com","homedepot.com","lowes.com","macys.com","newegg.com","rei.com","sweetwater.com","target.com","walmart.com","williams-sonoma.com"]);
 
 // Hosts (www-stripped) that AlterLab renders fine in production even when a
 // bare datacenter fetch gets a 5xx / tiny body. Used by probe-url.ts to avoid

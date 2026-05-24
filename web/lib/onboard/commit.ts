@@ -1,4 +1,6 @@
 import 'server-only';
+import fs from 'node:fs';
+import path from 'node:path';
 
 const REPO = process.env.GITHUB_REPO ?? 'ARobicsek/product_search';
 const BRANCH = 'main';
@@ -92,6 +94,33 @@ export async function commitNewProfile(
   slug: string,
   profileYaml: string,
 ): Promise<CommitProfileResult> {
+  if (process.env.NODE_ENV === 'development') {
+    console.log(`[commit] Local dev mode: writing profile.yaml locally for ${slug}`);
+    const baseDir = path.join(process.cwd(), '../products', slug);
+    if (!fs.existsSync(baseDir)) {
+      fs.mkdirSync(baseDir, { recursive: true });
+    }
+    fs.writeFileSync(path.join(baseDir, 'profile.yaml'), profileYaml, 'utf-8');
+    
+    const needsQvl = /^qvl_file\s*:/m.test(profileYaml);
+    let qvlCreated = false;
+    if (needsQvl) {
+      const qvlPath = path.join(baseDir, 'qvl.yaml');
+      if (!fs.existsSync(qvlPath)) {
+        const stub = `# QVL (Qualified Vendor List) for ${slug}.\n# Add entries below as you find them. Each entry needs at minimum:\n#   - mpn, brand, capacity_gb, speed_mts\n# See products/ddr5-rdimm-256gb/qvl.yaml for a populated example.\nqvl: []\n`;
+        fs.writeFileSync(qvlPath, stub, 'utf-8');
+        qvlCreated = true;
+      }
+    }
+
+    return {
+      slug,
+      profileFileUrl: `file:///${path.join(baseDir, 'profile.yaml').replace(/\\/g, '/')}`,
+      commitUrl: null,
+      commitSha: 'local-dev-sha',
+      qvlCreated,
+    };
+  }
   const profilePath = `products/${slug}/profile.yaml`;
   const qvlPath = `products/${slug}/qvl.yaml`;
 
@@ -143,6 +172,18 @@ async function dirExists(path: string): Promise<boolean> {
 }
 
 export async function deleteProductTree(slug: string): Promise<boolean> {
+  if (process.env.NODE_ENV === 'development') {
+    console.log(`[commit] Local dev mode: deleting product locally for ${slug}`);
+    const prodDir = path.join(process.cwd(), '../products', slug);
+    const repDir = path.join(process.cwd(), '../reports', slug);
+    if (fs.existsSync(prodDir)) {
+      fs.rmSync(prodDir, { recursive: true, force: true });
+    }
+    if (fs.existsSync(repDir)) {
+      fs.rmSync(repDir, { recursive: true, force: true });
+    }
+    return true;
+  }
   const headers = contentsHeaders();
   delete (headers as Record<string, string>)['Content-Type'];
 

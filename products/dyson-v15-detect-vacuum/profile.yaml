@@ -25,7 +25,7 @@ sources:
     alterlab_options:
       country: us
       min_tier: 3
-      wait_for: ".sku-item"
+      wait_for: .sku-item
   - id: universal_ai_search
     url: https://www.walmart.com/search?q=dyson+v15+detect
     alterlab_options:
