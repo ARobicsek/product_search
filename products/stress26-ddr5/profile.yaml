@@ -1,0 +1,40 @@
+slug: stress26-ddr5
+display_name: DDR5 RDIMM 256GB kit (stress test)
+description: Server-grade DDR5 ECC registered RDIMM kits totaling at least 256GB — single product type, new only, kit pricing.
+target:
+  unit: GB
+  amount: 256
+  configurations:
+    - module_count: 4
+      module_capacity_gb: 64
+    - module_count: 8
+      module_capacity_gb: 32
+    - module_count: 2
+      module_capacity_gb: 128
+spec_filters:
+  - rule: condition_in
+    values:
+      - new
+  - rule: in_stock
+spec_flags:
+  - rule: low_seller_feedback
+    flag: low_feedback
+    rating_pct_below: 98
+    count_below: 50
+sources:
+  - id: ebay_search
+    queries:
+      - DDR5 RDIMM 256GB ECC registered
+    max_results_per_query: 100
+  - id: universal_ai_search
+    url: https://www.serversupply.com/MEMORY/PC5-38400/64GB/DELL/AC239379_370110.htm
+  - id: universal_ai_search
+    url: https://www.centralcomputer.com/all-products/hardware/memory/desktop/ddr5.html
+  - id: universal_ai_search
+    url: https://www.provantage.com/axiom-ax54800r40g-256g~7AXIO3JT.htm
+sources_pending:
+  - id: newegg_search
+    note: "Browser pool exhausted on probe; will retry at runtime with networkidle. Query: ddr5+rdimm"
+schedule:
+  cron: 0 8 * * *
+  timezone: UTC
