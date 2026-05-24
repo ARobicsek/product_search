@@ -104,23 +104,25 @@ def classify_source_outcome(
             OutcomeCategory.NO_MATCH,
             f"Found {fetched} {plural} but none met your search criteria "
             f"(price, condition, or keyword filters). **What to do:** nothing, "
-            f"unless you expected matches here — if so, loosen the relevant "
-            f"filter for this product. The AI filter diagnostic below lists the "
-            f"specific rejections.",
+            f"unless you expected matches here — if so, open **Edit Profile** "
+            f"and loosen the relevant filter (price cap, condition, keywords). "
+            f"The AI filter diagnostic below lists the specific rejections.",
         )
 
-    # 3. Vendor flagged in the registry as a known failure — permanent until
-    #    someone does the AlterLab/anti-bot work. Use the registry's own
-    #    summary so the report and the onboarder tell the same story.
+    # 3. Vendor flagged in the registry as a known failure — an anti-bot wall
+    #    with no working path. Re-running won't help; only deeper scraper work
+    #    can recover it (and may not). Use the registry's own summary so the
+    #    report and the onboarder tell the same story. Do NOT promise an
+    #    automatic fix — these are parked, not actively in flight.
     if known_failure:
         summary = " ".join(str(known_failure.get("summary", "")).split())
         detail = f" {summary}" if summary else ""
         return SourceOutcome(
             OutcomeCategory.PERMANENT,
-            f"This vendor has no working path today, so there's nothing to "
-            f"retry — it's tracked for a fix on our side and will resume "
-            f"automatically once resolved. **What to do:** no action needed."
-            f"{detail}",
+            f"This vendor is blocked — an anti-bot wall we have no working path "
+            f"through right now — so re-running won't help. **What to do:** "
+            f"nothing in the app recovers this; getting it working needs deeper "
+            f"scraper changes and isn't guaranteed.{detail}",
         )
 
     # 4. Quota / auth error — structural; listings can't be fetched until the
@@ -128,9 +130,9 @@ def classify_source_outcome(
     if error and _looks_like_quota_or_auth(error):
         return SourceOutcome(
             OutcomeCategory.PERMANENT,
-            "The scraping API returned a quota or authentication error, so "
-            "listings can't be fetched until the account is fixed. **What to "
-            "do:** check your AlterLab / eBay dashboard limits, then run again.",
+            "The scraping API returned a quota or authentication error, so no "
+            "vendor could be fetched until the account is fixed. **What to do:** "
+            "check your AlterLab / eBay dashboard limits, then run again.",
         )
 
     # 5. The run skipped this source (circuit breaker open / per-run budget
@@ -182,16 +184,19 @@ def classify_source_outcome(
     if body_len >= SUBSTANTIVE_BODY_FLOOR:
         return SourceOutcome(
             OutcomeCategory.PARSER_GAP,
-            f"Fetched a full page ({body_len:,} chars) but couldn't parse any "
-            f"product listings — most likely a gap in how we read this vendor's "
-            f"page, not a true empty result. **What to do:** add a direct "
-            f"product-page (detail) URL for this vendor to recover it now; "
-            f"otherwise it's flagged for an extractor fix on our side.",
+            f"Fetched a full page ({body_len:,} chars) but couldn't read any "
+            f"product listings off it — the page rendered, but our reader didn't "
+            f"recognise this vendor's layout (not a true empty result). **What "
+            f"to do:** open **Edit Profile** and add the vendor's product-page "
+            f"(detail) URL — that path extracts more reliably. If that also "
+            f"returns nothing, it needs a scraper fix (re-running won't help).",
         )
 
     return SourceOutcome(
         OutcomeCategory.EMPTY_PAGE,
-        "The vendor's page loaded but had no matching products — most likely "
-        "this search genuinely has nothing right now. **What to do:** no action "
-        "needed; it'll pick up automatically when the vendor lists a match.",
+        "The vendor's page loaded but had no matching products — most likely it "
+        "genuinely has nothing right now, so re-running won't change anything. "
+        "**What to do:** if you expected results, open **Edit Profile** and "
+        "check the search URL / keywords; otherwise nothing — scheduled runs "
+        "will catch it when the vendor lists a match.",
     )
