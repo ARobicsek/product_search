@@ -29,8 +29,10 @@ Full session-by-session history → [PROGRESS_ARCHIVE.md](PROGRESS_ARCHIVE.md) (
 1. **T6 — re-measure B&H detail under the now-migrated documented shape.** If still walled (Cloudflare, as the 2026-05-21 probe re-confirmed for Silver/Pink), record `known_failure`/`prefer_page_type` in `vendor_quirks.yaml` and regenerate web artifacts. (Documented-shape B&H was never measured in an N=5 matrix — R2 was cut short.) Single contained `cli probe-url` calls only — no `origin/main` mutation.
 2. **Followup #2 from ADR-074** — `description:` schema vs onboarder gap (one-line fix either way: optional-with-default in Pydantic+TS, OR have the prompt always emit it from turn 1).
 3. **Followup #3 from ADR-074** — Target search URL fetches 0 candidates (search-tile walker gap, like B&H's deferred issue).
-4. **Then** the prior queue: Schedule&Alerts editor prod verification (ADR-059/060/061), mobile popover layout; then **Phase 18**.
-5. **Verify ADR-075 live in prod** when convenient — onboard a throwaway product stating "new only", confirm the draft gets `condition_in` and (if the LLM forgets) the save-time warning surfaces. (Local edge-runtime env quirk prevented the live-LLM in-app test this session.)
+4. **ADR-076 (PROPOSED — needs sign-off before code)** — auto-backfill a missing `page_type:"detail"` URL in the post-save background probe for `force_detail_backup` vendors that saved with only a search URL. Derive the candidate detail URL deterministically from the search page's JSON-LD, single-dominant-match guard, probe as detail, append. Turns the passive ADR-067 warning into an active fix. User asked for the write-up (2026-05-23); confirm scope before implementing.
+5. **Then** the prior queue: Schedule&Alerts editor prod verification (ADR-059/060/061), mobile popover layout; then **Phase 18**.
+
+> ADR-075 (`condition_in`) was verified live in prod 2026-05-23: a "new only" onboard produced `spec_filters: [condition_in: [new], in_stock]`; the condition-drift warning correctly stayed silent (no false positive). The ADR-067 detail-backup warning fired as designed for that run's search-only Target/Best Buy URLs — which motivated ADR-076 above.
 
 > The R2-style N=5 hit-rate harness needs only the `cli probe-url` loop documented in ADR-071 / `docs/ALTERLAB_OPTIONS.md`.
 

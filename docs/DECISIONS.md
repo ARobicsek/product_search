@@ -13,6 +13,7 @@ Status values:
 
 One line per ADR (newest first). Skim this; open only the bodies you need. (No ADR-036 — numbering gap.)
 
+- **ADR-076** — PROPOSED (needs sign-off before code): auto-backfill a missing product-detail URL in the post-save background probe (`probe-and-update.ts`) for `force_detail_backup` vendors that saved with only a search URL — derive the candidate detail URL deterministically from the search page's JSON-LD (`extractJsonldListings`), confidence-gate the match, probe it as `page_type:"detail"`, append on success. Turns the passive ADR-067 warning into an active fix so coverage doesn't depend on Haiku finishing the multi-step detail-URL discovery. Main risk: wrong-variant backfill for variant-indifferent multi-SKU products (ADR-073) → strict single-dominant-match guard, else defer to the existing soft warning
 - **ADR-075** — ADR-074 followup #1 (Phase 21): new `condition_in` deterministic filter rule (worker `filters.py` + `profile.py` allow-list + TS `schema.ts` mirror) so a stated "new only / no used / no refurbished / no open-box" hard requirement becomes a real YAML filter instead of being lost; onboarder prompt now MUST emit `{rule: "condition_in", values: ["new"]}` for such requirements; save-time soft warning (`condition-drift-check.ts`, fed the chat `<state>` ledger from the client) fires when `filters_summary` records a condition requirement absent from the draft's `spec_filters` — ACCEPTED (impl; build green, live-LLM in-app test blocked locally by edge-runtime env loading)
 - **ADR-074** — Phase 21 E2–E4 prod e2e verified: throwaway `wh1000xm5-e2e-test` slug onboarded → saved → Run-now → committed report shows Target detail URL extracted exactly `$249.99` (the predicted ADR-071/072 result, post-checked-out by `in_stock` on Black variant); Best Buy + B&H detail backups both at `$248.00`; T4 multi-variant probe correctly demoted unrenderable B&H Silver/Pink and kept Black; slug deletion left live `sony-wh-1000xm5` untouched — ACCEPTED (live-verified)
 - **ADR-073** — T4 multi-variant detail-URL redundancy (Phase 21): onboarder prompt now tells it to add up to 3 cosmetic-variant detail URLs (color/finish, same price) per stable-URL vendor — instead of skipping the detail backup for multi-variant products — for more independent render attempts; cap ≤3 detail URLs/vendor; spec variants (capacity/size) and hard variant requirements still track only the wanted one. Prompt-only, no adapter/registry change — ACCEPTED (impl)
@@ -88,6 +89,41 @@ One line per ADR (newest first). Skim this; open only the bodies you need. (No A
 - **ADR-002** — Repo-as-database; SQLite as workflow-local cache only — ACCEPTED
 - **ADR-001** — LLM is downstream of verified data only (architectural commitment) — ACCEPTED
 
+
+## ADR-076 — Auto-backfill a missing detail URL in the post-save probe (force_detail_backup vendors)
+
+**Status**: PROPOSED — needs user sign-off before implementation. Design only; no code in this entry.
+
+**Date**: 2026-05-23
+
+**Context**: A 2026-05-23 prod verification onboard of the WH-1000XM5 produced a profile with only *search* URLs for Target and Best Buy — no `page_type:"detail"` backups — and the ADR-067 save-time guard correctly warned about it. Both hosts are `force_detail_backup` in `vendor_quirks.yaml`, and the onboarder prompt already tells the LLM to add BOTH a search URL and a detail URL for single-SKU products on such vendors (ADR-067/073). So this is an *adherence* gap, not a missing instruction:
+
+- Detail-URL discovery is the most expensive, multi-step part of the interview (find search URL → dig the exact product-detail URL out of results / `web_search` → probe it `page_type:"detail"` → keep only if `detailExtractable`). A fast "give me a draft" run often doesn't give the model the turns to finish it.
+- The onboarder is **Haiku 4.5**; a long "strongly preferred" soft instruction buried in a big prompt is exactly what a small model drops under time pressure. ADR-067's warning exists precisely *because* the prompt can't guarantee this.
+
+Today the only backstop is the **passive** ADR-067 warning, which asks the *user* to go back and add the detail URL — extra manual work, and easy to dismiss with "Open anyway".
+
+**Decision (proposed)**: turn the passive warning into an **active, deterministic backfill** in the existing post-save background probe (`web/lib/onboard/probe-and-update.ts`, already invoked via `waitUntil` after the save response is sent). After the current probe/demote pass, add a backfill pass:
+
+1. **Trigger.** For each host in `FORCE_DETAIL_BACKUP_HOSTS` that, in the gated draft, has ≥1 *passing* `universal_ai_search` **search** URL but **no** `page_type:"detail"` source.
+2. **Derive candidate(s) deterministically.** Reuse the search page already fetched during the probe and run the existing `extractJsonldListings(html, baseUrl)` (returns `{title, url, priceUsd, condition}[]`). The candidate detail URL comes from the *actually-fetched* search HTML — never invented by an LLM, so this respects the core architectural commitment.
+3. **Confidence-gate the match.** Score candidates by token overlap of `title` against the profile's `display_name`/search keywords, require `condition` consistent with the profile's `condition_in` filter (if any), and a sane price. Backfill **only when there is a single dominant match**. If two or more candidates tie/score closely (the variant-indifferent multi-SKU case from ADR-073, e.g. Black/Silver/Smoky Pink at the same price), **do not guess** — leave the source set unchanged and let the existing soft warning stand.
+4. **Probe + append.** Probe the chosen URL with `page_type:"detail"` and the same `extra.alterlab_options` as the host's search source. Append it as a second `universal_ai_search` source only if `detailExtractable === true`. The existing follow-up commit in `probe-and-update.ts` carries the enriched profile to `origin/main` before the next worker run.
+5. **Cap.** At most ONE auto-backfilled detail URL per vendor. Multi-variant enrichment (≤3 URLs, ADR-073) stays the onboarder's job — auto-backfill deliberately does not enumerate variants, to avoid the wrong-variant trap.
+
+**Alternatives considered (rejected/deferred)**:
+- **Hard-block save until detail URLs exist** — rejected: ADR-067 made the check soft on purpose (legit skip cases: multi-variant, URL-rotating stores), and it's "extra user work", which is what we're trying to remove.
+- **Upgrade the onboarder to a stronger model (Haiku→Sonnet)** — deferred: real cost increase on every turn, and still no *guarantee* of adherence. A deterministic backfill is cheaper and certain.
+- **Make the LLM redo discovery in a server-side retry loop** — rejected: reintroduces LLM-driven URL selection (architectural smell) and per-turn latency/cost.
+
+**Consequences / open questions for sign-off**:
+- Needs a small extension to surface the search page's extracted `JsonLdListing[]` to the backfill step — either by having the probe return them (today `ProbeResult` exposes only `jsonldCount`, not the listings) or by re-running `extractJsonldListings` on the cached HTML. Either is contained.
+- **Correctness risk**: a wrong single-match backfill would inject a wrong-variant/wrong-price detail URL that runs every cycle. The single-dominant-match guard is the mitigation; when in doubt it must defer, not guess. This is the main thing to get right and the reason it's PROPOSED, not auto-accepted.
+- **Warning UX**: the ADR-067 warning is synchronous (before the response) while the backfill is async (after), so the warning can't know the backfill outcome. Proposal: soften the warning wording to note an automatic backfill will be attempted, and rely on the next run / a later re-save to confirm. Final wording decided at impl time.
+- **Scope boundary**: search-only-for-non-`force_detail_backup` vendors are untouched (no detail backup expected there). eBay/marketplaces are untouched (per-listing ephemeral URLs — a single detail URL isn't a sensible backup, per the prompt).
+- Best-effort, like the rest of `probe-and-update.ts`: a backfill failure logs and no-ops; the profile is still saved with its search URL(s).
+
+---
 
 ## ADR-075 — ADR-074 followup #1: `condition_in` filter + save-time condition-drift warning (Phase 21)
 
