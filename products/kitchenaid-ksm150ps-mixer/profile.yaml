@@ -1,0 +1,50 @@
+slug: kitchenaid-ksm150ps-mixer
+display_name: KitchenAid Artisan Series 5-Quart Tilt-Head Stand Mixer (KSM150PS)
+description: Track cheapest new KSM150PS Artisan Series stand mixers across major US retailers
+target:
+  unit: count
+  amount: 1
+spec_filters:
+  - rule: condition_in
+    values:
+      - new
+  - rule: title_excludes
+    values:
+      - Professional
+      - Pro 600
+      - bowl
+      - beater
+      - attachment
+      - accessories
+spec_flags:
+  - rule: low_seller_feedback
+    flag: low_feedback
+    rating_pct_below: 98
+    count_below: 50
+sources:
+  - id: universal_ai_search
+    url: https://www.target.com/s/model+ksm150ps+kitchenaid
+  - id: universal_ai_search
+    url: https://www.bestbuy.com/site/searchpage.jsp?st=ksm150ps
+  - id: universal_ai_search
+    url: https://www.walmart.com/search/?query=KSM150PS
+  - id: universal_ai_search
+    url: https://www.williams-sonoma.com/shop/electrics/electrics-kitchenaid/kitchenaid-hand-stand-mixers/
+  - id: universal_ai_search
+    url: https://www.kohls.com/search?query=KSM150PS
+  - id: universal_ai_search
+    url: https://www.wayfair.com/keyword.php?keyword=kitchenaid+artisan+5+qt.+stand+mixer+ksm150ps
+  - id: universal_ai_search
+    url: https://www.kitchenaid.com/countertop-appliances/stand-mixers/tilt-head-stand-mixers/
+report_columns:
+  - rank
+  - source
+  - title
+  - price_unit
+  - condition
+  - seller
+  - seller_rating
+  - flags
+schedule:
+  cron: 0 8 * * *
+  timezone: UTC
