@@ -256,6 +256,8 @@ def _fetch_html(
                 alterlab_options=alterlab_options,
             )
         except Exception as exc:
+            if hasattr(exc, "response") and exc.response.status_code == 422:
+                logger.error(f"[universal_ai] AlterLab 422 Response Body: {exc.response.text}")
             # Check if quota/auth error and bubble it up instead of fallback
             if hasattr(exc, "response") and exc.response.status_code in (401, 403, 429):
                 # We raise so fetch() catches it and bubbles up to cli.py
@@ -2299,6 +2301,64 @@ def _extract_via_anchor_walker(
     return results
 
 
+def _degrade_search_url(url: str) -> str | None:
+    """Attempt to degrade search keywords in ``url`` by dropping the last word.
+
+    Returns the degraded URL, or None if no degradation is possible.
+    """
+    from urllib.parse import urlparse, parse_qs, urlencode, urlunparse, unquote_plus, quote_plus
+    import re
+
+    parsed = urlparse(url)
+    query_params = parse_qs(parsed.query)
+
+    # Common search query parameters
+    search_keys = ["q", "st", "query", "keywords", "k", "keyword", "searchTerm", "search_query"]
+    found_key = None
+    original_val = None
+
+    for key in search_keys:
+        if key in query_params:
+            found_key = key
+            original_val = query_params[key][0]
+            break
+
+    if found_key is not None and original_val is not None:
+        normal_str = unquote_plus(original_val)
+        words = [w for w in re.split(r'[\s+]+', normal_str) if w]
+        if len(words) > 1:
+            degraded_str = " ".join(words[:-1])
+            new_params = dict(query_params)
+            new_params[found_key] = [degraded_str]
+            new_query = urlencode(new_params, doseq=True)
+            new_parts = list(parsed)
+            new_parts[4] = new_query
+            return urlunparse(new_parts)
+
+    # If not in query params, try path segment (e.g. /s/dyson+v15+detect or /search/dyson+v15+detect)
+    path_segments = parsed.path.split('/')
+    found_path_idx = None
+    for i, segment in enumerate(path_segments):
+        if segment in ("s", "search") and i + 1 < len(path_segments) and path_segments[i + 1]:
+            found_path_idx = i + 1
+            original_val = path_segments[i + 1]
+            break
+
+    if found_path_idx is not None and original_val is not None:
+        normal_str = unquote_plus(original_val)
+        words = [w for w in re.split(r'[\s+]+', normal_str) if w]
+        if len(words) > 1:
+            degraded_str = " ".join(words[:-1])
+            new_segments = list(path_segments)
+            new_segments[found_path_idx] = quote_plus(degraded_str)
+            new_path = "/".join(new_segments)
+            new_parts = list(parsed)
+            new_parts[2] = new_path
+            return urlunparse(new_parts)
+
+    return None
+
+
 # --- Main entry point ------------------------------------------------------
 
 
@@ -2426,6 +2486,53 @@ def fetch(query: AdapterQuery, profile: Any | None = None) -> list[Listing]:
     merged: list[Listing] = _union_by_canonical(
         jsonld_results, anchor_results, full_html_results,
     )
+
+    # Keyword degradation fallback if merged has 0 listings
+    if not merged:
+        degraded_url = _degrade_search_url(url)
+        if degraded_url:
+            logger.info(
+                f"[universal_ai] Primary search yielded 0 listings. Attempting search-term "
+                f"keyword degradation fallback: {url} -> {degraded_url}"
+            )
+            try:
+                d_html, d_status, d_fetcher, d_attempts = _fetch_with_escalation(
+                    degraded_url, alterlab_options
+                )
+            except Exception as exc:
+                logger.warning(
+                    f"[universal_ai] Degraded search fetch failed: {type(exc).__name__}: {exc}"
+                )
+                d_html = ""
+
+            if d_html:
+                logger.info(
+                    f"[universal_ai] Degraded search page fetched via {d_fetcher}: "
+                    f"status={d_status}, body_len={len(d_html)}"
+                )
+                d_jsonld_listings = _extract_jsonld_listings(d_html, base_url=degraded_url)
+                d_jsonld_results = _jsonld_to_listings(d_jsonld_listings, fetched_at, parsed_host)
+                d_anchor_results = _extract_via_anchor_walker(
+                    d_html, degraded_url,
+                    profile=profile,
+                    fetched_at=fetched_at,
+                    parsed_host=parsed_host,
+                )
+                d_full_html_results = _extract_via_full_html(
+                    d_html, degraded_url,
+                    profile=profile,
+                    fetched_at=fetched_at,
+                    parsed_host=parsed_host,
+                )
+                d_merged = _union_by_canonical(
+                    d_jsonld_results, d_anchor_results, d_full_html_results
+                )
+                if d_merged:
+                    logger.info(
+                        f"[universal_ai] Degraded search successfully recovered {len(d_merged)} listing(s)!"
+                    )
+                    merged = d_merged
+
     full_html_unique = sum(
         1 for listing in merged
         if listing.attrs.get("extractor") == "full_html_llm"

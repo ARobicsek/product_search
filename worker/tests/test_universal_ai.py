@@ -2045,3 +2045,80 @@ def test_extract_target_search_full_html_recall() -> None:
             f"Target stripped text must contain {test_price} for verbatim guard"
         )
 
+
+# --- Search-term Keyword Degradation Fallback (ADR-078) -------------------
+
+
+def test_degrade_search_url() -> None:
+    """_degrade_search_url should correctly drop the last word of a search query in different URL shapes."""
+    # Query parameters based shapes
+    assert universal_ai._degrade_search_url("https://www.walmart.com/search?q=dyson+v15+detect") == "https://www.walmart.com/search?q=dyson+v15"
+    assert universal_ai._degrade_search_url("https://www.bestbuy.com/site/searchpage.jsp?st=dyson+v15") == "https://www.bestbuy.com/site/searchpage.jsp?st=dyson"
+    assert universal_ai._degrade_search_url("https://www.williams-sonoma.com/search/results.html?keywords=dyson+v15+detect") == "https://www.williams-sonoma.com/search/results.html?keywords=dyson+v15"
+
+    # Path based shapes
+    assert universal_ai._degrade_search_url("https://www.target.com/s/dyson+v15+detect") == "https://www.target.com/s/dyson+v15"
+    assert universal_ai._degrade_search_url("https://www.example.com/search/dyson+v15+detect") == "https://www.example.com/search/dyson+v15"
+
+    # No degradation possible (1 word)
+    assert universal_ai._degrade_search_url("https://www.target.com/s/dyson") is None
+    assert universal_ai._degrade_search_url("https://www.bestbuy.com/site/searchpage.jsp?st=dyson") is None
+
+    # No query parameters/search path at all
+    assert universal_ai._degrade_search_url("https://www.example.com/about-us") is None
+
+
+def test_fetch_search_degradation_fallback(monkeypatch: pytest.MonkeyPatch) -> None:
+    """When a primary search returns 0 listings, it should degrade the query and retry."""
+    # We mock fetch to return 0 listings for the primary search (dyson+v15+detect),
+    # but return 1 listing for the degraded search (dyson+v15).
+    primary_url = "https://www.walmart.com/search?q=dyson+v15+detect"
+    degraded_url = "https://www.walmart.com/search?q=dyson+v15"
+
+    fetched_urls = []
+
+    def _mock_fetch(url: str, timeout: float = 20.0, alterlab_options: dict[str, Any] | None = None) -> tuple[str, int, str]:
+        fetched_urls.append(url)
+        if url == primary_url:
+            # Return empty page
+            return "<html><body>No products found</body></html>", 200, "alterlab"
+        elif url == degraded_url:
+            # Return page with JSON-LD listing
+            jsonld_html = """
+            <script type="application/ld+json">
+            {
+                "@context": "https://schema.org",
+                "@type": "Product",
+                "name": "Dyson V15 Detect Vacuum",
+                "url": "https://www.walmart.com/ip/dyson-v15/123",
+                "offers": {
+                    "@type": "Offer",
+                    "price": "599.99",
+                    "priceCurrency": "USD",
+                    "itemCondition": "https://schema.org/NewCondition"
+                }
+            }
+            </script>
+            """
+            return jsonld_html, 200, "alterlab"
+        return "", 404, "httpx"
+
+    monkeypatch.setattr(universal_ai, "_fetch_html", _mock_fetch)
+    monkeypatch.setenv("ALTERLAB_API_KEY", "dummy-key")
+
+    query = AdapterQuery(
+        source_id="universal_ai_search",
+        extra={"url": primary_url}
+    )
+
+    listings = universal_ai.fetch(query)
+
+    # We should have attempted to fetch both URLs in sequence
+    assert primary_url in fetched_urls
+    assert degraded_url in fetched_urls
+
+    # The listing from the degraded URL should be successfully recovered
+    assert len(listings) == 1
+    assert listings[0].title == "Dyson V15 Detect Vacuum"
+    assert listings[0].unit_price_usd == 599.99
+
