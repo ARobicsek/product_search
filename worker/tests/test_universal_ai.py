@@ -594,9 +594,10 @@ def test_jsonld_returns_empty_for_organization_only() -> None:
     assert universal_ai._extract_jsonld_listings(html, base_url="https://test.example.com") == []
 
 
-def test_fetch_uses_jsonld_and_skips_llm(monkeypatch: pytest.MonkeyPatch) -> None:
-    """When JSON-LD yields listings, fetch() must NOT call the LLM —
-    that's the whole point of the tier (zero-cost extraction)."""
+def test_fetch_preserves_jsonld_in_search_union(monkeypatch: pytest.MonkeyPatch) -> None:
+    """When JSON-LD yields listings on a search URL, the union still runs
+    the anchor-walker and full-HTML tiers (for additive recall), but the
+    JSON-LD results must be preserved in the merged output."""
     monkeypatch.setattr(
         universal_ai, "_fetch_html",
         lambda url, timeout=20.0, **_kw: (
@@ -604,10 +605,10 @@ def test_fetch_uses_jsonld_and_skips_llm(monkeypatch: pytest.MonkeyPatch) -> Non
         ),
     )
 
-    def _llm_should_not_be_called(**_: object) -> Any:  # pragma: no cover
-        raise AssertionError("LLM must not run when JSON-LD already yielded listings")
-
-    monkeypatch.setattr(universal_ai, "call_llm", _llm_should_not_be_called)
+    # The LLM tiers will be called — return empty results so JSON-LD is the
+    # sole contributor (realistic: the LLM won't find products already in
+    # JSON-LD, and the Shopify fixture has no extra unlisted products).
+    monkeypatch.setattr(universal_ai, "call_llm", _stub_llm_response('{"listings": []}'))
 
     query = AdapterQuery(
         source_id="universal_ai_search",
@@ -619,9 +620,7 @@ def test_fetch_uses_jsonld_and_skips_llm(monkeypatch: pytest.MonkeyPatch) -> Non
     urls = {r.url for r in results}
     assert "https://shop.synthstore.example.com/products/qc700" in urls
     assert "https://shop.synthstore.example.com/products/qc700-refurb" in urls
-    # The JSON-LD path skips the LLM entirely; LAST_RUN_USAGE stays None.
-    assert universal_ai.LAST_RUN_USAGE is None
-    # Diagnostic tag so downstream code can tell the tiers apart.
+    # JSON-LD results are tagged with the jsonld extractor.
     assert all(r.attrs.get("extractor") == "jsonld" for r in results)
 
 
@@ -1301,9 +1300,15 @@ def test_tier15_auto_mode_falls_through_to_anchor_tier(
     query = AdapterQuery(source_id="universal_ai_search", extra={"url": DETAIL_URL})
     results = universal_ai.fetch(query)
 
-    assert state["n"] == 2, "auto mode must fall through to the anchor tier"
+    assert state["n"] == 3, (
+        "auto mode must fall through to the search union "
+        "(detail + anchor + full-HTML = 3 LLM calls)"
+    )
     assert len(results) >= 1
-    assert all(r.attrs.get("extractor") == "anchor_llm" for r in results)
+    assert all(
+        r.attrs.get("extractor") in ("anchor_llm", "full_html_llm")
+        for r in results
+    )
 
 
 # --- Phase 19 / ADR-049: real captured detail-page fixtures ----------------
@@ -1697,4 +1702,346 @@ def test_escalation_returns_best_effort_when_all_weak(monkeypatch: pytest.Monkey
     assert "y" * 9000 in html  # largest body kept
     # Final rung escalates to tier 4 via the documented cost_controls.max_tier path.
     assert seen[-1] is not None and seen[-1]["min_tier"] == 4
+
+
+# --- ADR-077: recall-first full-HTML search extractor ----------------------
+#
+# Tests for the search union: JSON-LD ∪ anchor-walker ∪ full-HTML-LLM.
+# The synthetic-search-recall-gap.html fixture has 7 products: 2 with prices
+# near their anchors (anchor walker finds them), 5 with prices only in a
+# separate pricing table (anchor walker misses them, full-HTML LLM finds them).
+
+RECALL_GAP_FIXTURE = FIXTURE_DIR / "synthetic-search-recall-gap.html"
+RECALL_GAP_URL = "https://syntheticvendor.example.com/search?q=bose+headphones"
+
+
+def test_canonical_url_normalises_host_and_trailing_slash() -> None:
+    """_canonical_url must lowercase the host and strip trailing slashes."""
+    assert universal_ai._canonical_url(
+        "https://WWW.Example.COM/Products/Bose-700/"
+    ) == "https://www.example.com/Products/Bose-700"
+    assert universal_ai._canonical_url(
+        "http://example.com/p"
+    ) == "http://example.com/p"
+    # Query params are preserved (they're part of the parsed URL path-less info).
+    u = universal_ai._canonical_url("https://example.com/search?q=bose")
+    assert "search" in u  # path is preserved
+
+
+def test_collect_search_anchors_dedupes_by_canonical() -> None:
+    """Every <a href> on the page, deduped by canonical URL."""
+    html = RECALL_GAP_FIXTURE.read_text(encoding="utf-8")
+    anchors = universal_ai._collect_search_anchors(html, base_url=RECALL_GAP_URL)
+    # 7 product links + 5 non-product (home, about, contact, privacy, terms)
+    canonicals = [a["canonical"] for a in anchors]
+    assert len(canonicals) == len(set(canonicals)), "duplicates in search anchors"
+    product_anchors = [a for a in anchors if "/products/" in a["href_abs"]]
+    assert len(product_anchors) == 7, f"expected 7 product anchors, got {len(product_anchors)}"
+
+
+def test_chunk_text_single_chunk_when_short() -> None:
+    """Text shorter than max_chars should yield a single chunk."""
+    text = "Hello world " * 10
+    chunks = universal_ai._chunk_text(text, max_chars=1000)
+    assert len(chunks) == 1
+    assert chunks[0] == text
+
+
+def test_chunk_text_splits_with_overlap() -> None:
+    """Long text should be split into overlapping chunks."""
+    text = "A" * 2500
+    chunks = universal_ai._chunk_text(text, max_chars=1000, overlap=200)
+    assert len(chunks) >= 3
+    # Each chunk should be <= max_chars
+    assert all(len(c) <= 1000 for c in chunks)
+    # The full text should be recoverable (modulo overlap).
+    assert "".join(chunks) != text  # overlapping, so concatenation is longer
+    assert chunks[0][:100] == text[:100]
+    assert chunks[-1][-100:] == text[-100:]
+
+
+def test_union_by_canonical_preserves_first_seen() -> None:
+    """_union_by_canonical keeps the first listing per canonical URL."""
+    from datetime import UTC, datetime
+
+    from product_search.models import Listing
+
+    now = datetime.now(tz=UTC)
+    base = dict(
+        source="universal_ai_search",
+        fetched_at=now, brand=None, mpn=None,
+        condition="new", is_kit=False, kit_module_count=1,
+        quantity_available=None, seller_name="host",
+        seller_rating_pct=None, seller_feedback_count=None,
+        ship_from_country=None,
+    )
+    jsonld = [Listing(url="https://ex.com/p/1", title="P1 jsonld",
+                      unit_price_usd=100.0, kit_price_usd=None,
+                      attrs={"extractor": "jsonld"}, **base)]
+    anchor = [
+        Listing(url="https://ex.com/p/1", title="P1 anchor",
+                unit_price_usd=99.0, kit_price_usd=None,
+                attrs={"extractor": "anchor_llm"}, **base),
+        Listing(url="https://ex.com/p/2", title="P2 anchor",
+                unit_price_usd=200.0, kit_price_usd=None,
+                attrs={"extractor": "anchor_llm"}, **base),
+    ]
+    full_html = [
+        Listing(url="https://ex.com/p/2", title="P2 full_html",
+                unit_price_usd=201.0, kit_price_usd=None,
+                attrs={"extractor": "full_html_llm"}, **base),
+        Listing(url="https://ex.com/p/3", title="P3 full_html",
+                unit_price_usd=300.0, kit_price_usd=None,
+                attrs={"extractor": "full_html_llm"}, **base),
+    ]
+    merged = universal_ai._union_by_canonical(jsonld, anchor, full_html)
+    assert len(merged) == 3
+    by_url = {listing.url: listing for listing in merged}
+    # P1: JSON-LD wins over anchor (first-seen)
+    assert by_url["https://ex.com/p/1"].attrs["extractor"] == "jsonld"
+    assert by_url["https://ex.com/p/1"].unit_price_usd == 100.0
+    # P2: anchor wins over full_html (first-seen)
+    assert by_url["https://ex.com/p/2"].attrs["extractor"] == "anchor_llm"
+    # P3: only full_html contributed it — additive recall
+    assert by_url["https://ex.com/p/3"].attrs["extractor"] == "full_html_llm"
+
+
+def test_extract_via_full_html_recall_gap_fixture(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The full-HTML extractor must find ALL 7 products in the recall-gap
+    fixture (including the 5 whose prices aren't near their anchors).
+    The anchor walker only finds 2 with prices — this proves the recall win."""
+    from datetime import UTC, datetime
+
+    html = RECALL_GAP_FIXTURE.read_text(encoding="utf-8")
+
+    # The anchor walker finds 7 candidates but only 2 with price hints.
+    cands = universal_ai._extract_candidates(html, base_url=RECALL_GAP_URL)
+    priced = [c for c in cands if c["price_hints"]]
+    assert len(priced) == 2, f"pre-condition: walker must find exactly 2 priced, got {len(priced)}"
+
+    # Mock LLM to return all 7 products with their prices and link indices.
+    anchors = universal_ai._collect_search_anchors(html, base_url=RECALL_GAP_URL)
+    product_anchors = {a["title"]: a["idx"] for a in anchors if "/products/" in a["href_abs"]}
+
+    def _llm(**kwargs: object) -> LLMResponse:
+        import json as _json
+        products = [
+            {"title": "Bose QuietComfort 45 Wireless Headphones", "price_usd": 329.00,
+             "link_idx": product_anchors.get("Bose QuietComfort 45 Wireless Headphones", 0)},
+            {"title": "Bose Noise Cancelling Headphones 700", "price_usd": 379.00,
+             "link_idx": product_anchors.get("Bose Noise Cancelling Headphones 700", 1)},
+            {"title": "Bose Sport Earbuds", "price_usd": 149.00,
+             "link_idx": product_anchors.get("Bose Sport Earbuds", 2)},
+            {"title": "Bose QuietComfort Earbuds II", "price_usd": 279.00,
+             "link_idx": product_anchors.get("Bose QuietComfort Earbuds II", 3)},
+            {"title": "Bose SoundSport Free Wireless Earbuds", "price_usd": 199.00,
+             "link_idx": product_anchors.get("Bose SoundSport Free Wireless Earbuds", 4)},
+            {"title": "Bose Ultra Open Earbuds", "price_usd": 299.00,
+             "link_idx": product_anchors.get("Bose Ultra Open Earbuds", 5)},
+            {"title": "Bose QuietComfort Ultra Headphones", "price_usd": 429.00,
+             "link_idx": product_anchors.get("Bose QuietComfort Ultra Headphones", 6)},
+        ]
+        return LLMResponse(
+            provider="anthropic", model="claude-haiku-4-5",
+            text=_json.dumps({"products": products}),
+            input_tokens=500, output_tokens=300,
+        )
+
+    monkeypatch.setattr(universal_ai, "call_llm", _llm)
+
+    listings = universal_ai._extract_via_full_html(
+        html, RECALL_GAP_URL,
+        profile=None, fetched_at=datetime.now(tz=UTC),
+        parsed_host="syntheticvendor.example.com",
+    )
+    assert len(listings) >= 7, (
+        f"full-HTML extractor must find ≥7 products (recall-gap fixture); got {len(listings)}"
+    )
+    # All prices must pass the verbatim guard.
+    for listing in listings:
+        assert listing.unit_price_usd > 0
+    # All extractor tags must be full_html_llm.
+    assert all(listing.attrs.get("extractor") == "full_html_llm" for listing in listings)
+
+
+def test_full_html_drops_fabricated_price(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The anti-fabrication guard must drop products whose price doesn't
+    appear verbatim in the fetched text (ADR-001)."""
+    from datetime import UTC, datetime
+
+    html = RECALL_GAP_FIXTURE.read_text(encoding="utf-8")
+    anchors = universal_ai._collect_search_anchors(html, base_url=RECALL_GAP_URL)
+    product_idx = next(
+        a["idx"] for a in anchors if "bose-qc45" in a["href_abs"]
+    )
+
+    def _llm(**kwargs: object) -> LLMResponse:
+        import json as _json
+        # Return a fabricated price (999.99 does NOT appear in the fixture).
+        return LLMResponse(
+            provider="anthropic", model="claude-haiku-4-5",
+            text=_json.dumps({"products": [
+                {"title": "Bose QuietComfort 45", "price_usd": 999.99,
+                 "link_idx": product_idx},
+            ]}),
+            input_tokens=200, output_tokens=50,
+        )
+
+    monkeypatch.setattr(universal_ai, "call_llm", _llm)
+
+    listings = universal_ai._extract_via_full_html(
+        html, RECALL_GAP_URL,
+        profile=None, fetched_at=datetime.now(tz=UTC),
+        parsed_host="syntheticvendor.example.com",
+    )
+    assert len(listings) == 0, (
+        "fabricated price 999.99 must be dropped by the verbatim guard"
+    )
+
+
+def test_search_union_recall_gap_end_to_end(monkeypatch: pytest.MonkeyPatch) -> None:
+    """End-to-end: the search union on the recall-gap fixture must emit
+    MORE listings than the anchor walker alone. This is the core ADR-077
+    regression guard."""
+    html = RECALL_GAP_FIXTURE.read_text(encoding="utf-8")
+
+    monkeypatch.setattr(
+        universal_ai, "_fetch_html",
+        lambda url, timeout=20.0, **_kw: (html, 200, "stub"),
+    )
+
+    call_n = {"n": 0}
+    anchors = universal_ai._collect_search_anchors(html, base_url=RECALL_GAP_URL)
+    product_anchors = {a["title"]: a["idx"] for a in anchors if "/products/" in a["href_abs"]}
+
+    def _llm(**kwargs: object) -> LLMResponse:
+        import json as _json
+        call_n["n"] += 1
+        system = kwargs.get("system", "")
+
+        if "enumerating EVERY product" in system:
+            # Full-HTML tier: return all 7 products.
+            products = [
+                {"title": "Bose QuietComfort 45 Wireless Headphones", "price_usd": 329.00,
+                 "link_idx": product_anchors.get("Bose QuietComfort 45 Wireless Headphones", 0)},
+                {"title": "Bose Noise Cancelling Headphones 700", "price_usd": 379.00,
+                 "link_idx": product_anchors.get("Bose Noise Cancelling Headphones 700", 1)},
+                {"title": "Bose Sport Earbuds", "price_usd": 149.00,
+                 "link_idx": product_anchors.get("Bose Sport Earbuds", 2)},
+                {"title": "Bose QuietComfort Earbuds II", "price_usd": 279.00,
+                 "link_idx": product_anchors.get("Bose QuietComfort Earbuds II", 3)},
+                {"title": "Bose SoundSport Free Wireless Earbuds", "price_usd": 199.00,
+                 "link_idx": product_anchors.get("Bose SoundSport Free Wireless Earbuds", 4)},
+                {"title": "Bose Ultra Open Earbuds", "price_usd": 299.00,
+                 "link_idx": product_anchors.get("Bose Ultra Open Earbuds", 5)},
+                {"title": "Bose QuietComfort Ultra Headphones", "price_usd": 429.00,
+                 "link_idx": product_anchors.get("Bose QuietComfort Ultra Headphones", 6)},
+            ]
+            return LLMResponse(
+                provider="anthropic", model="claude-haiku-4-5",
+                text=_json.dumps({"products": products}),
+                input_tokens=500, output_tokens=300,
+            )
+        else:
+            # Anchor-walker tier: only picks the 2 candidates with price hints.
+            payload = _json.loads(kwargs["messages"][0].content)  # type: ignore[index]
+            decisions = []
+            for c in payload:
+                if c["price_hints"]:
+                    price = float(c["price_hints"][0].lstrip("$").replace(",", ""))
+                    decisions.append({
+                        "idx": c["idx"], "title": c["anchor_text"],
+                        "price_usd": price, "condition": "new",
+                    })
+            return LLMResponse(
+                provider="anthropic", model="claude-haiku-4-5",
+                text=_json.dumps({"listings": decisions}),
+                input_tokens=300, output_tokens=100,
+            )
+
+    monkeypatch.setattr(universal_ai, "call_llm", _llm)
+
+    query = AdapterQuery(
+        source_id="universal_ai_search",
+        extra={"url": RECALL_GAP_URL},
+    )
+    results = universal_ai.fetch(query)
+
+    # The anchor walker alone would yield 2 (only the priced candidates).
+    # The union must yield >=7 (all products, deduplicated by canonical URL).
+    assert len(results) >= 5, (
+        f"search union must beat anchor-walker's 2; got {len(results)} "
+        f"(expected ≥5 from the full-HTML tier's additive recall)"
+    )
+    # At least some results should be from the full-HTML extractor.
+    full_html_count = sum(
+        1 for r in results if r.attrs.get("extractor") == "full_html_llm"
+    )
+    assert full_html_count >= 3, (
+        f"full-HTML tier must contribute ≥3 unique products; got {full_html_count}"
+    )
+    # The anchor-walker results are also preserved.
+    anchor_count = sum(
+        1 for r in results if r.attrs.get("extractor") == "anchor_llm"
+    )
+    assert anchor_count >= 2, (
+        f"anchor-walker must contribute its 2 priced products; got {anchor_count}"
+    )
+    # LAST_RUN_USAGE should be accumulated across both LLM calls.
+    assert universal_ai.LAST_RUN_USAGE is not None
+    assert universal_ai.LAST_RUN_USAGE["input_tokens"] > 0
+
+
+def test_accumulate_usage_sums_tokens() -> None:
+    """_accumulate_usage must SUM tokens across multiple calls, not clobber."""
+    universal_ai.LAST_RUN_USAGE = None
+
+    class _FakeResp:
+        input_tokens: int
+        output_tokens: int
+
+    r1 = _FakeResp()
+    r1.input_tokens = 100
+    r1.output_tokens = 50
+    universal_ai._accumulate_usage(r1)
+    assert universal_ai.LAST_RUN_USAGE["input_tokens"] == 100
+    assert universal_ai.LAST_RUN_USAGE["output_tokens"] == 50
+
+    r2 = _FakeResp()
+    r2.input_tokens = 200
+    r2.output_tokens = 75
+    universal_ai._accumulate_usage(r2)
+    assert universal_ai.LAST_RUN_USAGE["input_tokens"] == 300
+    assert universal_ai.LAST_RUN_USAGE["output_tokens"] == 125
+
+
+def test_extract_target_search_full_html_recall() -> None:
+    """The committed Target search fixture must yield product-link anchors
+    and prices in the stripped text — verifying the full-HTML tier has the
+    raw material to improve recall on Target search pages."""
+    html = TARGET_FIXTURE.read_text(encoding="utf-8")
+
+    # The anchor walker finds ~46 candidates with prices.
+    cands = universal_ai._extract_candidates(html, base_url=TARGET_URL)
+    priced = [c for c in cands if c["price_hints"]]
+    assert len(priced) >= 20, (
+        f"pre-condition: Target walker must find many priced candidates, got {len(priced)}"
+    )
+
+    # The full-HTML search tier has access to the full stripped text.
+    full_text = universal_ai._strip_to_main_text(html, max_chars=None)
+    assert len(full_text) > 2000, "Target search page stripped text too short"
+
+    # Search anchors include ALL links (not just product-filtered ones).
+    anchors = universal_ai._collect_search_anchors(html, base_url=TARGET_URL)
+    product_anchors = [a for a in anchors if "/p/" in a["href_abs"]]
+    assert len(product_anchors) >= 20, (
+        f"expected many /p/ product anchors for full-HTML tier, got {len(product_anchors)}"
+    )
+
+    # Prices from the stripped text must be verifiable.
+    for test_price in [149.99, 179.99, 249.99]:
+        assert universal_ai._price_in_text(test_price, full_text), (
+            f"Target stripped text must contain {test_price} for verbatim guard"
+        )
 

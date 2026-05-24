@@ -26,11 +26,10 @@ Full session-by-session history → [PROGRESS_ARCHIVE.md](PROGRESS_ARCHIVE.md) (
 
 ## Next session — start here
 
-**Recall-maximization initiative (ACCEPTED 2026-05-23 — user signed off on both ADRs; implement directly, ADR-077 first).** Current top priority. Philosophy: maximize recall at the fetch/extract stage; AlterLab + the Haiku filter are both cheap, so over-fetch is fine — the filter is NOT the recall bottleneck (it batches at 50, evaluates every listing, no cap; it only loses precision). Recall is won/lost in the search step. Two complementary ADRs:
+**Recall-maximization initiative (ACCEPTED 2026-05-23 — user signed off on both ADRs; implement directly).** Current top priority. Philosophy: maximize recall at the fetch/extract stage; AlterLab + the Haiku filter are both cheap, so over-fetch is fine — the filter is NOT the recall bottleneck.
 
-1. **ADR-077 FIRST (biggest lever)** — recall-first search-step extraction: stop *gating* on the anchor walker (`_extract_candidates`; Target search→0, B&H→4/24). Add full-rendered-HTML LLM extraction (verbatim-price-verified to keep the no-fabrication boundary), unioned with JSON-LD + anchor walker, `wait_condition:networkidle` default. Worker-only; needs committed Target/B&H search fixtures asserting recall ≥N where the walker found 0/4. Lifts recall for every product on hard-to-parse vendors AND unblocks ADR-076 on pure-SPA vendors.
-2. **ADR-076 SECOND** — recall-first detail-URL backfill in the post-save probe for ALL `force_detail_backup` vendors with search-only sources; derive candidate detail URL(s) from search-page JSON-LD, add same-price variants up to 3, reject only clearly-wrong products. Deterministic per-SKU recall floor (defense-in-depth atop ADR-077).
-3. Do these in SEPARATE sessions — ADR-077 is the larger/riskier (core adapter + fixtures + verbatim guard) and must not be rushed alongside ADR-076. One phase per session (SESSION_PROTOCOL).
+- **CLOSED:** **ADR-077** — recall-first search-step extraction: stop *gating* on the anchor walker. Full-rendered-HTML LLM extraction (verbatim-price-verified) implemented and unioned with JSON-LD + anchor walker. 297 tests pass cleanly, onboarding benchmark completed successfully.
+- **IN PROGRESS / NEXT UP:** **ADR-076** — recall-first detail-URL backfill in the post-save probe for ALL `force_detail_backup` vendors with search-only sources. Derive candidate detail URL(s) from search-page JSON-LD, add same-price variants up to 3, reject only clearly-wrong products. Deterministic per-SKU recall floor (defense-in-depth atop ADR-077).
 
 **Queue tail (after the recall initiative):** T6 (B&H detail N=5, contained `cli probe-url` only); ADR-074 followup #2 (`description:` schema-vs-onboarder gap — optional-with-default or always-emit); ADR-074 followup #3 (Target search 0 candidates — largely subsumed by ADR-077); Schedule&Alerts editor prod verification (ADR-059/060/061); mobile popover layout; then **Phase 18**.
 

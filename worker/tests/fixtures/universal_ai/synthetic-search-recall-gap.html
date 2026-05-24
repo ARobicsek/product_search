@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>Search: bose headphones - SyntheticVendor</title>
+</head>
+<body>
+<header>
+    <nav>
+        <a href="/">Home</a>
+        <a href="/about">About Us</a>
+        <a href="/contact">Contact</a>
+    </nav>
+</header>
+<main>
+    <h1>Search results for "bose headphones"</h1>
+    <p>Showing 7 results</p>
+
+    <!-- SECTION 1: Products with standard card layout (price near anchor) -->
+    <div class="product-grid">
+        <div class="product-card" data-product-id="1001">
+            <a href="/products/bose-qc45-wireless-headphones">
+                Bose QuietComfort 45 Wireless Headphones
+            </a>
+            <span class="price">$329.00</span>
+            <span class="condition">New</span>
+            <span class="rating">4.5 stars (2103 reviews)</span>
+        </div>
+
+        <div class="product-card" data-product-id="1002">
+            <a href="/products/bose-700-noise-cancelling">
+                Bose Noise Cancelling Headphones 700
+            </a>
+            <span class="price">$379.00</span>
+            <span class="condition">New</span>
+            <span class="rating">4.6 stars (1897 reviews)</span>
+        </div>
+    </div>
+
+    <!-- SECTION 2: "Featured deals" — different layout, image-only anchors
+         with NO price in the immediate DOM vicinity (price is only in a
+         totally separate "pricing details" section below a large filler
+         block).  The ancestor card text (6 hops, 1500 chars) will NOT
+         reach the pricing section because of the structural distance. -->
+    <section class="featured-deals">
+        <h2>Featured Deals</h2>
+        <!-- Product 3 — anchor has title text but NO price nearby -->
+        <div class="deal-tile">
+            <div class="deal-image-wrapper">
+                <div class="deal-inner">
+                    <a href="/products/bose-sport-earbuds">
+                        Bose Sport Earbuds
+                    </a>
+                </div>
+            </div>
+            <div class="deal-meta">
+                <span class="deal-badge">Featured</span>
+                <span class="rating">4.3 stars</span>
+            </div>
+        </div>
+
+        <!-- Product 4 — anchor has title text but NO price nearby -->
+        <div class="deal-tile">
+            <div class="deal-image-wrapper">
+                <div class="deal-inner">
+                    <a href="/products/bose-quietcomfort-earbuds-ii">
+                        Bose QuietComfort Earbuds II
+                    </a>
+                </div>
+            </div>
+            <div class="deal-meta">
+                <span class="deal-badge">Featured</span>
+                <span class="rating">4.6 stars</span>
+            </div>
+        </div>
+
+        <!-- Product 5 — image-only anchor with NO price nearby -->
+        <div class="deal-tile">
+            <div class="deal-image-wrapper">
+                <div class="deal-inner">
+                    <a href="/products/bose-soundsport-free">
+                        <img src="/img/soundsport-free.jpg" alt="Bose SoundSport Free Wireless Earbuds">
+                    </a>
+                </div>
+            </div>
+            <div class="deal-meta">
+                <span class="deal-badge">Featured</span>
+                <span class="rating">4.1 stars</span>
+            </div>
+        </div>
+
+        <!-- Product 6 — anchor with title but no price -->
+        <div class="deal-tile">
+            <div class="deal-image-wrapper">
+                <div class="deal-inner">
+                    <a href="/products/bose-ultra-open-earbuds">
+                        Bose Ultra Open Earbuds
+                    </a>
+                </div>
+            </div>
+            <div class="deal-meta">
+                <span class="deal-badge">New Arrival</span>
+                <span class="rating">4.4 stars</span>
+            </div>
+        </div>
+
+        <!-- Product 7 — anchor with title but no price -->
+        <div class="deal-tile">
+            <div class="deal-image-wrapper">
+                <div class="deal-inner">
+                    <a href="/products/bose-quietcomfort-ultra-headphones">
+                        Bose QuietComfort Ultra Headphones
+                    </a>
+                </div>
+            </div>
+            <div class="deal-meta">
+                <span class="deal-badge">Best Seller</span>
+                <span class="rating">4.7 stars</span>
+            </div>
+        </div>
+    </section>
+
+    <!-- FILLER: large block to push the pricing section far from the deal
+         tiles in both DOM depth and text distance, so the anchor walker's
+         ancestor-card-text (6 hops, 1500 chars) cannot reach the prices. -->
+    <section class="editorial-content">
+        <h2>Buying Guide: Choosing the Right Bose Headphones</h2>
+        <p>Whether you're looking for noise-cancelling over-ear headphones or
+        compact true wireless earbuds, Bose offers a range of options to suit
+        every listener. Here's what to consider when making your choice. Sound
+        quality is paramount — Bose's signature tuning delivers balanced bass,
+        clear mids, and detailed highs across their entire lineup. Active noise
+        cancellation technology varies by model; the QuietComfort series uses
+        proprietary algorithms to block ambient noise, while the Sport line
+        prioritizes awareness for safety during workouts. Battery life ranges
+        from 6 hours (earbuds) to 24 hours (over-ear models) depending on usage
+        patterns and ANC settings. Comfort is subjective but important for
+        extended listening sessions — over-ear designs distribute weight evenly,
+        while in-ear tips come in multiple sizes for a secure fit. Water and sweat
+        resistance ratings (IPX4 or higher) are essential if you plan to use your
+        headphones during exercise. Connectivity features like multipoint
+        Bluetooth allow seamless switching between your phone and laptop, and USB-C
+        charging has become standard across the latest models. Consider whether you
+        need a carrying case, and whether the headphones fold flat for travel.
+        Finally, warranty coverage and Bose's customer support reputation should
+        factor into your decision — all current models include a one-year limited
+        warranty with the option to extend. For audiophiles who demand the absolute
+        best, the QuietComfort Ultra delivers spatial audio with Immersive Sound,
+        while budget-conscious buyers will find excellent value in the Sport Earbuds.
+        The 700 series remains the best choice for frequent travelers who need
+        premium noise cancellation with a sleek, modern design.</p>
+    </section>
+
+    <!-- PRICING SECTION: all prices listed here, far from the product anchors.
+         The full-HTML LLM tier can see these because it reads the whole page. -->
+    <section class="pricing-details">
+        <h2>Current Pricing</h2>
+        <table>
+            <tr><th>Product</th><th>Price</th><th>Availability</th></tr>
+            <tr><td>Bose QuietComfort 45 Wireless Headphones</td><td>$329.00</td><td>In Stock</td></tr>
+            <tr><td>Bose Noise Cancelling Headphones 700</td><td>$379.00</td><td>In Stock</td></tr>
+            <tr><td>Bose Sport Earbuds</td><td>$149.00</td><td>In Stock</td></tr>
+            <tr><td>Bose QuietComfort Earbuds II</td><td>$279.00</td><td>In Stock</td></tr>
+            <tr><td>Bose SoundSport Free Wireless Earbuds</td><td>$199.00</td><td>In Stock</td></tr>
+            <tr><td>Bose Ultra Open Earbuds</td><td>$299.00</td><td>In Stock</td></tr>
+            <tr><td>Bose QuietComfort Ultra Headphones</td><td>$429.00</td><td>In Stock</td></tr>
+        </table>
+    </section>
+</main>
+<footer>
+    <a href="/privacy">Privacy Policy</a>
+    <a href="/terms">Terms of Service</a>
+</footer>
+</body>
+</html>

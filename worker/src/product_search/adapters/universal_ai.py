@@ -131,9 +131,85 @@ Hard rules:
 """
 
 
+# Tier 2.5 (Phase 21 / ADR-077): recall-first full-HTML search extractor.
+# The anchor walker (`_extract_candidates`) gates the candidate set on its
+# structural heuristics (price-near-anchor / product-shaped URL / nav filter /
+# cap 80), so any product whose markup doesn't fit silently never reaches the
+# filter. This tier instead hands Haiku the WHOLE stripped page text plus a
+# numbered list of EVERY link on the page, and asks it to enumerate all
+# products, mapping each to a link by index — URLs are still chosen by index
+# (never typed by the LLM) and the price is re-verified verbatim against the
+# fetched text, so the no-fabrication boundary (ADR-001) is preserved. Its
+# results are UNIONed (dedupe-by-canonical-URL) with the JSON-LD tier and the
+# anchor walker — purely additive recall, never a replacement.
+SEARCH_FULL_HTML_SYSTEM_PROMPT = """You are enumerating EVERY product for \
+sale on one vendor search / category / collection page.
+
+The user message has two parts:
+  1. PAGE TEXT — the visible text of the whole page (scripts, nav, header and
+     footer already stripped), in reading order. Product titles and prices
+     both appear here, though a product's price may sit just before or just
+     after its title.
+  2. LINKS — a numbered list of every hyperlink on the page, one per line as
+     "idx: link text". Each product's clickable title or image is one of
+     these links.
+
+Your job: list ALL distinct products offered for sale on this page. Be
+exhaustive — do NOT stop early and do NOT skip products that look similar to
+each other. For each product return:
+  - "title": the product title as shown on the page.
+  - "price_usd": numeric only (e.g. 249.99). The CURRENT selling price for
+    THAT product, copied EXACTLY from PAGE TEXT (ignore the currency symbol
+    and thousands separators). If you cannot find a price for a product in
+    PAGE TEXT, OMIT that product.
+  - "condition": one of "new", "used", "refurbished" (default "new").
+  - "pack_size": integer — units sold in one purchase (default 1; set > 1
+    ONLY for true homogeneous multi-packs like "2-pack" / "kit of 4").
+  - "link_idx": the idx of the link from LINKS whose text best matches this
+    product's title. If no link plausibly matches, OMIT the product (a product
+    with no URL cannot be recorded).
+
+Hard rules:
+  - The price MUST appear verbatim in PAGE TEXT. NEVER invent, estimate,
+    round, or currency-convert a price.
+  - Use the current buy price — NOT a list/MSRP/strikethrough/"was"/"reg"
+    price, NOT a bundled-accessory price, NOT a financing installment.
+  - "condition" stays "new" unless the page explicitly says otherwise.
+  - Enumerate generously: a real search page typically lists 10-50 products.
+    Missing a real product is the worst error you can make here.
+  - Use ONLY idx values that appear in LINKS — never invent a link_idx.
+  - Output a JSON object {"products": [...]} ONLY. No prose, no markdown fences.
+"""
+
+
 # --- Module-level capture for cli.py's run-cost panel -----------------------
 
 LAST_RUN_USAGE: dict[str, Any] | None = None
+
+
+def _accumulate_usage(resp: Any) -> None:
+    """Fold one LLM call's token usage into ``LAST_RUN_USAGE``.
+
+    A single ``fetch()`` can now make several Haiku calls (anchor tier +
+    full-HTML tier, possibly chunked). The cost panel reads one usage record
+    per source, so we SUM input/output tokens across every call in the fetch
+    rather than letting the last call clobber the earlier ones.
+    """
+    global LAST_RUN_USAGE
+    prev = LAST_RUN_USAGE or {
+        "step": "universal_ai_search",
+        "provider": "anthropic",
+        "model": "claude-haiku-4-5",
+        "input_tokens": 0,
+        "output_tokens": 0,
+    }
+    LAST_RUN_USAGE = {
+        "step": "universal_ai_search",
+        "provider": "anthropic",
+        "model": "claude-haiku-4-5",
+        "input_tokens": int(prev.get("input_tokens", 0)) + int(resp.input_tokens),
+        "output_tokens": int(prev.get("output_tokens", 0)) + int(resp.output_tokens),
+    }
 
 
 # --- HTTP fetch with TLS impersonation -------------------------------------
@@ -1535,9 +1611,23 @@ _DETAIL_STRIP_TAGS = (
 # top of every real product page).
 _DETAIL_MAX_CHARS = 16000
 
+# Per-chunk char budget for the recall-first full-HTML search extractor
+# (ADR-077). A search/category page lists many products, so its stripped text
+# is far larger than a single detail page — but it's still bounded. We feed the
+# whole page to Haiku (cost is not the constraint; recall is) in chunks no
+# larger than this. Most rendered search pages strip to well under one chunk
+# (Target "bose headphones" → ~11k chars), so chunking only fires on the rare
+# huge SPA page. Picked > _DETAIL_MAX_CHARS so search recall is never throttled
+# by the detail tier's tighter cap.
+_SEARCH_MAX_CHARS = 80000
 
-def _strip_to_main_text(html: str) -> str:
-    """Reduce a product-detail page to its visible main-content text.
+# Overlap between adjacent chunks so a product whose title/price straddle a
+# chunk boundary still appears intact in at least one chunk.
+_SEARCH_CHUNK_OVERLAP = 400
+
+
+def _strip_to_main_text(html: str, max_chars: int | None = _DETAIL_MAX_CHARS) -> str:
+    """Reduce a product page to its visible main-content text.
 
     Drops ``<script>/<style>/<nav>/<header>/<footer>`` etc., flattens the
     remaining body to whitespace-collapsed text, canonicalises Amazon-style
@@ -1545,6 +1635,11 @@ def _strip_to_main_text(html: str) -> str:
     European exit IPs leak EUR/GBP into the DOM). The result is BOTH the
     LLM payload AND the haystack the price-verbatim guard checks against,
     so the guard can never disagree with what the model saw.
+
+    ``max_chars`` caps the returned text (default ``_DETAIL_MAX_CHARS`` for
+    the single-product detail tier). Pass ``None`` to get the untruncated
+    text — the search-step extractor (ADR-077) needs the whole page and
+    chunks it itself against the larger ``_SEARCH_MAX_CHARS`` budget.
     """
     try:
         from selectolax.parser import HTMLParser
@@ -1563,8 +1658,8 @@ def _strip_to_main_text(html: str) -> str:
     text = re.sub(r"\s+", " ", text).strip()
     text = _canonicalize_prices(text)
     text = _strip_foreign_currencies(text)
-    if len(text) > _DETAIL_MAX_CHARS:
-        text = text[:_DETAIL_MAX_CHARS]
+    if max_chars is not None and len(text) > max_chars:
+        text = text[:max_chars]
     return text
 
 
@@ -1623,8 +1718,6 @@ def _extract_detail_listing(
     LLM-produced). Returns ``[]`` (caller decides whether to fall through
     to the anchor tier) when nothing extractable is found.
     """
-    global LAST_RUN_USAGE
-
     text = _strip_to_main_text(html)
     if len(text) < 20:
         logger.info(
@@ -1649,13 +1742,7 @@ def _extract_detail_listing(
         )
         return []
 
-    LAST_RUN_USAGE = {
-        "step": "universal_ai_search",
-        "provider": "anthropic",
-        "model": "claude-haiku-4-5",
-        "input_tokens": resp.input_tokens,
-        "output_tokens": resp.output_tokens,
-    }
+    _accumulate_usage(resp)
 
     parsed = _extract_json(resp.text or "")
     if not isinstance(parsed, dict):
@@ -1735,133 +1822,339 @@ def _extract_detail_listing(
     ]
 
 
-# --- Main entry point ------------------------------------------------------
+# --- Tier 2.5: recall-first full-HTML search extractor (ADR-077) -----------
 
 
-def fetch(query: AdapterQuery, profile: Any | None = None) -> list[Listing]:
-    """Fetch and extract product listings from an arbitrary vendor URL."""
-    global LAST_RUN_USAGE
-    LAST_RUN_USAGE = None
+def _canonical_url(url: str) -> str:
+    """``scheme://host/path`` (host lowercased, trailing slash stripped).
 
-    if os.environ.get("WORKER_USE_FIXTURES", "").strip() in ("1", "true", "yes"):
-        logger.info("WORKER_USE_FIXTURES=1; universal_ai returning empty list.")
-        return []
+    The dedupe key shared by the JSON-LD, anchor-walker and full-HTML tiers so
+    the search union (ADR-077) never double-counts the same product reached
+    through two extractors.
+    """
+    parsed = urlparse(url)
+    return f"{parsed.scheme}://{parsed.netloc.lower()}{parsed.path.rstrip('/')}"
 
-    url = query.extra.get("url") or query.storefront_url
-    if not url:
-        logger.warning("No 'url' in profile source for universal_ai_search.")
-        return []
 
-    alterlab_options = query.extra.get("alterlab_options")
-    nested_extra = query.extra.get("extra")
-    if not alterlab_options and isinstance(nested_extra, dict):
-        alterlab_options = nested_extra.get("alterlab_options")
-    if not isinstance(alterlab_options, dict):
-        alterlab_options = None
-
-    # ADR-068: vendor quirks registry. Defaults from product_search/vendor_quirks.yaml
-    # are merged UNDER explicit per-source options (source wins on conflict), and
-    # registered URL transforms (e.g. Best Buy ?intl=nosplash) are applied before
-    # fetch. Source can opt out with extra.skip_vendor_quirks: true — required
-    # for the rare case where a profile intentionally needs the raw URL/options.
-    skip_quirks = bool(query.extra.get("skip_vendor_quirks"))
-    if not skip_quirks and isinstance(nested_extra, dict):
-        skip_quirks = bool(nested_extra.get("skip_vendor_quirks"))
-    applied_transforms: list[str] = []
-    if not skip_quirks:
-        merged = merge_alterlab_options(url, alterlab_options)
-        if merged != alterlab_options:
-            logger.info(
-                f"[universal_ai] vendor_quirks: merged alterlab_options "
-                f"{alterlab_options or {}} <- defaults => {merged}"
+def _jsonld_to_listings(
+    jsonld_listings: list[dict[str, Any]],
+    fetched_at: datetime,
+    parsed_host: str,
+) -> list[Listing]:
+    """Map ``_extract_jsonld_listings`` dicts to ``Listing`` rows."""
+    results: list[Listing] = []
+    for item in jsonld_listings:
+        is_kit, kit_module_count, unit_price_usd, kit_price_usd = _parse_pack(
+            item["title"], item["price_usd"]
+        )
+        results.append(
+            Listing(
+                source="universal_ai_search",
+                url=item["url"],
+                title=item["title"],
+                fetched_at=fetched_at,
+                brand=None,
+                mpn=None,
+                attrs={"vendor_host": parsed_host, "extractor": "jsonld"},
+                condition=item["condition"],
+                is_kit=is_kit,
+                kit_module_count=kit_module_count,
+                unit_price_usd=unit_price_usd,
+                kit_price_usd=kit_price_usd,
+                quantity_available=None,
+                seller_name=parsed_host,
+                seller_rating_pct=None,
+                seller_feedback_count=None,
+                ship_from_country=None,
             )
-        alterlab_options = merged
-        transformed_url, applied_transforms = apply_url_transforms(url)
-        if applied_transforms:
-            logger.info(
-                f"[universal_ai] vendor_quirks: applied {applied_transforms} -> {transformed_url}"
-            )
-            url = transformed_url
+        )
+    return results
 
-    logger.info(f"[universal_ai] Fetching {url}")
+
+def _union_by_canonical(*listing_groups: list[Listing]) -> list[Listing]:
+    """Merge listing groups, keeping the FIRST listing seen per canonical URL.
+
+    Order matters: callers pass the most-structured tier first (JSON-LD, then
+    the anchor walker, then the full-HTML LLM) so the higher-quality extractor
+    wins a tie and the full-HTML tier only ever ADDS products the others
+    missed — the additive-recall guarantee of ADR-077.
+    """
+    seen: set[str] = set()
+    merged: list[Listing] = []
+    for group in listing_groups:
+        for listing in group:
+            canonical = _canonical_url(listing.url)
+            if canonical in seen:
+                continue
+            seen.add(canonical)
+            merged.append(listing)
+    return merged
+
+
+def _collect_search_anchors(html: str, base_url: str) -> list[dict[str, Any]]:
+    """Every ``<a href>`` on the page, deduped by canonical URL, UNFILTERED.
+
+    Unlike ``_extract_candidates`` this applies NO nav-path / UI-chrome /
+    price-proximity / cap-80 filtering — the whole point of ADR-077 is that
+    those heuristics are the recall ceiling. The LLM picks a product's link by
+    ``idx``; ``idx`` equals the list position so the caller can index back
+    safely, and the URL is therefore never typed by the LLM (no hallucination).
+    """
     try:
-        html, status, fetcher, attempts = _fetch_with_escalation(url, alterlab_options)
-    except Exception as exc:
-        logger.error(f"[universal_ai] Fetch failed: {type(exc).__name__}: {exc}")
-        # Bubble up explicit fetch errors (like AlterLab quota/auth) so cli.py
-        # can surface them in the UI.
-        raise
+        from selectolax.parser import HTMLParser
+    except ImportError:
+        logger.error("selectolax is required for universal_ai extraction.")
+        return []
+
+    tree = HTMLParser(html)
+    if tree.body is None:
+        return []
+
+    anchors: list[dict[str, Any]] = []
+    idx_by_canonical: dict[str, int] = {}
+    for a in tree.css("a"):
+        href = (a.attributes.get("href") or "").strip()
+        if not href or href.startswith(_SKIP_HREF_PREFIXES):
+            continue
+        href_abs = urljoin(base_url, href)
+        parsed = urlparse(href_abs)
+        if parsed.scheme not in ("http", "https"):
+            continue
+        canonical = (
+            f"{parsed.scheme}://{parsed.netloc.lower()}{parsed.path.rstrip('/')}"
+        )
+        title = _anchor_title(a)
+        if canonical in idx_by_canonical:
+            existing = anchors[idx_by_canonical[canonical]]
+            if len(title) > len(existing["title"]):
+                existing["title"] = title[:240]
+            continue
+        idx_by_canonical[canonical] = len(anchors)
+        anchors.append({
+            "idx": len(anchors),
+            "title": title[:240],
+            "href_abs": href_abs,
+            "canonical": canonical,
+        })
+    return anchors
+
+
+def _chunk_text(
+    text: str, max_chars: int, overlap: int = _SEARCH_CHUNK_OVERLAP
+) -> list[str]:
+    """Split ``text`` into ``<= max_chars`` chunks with a small overlap so a
+    product whose title+price straddle a boundary survives intact in one chunk.
+    """
+    if len(text) <= max_chars:
+        return [text]
+    chunks: list[str] = []
+    start = 0
+    n = len(text)
+    while start < n:
+        end = min(start + max_chars, n)
+        chunks.append(text[start:end])
+        if end >= n:
+            break
+        start = max(end - overlap, start + 1)
+    return chunks
+
+
+def _search_spec_attr_prompt(prompt: str, profile: Any | None) -> tuple[str, list[str]]:
+    """Append profile ``spec_attrs`` extraction bullets to the search prompt.
+
+    Mirrors the anchor tier so spec attributes (e.g. capacity, screen size)
+    are extracted by the full-HTML tier too. Returns ``(prompt, extra_keys)``.
+    """
+    extra_keys: list[str] = []
+    if not (profile and hasattr(profile, "spec_attrs") and profile.spec_attrs):
+        return prompt, extra_keys
+    extra_lines: list[str] = []
+    for k, attr_def in profile.spec_attrs.items():
+        extra_keys.append(k)
+        attr_type = getattr(attr_def, "type", "str")
+        desc = (
+            f'  - "{k}": extract this attribute from the title or PAGE TEXT if '
+            f"present (type: {attr_type})."
+        )
+        if hasattr(attr_def, "enum") and attr_def.enum:
+            desc += f" Must be one of: {attr_def.enum}."
+        extra_lines.append(desc)
+    if extra_lines:
+        prompt = prompt.replace(
+            '  - "link_idx":',
+            "\n".join(extra_lines) + '\n  - "link_idx":',
+        )
+    return prompt, extra_keys
+
+
+def _extract_via_full_html(
+    html: str,
+    url: str,
+    *,
+    profile: Any | None,
+    fetched_at: datetime,
+    parsed_host: str,
+) -> list[Listing]:
+    """Tier 2.5 (ADR-077): enumerate ALL products from the whole rendered page.
+
+    Hands Haiku the full stripped page text (chunked at ``_SEARCH_MAX_CHARS``)
+    plus a numbered list of every link, and asks it to enumerate products and
+    map each to a link by index. Every emitted price is re-verified verbatim
+    against the fetched text (anti-fabrication, ADR-001); the URL is the
+    indexed anchor's href, never typed by the LLM. Returns ``[]`` on any failure
+    so the union still has the JSON-LD + anchor-walker tiers.
+    """
+    full_text = _strip_to_main_text(html, max_chars=None)
+    if len(full_text) < 20:
+        return []
+    anchors = _collect_search_anchors(html, base_url=url)
+    if not anchors:
+        return []
+    links_block = "\n".join(
+        f'{a["idx"]}: {a["title"]}' for a in anchors if a["title"]
+    )
+    if not links_block:
+        return []
+
+    prompt, extra_keys = _search_spec_attr_prompt(
+        SEARCH_FULL_HTML_SYSTEM_PROMPT, profile
+    )
+
+    results: list[Listing] = []
+    seen_canonical: set[str] = set()
+    for chunk in _chunk_text(full_text, _SEARCH_MAX_CHARS):
+        user_content = f"PAGE TEXT:\n{chunk}\n\nLINKS:\n{links_block}"
+        try:
+            resp = call_llm(
+                provider="anthropic",
+                model="claude-haiku-4-5",
+                system=prompt,
+                messages=[Message(role="user", content=user_content)],
+                response_format="json",
+                max_tokens=4096,
+            )
+        except Exception as exc:
+            logger.error(
+                f"[universal_ai] Tier 2.5 full-HTML LLM call failed: "
+                f"{type(exc).__name__}: {exc}"
+            )
+            continue
+        _accumulate_usage(resp)
+
+        parsed = _extract_json(resp.text or "")
+        if isinstance(parsed, dict) and isinstance(parsed.get("products"), list):
+            products = parsed["products"]
+        elif isinstance(parsed, list):
+            products = parsed
+        else:
+            logger.warning(
+                f"[universal_ai] Tier 2.5: unexpected JSON shape for {url}: "
+                f"{str(parsed)[:200]}"
+            )
+            continue
+
+        for p in products:
+            if not isinstance(p, dict):
+                continue
+            try:
+                link_idx = int(p["link_idx"])
+            except (KeyError, TypeError, ValueError):
+                continue
+            if not (0 <= link_idx < len(anchors)):
+                continue
+            anchor = anchors[link_idx]
+
+            raw_price = p.get("price_usd")
+            if raw_price is None:
+                continue
+            try:
+                price = float(raw_price)
+            except (TypeError, ValueError):
+                continue
+            if price <= 0:
+                continue
+
+            # Anti-fabrication guard (ADR-001): the price MUST occur verbatim
+            # in the fetched text. The URL can't be fabricated (it's the
+            # indexed anchor), but the price is LLM-spoken, so verify it.
+            if not _price_in_text(price, full_text):
+                logger.warning(
+                    f"[universal_ai] Tier 2.5: price {price} for "
+                    f"{anchor['href_abs']} NOT found verbatim in fetched body; "
+                    f"dropping (anti-hallucination guard, ADR-001)."
+                )
+                continue
+
+            title = (p.get("title") or anchor["title"] or "").strip()
+            if not title:
+                continue
+
+            canonical = anchor["canonical"]
+            if canonical in seen_canonical:
+                continue
+            seen_canonical.add(canonical)
+
+            condition = str(p.get("condition") or "new").strip().lower()
+            if condition not in ("new", "used", "refurbished"):
+                condition = "new"
+
+            attrs: dict[str, Any] = {
+                "vendor_host": parsed_host,
+                "extractor": "full_html_llm",
+            }
+            for k in extra_keys:
+                if k in p and p[k] is not None:
+                    attrs[k] = p[k]
+
+            try:
+                llm_pack_size = int(p.get("pack_size") or 1)
+            except (TypeError, ValueError):
+                llm_pack_size = 1
+            is_kit, kit_module_count, unit_price_usd, kit_price_usd = _parse_pack(
+                title, price, llm_pack_size=llm_pack_size
+            )
+
+            results.append(Listing(
+                source="universal_ai_search",
+                url=anchor["href_abs"],
+                title=title[:300],
+                fetched_at=fetched_at,
+                brand=None,
+                mpn=None,
+                attrs=attrs,
+                condition=condition,
+                is_kit=is_kit,
+                kit_module_count=kit_module_count,
+                unit_price_usd=unit_price_usd,
+                kit_price_usd=kit_price_usd,
+                quantity_available=None,
+                seller_name=parsed_host,
+                seller_rating_pct=None,
+                seller_feedback_count=None,
+                ship_from_country=None,
+            ))
 
     logger.info(
-        f"[universal_ai] Fetched via {fetcher}: status={status}, "
-        f"body_len={len(html)} chars"
-        + (f" [escalated: {len(attempts)} attempts]" if len(attempts) > 1 else "")
+        f"[universal_ai] Tier 2.5 full-HTML extracted {len(results)} listing(s) "
+        f"from {url} (anchors={len(anchors)})."
     )
-    if not html:
-        logger.warning(f"[universal_ai] Empty body for {url}.")
-        return []
+    return results
 
-    fetched_at = datetime.now(tz=UTC)
-    parsed_host = urlparse(url).netloc.lower()
 
-    # Phase 15 tier 1: JSON-LD. Free, deterministic, no LLM call.
-    jsonld_listings = _extract_jsonld_listings(html, base_url=url)
-    if jsonld_listings:
-        logger.info(
-            f"[universal_ai] Extracted {len(jsonld_listings)} listing(s) from "
-            f"JSON-LD on {url}; skipping anchor/LLM tier."
-        )
-        jsonld_results: list[Listing] = []
-        for item in jsonld_listings:
-            is_kit, kit_module_count, unit_price_usd, kit_price_usd = _parse_pack(
-                item["title"], item["price_usd"]
-            )
-            jsonld_results.append(
-                Listing(
-                    source="universal_ai_search",
-                    url=item["url"],
-                    title=item["title"],
-                    fetched_at=fetched_at,
-                    brand=None,
-                    mpn=None,
-                    attrs={"vendor_host": parsed_host, "extractor": "jsonld"},
-                    condition=item["condition"],
-                    is_kit=is_kit,
-                    kit_module_count=kit_module_count,
-                    unit_price_usd=unit_price_usd,
-                    kit_price_usd=kit_price_usd,
-                    quantity_available=None,
-                    seller_name=parsed_host,
-                    seller_rating_pct=None,
-                    seller_feedback_count=None,
-                    ship_from_country=None,
-                )
-            )
-        return jsonld_results
+def _extract_via_anchor_walker(
+    html: str,
+    url: str,
+    *,
+    profile: Any | None,
+    fetched_at: datetime,
+    parsed_host: str,
+) -> list[Listing]:
+    """Tier 2: the anchor-walker candidate set structured by Haiku.
 
-    # Tier 1.5 (ADR-049): single-product detail-page extractor. Runs after
-    # JSON-LD found nothing, only for detail-flagged / detail-shaped URLs.
-    detail_mode = _resolve_detail_mode(query, url)
-    if detail_mode != "search":
-        detail_listings = _extract_detail_listing(
-            html, url,
-            profile=profile,
-            fetched_at=fetched_at,
-            parsed_host=parsed_host,
-        )
-        if detail_listings:
-            return detail_listings
-        if detail_mode == "detail":
-            # Explicit opt-in: the page IS one product; the anchor tier
-            # would only emit nav junk. Don't burn a second LLM call.
-            logger.info(
-                f"[universal_ai] Tier 1.5 yielded nothing for explicit "
-                f"detail source {url}; not falling through to anchor tier."
-            )
-            return []
-        # detail_mode == "auto" (URL-shape heuristic): fall through to the
-        # anchor tier so a real search/category page is never regressed.
-
+    Unchanged behaviour, factored out of ``fetch`` so the search union can call
+    it alongside the JSON-LD and full-HTML tiers. Returns ``[]`` when the walker
+    finds no candidates or the LLM emits nothing usable.
+    """
     candidates = _extract_candidates(html, base_url=url)
     if not candidates:
         logger.warning(
@@ -1887,7 +2180,7 @@ def fetch(query: AdapterQuery, profile: Any | None = None) -> list[Listing]:
     ]
 
     prompt = SYSTEM_PROMPT
-    extra_keys = []
+    extra_keys: list[str] = []
     if profile and hasattr(profile, "spec_attrs") and profile.spec_attrs:
         extra_lines = []
         for k, attr_def in profile.spec_attrs.items():
@@ -1916,13 +2209,7 @@ def fetch(query: AdapterQuery, profile: Any | None = None) -> list[Listing]:
         logger.error(f"[universal_ai] LLM call failed: {type(exc).__name__}: {exc}")
         return []
 
-    LAST_RUN_USAGE = {
-        "step": "universal_ai_search",
-        "provider": "anthropic",
-        "model": "claude-haiku-4-5",
-        "input_tokens": resp.input_tokens,
-        "output_tokens": resp.output_tokens,
-    }
+    _accumulate_usage(resp)
 
     parsed = _extract_json(resp.text or "")
     if parsed is None:
@@ -1941,7 +2228,6 @@ def fetch(query: AdapterQuery, profile: Any | None = None) -> list[Listing]:
         return []
 
     results: list[Listing] = []
-
     for v in verdicts:
         if not isinstance(v, dict):
             continue
@@ -2009,8 +2295,147 @@ def fetch(query: AdapterQuery, profile: Any | None = None) -> list[Listing]:
             ship_from_country=None,
         ))
 
-    logger.info(f"[universal_ai] Emitted {len(results)} listings from {url}.")
+    logger.info(f"[universal_ai] Anchor tier emitted {len(results)} listings from {url}.")
     return results
+
+
+# --- Main entry point ------------------------------------------------------
+
+
+def fetch(query: AdapterQuery, profile: Any | None = None) -> list[Listing]:
+    """Fetch and extract product listings from an arbitrary vendor URL."""
+    global LAST_RUN_USAGE
+    LAST_RUN_USAGE = None
+
+    if os.environ.get("WORKER_USE_FIXTURES", "").strip() in ("1", "true", "yes"):
+        logger.info("WORKER_USE_FIXTURES=1; universal_ai returning empty list.")
+        return []
+
+    url = query.extra.get("url") or query.storefront_url
+    if not url:
+        logger.warning("No 'url' in profile source for universal_ai_search.")
+        return []
+
+    alterlab_options = query.extra.get("alterlab_options")
+    nested_extra = query.extra.get("extra")
+    if not alterlab_options and isinstance(nested_extra, dict):
+        alterlab_options = nested_extra.get("alterlab_options")
+    if not isinstance(alterlab_options, dict):
+        alterlab_options = None
+
+    # ADR-068: vendor quirks registry. Defaults from product_search/vendor_quirks.yaml
+    # are merged UNDER explicit per-source options (source wins on conflict), and
+    # registered URL transforms (e.g. Best Buy ?intl=nosplash) are applied before
+    # fetch. Source can opt out with extra.skip_vendor_quirks: true — required
+    # for the rare case where a profile intentionally needs the raw URL/options.
+    skip_quirks = bool(query.extra.get("skip_vendor_quirks"))
+    if not skip_quirks and isinstance(nested_extra, dict):
+        skip_quirks = bool(nested_extra.get("skip_vendor_quirks"))
+    applied_transforms: list[str] = []
+    if not skip_quirks:
+        merged_quirks = merge_alterlab_options(url, alterlab_options)
+        if merged_quirks != alterlab_options:
+            logger.info(
+                f"[universal_ai] vendor_quirks: merged alterlab_options "
+                f"{alterlab_options or {}} <- defaults => {merged_quirks}"
+            )
+        alterlab_options = merged_quirks
+        transformed_url, applied_transforms = apply_url_transforms(url)
+        if applied_transforms:
+            logger.info(
+                f"[universal_ai] vendor_quirks: applied {applied_transforms} -> {transformed_url}"
+            )
+            url = transformed_url
+
+    logger.info(f"[universal_ai] Fetching {url}")
+    try:
+        html, status, fetcher, attempts = _fetch_with_escalation(url, alterlab_options)
+    except Exception as exc:
+        logger.error(f"[universal_ai] Fetch failed: {type(exc).__name__}: {exc}")
+        # Bubble up explicit fetch errors (like AlterLab quota/auth) so cli.py
+        # can surface them in the UI.
+        raise
+
+    logger.info(
+        f"[universal_ai] Fetched via {fetcher}: status={status}, "
+        f"body_len={len(html)} chars"
+        + (f" [escalated: {len(attempts)} attempts]" if len(attempts) > 1 else "")
+    )
+    if not html:
+        logger.warning(f"[universal_ai] Empty body for {url}.")
+        return []
+
+    fetched_at = datetime.now(tz=UTC)
+    parsed_host = urlparse(url).netloc.lower()
+
+    # Phase 15 tier 1: JSON-LD. Free, deterministic, no LLM call.
+    jsonld_listings = _extract_jsonld_listings(html, base_url=url)
+    jsonld_results = _jsonld_to_listings(jsonld_listings, fetched_at, parsed_host)
+    if jsonld_results:
+        logger.info(
+            f"[universal_ai] Extracted {len(jsonld_results)} listing(s) from "
+            f"JSON-LD on {url}."
+        )
+
+    # Tier 1.5 (ADR-049): single-product detail-page extractor. Runs after
+    # JSON-LD found nothing, only for detail-flagged / detail-shaped URLs.
+    detail_mode = _resolve_detail_mode(query, url)
+    if detail_mode != "search":
+        if jsonld_results:
+            # Detail page with JSON-LD — return immediately (best-quality).
+            return jsonld_results
+        detail_listings = _extract_detail_listing(
+            html, url,
+            profile=profile,
+            fetched_at=fetched_at,
+            parsed_host=parsed_host,
+        )
+        if detail_listings:
+            return detail_listings
+        if detail_mode == "detail":
+            # Explicit opt-in: the page IS one product; the anchor tier
+            # would only emit nav junk. Don't burn a second LLM call.
+            logger.info(
+                f"[universal_ai] Tier 1.5 yielded nothing for explicit "
+                f"detail source {url}; not falling through to anchor tier."
+            )
+            return []
+        # detail_mode == "auto" (URL-shape heuristic): fall through to the
+        # search union so a real search/category page is never regressed.
+
+    # --- Search union (ADR-077) -------------------------------------------
+    #
+    # Run the anchor-walker AND the full-HTML extractor in parallel (they
+    # are independent), then UNION their results with JSON-LD (if any).
+    # Dedupe by canonical URL, first-seen wins — so JSON-LD > anchor >
+    # full-HTML in priority, and the full-HTML tier only ever ADDS products
+    # the structured tiers missed.
+    anchor_results = _extract_via_anchor_walker(
+        html, url,
+        profile=profile,
+        fetched_at=fetched_at,
+        parsed_host=parsed_host,
+    )
+    full_html_results = _extract_via_full_html(
+        html, url,
+        profile=profile,
+        fetched_at=fetched_at,
+        parsed_host=parsed_host,
+    )
+
+    merged: list[Listing] = _union_by_canonical(
+        jsonld_results, anchor_results, full_html_results,
+    )
+    full_html_unique = sum(
+        1 for listing in merged
+        if listing.attrs.get("extractor") == "full_html_llm"
+    )
+    logger.info(
+        f"[universal_ai] Search union: jsonld={len(jsonld_results)} "
+        f"anchor={len(anchor_results)} full_html={len(full_html_results)} "
+        f"merged={len(merged)} (full_html added {full_html_unique} unique)."
+    )
+    return merged
 
 
 # --- Local copy of the prose-tolerant JSON parser (mirrors ai_filter) -------
