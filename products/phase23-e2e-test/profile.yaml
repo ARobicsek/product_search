@@ -1,0 +1,40 @@
+slug: phase23-e2e-test
+display_name: Logitech MX Master 3S
+description: Logitech MX Master 3S wireless mouse, new condition only
+target:
+  unit: count
+  amount: 1
+spec_filters:
+  - rule: condition_in
+    values:
+      - new
+  - rule: title_excludes
+    values:
+      - MX Master 3
+sources:
+  - id: universal_ai_search
+    url: https://www.bhphotovideo.com/c/product/1703321-REG/logitech_910_006558_mx_master_3s_pale.html
+    page_type: detail
+    extra:
+      alterlab_options:
+        country: us
+        min_tier: 3
+        wait_condition: networkidle
+  - id: universal_ai_search
+    url: https://www.bestbuy.com/site/searchpage.jsp?id=pcat17071&st=logitech+mx+master+3s
+    extra:
+      alterlab_options:
+        country: us
+        min_tier: 3
+  - id: universal_ai_search
+    url: https://www.bestbuy.com/product/logitech-mx-master-3s-wireless-usb-a-laser-mouse-with-ultrafast-scrolling-wireless-black/J7H7ZY8XTK
+    page_type: detail
+    extra:
+      alterlab_options:
+        country: us
+        min_tier: 3
+  - id: universal_ai_search
+    url: https://www.amazon.com/s?k=logitech+mx+master+3s
+  - id: universal_ai_search
+    url: https://www.amazon.com/Logitech-Wireless-Ultra-fast-Scrolling-Bluetooth/dp/B09HM94VDS
+    page_type: detail
