@@ -172,3 +172,150 @@ def test_committed_registry_is_loadable_and_has_seed_entries():
         and t.get("append_query", {}).get("intl") == "nosplash"
         for t in transforms
     ), "bestbuy.com nosplash transform missing — see ADR-068"
+
+
+# ---------------------------------------------------------------------------
+# Phase 24 / ADR-082: Amazon + Backmarket defaults, Adorama bare-path,
+# and the registry-load consistency check.
+# ---------------------------------------------------------------------------
+
+
+def test_amazon_default_options_merge_through_committed_registry():
+    """Phase 24: amazon.com search URLs must auto-get
+    `country: us, min_tier: 3, wait_condition: networkidle` defaults.
+
+    Without these, Amazon's JS-rendered tiles aren't present in the captured
+    HTML and recall drops to 0 (Phase 23 Part A, commit a1f98dc).
+    """
+    vendor_quirks._load_registry.cache_clear()
+    merged = vendor_quirks.merge_alterlab_options(
+        "https://www.amazon.com/s?k=logitech+mx+master+3s", None
+    )
+    assert merged == {
+        "country": "us",
+        "min_tier": 3,
+        "wait_condition": "networkidle",
+    }
+
+
+def test_amazon_source_options_override_defaults():
+    """Source-level explicit options win over registry defaults — but the
+    other defaults survive the merge so a partial override doesn't strip
+    the rest of the vendor knowledge."""
+    vendor_quirks._load_registry.cache_clear()
+    merged = vendor_quirks.merge_alterlab_options(
+        "https://www.amazon.com/dp/B09HM94VDS", {"min_tier": 4}
+    )
+    assert merged == {
+        "country": "us",
+        "min_tier": 4,
+        "wait_condition": "networkidle",
+    }
+
+
+def test_backmarket_default_options_merge_through_committed_registry():
+    """Phase 24: backmarket.com search URLs must auto-get the same JS-render
+    defaults as Amazon — bare-path fetch returns ~900 KB of nav chrome with
+    0 JSON-LD listings, so without `wait_condition: networkidle` the runtime
+    can't see products."""
+    vendor_quirks._load_registry.cache_clear()
+    merged = vendor_quirks.merge_alterlab_options(
+        "https://www.backmarket.com/en-us/search?q=logitech+mx+master+3s", None
+    )
+    assert merged == {
+        "country": "us",
+        "min_tier": 3,
+        "wait_condition": "networkidle",
+    }
+
+
+def test_adorama_has_no_default_alterlab_options():
+    """Phase 24 / ADR-082: adorama.com's bare path (curl_cffi fallback)
+    already returns 23 JSON-LD products on the live probe — adding AlterLab
+    defaults would burn cost for no recall gain. Pin: no defaults.
+    """
+    vendor_quirks._load_registry.cache_clear()
+    quirks = vendor_quirks.get_quirks_for_url(
+        "https://www.adorama.com/l/?searchinfo=logitech+mx+master+3s"
+    )
+    assert quirks.get("default_alterlab_options") in (None, {})
+
+
+@pytest.fixture
+def caplog_registry(tmp_path: Path) -> Path:
+    """A registry with one inconsistent host and one consistent host, for
+    exercising the ADR-082 consistency check.
+    """
+    p = tmp_path / "registry_for_caplog.yaml"
+    p.write_text(
+        dedent(
+            """
+            badhost.example:
+              alterlab_known_good: true
+            goodhost.example:
+              alterlab_known_good: true
+              default_alterlab_options:
+                wait_condition: networkidle
+            nonefacet.example:
+              force_detail_backup: true
+            """
+        ).lstrip(),
+        encoding="utf-8",
+    )
+    vendor_quirks._load_registry.cache_clear()
+    yield p
+    vendor_quirks._load_registry.cache_clear()
+
+
+def test_consistency_check_warns_on_alterlab_known_good_without_defaults(
+    caplog_registry: Path, caplog
+):
+    """ADR-082: a host marked `alterlab_known_good: true` without
+    `default_alterlab_options` triggers a WARNING at registry load (the
+    Phase 23 Part A Amazon silent-fail class).
+    """
+    import logging
+
+    with caplog.at_level(logging.WARNING, logger="product_search.vendor_quirks"):
+        _reg(caplog_registry)
+
+    warning_text = " ".join(rec.getMessage() for rec in caplog.records)
+    assert "badhost.example" in warning_text
+    assert "ADR-082" in warning_text
+    # The consistent host must NOT warn.
+    assert "goodhost.example" not in warning_text
+    # A host without `alterlab_known_good` must NOT warn even when missing
+    # defaults — the check is targeted, not "warn on every missing field".
+    assert "nonefacet.example" not in warning_text
+
+
+def test_consistency_check_silent_on_well_formed_registry(tmp_path: Path, caplog):
+    """Negative case: a registry where every `alterlab_known_good` host also
+    has `default_alterlab_options` produces NO warning. The check only fires
+    on the actual gap class.
+    """
+    import logging
+
+    p = tmp_path / "ok_registry.yaml"
+    p.write_text(
+        dedent(
+            """
+            ok.example:
+              alterlab_known_good: true
+              default_alterlab_options:
+                wait_condition: networkidle
+            no_flag.example:
+              force_detail_backup: true
+            """
+        ).lstrip(),
+        encoding="utf-8",
+    )
+    vendor_quirks._load_registry.cache_clear()
+    with caplog.at_level(logging.WARNING, logger="product_search.vendor_quirks"):
+        vendor_quirks._load_registry(str(p))
+    vendor_quirks._load_registry.cache_clear()
+
+    assert not [
+        r for r in caplog.records
+        if r.levelno >= logging.WARNING and "ADR-082" in r.getMessage()
+    ]

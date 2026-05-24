@@ -1194,9 +1194,37 @@ def _cmd_probe_url(
     if render or alterlab_options:
         alterlab_options["render_js"] = True
 
+    # ADR-068/082: mirror the adapter's vendor_quirks merge so `probe-url` is
+    # a faithful diagnostic of the runtime path. Without this, `probe-url
+    # https://amazon.com/...` skips the registry defaults and fetches at the
+    # bare datacenter tier, which is precisely what blanks Amazon recall.
+    from product_search.vendor_quirks import merge_alterlab_options
+
+    cli_supplied_opts = dict(alterlab_options) if alterlab_options else None
+    merged = merge_alterlab_options(url, cli_supplied_opts)
+    if merged is not None:
+        if cli_supplied_opts is None:
+            # No CLI flags but registry contributed defaults — surface that
+            # the runtime path would render this URL, so the diagnostic
+            # matches the adapter.
+            merged.setdefault("render_js", True)
+        alterlab_options = merged
+    elif alterlab_options:
+        # Merge returned None (e.g. unknown host with no source-supplied
+        # opts) — keep what the CLI supplied.
+        pass
+    else:
+        alterlab_options = {}
+
     print(f"Probing: {url}", file=sys.stderr)
-    if render or has_alterlab_opts:
-        print(f"  forcing AlterLab rendered fetch with options: {alterlab_options}", file=sys.stderr)
+    if alterlab_options:
+        applied_default = cli_supplied_opts is None and merged is not None
+        label = (
+            "applying vendor_quirks defaults"
+            if applied_default
+            else "forcing AlterLab rendered fetch with options"
+        )
+        print(f"  {label}: {alterlab_options}", file=sys.stderr)
 
     try:
         if alterlab_options:

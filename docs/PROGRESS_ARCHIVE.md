@@ -8,6 +8,21 @@ so the live file stays small while nothing is lost. See
 
 ---
 
+## Current state — 2026-05-24 Phase 23 Part A: headless E2E verification PASSED (SUPERSEDED by 2026-05-24 Phase 24 close)
+
+**Verified live this session against `ari-product-search.vercel.app`** (single 4m 32s run; $0.009 search-side cost + ~$0.10 onboarding):
+
+- **ADR-079 (detail-preference at save gate) ✓** — onboarder probed B&H detail URL, got a weak response ("very short body, likely a redirect or geofence"); the registry detail-preference + advisory-probe rule kept `https://www.bhphotovideo.com/c/product/1703321-REG/logitech_910_006558_mx_master_3s_pale.html` in `sources` with `page_type: detail` instead of demoting it. Visible in the saved YAML at e43eecb.
+- **ADR-080 (anti-fragile `title_excludes`) ✓** — onboarder emitted `title_excludes: ["MX Master 3"]` (a substring of the product name "MX Master 3S") despite the prompt rule. Save-time deterministic guard fired with the exact warning from `title-excludes-check.ts`: *"A title_excludes value (\"MX Master 3\") is a substring of the product name — it will reject the target product itself and silently zero recall."* Profile still saved (soft warning, not blocker) — exactly the designed behavior. Was then manually edited out of the profile before Run-now so the recall test wasn't zeroed.
+- **ADR-078 (AlterLab 5xx retry + per-run circuit breaker + budget) — armed, not exercised today.** Run completed in 4m 32s (well under the 600s budget); no 3-consecutive AlterLab degradations to trip the breaker. AlterLab appears healthier than during the 2026-05-24 eval. Sources panel did surface a Best Buy detail curl HTTP/2 INTERNAL_ERROR clearly (visibility working).
+- **ADR-081 (Hybrid filter restoration) — alive in prod.** Filter log entries name both `relevance_check` and `condition_in` in their pass reasons; 3/3 passing listings all `new` condition; no used listings emitted.
+
+**Recall observation for MX Master 3S (single data point):** Best Buy search carried the entire product (3/3 valid listings, cheapest $88.99 Bluetooth Edition Black). B&H detail and both Amazon sources returned 0 listings; Best Buy detail URL hit a curl HTTP/2 INTERNAL_ERROR on the curl_cffi fallback (AlterLab returned 4xx → fell through). So recall on this product is **single-vendor dependent**. Matches the longstanding B&H search-tile + Amazon anti-bot deferred items.
+
+**Delete clean:** `phase23-e2e-test` profile + report + data fully removed from origin (commit 77a9fe7); empty `git ls-tree -r --name-only origin/main | grep phase23`. No live cron will fire on a test slug.
+
+---
+
 ## Current state — 2026-05-21 Phase 21: E2–E4 prod e2e PASSED (ADR-074) (SUPERSEDED by 2026-05-24 Phase 23 Part A E2E verification)
 
 **Verified this session against `ari-product-search.vercel.app`:**

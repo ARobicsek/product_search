@@ -13,6 +13,7 @@ Status values:
 
 One line per ADR (newest first). Skim this; open only the bodies you need. (No ADR-036 — numbering gap.)
 
+- **ADR-082** — Phase 24: vendor `alterlab_known_good: true` tag implies JS-render defaults; the registry-load consistency check now warns at import time on any host that asserts the flag without a `default_alterlab_options` block. Amazon + Backmarket get `{country: us, min_tier: 3, wait_condition: networkidle}` (Adorama's bare path already returns JSON-LD products — no defaults needed). Frozen Amazon search fixture under `worker/tests/fixtures/universal_ai/` carries the recall regression guard; CLI `probe-url` now mirrors the adapter's `merge_alterlab_options` so the diagnostic matches the runtime path — ACCEPTED (impl)
 - **ADR-081** — Phase 23: Hybrid filter restoration. Deterministic filter pre-pass (condition_in, in_stock, numeric thresholds, title_excludes) enforces hard constraints programmatically before handing survivors to ai_filter; ai_filter stays for semantic relevance only — ACCEPTED (impl)
 - **ADR-080** — Phase 22 (P1): onboarder must not emit fragile `title_excludes`. A value that is a substring of the target name silently rejects the wanted product (`"MX Master 3"` ⊂ `"MX Master 3S"`), and generic component/material words (`"bowl"`) false-reject real listings ("…with Copper Bowl" mixer). Prompt rule (never a name-substring, never a generic component word — lean on the relevance filter for accessories) + deterministic save-time soft warning (`title-excludes-check.ts`) when a value is a substring of `display_name`/slug — ACCEPTED (impl)
 - **ADR-079** — Phase 22 (R2/R3): the onboarder probe is ADVISORY, not a gate. A transient probe failure on a registry detail-preferred vendor (`force_detail_backup` / `prefer_page_type:detail`, or a source's own `page_type:detail`) must NOT demote it to `sources_pending` — the runtime escalation ladder + circuit breaker own retry, and demoting silently dropped a valid backup (B&H detail→search→0 recall, 2026-05-24). Save-gate keeps such sources in `sources` with an advisory note (`detail-preference.ts` + new `PREFER_DETAIL_HOSTS`); prompt forbids swapping a registry detail vendor to a search URL and mandates ONE deterministic demote-with-note policy for ordinary vendors — ACCEPTED (impl)
@@ -94,6 +95,37 @@ One line per ADR (newest first). Skim this; open only the bodies you need. (No A
 - **ADR-002** — Repo-as-database; SQLite as workflow-local cache only — ACCEPTED
 - **ADR-001** — LLM is downstream of verified data only (architectural commitment) — ACCEPTED
 
+
+## ADR-082 — Vendor `alterlab_known_good` implies JS-render defaults; registry-load consistency check
+
+**Status**: ACCEPTED — Phase 24, implemented this session (2026-05-24).
+
+**Date**: 2026-05-24
+
+**Context**: Phase 23 Part A (2026-05-24, commit `a1f98dc`) onboarded `phase23-e2e-test` for a Logitech MX Master 3S. The saved YAML carried Amazon `universal_ai_search` sources with **no** `extra.alterlab_options`, and `vendor_quirks.yaml` for `amazon.com` had only `alterlab_known_good: true` and no `default_alterlab_options`. Two `cli probe-url` calls confirmed the consequence: Amazon's static HTML has 1.35 MB of body but **0** product-shaped anchors — tiles are JS-rendered. The runtime path therefore returned `fetched 0 / passed 0` on every Amazon source. The same class of gap existed for `backmarket.com` (also `alterlab_known_good: true`) and `adorama.com` (`force_detail_backup` only). Three layers needed to change so this regression can't reappear silently: (1) registry data, (2) a load-time lint that catches the inconsistency, and (3) a faithful CLI diagnostic.
+
+**Probe evidence captured this session (cli probe-url + AlterLab)**:
+- `amazon.com` at `country: us, min_tier: 3, wait_condition: networkidle` → 1.44 MB body, 42 anchor candidates, 16 `/dp/` anchors with price hints (incl. MX Master 3S Standard at $89.99).
+- `adorama.com` bare path (curl_cffi fallback) → 391 KB body, **23 JSON-LD listings** including MX Master 3S at $119.99. Bare path already works; AlterLab defaults would add cost for no recall gain.
+- `backmarket.com` bare path → 925 KB with 0 JSON-LD and 78 anchor candidates (all nav chrome); via AlterLab at tier 3+networkidle returned a Cloudflare "Just a moment..." challenge (32 KB) on this session, so the recall path is presently degraded. Adding `default_alterlab_options` makes the registry self-consistent and ADR-078's circuit breaker absorbs failures.
+
+**Decision**:
+1. **`vendor_quirks.yaml`**:
+   - `amazon.com`: ADD `default_alterlab_options: {country: us, min_tier: 3, wait_condition: networkidle}` + notes citing the Phase 23 evidence.
+   - `backmarket.com`: ADD the same defaults + notes (anti-bot caveats documented).
+   - `adorama.com`: NO change. The bare path returns 23 JSON-LD products — per the Phase 24 brief, skip a host if its probe shows the bare path already works.
+2. **Registry-load consistency check** (`vendor_quirks.py` `_check_alterlab_known_good_consistency`): on every registry load, log a `WARNING` naming any host that has `alterlab_known_good: true` without a `default_alterlab_options` block. This makes the next Amazon-class regression loud at import time, including under pytest collection.
+3. **CLI `probe-url` mirrors `merge_alterlab_options`** (`cli.py` `_cmd_probe_url`): the CLI was bypassing the adapter's vendor-quirks merge, so `probe-url <amazon-url>` (no flags) did not apply the same defaults the runtime would. Apply the merge in the CLI so the diagnostic is a faithful trace of the runtime path; the merged options are visible in the printed line so the user sees what's being sent.
+4. **Frozen recall regression fixture** (`worker/tests/fixtures/universal_ai/amazon_search_logitech_mx_master_3s.html`, 1.45 MB): captured this session through AlterLab at the new defaults. New test `test_amazon_search_fixture_extracts_dp_candidates_with_prices` in `test_universal_ai.py` requires ≥5 `/dp/` candidates with price hints and asserts the target product (`MX Master 3S`) is present — so a regression that blanks Amazon recall again fails at import time.
+5. **New tests in `test_vendor_quirks.py`** (6 cases): amazon merge through the committed registry; source-level override wins over defaults; backmarket merge; adorama still has no defaults (the conservative skip is a pinned decision); positive caplog test for the consistency warning (`badhost.example` triggers, `goodhost.example` does not); negative caplog test that a well-formed registry produces no ADR-082 warning.
+
+**Consequence**:
+- A registry edit alone is not enough to ship a JS-render-needing vendor: the lint check immediately flags the gap. The check surfaced three pre-existing inconsistencies (`centralcomputer.com`, `ebay.com`, `serversupply.com`) — queued as Phase 24 follow-ups in PROGRESS.md.
+- `cli probe-url` is now a faithful runtime-path diagnostic — `probe-url https://www.amazon.com/...` (no flags) prints `applying vendor_quirks defaults: {...render_js: True}` and uses the same options the worker would. Existing CLI tests still pass (their fixture URLs use unknown hosts, so the merge is a no-op).
+- All 314 worker tests pass (6 new in `test_vendor_quirks.py`, 1 new in `test_universal_ai.py`); ruff/mypy clean on touched files; web `tsc`/`lint`/`test:parity`/`test:guards`/`next build` all green after `sync-prompt.js` regenerated `promptText.ts` + `vendor-quirks-data.ts`. Validation: one live `cli probe-url` against `amazon.com` at the new defaults confirmed 1.44 MB body + 16 dp anchors with prices; today's bare-flag re-probe through the runtime path did fall back to curl_cffi because AlterLab is presently in `browser_pool_exhausted` 422 (the upstream transient called out as out-of-scope by the Phase 24 brief — ADR-078's circuit breaker is the existing response).
+- Out of scope: B&H search-tile walker, Target search 0 candidates, and a full N-vendor recall replay against live retailers — the fixture test (regression guard) is the substitute.
+
+---
 
 ## ADR-081 — Hybrid filter restoration: deterministic pre-pass + ai_filter for semantic relevance
 

@@ -60,7 +60,35 @@ def _load_registry(path_str: str | None = None) -> dict[str, dict[str, Any]]:
         if not isinstance(k, str) or not isinstance(v, dict):
             continue
         out[_normalize_host(k)] = v
+    _check_alterlab_known_good_consistency(out)
     return out
+
+
+def _check_alterlab_known_good_consistency(registry: dict[str, dict[str, Any]]) -> None:
+    """ADR-082: warn on `alterlab_known_good: true` without `default_alterlab_options`.
+
+    The `alterlab_known_good` flag asserts AlterLab renders this vendor fine in
+    production. For any JS-rendered vendor (Amazon, Backmarket, …) that claim
+    is only deliverable if the runtime also passes a `wait_condition` so the
+    DOM settles before capture. A host that has the flag but no defaults can
+    silently regress to 'bare-tier AlterLab returns 1+ MB of empty chrome' —
+    the exact Phase 23 Part A Amazon failure (commit a1f98dc, 2026-05-24).
+    This check fires at registry load so the gap is loud at import time
+    (including under pytest collection).
+    """
+    for host, entry in registry.items():
+        if entry.get("alterlab_known_good") is not True:
+            continue
+        defaults = entry.get("default_alterlab_options")
+        if isinstance(defaults, dict) and defaults:
+            continue
+        logger.warning(
+            "[vendor_quirks] %s has `alterlab_known_good: true` but no "
+            "`default_alterlab_options` — JS-rendered vendors will silently "
+            "fetch empty chrome (ADR-082). Add at minimum "
+            "`wait_condition: networkidle`.",
+            host,
+        )
 
 
 def get_quirks_for_host(host: str) -> dict[str, Any]:

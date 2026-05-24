@@ -78,10 +78,34 @@ adorama.com:
   force_detail_backup: true
 
 amazon.com:
+  default_alterlab_options:
+    country: us
+    min_tier: 3
+    wait_condition: networkidle
   alterlab_known_good: true
+  notes: |
+    Amazon search + detail are JS-rendered: a bare datacenter fetch (or even
+    AlterLab without `wait_condition: networkidle`) returns a 1+ MB body with
+    ZERO product-shaped anchors — the tiles aren't in static HTML. Phase 23
+    Part A onboarded a profile WITHOUT these defaults and got
+    `fetched 0 / passed 0` on both Amazon sources (commit a1f98dc). The probe
+    at tier 3 + networkidle returns 1.4 MB and 42 anchor candidates with the
+    target product present. Phase 24 / ADR-082.
 
 backmarket.com:
+  default_alterlab_options:
+    country: us
+    min_tier: 3
+    wait_condition: networkidle
   alterlab_known_good: true
+  notes: |
+    Same JS-rendered shape as Amazon: bare datacenter fetch returns ~900 KB
+    with 0 JSON-LD and 0 product-shaped anchors (78 anchors are nav chrome).
+    Phase 24 / ADR-082 adds tier 3 + networkidle defaults so the runtime can
+    extract products; a transient probe on 2026-05-24 also surfaced a
+    Cloudflare "Just a moment..." challenge through AlterLab — ADR-078's
+    circuit breaker absorbs that if it persists. Detail URLs still recommended
+    as backup.
 
 bestbuy.com:
   default_alterlab_options:

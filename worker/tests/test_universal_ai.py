@@ -2286,3 +2286,52 @@ def test_fetch_search_degradation_fallback(monkeypatch: pytest.MonkeyPatch) -> N
     assert listings[0].title == "Dyson V15 Detect Vacuum"
     assert listings[0].unit_price_usd == 599.99
 
+
+# ---------------------------------------------------------------------------
+# Phase 24 / ADR-082: Amazon JS-render extraction regression guard
+# ---------------------------------------------------------------------------
+
+
+def test_amazon_search_fixture_extracts_dp_candidates_with_prices() -> None:
+    """ADR-082 regression guard: Amazon search HTML captured via the runtime
+    path (``country: us, min_tier: 3, wait_condition: networkidle`` — the new
+    ``default_alterlab_options`` for amazon.com) must yield product-shaped
+    anchors with price hints.
+
+    Phase 23 Part A (2026-05-24, commit a1f98dc) onboarded a profile WITHOUT
+    these defaults and got ``fetched 0 / passed 0`` on every Amazon source
+    because the static HTML had 1+ MB of body but 0 product-shaped anchors —
+    JS-rendered tiles aren't present in the bare HTML. This fixture is the
+    AlterLab+networkidle response, frozen forever, so a regression that
+    blanks Amazon recall again will fail this test at import time.
+    """
+    fixture = FIXTURE_DIR / "amazon_search_logitech_mx_master_3s.html"
+    html = fixture.read_text(encoding="utf-8")
+    cands = universal_ai._extract_candidates(
+        html, base_url="https://www.amazon.com/s?k=logitech+mx+master+3s"
+    )
+
+    # Product-shaped Amazon anchors live at /dp/<ASIN>. Filter to those and
+    # require ≥1 price hint per the brief.
+    dp_with_price = [
+        c for c in cands if "/dp/" in c["href"] and c["price_hints"]
+    ]
+    assert len(dp_with_price) >= 5, (
+        f"Expected >=5 /dp/ candidates with price hints; got "
+        f"{len(dp_with_price)} out of {len(cands)} total candidates. "
+        "If Amazon's tile markup changed, regenerate the fixture via "
+        "`cli probe-url ... --save-body` AFTER confirming the live AlterLab "
+        "tier-3 networkidle path returns product tiles."
+    )
+
+    # The target product the fixture was captured for must be in the set
+    # (cheapest MX Master 3S Standard Edition at $89.99 in the captured run).
+    mx_master_3s = [
+        c for c in dp_with_price
+        if "MX Master 3S" in c["anchor_text"]
+    ]
+    assert mx_master_3s, (
+        "MX Master 3S itself not present in extracted candidates — "
+        "recall regression on the target product the fixture was captured for."
+    )
+
