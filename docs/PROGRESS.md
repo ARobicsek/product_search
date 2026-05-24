@@ -25,9 +25,11 @@ Full session-by-session history → [PROGRESS_ARCHIVE.md](PROGRESS_ARCHIVE.md) (
 
 ## Next session — start here
 
-**Top priority:** the queue tail below — pick one and go. No carry-over from Phase 23.
+**Top priority: Phase 24 — Vendor-quirks coverage audit + Amazon JS-render fix** (full brief in [docs/PHASES.md](PHASES.md) — read it before touching code).
 
-**Queue (lower priority but live):**
+Surfaced by Phase 23 Part A (2026-05-24): Amazon search + detail both returned `ok / fetched 0 / passed 0` because the profile YAML had no `extra.alterlab_options` on Amazon sources, and `vendor_quirks.yaml` for amazon.com lacks `default_alterlab_options`. Two `cli probe-url` calls confirmed Amazon's static HTML has 1.35 MB body but 0 product-shaped anchors — tiles are JS-rendered. Same gap class exists for adorama.com + backmarket.com. Fix is three layers: (1) add Amazon defaults to the registry, (2) audit + add adorama/backmarket via probes, (3) add a registry-load consistency check that warns when `alterlab_known_good: true` is set without `default_alterlab_options` (makes the next Amazon-class regression loud at import time). Tests + ADR-082. Cost ~$0.005.
+
+**Queue (lower priority, after Phase 24):**
 1. **ADR-074 followup #2** — `description:` schema-vs-onboarder gap: optional-with-default or always-emit from the prompt.
 2. **ADR-074 followup #3** — Target search 0 candidates (largely subsumed by ADR-077, may already be dead).
 3. **B&H detail single-product URL returning 0 listings** (NEW, 2026-05-24 Phase 23 Part A) — for `phase23-e2e-test`, the B&H MX Master 3S detail URL went through AlterLab `ok` but yielded 0 fetched/passed. The existing deferred item ("B&H *search-tile* mismatch") is about search, not detail. Worth investigating whether B&H detail-URL extraction (the Tier 1.5 extractor path) is also blind to B&H's tile structure on detail variant pages, or whether this was a one-off rendering miss. Probe via `cli probe-url` first to see whether it's `detailExtractable:true` today.

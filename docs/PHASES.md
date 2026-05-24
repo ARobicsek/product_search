@@ -622,3 +622,60 @@ Why this shape: cron-job.org only ever holds a low-value shared secret + a URL. 
 **Out of scope**: changing `ai_filter`'s model or prompt structure; the remaining eval items (R4/R5/P2–P4); the B&H search-tile walker.
 
 **Cost note**: Part A spends a few cents (one Haiku onboarding + a handful of AlterLab fetches + one search run) — acceptable per the user's cost stance (memory "Maximize recall over scrape cost"). Part B is offline/unit-tested, no spend.
+
+---
+
+## Phase 24 — Vendor-quirks coverage audit + Amazon JS-render fix (PROPOSED 2026-05-24)
+
+> **READ THIS WHOLE BRIEF before touching code.** Do the start-of-session checklist in [SESSION_PROTOCOL.md](SESSION_PROTOCOL.md) first (PROGRESS.md, then this brief, then ADR-068 + ADR-071). Don't open files outside the list below until you've read it.
+
+### Background you need (read these, in order)
+
+1. **The proximate bug surfaced 2026-05-24 in Phase 23 Part A** — `phase23-e2e-test` run committed at `a1f98dc` had Amazon search + Amazon detail both `status: ok / fetched 0 / passed 0`. Two `cli probe-url` calls during that session confirmed Amazon's static HTML has 1.35 MB of body but 0 product-shaped anchors — product tiles are JS-rendered, and the source had no `extra.alterlab_options` so the runtime didn't request rendering. Saved YAML at `a1f98dc^:products/phase23-e2e-test/profile.yaml` is the evidence: Amazon sources have no `extra` block while Best Buy / B&H do.
+2. **ADR-068** — vendor-level quirks live in [worker/src/product_search/vendor_quirks.yaml](../worker/src/product_search/vendor_quirks.yaml), not in per-profile YAMLs. The mechanism (`default_alterlab_options` merged under per-source options) is already in place: 7 vendors use it (Best Buy, B&H, Newegg, Microcenter, Target, Walmart, Williams-Sonoma). The adapter call site is `adapters/universal_ai.py:2516` (`merge_alterlab_options`).
+3. **ADR-071** — only valid AlterLab wait-condition values are `domcontentloaded | networkidle | load`. The normalizer in [worker/src/product_search/vendor_quirks.py](../worker/src/product_search/vendor_quirks.py) (`normalize_alterlab_options`) auto-migrates the legacy `wait_for` field; do NOT reintroduce it.
+
+### Diagnosis (already done, do not re-derive)
+
+Three hosts are flagged as "needs AlterLab" but lack `default_alterlab_options` — they fetch at the bare datacenter tier and recall is silently 0 for JS-rendered content:
+
+| Host | Current entry | Gap |
+|---|---|---|
+| amazon.com | `alterlab_known_good: true` only | needs `min_tier: 3, wait_condition: networkidle` |
+| backmarket.com | `alterlab_known_good: true` only | likely same; PROBE FIRST to confirm |
+| adorama.com | `force_detail_backup: true` only | likely same; PROBE FIRST to confirm |
+
+### Tasks
+
+1. **Fix 1 — Add Amazon defaults.** In `vendor_quirks.yaml`, upgrade the `amazon.com` entry to add `default_alterlab_options: {country: us, min_tier: 3, wait_condition: networkidle}`. Run `node web/scripts/sync-prompt.js` to regenerate `web/lib/onboard/vendor-quirks-data.ts` + `web/lib/onboard/promptText.ts`.
+2. **Fix 2 — Audit Adorama + Backmarket.** Probe each with `cli probe-url <vendor search url> --min-tier 3 --wait-condition networkidle --country us` to confirm body size + anchor count come back materially higher than the bare path. Add `default_alterlab_options` to both with the values the probes validate (might be `min_tier: 4` for one of them; let the probe decide). Skip a host if its probe shows the bare path already works — don't add unnecessary cost.
+3. **Fix 3 — Registry consistency check (the load-bearing safety net).** In `vendor_quirks.py` `_load_registry()` (or a new sibling validator called from it), iterate hosts: if `alterlab_known_good is True` AND `default_alterlab_options` is absent/empty, log a `WARNING` naming the host. This makes the next Amazon-class regression loud at import time, including during pytest collection. ~10 lines.
+4. **Tests** — add to [worker/tests/test_vendor_quirks.py](../worker/tests/test_vendor_quirks.py):
+   - `merge_alterlab_options("https://www.amazon.com/s?k=foo", None)` returns the expected default dict.
+   - Source-level override wins: `merge_alterlab_options("https://www.amazon.com/...", {"min_tier": 4})` returns `min_tier: 4` with the other defaults intact.
+   - Same shape assertions for adorama.com + backmarket.com defaults.
+   - `caplog`-based test: a tiny in-memory registry with `{badhost: {alterlab_known_good: true}}` triggers the Fix-3 warning; a registry with `alterlab_known_good + default_alterlab_options` does NOT (negative case).
+5. **Fixture-based extraction regression test.** During this session, run `python -m product_search.cli probe-url "https://www.amazon.com/s?k=logitech+mx+master+3s" --min-tier 3 --wait-condition networkidle --save-body worker/tests/fixtures/universal_ai/amazon_search_logitech_mx_master_3s.html`. Add a test (new file `worker/tests/test_amazon_extraction.py` or extend a relevant existing fixture test) that loads the body and asserts `_extract_candidates(html, base_url)` returns ≥5 product-shaped anchors, each with ≥1 price hint. This is the empirical proof the fix works on real Amazon HTML, frozen forever as a regression guard.
+6. **One live `cli probe-url` validation pass through the runtime path** for amazon.com (no `--min-tier` flag — let `merge_alterlab_options` apply the new vendor_quirks default). Confirm body length > 50 KB and anchor candidates > 5. This is validation, not a test.
+7. **ADR-082** — "Vendor `alterlab_known_good` tag implies JS-render defaults; gap is now lint-caught at registry load." Context (Phase 23 Part A Amazon evidence) / Decision / Consequence. One-line index entry in DECISIONS.md.
+
+### Done when
+
+- `vendor_quirks.yaml` has `default_alterlab_options` for amazon.com (and adorama.com / backmarket.com per probe-confirmed values).
+- `vendor_quirks.py` warns at registry load for any `alterlab_known_good + no defaults` host.
+- 6 new tests pass; all 280+ existing worker tests stay green.
+- One live `cli probe-url` against the live amazon.com search URL via the runtime path returns body > 50 KB and ≥5 product anchors.
+- ADR-082 written; PROGRESS.md updated; commit + push.
+- Green: worker ruff/mypy/pytest; web eslint/tsc/`test:parity`/`test:guards`/build (the sync-prompt regen will touch `web/lib/onboard/*.ts`).
+
+### Out of scope
+
+- The AlterLab `browser_pool_exhausted` 422 we saw 2026-05-24 — that's an upstream infra transient; ADR-078's circuit breaker is the existing response. No code change here.
+- The onboarder prompt's wording about Amazon JS rendering — vendor_quirks regeneration will refresh whatever it says. No prompt rewrite needed.
+- B&H search-tile walker, Target search 0 candidates — remain deferred.
+- A full N-vendor recall replay against live retailers — out of scope; the fixture test (task 5) carries the regression.
+
+### Cost note
+
+~$0.005 total: 3 confirming probes for the audit + 1 validation probe + ~1 fixture capture. No runtime cost change for already-configured vendors.
+
