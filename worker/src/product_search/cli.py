@@ -25,28 +25,38 @@ if TYPE_CHECKING:
     from product_search.models import Listing
 
 
-def _passed_match_key(lst: "Listing") -> tuple[str, str | None]:
+def _passed_match_key(lst: "Listing") -> tuple[str, str | None, str | None]:
     """Tuple key used to attribute a passing listing back to its source-stats row.
 
-    Mirror the ``source_stats`` key shape ``(source_id, vendor_host_or_None)``.
-    Multiple ``universal_ai_search`` source entries — one per vendor URL —
-    all share ``lst.source == 'universal_ai_search'``, so without the host
-    tiebreaker each source row would claim the full universal_ai_search
-    passed-count (the original bug: bhphotovideo showing 0 fetched / 3 passed
-    because backmarket's listings got attributed to it too).
+    Mirror the ``source_stats`` key shape ``(source_id, vendor_host_or_None,
+    source_url_or_None)``. Multiple ``universal_ai_search`` source entries —
+    one per vendor URL — all share ``lst.source == 'universal_ai_search'`` and
+    often share the same ``vendor_host`` too (e.g. four Best Buy detail URLs
+    are all ``bestbuy.com``). Without the URL tiebreaker each same-host row
+    would claim the full per-host passed-count — the Phase 26 bug where three
+    ``bestbuy.com | error: HTTPError ...`` rows each rendered ``Passed | 2``
+    and the ADR-084 callout silently classified them as ``OK``.
 
-    universal_ai listings carry ``vendor_host`` in ``attrs`` (set by the
-    adapter at emit time). Other adapters don't set that key, so the host
-    is None and matches the source row that also has ``match_host=None``.
+    universal_ai listings carry ``vendor_host`` AND ``source_url`` in
+    ``attrs`` (the host set by the adapter at emit time; ``source_url`` is
+    stamped by this cli loop right after the adapter returns, so it's always
+    the EXACT URL of the source-row that produced the listing). Other
+    adapters set neither, so both fall back to None and match the source row
+    that also has ``match_host=None`` / ``match_url=None``.
     """
     if lst.source == "universal_ai_search":
-        host = (lst.attrs or {}).get("vendor_host")
+        attrs = lst.attrs or {}
+        host = attrs.get("vendor_host")
+        host_key: str | None = None
         if isinstance(host, str):
             h = host.lower()
             if h.startswith("www."):
                 h = h[4:]
-            return (lst.source, h or None)
-    return (lst.source, None)
+            host_key = h or None
+        url = attrs.get("source_url")
+        url_key = url if isinstance(url, str) and url else None
+        return (lst.source, host_key, url_key)
+    return (lst.source, None, None)
 
 
 def main() -> None:
@@ -363,6 +373,19 @@ def _cmd_search(
             elif source.id == "universal_ai_search":
                 from product_search.adapters import universal_ai as universal_ai_mod
                 listings = universal_ai_mod.fetch(query, profile=profile)
+                # ADR-084 (Phase 27 reinforcement): stamp the EXACT source URL
+                # into each emitted listing's ``attrs`` so per-source ``passed``
+                # accounting can tell apart multiple URLs on the same host
+                # (e.g. 4 Best Buy detail URLs all share ``vendor_host =
+                # bestbuy.com``). Without this, ``passed`` collapses to the
+                # per-host total on every same-host row and an error row gets
+                # silently treated as OK by the ADR-084 classifier.
+                src_url_for_attrs = query.extra.get("url") or query.storefront_url
+                if src_url_for_attrs:
+                    for _lst in listings:
+                        if _lst.attrs is None:
+                            _lst.attrs = {}
+                        _lst.attrs["source_url"] = src_url_for_attrs
                 # ADR-078 (R6): surface a circuit-breaker / budget skip in the
                 # Sources panel so a short-circuited run is visible, not silent.
                 if universal_ai_mod.LAST_SKIP_REASON:
@@ -402,6 +425,7 @@ def _cmd_search(
         # display label — users don't care that it's the universal adapter.
         display_source = source.id
         match_host: str | None = None
+        match_url: str | None = None
         if source.id == "universal_ai_search":
             src_url = query.extra.get("url") or query.storefront_url
             if src_url:
@@ -412,13 +436,17 @@ def _cmd_search(
                 if host:
                     match_host = host
                     display_source = host
+                match_url = src_url
         source_stats.append({
             "source": source.id,
-            # ``match_host`` is the per-source-entry tiebreaker for the
-            # ``passed`` count below — without it, three universal_ai_search
-            # entries all share ``source == 'universal_ai_search'`` and end
-            # up each claiming the full universal_ai_search passed-count.
+            # ``match_host`` and ``match_url`` are the per-source-entry tiebreakers
+            # for the ``passed`` count below. host alone collapses on vendors with
+            # multiple URLs (e.g. four Best Buy detail URLs all share
+            # ``bestbuy.com``); the URL is the unique key per source-row, so an
+            # error row's ``passed`` doesn't inherit a sibling row's success
+            # (the Phase 26 bug: STRESS_TEST_26.md § Defect 2).
             "match_host": match_host,
+            "match_url": match_url,
             "display_source": display_source,
             "fetched": len(listings),
             "error": error_msg,
@@ -430,12 +458,14 @@ def _cmd_search(
     from product_search.validators.pipeline import run_pipeline
     passed_listings, rejected_count = run_pipeline(all_listings, profile, qvl)
 
-    passed_by_key: dict[tuple[str, str | None], int] = {}
+    passed_by_key: dict[tuple[str, str | None, str | None], int] = {}
     for lst in passed_listings:
         k = _passed_match_key(lst)
         passed_by_key[k] = passed_by_key.get(k, 0) + 1
     for s in source_stats:
-        s["passed"] = passed_by_key.get((s["source"], s.get("match_host")), 0)
+        s["passed"] = passed_by_key.get(
+            (s["source"], s.get("match_host"), s.get("match_url")), 0
+        )
 
     print(
         f"Fetched {len(all_listings)} listing(s). "

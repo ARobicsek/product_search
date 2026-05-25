@@ -182,6 +182,12 @@ microcenter.com:
       Cloudflare challenge served even at min_tier:3. Bumping to min_tier:4
       produces silent AlterLab failure (body_len=0). No working path today —
       this is a vendor-level outage waiting on AlterLab tier investigation.
+      Re-verified 2026-05-25 (Phase 27 D3, see docs/microcenter_reprobe_2026_05_25.md):
+      3 distinct detail URLs (CPU, SSD, motherboard) all returned 0 priced
+      products through AlterLab at the registry defaults — either a 39-char
+      stub or ~32 KB Cloudflare challenge body. The Phase 26 stress26-mc
+      success was a single cache-hit outlier, NOT a recovery; keep this
+      block at `blocker` until the underlying bypass is solved.
     onboarder_action: |
       Put microcenter.com URLs in `sources_pending` (NOT `sources`) with this
       summary as the note. Do not promise the user microcenter listings until

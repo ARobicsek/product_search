@@ -47,24 +47,24 @@ def _make_listing(source: str, attrs: dict | None = None) -> Listing:
 
 def test_passed_match_key_non_universal_keys_by_source_only() -> None:
     lst = _make_listing("ebay_search")
-    assert _passed_match_key(lst) == ("ebay_search", None)
+    assert _passed_match_key(lst) == ("ebay_search", None, None)
 
 
 def test_passed_match_key_universal_keys_by_vendor_host() -> None:
     lst = _make_listing("universal_ai_search", {"vendor_host": "backmarket.com"})
-    assert _passed_match_key(lst) == ("universal_ai_search", "backmarket.com")
+    assert _passed_match_key(lst) == ("universal_ai_search", "backmarket.com", None)
 
 
 def test_passed_match_key_strips_www_prefix() -> None:
     # The cli's source_stats row stores the host already-stripped of "www.";
     # the listing-side key must match that shape so the join works.
     lst = _make_listing("universal_ai_search", {"vendor_host": "www.bhphotovideo.com"})
-    assert _passed_match_key(lst) == ("universal_ai_search", "bhphotovideo.com")
+    assert _passed_match_key(lst) == ("universal_ai_search", "bhphotovideo.com", None)
 
 
 def test_passed_match_key_lowercases_host() -> None:
     lst = _make_listing("universal_ai_search", {"vendor_host": "BackMarket.com"})
-    assert _passed_match_key(lst) == ("universal_ai_search", "backmarket.com")
+    assert _passed_match_key(lst) == ("universal_ai_search", "backmarket.com", None)
 
 
 def test_passed_match_key_universal_without_host_falls_back_to_none() -> None:
@@ -72,7 +72,7 @@ def test_passed_match_key_universal_without_host_falls_back_to_none() -> None:
     # group under the "no host" bucket; this is acceptable since the source
     # row in that case would also have match_host=None.
     lst = _make_listing("universal_ai_search", {})
-    assert _passed_match_key(lst) == ("universal_ai_search", None)
+    assert _passed_match_key(lst) == ("universal_ai_search", None, None)
 
 
 def test_passed_match_key_disambiguates_two_universal_vendors() -> None:
@@ -80,6 +80,25 @@ def test_passed_match_key_disambiguates_two_universal_vendors() -> None:
     a = _make_listing("universal_ai_search", {"vendor_host": "backmarket.com"})
     b = _make_listing("universal_ai_search", {"vendor_host": "bhphotovideo.com"})
     assert _passed_match_key(a) != _passed_match_key(b)
+
+
+def test_passed_match_key_carries_source_url_for_same_host_disambiguation() -> None:
+    # Phase 27 / D2: multiple URLs on the SAME host (e.g. four Best Buy detail
+    # URLs all share vendor_host = bestbuy.com). The cli stamps `source_url`
+    # into attrs at fetch-emit time so the per-source-row passed count can be
+    # attributed by URL rather than collapsing to the host total.
+    a = _make_listing("universal_ai_search", {
+        "vendor_host": "bestbuy.com",
+        "source_url": "https://www.bestbuy.com/site/sony-wh-1000xm5-black/6505794.p?skuId=6505794",
+    })
+    b = _make_listing("universal_ai_search", {
+        "vendor_host": "bestbuy.com",
+        "source_url": "https://www.bestbuy.com/site/sony-wh-1000xm5-silver/6505795.p?skuId=6505795",
+    })
+    assert _passed_match_key(a) != _passed_match_key(b)
+    assert _passed_match_key(a)[2] == (
+        "https://www.bestbuy.com/site/sony-wh-1000xm5-black/6505794.p?skuId=6505794"
+    )
 
 
 # --- probe-url --------------------------------------------------------------
@@ -289,4 +308,62 @@ def test_zero_reason_callout_known_failure_is_warning() -> None:
     callout = _build_zero_reason_callout(stats)
     assert callout.startswith("> [!WARNING]")
     assert "**microcenter.com** — _blocked_" in callout
+
+
+def test_build_zero_reason_callout_includes_per_source_httperror() -> None:
+    """D2 regression (Phase 27 / STRESS_TEST_26.md § Defect 2).
+
+    Live shape from stress26-xm5: four ``bestbuy.com`` source rows sharing the
+    same host — one succeeded (``fetched=4, passed=2``) and three errored with
+    HTTP/2 stream errors after the AlterLab fallback to curl_cffi. Pre-fix,
+    the cli's ``passed_by_key`` was keyed by host only, so all four rows ended
+    up rendering ``Passed | 2``; the classifier's ``passed > 0`` short-circuit
+    then silently treated the three error rows as OK and produced NO bullet.
+
+    Post-fix the cli stamps a ``source_url`` into each emitted listing's
+    ``attrs`` and keys the join by ``(source_id, host, url)``. The cli build
+    therefore produces ``passed == 0`` on each error row, which is exactly
+    what this test exercises: feed the classifier the shape it would actually
+    receive after the fix, and assert each error row lands in the callout
+    with the ``transient`` category. (The cli-side per-source attribution is
+    independently covered by ``test_passed_match_key_carries_source_url_*``.)
+    """
+    stats = [
+        {"source": "universal_ai_search", "display_source": "bestbuy.com",
+         "match_host": "bestbuy.com",
+         "match_url": "https://www.bestbuy.com/site/searchpage.jsp?st=sony+wh-1000xm5",
+         "fetched": 4, "passed": 2, "error": None},
+        {"source": "universal_ai_search", "display_source": "bestbuy.com",
+         "match_host": "bestbuy.com",
+         "match_url": "https://www.bestbuy.com/site/sony-wh-1000xm5-black/6505794.p?skuId=6505794",
+         "fetched": 0, "passed": 0,
+         "error": "HTTPError: HTTP/2 stream 1 was not closed cleanly: "
+                  "INTERNAL_ERROR (err 2)"},
+        {"source": "universal_ai_search", "display_source": "bestbuy.com",
+         "match_host": "bestbuy.com",
+         "match_url": "https://www.bestbuy.com/site/sony-wh-1000xm5-silver/6505795.p?skuId=6505795",
+         "fetched": 0, "passed": 0,
+         "error": "HTTPError: HTTP/2 stream 1 was not closed cleanly: "
+                  "INTERNAL_ERROR (err 2)"},
+        {"source": "universal_ai_search", "display_source": "bestbuy.com",
+         "match_host": "bestbuy.com",
+         "match_url": "https://www.bestbuy.com/site/sony-wh-1000xm5-smoky-pink/6505796.p?skuId=6505796",
+         "fetched": 0, "passed": 0,
+         "error": "HTTPError: HTTP/2 stream 1 was not closed cleanly: "
+                  "INTERNAL_ERROR (err 2)"},
+    ]
+    callout = _build_zero_reason_callout(stats)
+    # The OK row (passed=2) must NOT appear; the three error rows MUST appear,
+    # each as a `transient` bullet (rule 8 in source_reasons.py).
+    transient_bullets = [
+        line for line in callout.split("\n")
+        if "**bestbuy.com** — _transient_" in line
+    ]
+    assert len(transient_bullets) == 3, (
+        f"expected 3 transient bestbuy.com bullets (one per failed URL); "
+        f"got {len(transient_bullets)} in callout:\n{callout}"
+    )
+    # The bullets carry the short error excerpt so the user can debug.
+    for line in transient_bullets:
+        assert "HTTP/2 stream" in line
 

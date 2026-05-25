@@ -9,6 +9,11 @@ import { probeAndUpdateProfile } from '@/lib/onboard/probe-and-update';
 import { checkForceDetailBackup, type Adr067Warning } from '@/lib/onboard/adr067-check';
 import { checkConditionDrift } from '@/lib/onboard/condition-drift-check';
 import { checkTitleExcludes } from '@/lib/onboard/title-excludes-check';
+import { checkDetailPreferencePresence } from '@/lib/onboard/detail-preference-presence';
+import {
+  FORCE_DETAIL_BACKUP_HOSTS,
+  PREFER_DETAIL_HOSTS,
+} from '@/lib/onboard/vendor-quirks-data';
 
 export const runtime = 'nodejs';
 export const maxDuration = 60;
@@ -104,6 +109,16 @@ export async function POST(request: NextRequest) {
       // ADR-080: warn if a title_excludes value is a substring of the product
       // name (would reject the target product itself and zero recall).
       warnings.push(...checkTitleExcludes(draft));
+      // ADR-079 (Phase 27 reinforcement): warn if a detail-preferred vendor's
+      // URL was dropped to a URL-less sources_pending placeholder (the gate
+      // has no URL to protect; the prompt + this check both catch the bypass).
+      warnings.push(
+        ...checkDetailPreferencePresence(
+          draft,
+          FORCE_DETAIL_BACKUP_HOSTS,
+          PREFER_DETAIL_HOSTS,
+        ),
+      );
       yamlText = renderProfileYaml(draft);
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'render-yaml failed';
