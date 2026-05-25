@@ -346,7 +346,14 @@ class Profile(BaseModel):
 
     slug: str
     display_name: str
-    description: str
+    # ``description`` is informational flavor text only — the AI filter prompt
+    # reads it for context but falls back to ``display_name`` when it is empty
+    # or missing (ai_filter.py). Making it optional defends against onboarder
+    # drafts that silently omit the field (ADR-074 followup #2): the field is
+    # not load-bearing, and rejecting the save for a non-load-bearing gap
+    # costs the user a round-trip while the model has already correctly
+    # captured ``display_name`` and ``target``.
+    description: str = ""
 
     target: Target
     # ``spec_attrs`` declares the typed attribute keys listings may carry.

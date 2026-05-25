@@ -193,9 +193,13 @@ def ai_filter(listings: list[Listing], profile: Profile) -> list[Listing]:
         ),
     }
     rules_json = json.dumps([relevance_rule] + rules_full, indent=2)
+    # ``description`` is optional (ADR-074 followup #2 — onboarder drafts
+    # occasionally omit it). Fall back to ``display_name`` so the filter
+    # prompt always has a coherent "what the user wants" line.
+    description = profile.description.strip() or profile.display_name
     system_prompt = f"""You are a product filter.
 The user wants: {profile.display_name}
-Description: {profile.description}
+Description: {description}
 {target_desc}
 
 Rules to apply (each rule is a dict with a "rule" type and its parameters):

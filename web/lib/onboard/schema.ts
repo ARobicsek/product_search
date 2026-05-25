@@ -69,7 +69,10 @@ const SPEC_TYPES = new Set(['int', 'str', 'float', 'bool']);
 export interface ParsedProfile {
   slug: string;
   display_name: string;
-  description: string;
+  // Optional — mirrors worker Profile.description (ADR-074 followup #2).
+  // The runtime AI filter falls back to display_name when this is empty
+  // or missing, so we don't reject the save for a non-load-bearing gap.
+  description?: string;
   qvl_file?: string;
   // ...rest of the fields are validated structurally but not exposed.
   [key: string]: unknown;
@@ -362,7 +365,13 @@ export function parseAndValidateProfileYaml(text: string): ParsedProfile {
     ctx.errors.push(`slug: must match ${SLUG_RE.source}`);
   }
   asString(obj.display_name, 'display_name', ctx);
-  asString(obj.description, 'description', ctx);
+  // ``description`` is optional (ADR-074 followup #2) — mirrors the worker
+  // Profile model. The onboarder prompt still asks for it (it gives the
+  // runtime AI filter useful context), but we don't fail the save when
+  // it's missing because the filter falls back to ``display_name``.
+  if (obj.description !== undefined && obj.description !== null) {
+    asString(obj.description, 'description', ctx);
+  }
 
   validateTarget(obj.target, ctx);
   // ``spec_attrs`` is optional — most non-RAM products have nothing useful

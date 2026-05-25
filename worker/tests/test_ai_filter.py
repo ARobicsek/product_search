@@ -169,6 +169,39 @@ def test_batches_large_listing_set(profile: Profile, monkeypatch: pytest.MonkeyP
     assert ai_filter_mod.LAST_RUN_USAGE["output_tokens"] == 40
 
 
+def test_system_prompt_falls_back_to_display_name_when_description_empty(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """ADR-074 followup #2: when `description` is omitted (now allowed by the
+    schema), the AI filter system prompt must fall back to `display_name` so
+    the "Description:" line stays meaningful (never blank).
+    """
+    import copy
+
+    p_dict = copy.deepcopy(VALID_PROFILE)
+    p_dict.pop("description")  # omit entirely — defaults to ""
+    profile_no_desc = Profile.model_validate(p_dict)
+    assert profile_no_desc.description == ""
+
+    captured: dict[str, str] = {}
+
+    def stubbed(**kw: object) -> LLMResponse:
+        captured["system"] = str(kw.get("system", ""))
+        return LLMResponse(
+            provider="anthropic", model="claude-haiku-4-5",
+            text='{"evaluations": [{"index": 0, "pass": true, "reason": "ok"}]}',
+            input_tokens=1, output_tokens=1,
+        )
+
+    monkeypatch.setattr(ai_filter_mod, "call_llm", stubbed)
+    ai_filter_mod.ai_filter([_make_listing()], profile_no_desc)
+
+    # The literal "Description: " line is followed by display_name, not blank.
+    assert f"Description: {profile_no_desc.display_name}" in captured["system"]
+    # And the line is NOT empty (the regression we are pinning).
+    assert "Description: \n" not in captured["system"]
+
+
 def test_tolerates_prose_preamble_before_json(profile: Profile, monkeypatch: pytest.MonkeyPatch) -> None:
     """A prose preamble before the JSON object must not zero out the run.
 

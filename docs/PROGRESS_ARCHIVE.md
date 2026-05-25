@@ -8,6 +8,21 @@ so the live file stays small while nothing is lost. See
 
 ---
 
+## Current state — 2026-05-25 onboarder robustness paper-cuts (ADR-091) (SUPERSEDED by 2026-05-25 onboarder paper-cut — description schema-vs-onboarder gap / ADR-092)
+
+**Deliverables:** ADR-091 in DECISIONS.md. Harness edits in [web/app/api/onboard/chat/route.ts](../web/app/api/onboard/chat/route.ts) (`MAX_TOKENS` 4096 → 8192) and [web/app/onboard/OnboardChat.tsx](../web/app/onboard/OnboardChat.tsx) (consume + surface `stopReason: max_tokens`). Prompt edits in [worker/src/product_search/onboarding/prompts/onboard_v1.txt](../worker/src/product_search/onboarding/prompts/onboard_v1.txt) (3 paragraphs) regen'd into `promptText.ts` via `sync-prompt.js`.
+
+**What shipped:**
+- **Harness — silent halt fix.** Bumped per-message `MAX_TOKENS` from 4096 → 8192 (Haiku 4.5 supports it, comfortable headroom on vendor-sweep turns). Forwarded `stopReason` through the existing `done` SSE event to the client; `OnboardChat.tsx`'s `done` handler now surfaces "The assistant ran out of output budget mid-response. Reply 'continue' to resume." in the existing red-bordered error chip when `stopReason: "max_tokens"`. Both required because the route's tool-use loop counts only `probe_url` blocks — when the model hit the cap *between* the setup sentence and the tool calls, the loop exited and the client had no hint.
+- **Prompt — never INFER `condition_in`.** Added a hard negative paragraph to the `condition_in` schema entry: never emit from product category alone ("magazines are always new", "headphones at a big retailer are new"); ASK if unsure. Frames the trade-off (refurb/open-box are often the cheapest, dropping them unauthorised is exactly the silent-recall bug the rule was meant to prevent).
+- **Prompt — baseline-filter line.** Universal baseline = `in_stock` + `low_seller_feedback`; `min_quantity_for_target` explicitly RAM-only ("DO NOT emit it for single-unit consumer goods"). The old "Baseline minimum: `in_stock` + `min_quantity_for_target`" line forced single-unit drafts to navigate a contradiction (rule says emit it; schema makes it meaningless), and Haiku's solution was to drop both.
+- **Prompt — known-good 5xx interpretation.** Added "The `ok` field is the verdict — `fetchStatus` is diagnostic" guideline to the Probing section, with explicit ACTION (add the source with registry `extra.alterlab_options`, tell the user) and a worked Amazon example. Closes the live silent-drop loophole observed in the "The Week" session: Amazon 503'd on bare fetch, `probe-url.ts` correctly returned `ok: true` for the `alterlab_known_good` host, but the model treated `fetchStatus: 503` as a failure and dropped Amazon from BOTH `sources` and `sources_pending`.
+- Green: worker pytest 351/351 (no worker code touched); web tsc 0 errors, eslint clean (4 pre-existing warnings unchanged), `test:guards` 11/11, `test:parity` 2/2; `sync-prompt.js` produced the expected `promptText.ts` delta only.
+
+**Finding worth remembering:** All 4 fixes came from a single frozen live onboarder session. The user-visible freeze (max_tokens) and the 3 silent-quality bugs in the draft were independent — the freeze killed the session before save, but the partial draft itself was already incorrect (inferred `condition_in`, dropped Amazon, missing `in_stock`). When investigating an onboarder regression, read the *whole* transcript + the produced draft, not just the visible failure: the silent quality bugs are easier to miss but more dangerous (they save and run). The harness fix + prompt fixes go in the same ADR because they're rooted in the same incident.
+
+---
+
 ## Current state — 2026-05-25 small-defect sweep (ADR-089 + ADR-090) (SUPERSEDED by 2026-05-25 onboarder robustness paper-cuts / ADR-091)
 
 **Deliverables:** ADR-089 + ADR-090 in DECISIONS.md. `vendor_quirks.yaml` edits for `bhphotovideo.com` + `backmarket.com` (regen'd `promptText.ts` + `vendor-quirks-data.ts` via `sync-prompt.js`). Fix in `worker/src/product_search/adapters/universal_ai.py` (curl_cffi → httpx fall-through). 2 new committed challenge fixtures + new tests + targeted updates to 3 existing tests stale after the B&H known_failure promotion.

@@ -76,6 +76,12 @@ You are producing a YAML document with this exact top-level shape:
 ```yaml
 slug: "<lowercase-hyphenated-slug>"
 display_name: "<human-readable name>"
+# `description` is OPTIONAL but you SHOULD always emit it — it gives the
+# runtime AI filter useful context beyond `display_name` (what counts as
+# the "buying job": e.g. "track the cheapest 1-year subscription, print
+# or print+digital"). Schema accepts it missing (falls back to
+# `display_name`), but the recall benefit is real — emit unless the
+# product is so generic that the display_name already says everything.
 description: >
   <one-line plain-English description of the buying job>
 

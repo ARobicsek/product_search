@@ -312,6 +312,29 @@ def test_rejects_blank_brand_candidate() -> None:
 
 
 # ---------------------------------------------------------------------------
+# description is optional (ADR-074 followup #2)
+# ---------------------------------------------------------------------------
+
+
+def test_description_optional_when_omitted() -> None:
+    """A profile missing `description` validates (defaults to "").
+
+    Pinned because the onboarder occasionally drops the field silently
+    (live incident 2026-05-25, "The Week" 1yr subscription). The field
+    is informational flavor text only — ai_filter falls back to
+    display_name — so the schema must not reject for its absence.
+    """
+    import copy
+
+    p = copy.deepcopy(VALID_PROFILE)
+    p.pop("description")
+    profile = Profile.model_validate(p)
+    assert profile.description == ""
+    # display_name remains the load-bearing identity.
+    assert profile.display_name == "Test Product"
+
+
+# ---------------------------------------------------------------------------
 # Non-RAM optional fields (target.configurations + qvl_file)
 # ---------------------------------------------------------------------------
 
