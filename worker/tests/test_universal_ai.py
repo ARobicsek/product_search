@@ -2296,6 +2296,37 @@ def test_fetch_short_circuits_when_budget_exceeded(monkeypatch: pytest.MonkeyPat
     assert "budget" in universal_ai.LAST_SKIP_REASON
 
 
+def test_fetch_escalation_bails_mid_ladder_when_budget_exceeded(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """ADR-093: a single in-flight source that exhausts the per-run wall-clock
+    budget on an early rung must bail before paying another 120s AlterLab
+    timeout on the remaining rungs. The fix complements the source-entry budget
+    check (which only protects subsequent sources)."""
+    universal_ai.reset_run_state()
+    # Stub returns a weak body so rung 1 doesn't return early as success.
+    seen = _stub_escalation_fetches(
+        monkeypatch, [("Just a moment" + "x" * 3000, 200)]
+    )
+    # Make rung 2's budget check trip without affecting rung 1's behavior.
+    universal_ai._run_deadline = universal_ai.time.monotonic() - 1.0
+
+    html, status, fetcher, attempts, degraded = universal_ai._fetch_with_escalation(
+        "https://walled.example/p", {"country": "us", "min_tier": 3}
+    )
+
+    # Only rung 1 actually fetched — rung 2's check tripped before its fetch.
+    assert len(seen) == 1
+    # attempts log contains: rung 1 (WEAK) + the SKIPPED record from rung 2.
+    assert len(attempts) == 2
+    assert "WEAK" in attempts[0]
+    assert "SKIPPED" in attempts[1] and "budget" in attempts[1]
+    # Best-effort body from rung 1 is still returned; AlterLab counted as degraded
+    # so the breaker still increments on this source.
+    assert "x" * 3000 in html
+    assert degraded is True
+
+
 # --- ADR-077: recall-first full-HTML search extractor ----------------------
 #
 # Tests for the search union: JSON-LD ∪ anchor-walker ∪ full-HTML-LLM.

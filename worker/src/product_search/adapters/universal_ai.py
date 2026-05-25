@@ -670,7 +670,11 @@ _ESCALATION_BACKOFF_SECONDS = 1.0
 # sources skip regardless of breaker state. Both surface a human-readable reason
 # via ``LAST_SKIP_REASON`` that ``cli._cmd_search`` shows in the Sources panel.
 _BREAKER_THRESHOLD = 3
-_RUN_BUDGET_SECONDS = float(os.environ.get("UNIVERSAL_AI_RUN_BUDGET_SECONDS", "600"))
+# 8 min: tight enough that a stuck tail doesn't push a run past the UI's 20-min
+# poll deadline; loose enough for 2-4 healthy sources + AI filter + synth + commit
+# (ADR-093, 2026-05-25). Mid-escalation budget check in `_fetch_with_escalation`
+# ensures an in-flight source actually honors this.
+_RUN_BUDGET_SECONDS = float(os.environ.get("UNIVERSAL_AI_RUN_BUDGET_SECONDS", "480"))
 
 _consecutive_alterlab_failures = 0
 _circuit_open = False
@@ -800,6 +804,19 @@ def _fetch_with_escalation(
     ladder = _escalation_ladder(alterlab_options)
     best: tuple[str, int, str] | None = None
     for i, opts in enumerate(ladder, start=1):
+        # ADR-093: defense-in-depth on the per-run wall-clock budget. Without
+        # this, a single in-flight source can blow through the budget paying
+        # another full 120s AlterLab timeout per remaining rung; the source-entry
+        # check in `fetch()` only protects subsequent sources. Bail after the
+        # current rung if the budget has tripped — `best` still holds the
+        # strongest weak body so callers don't lose a partial render.
+        if i > 1 and _budget_exceeded():
+            attempts.append(f"attempt {i}: SKIPPED (per-run budget exceeded)")
+            logger.warning(
+                f"[universal_ai] per-run budget exceeded mid-escalation for {url}; "
+                f"bailing after {i-1} rung(s)"
+            )
+            break
         if i > 1:
             time.sleep(_ESCALATION_BACKOFF_SECONDS)
         # Exceptions propagate immediately: `_fetch_html_with_retry` already

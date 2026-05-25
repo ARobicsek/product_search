@@ -19,7 +19,15 @@ interface RunStatusResponse {
 const POLL_INTERVAL_FAST_MS = 2_000;
 const POLL_INTERVAL_SLOW_MS = 5_000;
 const POLL_FAST_WINDOW_MS = 30_000;
-const POLL_TIMEOUT_MS = 15 * 60_000;
+// ADR-093: 20 min. Bumped from 15 min after a "The Week" run finished in 15:00
+// (commit pushed 5s after this deadline fired) and the user saw "Timed out"
+// despite the report being live. Backend wall-budget tightening (worker B1/B2)
+// targets ~12 min worst-case; 20 min leaves a comfortable cushion.
+const POLL_TIMEOUT_MS = 20 * 60_000;
+// Slow background poll cadence after the deadline. The run is most likely
+// in_progress past 20 min; this lets the page refresh itself the moment it
+// finally completes, without forcing the user to know to reload.
+const POST_DEADLINE_POLL_MS = 60_000;
 
 function formatElapsed(ms: number): string {
   const s = Math.floor(ms / 1000);
@@ -91,6 +99,61 @@ export function RunNowButton({
     };
   }, [state]);
 
+  async function revalidateAndReload() {
+    setMessage('Refreshing report…');
+    await fetch('/api/revalidate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ product }),
+    }).catch(() => {});
+    setState('done');
+    setMessage('Done. Loading new report…');
+    // Full reload, not router.refresh(): Next 16's `refresh()` only
+    // re-fetches the RSC payload and explicitly does not invalidate the
+    // server-side cache. A hard reload bypasses Vercel's edge cache and
+    // the browser's HTTP cache, and re-runs the page through SSR with a
+    // fresh `?_cb=` cache-buster on the raw.githubusercontent fetch —
+    // which is the only path we know reliably surfaces a just-pushed
+    // report file.
+    window.location.reload();
+  }
+
+  // ADR-093: after the foreground deadline, keep checking quietly so the page
+  // refreshes itself the moment a slow run completes — the user no longer has
+  // to know to reload. Stays gated on `cancelled.current` so navigation away
+  // ends it; a new "Run now" click is blocked by the still-`polling` state.
+  function startPostDeadlinePoll(since: string) {
+    const tick = async () => {
+      if (cancelled.current) return;
+      try {
+        const res = await fetch(
+          `/api/run-status?product=${encodeURIComponent(product)}&since=${encodeURIComponent(since)}`,
+          { cache: 'no-store' },
+        );
+        const data = (await res.json()) as RunStatusResponse;
+        if (
+          data.ok &&
+          data.state === 'completed' &&
+          data.conclusion === 'success'
+        ) {
+          await revalidateAndReload();
+          return;
+        }
+        if (data.ok && data.state === 'completed') {
+          setState('error');
+          setMessage(`Run finished with conclusion: ${data.conclusion ?? 'unknown'}`);
+          return;
+        }
+      } catch {
+        // Ignore — keep polling. A transient network blip shouldn't kill the
+        // background recovery loop.
+      }
+      if (cancelled.current) return;
+      setTimeout(tick, POST_DEADLINE_POLL_MS);
+    };
+    setTimeout(tick, POST_DEADLINE_POLL_MS);
+  }
+
   async function pollUntilComplete(since: string) {
     const deadline = Date.now() + POLL_TIMEOUT_MS;
     const pollStart = Date.now();
@@ -115,22 +178,7 @@ export function RunNowButton({
         }
         if (data.state === 'completed') {
           if (data.conclusion === 'success') {
-            setMessage('Refreshing report…');
-            await fetch('/api/revalidate', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ product }),
-            }).catch(() => {});
-            setState('done');
-            setMessage('Done. Loading new report…');
-            // Full reload, not router.refresh(): Next 16's `refresh()` only
-            // re-fetches the RSC payload and explicitly does not invalidate the
-            // server-side cache. A hard reload bypasses Vercel's edge cache and
-            // the browser's HTTP cache, and re-runs the page through SSR with a
-            // fresh `?_cb=` cache-buster on the raw.githubusercontent fetch —
-            // which is the only path we know reliably surfaces a just-pushed
-            // report file.
-            window.location.reload();
+            await revalidateAndReload();
           } else {
             setState('error');
             setMessage(`Run finished with conclusion: ${data.conclusion ?? 'unknown'}`);
@@ -147,6 +195,35 @@ export function RunNowButton({
       } catch (err) {
         setMessage(err instanceof Error ? err.message : 'Polling error');
       }
+    }
+
+    // ADR-093: foreground deadline reached. One final synchronous check
+    // rescues the exact race where the worker pushed its commit a few seconds
+    // after the deadline fired. If the run is still in flight, fall back to a
+    // slow background poll instead of showing a terminal "timed out" error.
+    if (cancelled.current) return;
+    try {
+      const res = await fetch(
+        `/api/run-status?product=${encodeURIComponent(product)}&since=${encodeURIComponent(since)}`,
+        { cache: 'no-store' },
+      );
+      const data = (await res.json()) as RunStatusResponse;
+      if (data.ok && data.state === 'completed' && data.conclusion === 'success') {
+        await revalidateAndReload();
+        return;
+      }
+      if (data.ok && (data.state === 'in_progress' || data.state === 'queued')) {
+        setMessage('Still running. This page will refresh when it finishes.');
+        startPostDeadlinePoll(since);
+        return;
+      }
+      if (data.ok && data.state === 'completed') {
+        setState('error');
+        setMessage(`Run finished with conclusion: ${data.conclusion ?? 'unknown'}`);
+        return;
+      }
+    } catch {
+      // Fall through to the terminal error path.
     }
     setState('error');
     setMessage('Timed out waiting for run to complete');
