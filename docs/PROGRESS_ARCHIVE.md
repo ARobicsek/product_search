@@ -8,6 +8,21 @@ so the live file stays small while nothing is lost. See
 
 ---
 
+## Current state — 2026-05-24 Phase 25 closed (SUPERSEDED by 2026-05-24 Phase 26 close)
+
+**Worker — Part A (`adapters/universal_ai.py`)**:
+- `_fetch_via_alterlab` detects a transient `browser_pool_exhausted` 422 (`_is_transient_alterlab_422`, marker set `_ALTERLAB_422_TRANSIENT_MARKERS`) and retries it through the bounded loop with a longer backoff than the 5xx path. Other 422s + 401/403/429 still raise immediately. A per-fetch flag `_LAST_ALTERLAB_POOL_EXHAUSTED` records the cause even when retries exhaust and we fall through.
+
+**Worker — Part B (`source_reasons.py` new, `cli.py`, `adapters/universal_ai.py`)**:
+- New `source_reasons.py`: `OutcomeCategory` (StrEnum) + `classify_source_outcome(...)`, deterministic, no cli import. `SUBSTANTIVE_BODY_FLOOR = 50_000` is the EMPTY_PAGE↔PARSER_GAP heuristic boundary.
+- `universal_ai`: new `LAST_FETCH_DIAGNOSTICS` (`body_len/final_status/final_fetcher/alterlab_degraded/alterlab_pool_exhausted`), reset per `fetch()` + in `reset_run_state()`, populated after `_fetch_with_escalation` (success + raise paths).
+- `cli`: source loop attaches `skip_reason`/`diagnostics` to each `source_stats` row; `_build_zero_reason_callout` classifies every non-clean source and renders the callout; `_build_sources_searched_md` appends it under the table and the old `has_api_issue` block is folded into the `PERMANENT` path.
+
+**Tests** (334/334 pass; ruff `src/` clean; mypy clean on touched files; web tsc/lint 0-err/parity 2/guards 6/build green — no web code changed, so no `sync-prompt.js` regen needed):
+- `test_source_reasons.py` (13): one per category + ordering (fetched>0 beats degraded signal).
+- `test_universal_ai.py` (+4): pool-422 retry-then-succeed, retry-exhaust-then-raise, non-transient-422-immediate-raise, `LAST_FETCH_DIAGNOSTICS` population.
+- `test_cli.py` (+3): callout empty when all clean, classifies+skips-clean (transient/parser-gap/no-match), known_failure→`[!WARNING]` (microcenter).
+
 ## Current state — 2026-05-24 Phase 24 closed (SUPERSEDED by 2026-05-24 Phase 25 close)
 
 **Worker (`worker/src/product_search/vendor_quirks.{yaml,py}`, `cli.py`)**:
