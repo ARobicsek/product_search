@@ -881,7 +881,9 @@ Mirror the Phase 26 stress pattern at smaller scale, ONLY targeting the three de
 
 ---
 
-## Phase 28 — Close the two evidenced search-page recall leaks (Newegg + B&H) (PROPOSED 2026-05-25)
+## Phase 28 — Close the two evidenced search-page recall leaks (Newegg + B&H) (CLOSED 2026-05-25, ADR-087)
+
+> **Outcome:** Newegg search works post-render (Defect 6 was a transient render miss, not a parser gap — refuted against a fresh networkidle fixture; regression-guarded). B&H search is Cloudflare bot-walled (not recoverable today; recall via detail URLs, registry note + fixture test added). No extractor code change. See ADR-087 + PROGRESS.md.
 
 ### Why
 Phase 18 was retired (ADR-086): production already proves generality. The

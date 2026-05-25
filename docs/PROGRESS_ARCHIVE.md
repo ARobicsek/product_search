@@ -8,6 +8,18 @@ so the live file stays small while nothing is lost. See
 
 ---
 
+## Current state — 2026-05-25 Phase 27 closed (SUPERSEDED by 2026-05-25 Phase 28 close)
+
+**Deliverables:** [docs/STRESS_TEST_27.md](STRESS_TEST_27.md) (per-defect PASS/FAIL + commit pointers); [docs/microcenter_reprobe_2026_05_25.md](microcenter_reprobe_2026_05_25.md) (D3 probe evidence); ADR-085 in DECISIONS.md (reinforces ADR-079/084, maintains ADR-068).
+
+**What shipped (commit `0974299`):**
+- D1: `onboard_v1.txt` prompt rule (regen'd `promptText.ts`) + `web/lib/onboard/detail-preference-presence.ts` wired into `/api/onboard/save` + 5 new cases in `check-onboard-guards.test.mjs` (11/11).
+- D2: `cli.py` stamps `source_url` into `Listing.attrs`; `_passed_match_key` → `(source, host, url)`; regression test `test_build_zero_reason_callout_includes_per_source_httperror` + updated key tests (test_cli.py 17/17, worker suite 336/336).
+- D3: `vendor_quirks.yaml` microcenter `known_failure` re-verification note (regen'd web artifacts).
+- Green: ruff + mypy clean on cli.py; web tsc 0 errors, eslint pre-existing-only, test:parity 2/2, test:guards 11/11, next build compiled.
+
+**Live re-verify finding worth remembering:** AlterLab was degraded the whole session (pool exhaustion, 504s on detail probes, 2.3 KB Amazon stubs). The first stress27-mx3s onboard (before the new prompt deployed) reproduced the exact Phase 26 D1 regression — URL-less B&H `sources_pending` placeholder — and the second onboard (new prompt live) kept B&H in `sources` with `probe_note`. Clean before/after. A B&H detail probe hung one onboard for ~14 min; if onboards hang again, use a "don't probe, here are pre-probed results" message to skip the slow live probing.
+
 ## Current state — 2026-05-24 Phase 26 closed (SUPERSEDED by 2026-05-25 Phase 27 close)
 
 **Deliverable:** [docs/STRESS_TEST_26.md](STRESS_TEST_26.md) — per-row PASS/FAIL/N·A regression checklist + prioritised defect list + screenshot evidence ([stress26_mobile_callout_mx3s.png](stress26_mobile_callout_mx3s.png)).

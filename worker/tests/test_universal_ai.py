@@ -39,6 +39,20 @@ CUSTOM_AGGREGATE_FIXTURE = FIXTURE_DIR / "custom_aggregate_offer.html"
 HEADPHONES_COM_FIXTURE = FIXTURE_DIR / "headphones-com-shopify-collection.html"
 TARGET_FIXTURE = FIXTURE_DIR / "target-search-bose.html"
 BHPHOTO_FIXTURE = FIXTURE_DIR / "bhphotovideo-search-bose.html"
+# Phase 28 (ADR-087): the two evidenced search-page recall leaks.
+#   - Newegg: captured 2026-05-25 via `cli probe-url --render --wait-condition
+#     networkidle`. 529 KB, status 200, 92 titled anchors, 0 JSON-LD, ~20 real
+#     "Logitech MX Master 3S" product tiles with prices in the rendered text.
+#     The Phase 26 Defect 6 zero was a transient render miss (degraded AlterLab
+#     served an un-hydrated body), NOT a parser gap — this fixture proves the
+#     extractor recovers the products when the page actually renders.
+#   - B&H: captured 2026-05-25. Every render rung (tier 3/4, networkidle and
+#     domcontentloaded) returned the SAME 31.7 KB Cloudflare "Performing
+#     security verification" challenge — search is bot-walled, same class as
+#     microcenter. Recall for B&H comes from detail URLs (prefer_page_type:
+#     detail in the registry), never search.
+NEWEGG_SEARCH_FIXTURE = FIXTURE_DIR / "newegg_search_mx_master_3s.html"
+BHPHOTO_SEARCH_FIXTURE = FIXTURE_DIR / "bhphotovideo_search_mx_master_3s.html"
 BASE_URL = "https://www.synthvendor.com/collections/headphones"
 SHOPIFY_BASE_URL = "https://shop.synthstore.example.com/collections/headphones"
 CUSTOM_BASE_URL = "https://customvendor.example.com/collections/all"
@@ -787,6 +801,175 @@ def test_extract_bhphoto_blocked_react_shell_yields_few_candidates() -> None:
     # test should diff so a human can tighten things up.
     assert len(cands) <= 10, (
         f"BH page is supposed to be a barren shell; got {len(cands)} candidates"
+    )
+
+
+# --- Phase 28 (ADR-087): search-page recall leaks (Newegg + B&H) -----------
+
+NEWEGG_SEARCH_URL = "https://www.newegg.com/p/pl?d=logitech+mx+master+3s"
+BHPHOTO_SEARCH_URL = "https://www.bhphotovideo.com/c/search?Ntt=logitech+mx+master+3s"
+
+
+def test_newegg_search_recall_substrate_present() -> None:
+    """Newegg search recall is RECOVERABLE — the deterministic substrate the
+    LLM tiers consume is present in a properly-rendered body.
+
+    Phase 26 Defect 6 reported Newegg search → 0 listings off an 820 KB body
+    and labelled it a PARSER_GAP. The Phase 28 diagnosis (this fixture, freshly
+    rendered with wait_condition=networkidle) refutes that: the page carries
+    ~20 real "Logitech MX Master 3S" product tiles with full titles, real
+    /p/ product URLs, and prices in the visible text. The earlier zero was a
+    transient render miss (degraded AlterLab returning an un-hydrated body),
+    not a structural gap.
+
+    This pins the recall PRECONDITION (anchors + verbatim prices) without an
+    LLM call, so a future render/strip regression that re-introduces the
+    Defect 6 zero fails here loudly.
+    """
+    html = NEWEGG_SEARCH_FIXTURE.read_text(encoding="utf-8")
+
+    anchors = universal_ai._collect_search_anchors(html, base_url=NEWEGG_SEARCH_URL)
+    mx_anchors = [
+        a for a in anchors if "mx master 3s" in a["title"].lower()
+    ]
+    assert len(mx_anchors) >= 10, (
+        f"expected ≥10 MX Master 3S product anchors, got {len(mx_anchors)}"
+    )
+    # Each must resolve to a real Newegg product URL (the LLM picks by index,
+    # so the URL is never fabricated — but the substrate must carry them).
+    assert all("newegg.com" in a["href_abs"] for a in mx_anchors)
+
+    # The anchor-walker tier (pre-ADR-077 path) also recovers the product:
+    # priced MX Master 3S candidates are present, so recall doesn't depend on
+    # any single extractor tier.
+    cands = universal_ai._extract_candidates(html, base_url=NEWEGG_SEARCH_URL)
+    priced_mx = [
+        c for c in cands
+        if "mx master 3s" in c["anchor_text"].lower() and c["price_hints"]
+    ]
+    assert len(priced_mx) >= 8, (
+        f"expected ≥8 priced MX Master 3S anchor candidates, got {len(priced_mx)}"
+    )
+
+    # Anti-fabrication substrate: the full-HTML tier verifies every LLM price
+    # verbatim against this stripped text — so the prices the model will quote
+    # must actually be here. Spot-check a couple of the candidate price hints.
+    text = universal_ai._strip_to_main_text(html, max_chars=None)
+    verified = 0
+    for c in priced_mx:
+        for hint in c["price_hints"]:
+            try:
+                price = float(hint.lstrip("$").replace(",", ""))
+            except ValueError:
+                continue
+            if universal_ai._price_in_text(price, text):
+                verified += 1
+                break
+    assert verified >= 5, (
+        f"expected ≥5 MX Master 3S candidates with a verbatim price in the "
+        f"stripped text, got {verified}"
+    )
+
+
+def test_newegg_search_offline_extracts_listings(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """End-to-end with stubbed LLM: real Newegg search HTML → ≥5 priced
+    Listings out, with the target MX Master 3S present.
+
+    Mirrors the Target offline test (and the ADR-082 Amazon recall pattern):
+    pins that the search-union wiring turns a rendered Newegg search body into
+    listings. The stub mirrors the anchor-walker tier (pick the priced
+    candidates) and returns no extra products from the full-HTML tier, so the
+    assertion measures the deterministic recall floor, not the LLM's mood.
+    """
+    import json as _json
+
+    html = NEWEGG_SEARCH_FIXTURE.read_text(encoding="utf-8")
+    monkeypatch.setattr(
+        universal_ai, "_fetch_html",
+        lambda url, timeout=20.0, **_kw: (html, 200, "stub"),
+    )
+
+    def _llm(**kwargs: Any) -> LLMResponse:
+        content = kwargs["messages"][0].content
+        # Full-HTML tier sends "PAGE TEXT:\n...\n\nLINKS:\n..."; the anchor
+        # tier sends a JSON array of candidates. Only stub the anchor tier;
+        # the union proves recall without leaning on the full-HTML tier.
+        try:
+            payload = _json.loads(content)
+        except (ValueError, TypeError):
+            return LLMResponse(
+                provider="anthropic", model="claude-haiku-4-5",
+                text=_json.dumps({"products": []}),
+                input_tokens=100, output_tokens=10,
+            )
+        decisions = []
+        for c in payload:
+            if not c.get("price_hints"):
+                continue
+            price_str = c["price_hints"][0].lstrip("$").replace(",", "")
+            try:
+                price = float(price_str)
+            except ValueError:
+                continue
+            decisions.append({
+                "idx": c["idx"],
+                "title": c["anchor_text"] or "Untitled",
+                "price_usd": price,
+                "condition": "new",
+            })
+        return LLMResponse(
+            provider="anthropic", model="claude-haiku-4-5",
+            text=_json.dumps({"listings": decisions}),
+            input_tokens=500, output_tokens=200,
+        )
+
+    monkeypatch.setattr(universal_ai, "call_llm", _llm)
+
+    query = AdapterQuery(
+        source_id="universal_ai_search",
+        extra={"url": NEWEGG_SEARCH_URL, "page_type": "search"},
+    )
+    results = universal_ai.fetch(query)
+
+    assert len(results) >= 5, f"expected ≥5 Listings, got {len(results)}"
+    for r in results:
+        assert "newegg.com" in r.url  # verbatim candidate URL, never LLM-typed
+        assert r.unit_price_usd > 0
+    titles = " ".join(r.title.lower() for r in results)
+    assert "mx master 3s" in titles, "target product missing from recall set"
+
+
+def test_bhphoto_search_is_cloudflare_walled_no_priced_candidates() -> None:
+    """B&H search is NOT recoverable today — it sits behind a Cloudflare bot
+    challenge that even a tier-4 browser render at networkidle can't pass.
+
+    Captured 2026-05-25: tier 3/4 × networkidle/domcontentloaded all returned
+    the SAME 31.7 KB "Performing security verification" Cloudflare interstitial
+    (Ray ID, cf-* markers) — never the product grid. Same failure class as
+    microcenter. The registry routes B&H recall to detail URLs
+    (prefer_page_type: detail); this pins that the search body yields ZERO
+    priced candidates so the LLM tiers can never fabricate a listing on top of
+    a challenge page (ADR-001). A future capture that DOES render products
+    would diff here and signal that search recall became recoverable.
+    """
+    html = BHPHOTO_SEARCH_FIXTURE.read_text(encoding="utf-8")
+    assert "security verification" in html.lower(), (
+        "fixture should be the Cloudflare challenge page"
+    )
+
+    cands = universal_ai._extract_candidates(html, base_url=BHPHOTO_SEARCH_URL)
+    with_price = sum(1 for c in cands if c["price_hints"])
+    assert with_price == 0, (
+        f"challenge page must not yield priced candidates; got {with_price}"
+    )
+    # The full-HTML tier's anchor substrate is empty on a challenge page too,
+    # so it has nothing to enumerate.
+    anchors = universal_ai._collect_search_anchors(html, base_url=BHPHOTO_SEARCH_URL)
+    titled = [a for a in anchors if a["title"]]
+    assert len(titled) <= 5, (
+        f"challenge page should expose ~no product anchors; got {len(titled)}"
     )
 
 

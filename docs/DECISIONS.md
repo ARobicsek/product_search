@@ -13,6 +13,7 @@ Status values:
 
 One line per ADR (newest first). Skim this; open only the bodies you need. (No ADR-036 — numbering gap.)
 
+- **ADR-087** — Phase 28: the two evidenced search-page recall leaks, diagnosed against freshly-captured committed fixtures (no extractor code change needed). **Newegg — REFUTED as a parser gap:** a 2026-05-25 `wait_condition:networkidle` capture of a Logitech MX Master 3S search page (529 KB) carries ~20 real product tiles, and BOTH the anchor-walker AND the ADR-077 full-HTML tiers recover the target product (16/15 priced listings; union 23). The Phase 26 Defect 6 "820 KB → 0 listings" was a transient render miss under degraded AlterLab (un-hydrated body), not a structural gap. Recovery regression-guarded by 2 fixture tests (substrate + offline-fetch). **B&H — NOT recoverable today:** search is Cloudflare bot-walled; every render rung (tier 3/4 × networkidle/domcontentloaded) returned the SAME 31.7 KB "Performing security verification" interstitial, never the product grid (same class as microcenter). Recall stays on detail URLs (`prefer_page_type:detail`, NOT `known_failure` — detail works); registry note strengthened with the 2026-05-25 re-verification + a fixture test pinning 0 priced candidates so the LLM can't fabricate off a challenge page (ADR-001) — ACCEPTED (diagnosis + regression-guarded)
 - **ADR-086** — Phase 18 (second-product proof) RETIRED; replaced by **Phase 28** (close the evidenced Newegg + B&H search-page recall leaks). Production already runs ~8 diverse product types and the Phase 26/27 stress tests onboarded → ran → deleted throwaway products end-to-end repeatedly, so the "does it generalise beyond RAM?" question Phase 18 was written to answer is already answered live. The real open, value-bearing work is recall (products that silently never enter the candidate set on live vendors). Mostly-offline, fixture-guarded — ACCEPTED (planning)
 - **ADR-085** — Phase 27: fix the 3 Phase 26 defects (reinforces ADR-079/084/068, doesn't supersede). D1 — the onboarder LLM could drop a detail-preferred URL to a URL-less `sources_pending` placeholder *before* the ADR-079 save-gate sees it; fixed with a hard prompt rule (keep the URL in `sources` + `extra.probe_note`) + a deterministic save-time guard (`detail-preference-presence.ts`) that flags URL-less placeholders. D2 — per-source `passed` was host-aggregated, so an `HTTPError` row on a host whose sibling URL succeeded read `passed>0` and the ADR-084 classifier silently returned OK; fixed by stamping `source_url` into each `Listing.attrs` and keying attribution by `(source, host, url)`. D3 — microcenter re-probed 0/3 at registry defaults (Phase 26 success was a cache-hit outlier); `known_failure` KEPT at `blocker` with a 2026-05-25 re-verification note — ACCEPTED (impl + live-verified)
 - **ADR-084** — Phase 25: source-outcome reason taxonomy. A bare "0" in the report's Sources panel is replaced by a classified, actionable reason via a deterministic `classify_source_outcome` (`worker/src/product_search/source_reasons.py`): `NO_MATCH` / `EMPTY_PAGE` / `PARSER_GAP` / `TRANSIENT` / `PERMANENT`. Rendered as a `[!NOTE]`/`[!WARNING]` callout under the table (only non-clean sources). New `LAST_FETCH_DIAGNOSTICS` (body_len/status/fetcher/degraded/pool-exhausted) from `universal_ai.fetch()` is what separates a parser gap from a genuinely-empty page — ACCEPTED (impl). **Amended by ADR-085 (Phase 27): per-source `passed` was host-aggregated; now keyed by `(source, host, url)` so same-host error rows aren't swallowed.**
@@ -99,6 +100,78 @@ One line per ADR (newest first). Skim this; open only the bodies you need. (No A
 - **ADR-002** — Repo-as-database; SQLite as workflow-local cache only — ACCEPTED
 - **ADR-001** — LLM is downstream of verified data only (architectural commitment) — ACCEPTED
 
+
+## ADR-087 — Phase 28: diagnose the two evidenced search-page recall leaks (Newegg + B&H)
+
+**Status**: ACCEPTED — diagnosis + regression-guarded, 2026-05-25.
+
+**Date**: 2026-05-25
+
+**Context**: Phase 28 (ADR-086) targeted the two evidenced recall leaks where
+products silently never enter the candidate set on a live vendor's *search*
+page: (1) Newegg search → 0 parsed off an 820 KB body (Phase 26 Defect 6,
+labelled `PARSER_GAP`); (2) the B&H search-tile walker finding ~4 anchors of
+~24 (ADR-077 context, standing "noticed but deferred"). The brief mandated a
+mostly-offline, fixture-guarded approach: one `cli probe-url --render
+--save-body` per vendor to capture a fixture, then all diagnosis + tests run
+against committed HTML (ADR-062), respecting the no-fabrication guard (ADR-001)
+and registry-not-profile rule (ADR-068).
+
+**What the evidence showed** (fresh fixtures captured 2026-05-25, MX Master 3S):
+- **Newegg — the parser-gap premise is REFUTED.** A `wait_condition:networkidle`
+  capture (`newegg_search_mx_master_3s.html`, 529 KB, status 200) strips to ~9.5 K
+  chars of visible text containing ~20 real "Logitech MX Master 3S" product tiles
+  with full titles, real `/p/` product URLs, and prices. Run live against the
+  fixture, the anchor-walker tier recovered 23 listings (16 MX Master 3S) and the
+  ADR-077 full-HTML tier recovered 22 (15 MX Master 3S); the union is 23. So
+  Newegg search recall is robust and NOT extractor-limited. The Defect 6 zero was
+  a transient render miss — degraded AlterLab returned an un-hydrated body that
+  session, exactly the failure ADR-078's escalation/breaker is built for — not a
+  structural gap. No extractor change is warranted; the value is locking the
+  recall in so a future render/strip regression is caught.
+- **B&H — genuinely not recoverable today.** Every render rung (country=us,
+  min_tier 3 AND tier 4 browser, both networkidle and domcontentloaded) returned
+  the SAME 31.7 KB Cloudflare "Performing security verification" interstitial
+  (Ray ID, cf-* markers), never the product grid. (networkidle additionally
+  504'd intermittently on the degraded AlterLab pool.) This is the same anti-bot
+  class as microcenter — but B&H *detail* pages render fine, so the correct
+  registry state is the existing `prefer_page_type:detail` (recall via detail
+  URLs), NOT a blanket `known_failure`.
+
+**Decision**:
+1. **No extractor code change.** The diagnosis refutes the Newegg premise and
+   confirms B&H is anti-bot-walled, not parser-limited — adding code would be a
+   fix for a non-existent bug (and the user's standing preference is
+   evidence-based root-cause over speculative fixes).
+2. **Regression-guard Newegg recall** with two committed-fixture tests
+   (`test_universal_ai.py`): a deterministic substrate test (`_collect_search_anchors`
+   ≥10 MX Master 3S anchors + ≥8 priced anchor-walker candidates + ≥5 prices
+   verbatim in stripped text) and an offline stubbed-LLM end-to-end `fetch()` test
+   (≥5 priced Newegg listings, target present, all URLs verbatim). These fail if a
+   future render/strip regression re-introduces the Defect 6 zero.
+3. **Record the B&H registry decision** (ADR-068): strengthen the
+   `bhphotovideo.com` note in `vendor_quirks.yaml` with the 2026-05-25 Cloudflare
+   re-verification evidence; keep `prefer_page_type:detail`; add a fixture test
+   pinning the challenge body to 0 priced candidates so the LLM tiers can never
+   fabricate a listing on top of a challenge page (ADR-001). Regenerated web
+   artifacts via `sync-prompt.js`; also annotated the `newegg.com` note that
+   search recall works post-render and Defect 6 was transient.
+
+**Consequences**:
+- Phase 28's "Done when" is met for B&H (evidence-backed registry decision +
+  regression test) and the Newegg leak is closed by refutation+guard rather than
+  a code fix — an honest partial-vs-full outcome the brief explicitly permits.
+- The Newegg regression tests don't "fail pre-fix" (nothing was broken), which
+  is the correct signal: the bug was transient infrastructure degradation, not
+  code. The guard's job is forward-looking.
+- B&H search recall remains 0 until either AlterLab gains a working anti-Cloudflare
+  path for B&H or a dedicated adapter is built (out of scope, Tier-A work). Detail
+  URLs carry B&H recall in the meantime.
+- Two new committed fixtures (`newegg_search_mx_master_3s.html` 529 KB,
+  `bhphotovideo_search_mx_master_3s.html` 31.7 KB challenge). Live spend this
+  session ≈ a handful of AlterLab probes + 2 Haiku diagnostic extractions (~$0.05).
+
+---
 
 ## ADR-086 — Retire Phase 18 (second-product proof); pivot to Phase 28 (recall leaks)
 
