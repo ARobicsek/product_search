@@ -13,6 +13,7 @@ Status values:
 
 One line per ADR (newest first). Skim this; open only the bodies you need. (No ADR-036 — numbering gap.)
 
+- **ADR-086** — Phase 18 (second-product proof) RETIRED; replaced by **Phase 28** (close the evidenced Newegg + B&H search-page recall leaks). Production already runs ~8 diverse product types and the Phase 26/27 stress tests onboarded → ran → deleted throwaway products end-to-end repeatedly, so the "does it generalise beyond RAM?" question Phase 18 was written to answer is already answered live. The real open, value-bearing work is recall (products that silently never enter the candidate set on live vendors). Mostly-offline, fixture-guarded — ACCEPTED (planning)
 - **ADR-085** — Phase 27: fix the 3 Phase 26 defects (reinforces ADR-079/084/068, doesn't supersede). D1 — the onboarder LLM could drop a detail-preferred URL to a URL-less `sources_pending` placeholder *before* the ADR-079 save-gate sees it; fixed with a hard prompt rule (keep the URL in `sources` + `extra.probe_note`) + a deterministic save-time guard (`detail-preference-presence.ts`) that flags URL-less placeholders. D2 — per-source `passed` was host-aggregated, so an `HTTPError` row on a host whose sibling URL succeeded read `passed>0` and the ADR-084 classifier silently returned OK; fixed by stamping `source_url` into each `Listing.attrs` and keying attribution by `(source, host, url)`. D3 — microcenter re-probed 0/3 at registry defaults (Phase 26 success was a cache-hit outlier); `known_failure` KEPT at `blocker` with a 2026-05-25 re-verification note — ACCEPTED (impl + live-verified)
 - **ADR-084** — Phase 25: source-outcome reason taxonomy. A bare "0" in the report's Sources panel is replaced by a classified, actionable reason via a deterministic `classify_source_outcome` (`worker/src/product_search/source_reasons.py`): `NO_MATCH` / `EMPTY_PAGE` / `PARSER_GAP` / `TRANSIENT` / `PERMANENT`. Rendered as a `[!NOTE]`/`[!WARNING]` callout under the table (only non-clean sources). New `LAST_FETCH_DIAGNOSTICS` (body_len/status/fetcher/degraded/pool-exhausted) from `universal_ai.fetch()` is what separates a parser gap from a genuinely-empty page — ACCEPTED (impl). **Amended by ADR-085 (Phase 27): per-source `passed` was host-aggregated; now keyed by `(source, host, url)` so same-host error rows aren't swallowed.**
 - **ADR-083** — Phase 25: AlterLab `browser_pool_exhausted` 422 is a transient capacity error, not a malformed request, so it is now retried like a 5xx (longer backoff, `_ALTERLAB_POOL_BACKOFF_SECONDS`) before falling through — refines ADR-078's "4xx never retry" rule, which was correct for auth/quota/malformed but wrong for pool exhaustion (it dropped to a no-JS fetcher bot-walled vendors block, zeroing recall). Other 4xx unchanged. A per-fetch flag feeds ADR-084's classifier so a sustained outage is still labelled transient — ACCEPTED (impl)
@@ -98,6 +99,22 @@ One line per ADR (newest first). Skim this; open only the bodies you need. (No A
 - **ADR-002** — Repo-as-database; SQLite as workflow-local cache only — ACCEPTED
 - **ADR-001** — LLM is downstream of verified data only (architectural commitment) — ACCEPTED
 
+
+## ADR-086 — Retire Phase 18 (second-product proof); pivot to Phase 28 (recall leaks)
+
+**Status**: ACCEPTED — user-confirmed 2026-05-25 (planning decision).
+
+**Date**: 2026-05-25
+
+**Context**: Phase 18 ("Polish & second product proof") was written when the rebuilt onboarder/adapter had only proved out on RAM. Its done-when was "three products onboarded, one deleted, two run scheduled for a week." By 2026-05-25 that bar is met many times over in production: the live app runs ~8 wildly diverse products (server CPU, espresso machine, vacuum, GPU, headphones, keychain, book, jerky), the schedule editor (Phase 17), delete path (Phase 16) and onboarder are all live-verified, and Phases 26–27 onboarded → ran → deleted throwaway products end-to-end repeatedly via the deployed path. Running Phase 18 as written would be a formality that produces no new signal.
+
+Meanwhile the genuinely open, value-bearing work is **recall** — products that silently never enter the candidate set on live vendors (no downstream filter can recover them). Two leaks are evidenced and reproducible: Newegg search returns an 820 KB rendered body with 0 parsed listings (Phase 26 Defect 6), and the B&H search-tile walker finds ~4 of ~24 product mentions (ADR-077 context; re-confirmed 0 anchors on stress27-mx3s). Per ADR-077's own framing, a search-step gap is the highest-leverage recall lever because it loses *every* product on the vendor, not just one SKU.
+
+**Decision**: Retire Phase 18 (marked RETIRED in PHASES.md, not deleted — history preserved). Replace it with **Phase 28 — Close the two evidenced search-page recall leaks (Newegg + B&H)**: capture committed fixtures, diagnose whether each gap is extractor-recoverable vs a render/registry issue vs genuinely unrecoverable today, fix the recoverable ones with regression-guarded fixture tests (mirroring the ADR-082 Amazon pattern), and record an evidence-backed registry decision for any that aren't. Mostly offline (one live fetch per fixture), honors the no-fabrication guard (ADR-001/077) and registry-not-profile discipline (ADR-068).
+
+**Consequence**: The forward queue now points at recall work that directly improves live-product results, instead of a redundant generality proof. Partial wins are acceptable (fixing one vendor still closes a real leak). The Cloudflare-wall vendors (microcenter, Backmarket) and the onboarder schema paper-cuts remain separate, lower-priority candidates. If a future need for a *formal* multi-product soak test arises, this ADR can be revisited — the Phase 18 brief is retained in PHASES.md for that.
+
+---
 
 ## ADR-085 — Phase 27: close the three Phase 26 defects (reinforces ADR-079/084/068)
 

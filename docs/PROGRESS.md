@@ -7,7 +7,7 @@ Full session-by-session history → [PROGRESS_ARCHIVE.md](PROGRESS_ARCHIVE.md) (
 ## Active phase
 
 - **Closed:** Phases 0–16; **Phase 17** (schedule editor + alerts); **Phase 19** (universal adapter accuracy & vendor reach); **Phase 20** (reliable scheduling trigger); **Phase 22 — Recall reliability under degraded AlterLab + onboarder robustness** (ADR-078/079/080, 2026-05-24); **Phase 23 — Hybrid filter restoration + headless E2E verification** (both Parts A and B closed, 2026-05-24); **Phase 24 — Vendor-quirks coverage audit + Amazon JS-render fix** (ADR-082, 2026-05-24); **Phase 25 — "Explain the zero": classified source-outcome reasons + AlterLab 422 transient retry** (ADR-083/084, 2026-05-24); **Phase 26 — Cross-cutting LIVE stress test & regression sweep** (findings in [STRESS_TEST_26.md](STRESS_TEST_26.md), 2026-05-24); **Phase 27 — Fix the 3 Phase 26 defects + live re-verify** (ADR-085, verification in [STRESS_TEST_27.md](STRESS_TEST_27.md), 2026-05-25).
-- **Queued next:** **Phase 18 — Polish + second-product proof** (the standing next-up; see brief in PHASES.md).
+- **Queued next:** **Phase 28 — Close the two evidenced search-page recall leaks (Newegg + B&H)** (ADR-086; brief in PHASES.md). Phase 18 (second-product proof) was RETIRED 2026-05-25 — production already proves generality, so the forward queue now targets recall.
 - **Most recent work:** 2026-05-25 **Phase 27 closed.** Shipped D1+D2+D3 (commit `0974299`). **D1** (reinforces ADR-079): prompt rule + new deterministic save-guard (`detail-preference-presence.ts`) so a detail-preferred URL can't be dropped to a URL-less `sources_pending` placeholder before the save gate runs. **D2** (reinforces ADR-084): cli now stamps `source_url` into each `Listing.attrs` and keys `passed` attribution by `(source, host, url)`, so same-host error rows aren't swallowed by a sibling URL's success. **D3** (maintains ADR-068): re-probed microcenter 0/3 at registry defaults → KEPT `known_failure: blocker` with a 2026-05-25 re-verification note (Phase 26 success was a cache-hit outlier). Live re-verify drove one throwaway `stress27-mx3s` onboard+run via Chrome DevTools MCP under a degraded-AlterLab session: D1 PASS (B&H kept in `sources` with `probe_note`, surfaced as a `transient` bullet in the ADR-084 callout, mobile render clean), D2 PASS (unit test primary + live no-regression), D3 PASS (probe-evidence). Slug deleted via Phase 16 path (`b2664f0`); live products untouched. Spend ≈ $0.17.
 
 ## Current state — 2026-05-25 Phase 27 closed
@@ -32,7 +32,9 @@ Full session-by-session history → [PROGRESS_ARCHIVE.md](PROGRESS_ARCHIVE.md) (
 6. **Backmarket Cloudflare-challenge investigation** (2026-05-24 Phase 24 probe) — `cli probe-url backmarket.com/en-us/search?q=...` through AlterLab at tier 3+networkidle returned a 32 KB "Just a moment..." challenge page; tier 4 produced the identical body. The registry now sends those defaults, but if the challenge persists Backmarket recall remains 0. May warrant a `known_failure` like microcenter, or a tier escalation experiment.
 7. **Schedule & Alerts editor prod verification** (ADR-059/060/061).
 8. **Mobile popover layout.**
-9. Then **Phase 18 — Polish + second-product proof.**
+9. **Onboarder schema paper-cuts** — ADR-074 followup #2 (`spec_attrs.required` / `description` gap that cost the stress26-ddr5 onboard a round-trip) + `low_seller_feedback` "(no description)" render bug. Small, cheap.
+
+> **Phase 18 (second-product proof) was RETIRED 2026-05-25 (ADR-086)** — production already proves generality. The queued next phase is **Phase 28** (Newegg + B&H search-page recall leaks).
 
 > ADR-075 (`condition_in`) was verified live in prod 2026-05-23 and re-confirmed 2026-05-24 (Phase 23 Part A: `condition_in: [new]` emitted into the saved YAML and visible in the filter log's pass reasons).
 

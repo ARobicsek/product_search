@@ -382,18 +382,17 @@ Each phase is sized to fit one focused dev session (~30-90 min with an AI co-pil
 
 ---
 
-## Phase 18 — Polish & second product proof (replaces old Phase 12)
+## Phase 18 — Polish & second product proof (RETIRED 2026-05-25)
 
-**Goal**: end-to-end proof that the rebuilt system works for a third product type.
-
-**Tasks**:
-- Onboard one new non-RAM, non-headphones product end-to-end using the rebuilt onboarder (Phase 14) + improved adapter (Phase 15). Suggestion: a category that exercises web search hard (e.g. mechanical keyboards or a specific GPU model).
-- Use the schedule editor (Phase 17) to set a non-default cadence.
-- Run scheduled for 7 consecutive days. Verify reports land daily.
-- At end of week, delete one of the three products via the delete button (Phase 16) to validate that path on real data.
-
-**Done when**:
-- Three products onboarded, one deleted, two run scheduled for a full week with daily reports committed.
+**RETIRED — subsumed by production reality (ADR-086).** Phase 18's goal was to
+*prove generality* by onboarding a 2nd/3rd non-RAM product end-to-end and
+running it for a week. By 2026-05-25 production already runs ~8 wildly diverse
+products (server CPU, espresso machine, vacuum, GPU, headphones, keychain,
+book, jerky), and the Phase 26/27 stress tests onboarded → ran → deleted
+throwaway products end-to-end repeatedly. The generality question is answered;
+the schedule editor (Phase 17), delete path (Phase 16), and onboarder all have
+live proof. Running Phase 18 as written would be a formality. The real open
+work — recall leaks on live vendors — is now **Phase 28**.
 
 ---
 
@@ -879,4 +878,104 @@ Mirror the Phase 26 stress pattern at smaller scale, ONLY targeting the three de
 - `low_seller_feedback` flag description (Phase 26 Defect 5) — out of scope unless trivially in your way.
 - The `spec_attrs.required` schema mismatch (Phase 26 Defect 4) — out of scope this session; queue as a separate small task.
 - Phase 18 (second-product proof) — comes after Phase 27.
+
+---
+
+## Phase 28 — Close the two evidenced search-page recall leaks (Newegg + B&H) (PROPOSED 2026-05-25)
+
+### Why
+Phase 18 was retired (ADR-086): production already proves generality. The
+genuinely open, value-bearing work is **recall** — products that silently
+never enter the candidate set on live vendors, so no downstream filter can
+recover them. Two are evidenced and reproducible:
+- **Newegg search → 0 parsed off an 820 KB rendered body** (Phase 26 Defect 6 /
+  STRESS_TEST_26.md). The ADR-084 callout correctly labels it `PARSER_GAP`, but
+  the underlying extractor doesn't recognise Newegg's search-tile layout — even
+  the ADR-077 full-HTML LLM extractor returned nothing on a fully-rendered page.
+- **B&H search-tile walker → ~4 anchors out of ~24 product mentions** (ADR-077
+  context; standing "Noticed but deferred" item). Worked around today by
+  routing B&H to `prefer_page_type: detail`, but the *search* path is still
+  blind, so B&H search recall is ~0. (Confirmed again in Phase 27: B&H search
+  returned 0 anchors on stress27-mx3s.)
+
+Both are the *highest-leverage* recall lever per ADR-077's own framing (a search
+gap loses every product on the vendor, not just one SKU). Fixing them is
+mostly offline + regression-guarded (ADR-062): one live fetch to capture each
+fixture, then all work + tests run against committed HTML.
+
+### Ground rules
+- **Mostly offline.** The only live spend is one `cli probe-url --render --save-body`
+  per vendor to capture the fixture (~trivial AlterLab). Everything else runs
+  against committed fixtures under `worker/tests/fixtures/universal_ai/`. No
+  throwaway slugs, no scheduled runs. If you do want a live end-to-end confirm
+  at the end, say so and confirm budget first.
+- **ADR-062**: tests depend ONLY on committed fixtures, never a live
+  `products/<slug>/`.
+- **Respect the no-fabrication commitment (ADR-001/077)**: any LLM-extracted
+  price MUST be verified verbatim in the fetched bytes (reuse the existing
+  `_extract_detail_listing` / ADR-077 search-extractor verification helper).
+  Don't add a path that lets the LLM invent a price/url.
+- **Registry, not per-profile (ADR-068)**: if a vendor needs a render default
+  or a `wait_for`-style hint, it goes in `vendor_quirks.yaml` + `sync-prompt.js`
+  regen — never a one-off profile patch.
+
+### Background you need (read in order)
+1. `docs/PROGRESS.md` (state) + this brief.
+2. `docs/STRESS_TEST_26.md` § Defect 6 (Newegg) + the two B&H "Noticed but
+   deferred" lines in PROGRESS.md.
+3. ADR-077 (recall-first search extractor) + `worker/src/product_search/adapters/universal_ai.py`
+   `_extract_candidates` / the ADR-077 full-HTML tier / `_extract_jsonld_listings`.
+4. `worker/tests/test_universal_ai.py` (existing fixture-driven extractor tests,
+   incl. the ADR-082 Amazon recall regression fixture pattern to mirror).
+
+### Tasks
+1. **Capture fixtures.** `cli probe-url --render --save-body` a current Newegg
+   search URL and a current B&H search URL (both for a high-availability product
+   so the page is populated, e.g. the MX Master 3S or a popular SSD). Save to
+   `worker/tests/fixtures/universal_ai/newegg_search_<product>.html` and
+   `bhphotovideo_search_<product>.html`. Note body size + the live anchor/JSON-LD
+   counts in the test docstring.
+2. **Diagnose each, in the fixture.** For each saved body, determine WHY recall
+   is 0/low: is the product data in static HTML (tiles/JSON-LD present but in a
+   shape the walker misses) or genuinely absent (SPA hydration not captured even
+   at networkidle)? Write the verdict into the test/PR. This decides whether the
+   fix is an extractor tweak (recoverable) or a render-defaults change (needs a
+   `vendor_quirks.yaml` entry) or genuinely not recoverable today (→ document as
+   a `known_failure`-class limitation, like microcenter).
+3. **Fix the recoverable ones.** Most likely the ADR-077 full-HTML LLM extractor
+   needs to actually fire on these search bodies (or its char-cap / main-content
+   stripping is dropping the tiles), or the anchor walker needs a small
+   generalisation. Make the minimal change that recovers ≥N products from the
+   fixture; keep the verbatim-price guard. If a vendor needs render defaults, add
+   them to `vendor_quirks.yaml` and regen web artifacts.
+4. **Regression-guard with committed-fixture tests** (mirror the ADR-082 Amazon
+   pattern): assert the extractor finds ≥N priced candidates from each fixture,
+   and assert the target product is present. These tests must fail on the
+   pre-fix code and pass after.
+5. **If a vendor turns out genuinely unrecoverable today** (e.g. hard SPA + bot
+   wall), don't force it: record a `known_failure`/`prefer_page_type: detail`
+   decision in `vendor_quirks.yaml` with evidence (same discipline as microcenter
+   in Phase 27 D3), regen artifacts, and move the recall expectation to detail
+   URLs. Partial wins are fine — a brief that recovers Newegg but not B&H (or
+   vice-versa) still closes a real leak.
+
+### Done when
+- ≥1 of the two vendors has its search-page recall recovered (≥N priced
+  candidates extracted from the committed fixture, target product present),
+  regression-guarded by a fixture test that fails pre-fix.
+- The other vendor is either also fixed OR has a documented, evidence-backed
+  registry decision (`known_failure` / `prefer_page_type: detail`) explaining
+  why search recall isn't recoverable today and where recall now comes from.
+- Worker suite green (`pytest`, `ruff src/`, `mypy` on touched files); if
+  `vendor_quirks.yaml` changed, `node web/scripts/sync-prompt.js` re-run and web
+  `tsc`/`eslint`/`test:parity`/`test:guards`/`next build` green.
+- A new ADR documenting the extractor change and/or the registry decision;
+  PROGRESS.md updated; commit + push.
+
+### Out of scope
+- Microcenter / Backmarket Cloudflare bypass (separate, higher-risk investigation).
+- The onboarder schema paper-cuts (ADR-074 #2 / `low_seller_feedback` description) —
+  separate small task.
+- A dedicated native Newegg/B&H adapter (Tier-A work, separate scope) — this
+  phase stays within the universal_ai search-extraction path.
 
