@@ -8,6 +8,29 @@ so the live file stays small while nothing is lost. See
 
 ---
 
+## Current state — 2026-05-24 Phase 26 closed (SUPERSEDED by 2026-05-25 Phase 27 close)
+
+**Deliverable:** [docs/STRESS_TEST_26.md](STRESS_TEST_26.md) — per-row PASS/FAIL/N·A regression checklist + prioritised defect list + screenshot evidence ([stress26_mobile_callout_mx3s.png](stress26_mobile_callout_mx3s.png)).
+
+**ADR regression checklist — verified firing in production this session:**
+- ADR-068 (Best Buy `intl=nosplash` URL transform, microcenter `known_failure` routing into `sources_pending`)
+- ADR-075 (`condition_in:[new]` emission + deterministic rejection of refurbished/used — 47 rejections on the mx3s run alone)
+- ADR-077 (full-HTML extraction on Amazon search yielded 20 candidates / 5 passing on mx3s; the anchor walker alone would return 0)
+- ADR-078 (per-run circuit breaker fired after 3 consecutive degraded Best Buy detail fetches on xm5; subsequent sources skipped with visible reason)
+- ADR-081 (Hybrid filter pre-pass rejects used/refurb deterministically before ai_filter — visible in `[condition_in]` prefix in filter.jsonl)
+- ADR-082 (Amazon defaults `country: us, min_tier: 3, wait_condition: networkidle` present in saved profile + visibly working at runtime)
+- ADR-083 (`browser_pool_exhausted` 422 detected indirectly via the `alterlab_pool_exhausted` diagnostic flag surfacing in the ADR-084 callout)
+- ADR-084 (every non-clean source got a classified reason in the `[!NOTE]` callout; categories `transient` / `needs work` / `no match` all observed across the 4 reports; web + mobile rendering clean)
+
+**Defects captured (all three P1/P2 now FIXED in Phase 27 — see ADR-085 / STRESS_TEST_27.md):**
+1. **P1 — ADR-079 hole**: onboarder LLM could drop a detail-preferred URL before save, leaving the gate nothing to protect (stress26-mx3s, B&H). → Phase 27 D1.
+2. **P1 — ADR-084 callout fidelity bug**: host-aggregated `passed` count → error rows on a multi-URL host silently treated as OK (stress26-xm5, Best Buy). → Phase 27 D2.
+3. **P2 — `microcenter.com` `known_failure` stale?**: detail URL extracted cleanly once. → Phase 27 D3 re-probed 0/3, KEPT the block with a dated note.
+
+**Additional paper-cuts (P2/P3, still open):** ddr5 onboarder emitted `spec_attrs` without `required:` (ADR-074 followup #2 class); `low_seller_feedback` flag renders `(no description)`; Newegg search 820 KB body but 0 parsed (PARSER_GAP fixture candidate). All in STRESS_TEST_26.md § Defects 4–6.
+
+---
+
 ## Current state — 2026-05-24 Phase 25 closed (SUPERSEDED by 2026-05-24 Phase 26 close)
 
 **Worker — Part A (`adapters/universal_ai.py`)**:
