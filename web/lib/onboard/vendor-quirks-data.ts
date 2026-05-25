@@ -8,7 +8,7 @@ export const FORCE_DETAIL_BACKUP_HOSTS: ReadonlySet<string> = new Set(["adorama.
 // Hosts (www-stripped) that AlterLab renders fine in production even when a
 // bare datacenter fetch gets a 5xx / tiny body. Used by probe-url.ts to avoid
 // false-negative demotions.
-export const ALTERLAB_KNOWN_GOOD_HOSTS: ReadonlySet<string> = new Set(["amazon.com","backmarket.com","bestbuy.com","centralcomputer.com","ebay.com","serversupply.com","target.com","walmart.com","williams-sonoma.com"]);
+export const ALTERLAB_KNOWN_GOOD_HOSTS: ReadonlySet<string> = new Set(["amazon.com","backmarket.com","bestbuy.com","ebay.com","target.com","walmart.com","williams-sonoma.com"]);
 
 // Hosts (www-stripped) whose search-tile walker is blind, so the onboarder is
 // told to PREFER page_type:"detail" URLs. ADR-079: a transient probe failure on

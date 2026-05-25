@@ -319,3 +319,126 @@ def test_consistency_check_silent_on_well_formed_registry(tmp_path: Path, caplog
         r for r in caplog.records
         if r.levelno >= logging.WARNING and "ADR-082" in r.getMessage()
     ]
+
+
+# ---------------------------------------------------------------------------
+# Phase 24 follow-up / ADR-088: eBay needs the Amazon-class render fix;
+# CentralComputer + ServerSupply are Cloudflare-walled known_failures, not
+# known-good. Probed live 2026-05-25 (see ADR-088 + universal_ai fixtures).
+# ---------------------------------------------------------------------------
+
+
+def test_ebay_is_dedicated_adapter_owned_with_no_render_defaults():
+    """ADR-088: eBay recall is owned by the dedicated `ebay_search` adapter, so
+    ebay.com carries `dedicated_adapter` and NO `default_alterlab_options`.
+
+    The render-defaults heuristic doesn't apply: the onboarder never routes
+    eBay to universal_ai_search, and a probed tier-3 + networkidle render of an
+    eBay search URL returns titles/anchors but ZERO listing prices (eBay loads
+    prices via late JS) — so render defaults would be both dead config and the
+    wrong lever. `alterlab_known_good` is kept for the probe-url.ts gate only.
+    """
+    vendor_quirks._load_registry.cache_clear()
+    quirks = vendor_quirks.get_quirks_for_url(
+        "https://www.ebay.com/sch/i.html?_nkw=logitech+mx+master+3s"
+    )
+    assert quirks.get("dedicated_adapter") == "ebay_search"
+    assert quirks.get("alterlab_known_good") is True
+    assert quirks.get("default_alterlab_options") in (None, {})
+    # No defaults → the universal_ai merge is a no-op for a bare eBay source.
+    merged = vendor_quirks.merge_alterlab_options(
+        "https://www.ebay.com/sch/i.html?_nkw=logitech+mx+master+3s", None
+    )
+    assert merged is None
+
+
+@pytest.mark.parametrize("host_url", [
+    "https://www.centralcomputer.com/catalogsearch/result/?q=epyc",
+    "https://www.serversupply.com/",
+])
+def test_cloudflare_walled_hosts_are_known_failures_not_known_good(host_url: str):
+    """ADR-088: CentralComputer + ServerSupply are Cloudflare-walled (every
+    render rung returns a 'Just a moment...' interstitial). They must carry a
+    `known_failure` block (so the onboarder routes them to sources_pending) and
+    must NOT carry `alterlab_known_good` (which would falsely assert AlterLab
+    handles them and stop the save-time probe from demoting).
+    """
+    vendor_quirks._load_registry.cache_clear()
+    quirks = vendor_quirks.get_quirks_for_url(host_url)
+    assert isinstance(quirks.get("known_failure"), dict), (
+        f"{host_url}: expected a known_failure block (Cloudflare wall)"
+    )
+    assert quirks["known_failure"].get("severity") == "blocker"
+    assert quirks.get("alterlab_known_good") is not True, (
+        f"{host_url}: a Cloudflare-walled host must not be tagged "
+        "alterlab_known_good (ADR-088 contradiction)"
+    )
+
+
+def test_committed_registry_has_no_consistency_warnings(caplog):
+    """The done-when of the Phase 24 follow-up: after ADR-088, the real
+    committed registry loads with ZERO ADR-082/088 consistency warnings. This
+    is the regression guard that the three originally-flagged hosts
+    (ebay/centralcomputer/serversupply) are now self-consistent.
+    """
+    import logging
+
+    vendor_quirks._load_registry.cache_clear()
+    with caplog.at_level(logging.WARNING, logger="product_search.vendor_quirks"):
+        vendor_quirks._load_registry()
+    vendor_quirks._load_registry.cache_clear()
+
+    offending = [
+        r.getMessage() for r in caplog.records
+        if r.levelno >= logging.WARNING and "[vendor_quirks]" in r.getMessage()
+    ]
+    assert offending == [], f"committed registry still warns: {offending}"
+
+
+def test_consistency_check_flags_known_good_plus_known_failure_contradiction(
+    tmp_path: Path, caplog
+):
+    """ADR-088: `alterlab_known_good: true` together with a `known_failure`
+    block is a contradiction (one says AlterLab works, the other says there's
+    no working path) — the exact mis-tag that hid centralcomputer/serversupply.
+    The check flags it, and does NOT also emit the missing-defaults warning for
+    that host. A `known_failure` host WITHOUT the known-good flag stays silent.
+    """
+    import logging
+
+    p = tmp_path / "contradiction.yaml"
+    p.write_text(
+        dedent(
+            """
+            contradicts.example:
+              alterlab_known_good: true
+              known_failure:
+                severity: blocker
+                summary: walled
+            clean_failure.example:
+              known_failure:
+                severity: blocker
+                summary: walled
+            adapter_owned.example:
+              alterlab_known_good: true
+              dedicated_adapter: some_search
+            """
+        ).lstrip(),
+        encoding="utf-8",
+    )
+    vendor_quirks._load_registry.cache_clear()
+    with caplog.at_level(logging.WARNING, logger="product_search.vendor_quirks"):
+        vendor_quirks._load_registry(str(p))
+    vendor_quirks._load_registry.cache_clear()
+
+    text = " ".join(r.getMessage() for r in caplog.records)
+    assert "contradicts.example" in text
+    assert "ADR-088" in text
+    assert "contradict" in text
+    # The contradiction host must NOT also get the missing-defaults nag.
+    assert "ADR-082" not in text
+    # A known_failure host with no known-good flag is exempt entirely.
+    assert "clean_failure.example" not in text
+    # ADR-088: a dedicated-adapter host is exempt from the render-defaults nag
+    # even though it has alterlab_known_good + no default_alterlab_options.
+    assert "adapter_owned.example" not in text

@@ -145,7 +145,28 @@ bhphotovideo.com:
     works; only search is walled.
 
 centralcomputer.com:
-  alterlab_known_good: true
+  default_alterlab_options:
+    country: us
+    min_tier: 3
+    wait_condition: networkidle
+  known_failure:
+    severity: blocker
+    summary: |
+      Cloudflare bot-walled — same class as microcenter (ADR-088, probed
+      2026-05-25). Search AND homepage return the SAME ~31.9 KB
+      "Just a moment..." Cloudflare interstitial (Ray ID, cf-* markers, 0
+      product anchors) through AlterLab at tier 3 + networkidle. The
+      2026-05-17 detail-page capture was already the identical challenge body
+      (pinned barren by test_strip_real_botwall_fixture). Detail URLs do NOT
+      escape it either — there is no working path today. NOTE: this host was
+      previously (mis)tagged `alterlab_known_good: true`; that asserted AlterLab
+      renders it fine, which is false. Removed — a Cloudflare-walled host is the
+      opposite of known-good. default_alterlab_options kept to document the
+      max attempt and so the runtime sends the right options IF the wall lifts.
+    onboarder_action: |
+      Put centralcomputer.com URLs in `sources_pending` (NOT `sources`) with
+      this summary as the note. Do not promise the user CentralComputer
+      listings until the Cloudflare bypass is solved.
 
 costco.com:
   force_detail_backup: true
@@ -155,6 +176,22 @@ crutchfield.com:
 
 ebay.com:
   alterlab_known_good: true
+  dedicated_adapter: ebay_search
+  notes: |
+    eBay recall is owned by the dedicated `ebay_search` adapter (adapters/ebay.py,
+    its own fetch path + eBay-specific parsing) — the onboarder always routes
+    eBay there, NEVER to universal_ai_search (onboard_v1.txt). So this host does
+    NOT take `default_alterlab_options`: those only feed the universal_ai render
+    path, which the onboarder never points at eBay. ADR-088 (probed 2026-05-25)
+    confirmed render defaults would be the WRONG lever anyway: a default-tier
+    AlterLab fetch of an eBay search URL returns a ~450-byte stub, and even a
+    tier-3 + networkidle render returns titles/anchors but ZERO listing prices
+    (eBay loads prices via late JS the capture never hydrates) — so the
+    anti-fabrication price guard drops every candidate. `alterlab_known_good`
+    is kept only so probe-url.ts won't hard-demote a manually-pasted eBay URL on
+    a bare-fetch bot-block. `dedicated_adapter` exempts eBay from the ADR-082
+    render-defaults lint (the lint's premise doesn't apply to adapter-owned
+    hosts — ADR-088).
 
 gamestop.com:
   force_detail_backup: true
@@ -208,7 +245,25 @@ rei.com:
   force_detail_backup: true
 
 serversupply.com:
-  alterlab_known_good: true
+  default_alterlab_options:
+    country: us
+    min_tier: 3
+    wait_condition: networkidle
+  known_failure:
+    severity: blocker
+    summary: |
+      Cloudflare bot-walled — same class as microcenter (ADR-088, probed
+      2026-05-25). The homepage returns a ~31.7 KB "Just a moment... /
+      Performing security verification" Cloudflare interstitial (Ray ID, 0
+      product anchors) through AlterLab at tier 3 + networkidle. The 2026-05-17
+      detail-page capture was the identical challenge body (pinned barren by
+      test_strip_real_botwall_fixture). No working path today. NOTE: previously
+      (mis)tagged `alterlab_known_good: true` — false for a Cloudflare-walled
+      host; removed. default_alterlab_options kept to document the max attempt.
+    onboarder_action: |
+      Put serversupply.com URLs in `sources_pending` (NOT `sources`) with this
+      summary as the note. Do not promise the user ServerSupply listings until
+      the Cloudflare bypass is solved.
 
 sweetwater.com:
   force_detail_backup: true

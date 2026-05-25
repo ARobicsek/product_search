@@ -8,6 +8,19 @@ so the live file stays small while nothing is lost. See
 
 ---
 
+## Current state — 2026-05-25 Phase 28 closed (SUPERSEDED by 2026-05-25 Phase 24 follow-up / ADR-088)
+
+**Deliverables:** ADR-087 in DECISIONS.md (diagnosis + regression-guarded). 3 new fixture tests in `worker/tests/test_universal_ai.py`; 2 new committed fixtures under `worker/tests/fixtures/universal_ai/` (`newegg_search_mx_master_3s.html` 529 KB rendered; `bhphotovideo_search_mx_master_3s.html` 31.7 KB Cloudflare challenge). `vendor_quirks.yaml` notes strengthened for `bhphotovideo.com` + `newegg.com` (regen'd `promptText.ts` via `sync-prompt.js`).
+
+**What shipped:**
+- `test_newegg_search_recall_substrate_present` (deterministic: ≥10 MX3S anchors, ≥8 priced walker candidates, ≥5 verbatim prices) + `test_newegg_search_offline_extracts_listings` (stubbed-LLM `fetch()` → ≥5 priced listings, target present, URLs verbatim).
+- `test_bhphoto_search_is_cloudflare_walled_no_priced_candidates` (challenge fixture → 0 priced candidates, ≤5 titled anchors).
+- Green: worker suite 339/339 (+3); ruff/mypy on the test file clean of new errors (pre-existing E501 ×4 + one `in`-operator error remain, untouched by this phase); web tsc 0 errors, eslint clean on the regen'd artifact, test:parity 2/2, test:guards 11/11, next build compiled.
+
+**Finding worth remembering:** AlterLab was degraded again this session (B&H networkidle probes 504'd / returned 0-byte bodies; the usable B&H capture came via domcontentloaded). The Newegg "search is broken" premise that drove Phase 28 came from a single Phase 26 observation under that same degradation — a freshly-rendered page extracts fine. When a vendor reports 0 off a large body, suspect a transient render miss before a parser gap. Diagnostic spend ≈ $0.05.
+
+---
+
 ## Current state — 2026-05-25 Phase 27 closed (SUPERSEDED by 2026-05-25 Phase 28 close)
 
 **Deliverables:** [docs/STRESS_TEST_27.md](STRESS_TEST_27.md) (per-defect PASS/FAIL + commit pointers); [docs/microcenter_reprobe_2026_05_25.md](microcenter_reprobe_2026_05_25.md) (D3 probe evidence); ADR-085 in DECISIONS.md (reinforces ADR-079/084, maintains ADR-068).

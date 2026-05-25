@@ -65,19 +65,48 @@ def _load_registry(path_str: str | None = None) -> dict[str, dict[str, Any]]:
 
 
 def _check_alterlab_known_good_consistency(registry: dict[str, dict[str, Any]]) -> None:
-    """ADR-082: warn on `alterlab_known_good: true` without `default_alterlab_options`.
+    """Registry-load lint for `alterlab_known_good` mis-tags.
 
-    The `alterlab_known_good` flag asserts AlterLab renders this vendor fine in
-    production. For any JS-rendered vendor (Amazon, Backmarket, …) that claim
-    is only deliverable if the runtime also passes a `wait_condition` so the
-    DOM settles before capture. A host that has the flag but no defaults can
-    silently regress to 'bare-tier AlterLab returns 1+ MB of empty chrome' —
-    the exact Phase 23 Part A Amazon failure (commit a1f98dc, 2026-05-24).
-    This check fires at registry load so the gap is loud at import time
+    Two distinct inconsistencies are flagged (ADR-082, refined by ADR-088):
+
+    1. `alterlab_known_good: true` WITHOUT `default_alterlab_options`. The flag
+       asserts AlterLab renders this vendor fine in production. For any
+       JS-rendered vendor (Amazon, Backmarket, …) that claim is only
+       deliverable if the runtime also passes a `wait_condition` so the DOM
+       settles before capture. A host with the flag but no defaults can
+       silently regress to 'bare-tier AlterLab returns 1+ MB of empty chrome' —
+       the exact Phase 23 Part A Amazon failure (commit a1f98dc, 2026-05-24).
+       Two EXEMPTIONS (ADR-088): a host carrying a `known_failure` block is
+       explicitly broken (Cloudflare-walled etc.) so render defaults can't fix
+       it; and a host carrying a `dedicated_adapter` has its recall owned by a
+       bespoke adapter, not the universal_ai render path, so the render-defaults
+       premise simply doesn't apply (e.g. ebay.com → `ebay_search`).
+
+    2. `alterlab_known_good: true` AND a `known_failure` block together. These
+       are mutually exclusive assertions — "AlterLab handles this host fine"
+       vs "this host has no working path". This is the exact mis-tag that hid
+       centralcomputer.com / serversupply.com behind a known-good flag while
+       they were in fact Cloudflare-walled (ADR-088).
+
+    This check fires at registry load so a gap is loud at import time
     (including under pytest collection).
     """
     for host, entry in registry.items():
         if entry.get("alterlab_known_good") is not True:
+            continue
+        has_known_failure = isinstance(entry.get("known_failure"), dict)
+        if has_known_failure:
+            logger.warning(
+                "[vendor_quirks] %s has BOTH `alterlab_known_good: true` and a "
+                "`known_failure` block — these contradict (known-good asserts "
+                "AlterLab works; known_failure asserts no working path). Drop "
+                "one (ADR-088).",
+                host,
+            )
+            continue
+        # Recall owned by a dedicated adapter → the universal_ai render-defaults
+        # heuristic doesn't apply to this host (ADR-088).
+        if entry.get("dedicated_adapter"):
             continue
         defaults = entry.get("default_alterlab_options")
         if isinstance(defaults, dict) and defaults:

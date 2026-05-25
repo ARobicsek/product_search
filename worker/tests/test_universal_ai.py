@@ -53,6 +53,12 @@ BHPHOTO_FIXTURE = FIXTURE_DIR / "bhphotovideo-search-bose.html"
 #     detail in the registry), never search.
 NEWEGG_SEARCH_FIXTURE = FIXTURE_DIR / "newegg_search_mx_master_3s.html"
 BHPHOTO_SEARCH_FIXTURE = FIXTURE_DIR / "bhphotovideo_search_mx_master_3s.html"
+CENTRALCOMPUTER_CHALLENGE_FIXTURE = (
+    FIXTURE_DIR / "centralcomputer_search_cloudflare_challenge_2026_05_25.html"
+)
+SERVERSUPPLY_CHALLENGE_FIXTURE = (
+    FIXTURE_DIR / "serversupply_cloudflare_challenge_2026_05_25.html"
+)
 BASE_URL = "https://www.synthvendor.com/collections/headphones"
 SHOPIFY_BASE_URL = "https://shop.synthstore.example.com/collections/headphones"
 CUSTOM_BASE_URL = "https://customvendor.example.com/collections/all"
@@ -967,6 +973,46 @@ def test_bhphoto_search_is_cloudflare_walled_no_priced_candidates() -> None:
     # The full-HTML tier's anchor substrate is empty on a challenge page too,
     # so it has nothing to enumerate.
     anchors = universal_ai._collect_search_anchors(html, base_url=BHPHOTO_SEARCH_URL)
+    titled = [a for a in anchors if a["title"]]
+    assert len(titled) <= 5, (
+        f"challenge page should expose ~no product anchors; got {len(titled)}"
+    )
+
+
+@pytest.mark.parametrize("fixture,base_url", [
+    (
+        CENTRALCOMPUTER_CHALLENGE_FIXTURE,
+        "https://www.centralcomputer.com/catalogsearch/result/?q=epyc+9255",
+    ),
+    (
+        SERVERSUPPLY_CHALLENGE_FIXTURE,
+        "https://www.serversupply.com/",
+    ),
+])
+def test_cloudflare_walled_host_search_yields_no_priced_candidates(
+    fixture: Path, base_url: str
+) -> None:
+    """ADR-088: CentralComputer + ServerSupply are Cloudflare bot-walled. Every
+    render rung (tier 3/4 × networkidle/domcontentloaded) returns the SAME
+    ~31.8 KB "Just a moment..." Cloudflare interstitial, never products — same
+    class as microcenter + B&H search. These fixtures (probed 2026-05-25) pin
+    that the challenge body yields ZERO priced candidates so the LLM tiers can
+    never fabricate a listing on top of a challenge page (ADR-001), and that
+    the registry's `known_failure` routing (→ sources_pending) is the correct
+    state. A future capture that DOES render products would diff here and
+    signal the Cloudflare wall lifted.
+    """
+    html = fixture.read_text(encoding="utf-8")
+    assert "just a moment" in html.lower(), (
+        "fixture should be the Cloudflare challenge page"
+    )
+
+    cands = universal_ai._extract_candidates(html, base_url=base_url)
+    with_price = sum(1 for c in cands if c["price_hints"])
+    assert with_price == 0, (
+        f"challenge page must not yield priced candidates; got {with_price}"
+    )
+    anchors = universal_ai._collect_search_anchors(html, base_url=base_url)
     titled = [a for a in anchors if a["title"]]
     assert len(titled) <= 5, (
         f"challenge page should expose ~no product anchors; got {len(titled)}"
