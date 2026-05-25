@@ -161,6 +161,7 @@ export function OnboardChat({ initialProfile, initialSlug }: { initialProfile?: 
           output_tokens?: number;
           cache_read_tokens?: number;
           cache_creation_tokens?: number;
+          stopReason?: string | null;
         };
         try {
           payload = JSON.parse(json);
@@ -204,7 +205,15 @@ export function OnboardChat({ initialProfile, initialSlug }: { initialProfile?: 
         } else if (payload.type === 'error') {
           setError(payload.error ?? 'unknown error');
         } else if (payload.type === 'done') {
-          // Stream finished cleanly.
+          // The model hit the per-message output cap before finishing. Without
+          // this hint the assistant message just ends mid-thought and the user
+          // sees a frozen UI — that's the failure mode that prompted bumping
+          // MAX_TOKENS in route.ts. Tell the user they can resume.
+          if (payload.stopReason === 'max_tokens') {
+            setError(
+              'The assistant ran out of output budget mid-response. Reply "continue" to resume.',
+            );
+          }
         }
       }
     }

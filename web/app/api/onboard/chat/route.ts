@@ -11,7 +11,14 @@ export const runtime = 'edge';
 // implementation (ADR-014/-015 superseded by Phase 14 plan in PROGRESS.md).
 const PROVIDER = process.env.LLM_ONBOARD_PROVIDER ?? 'anthropic';
 const MODEL = process.env.LLM_ONBOARD_MODEL ?? 'claude-haiku-4-5';
-const MAX_TOKENS = 4096;
+// 4096 was hit mid-output on a vendor-discovery turn (web_search results inlined
+// into the model's own message + a follow-up probe sweep). The model produced an
+// intro sentence ("Let me probe the remaining candidates:") and ran out of
+// output budget BEFORE emitting the probe_url tool calls — leaving the loop with
+// zero custom tool uses, so it exited and the client just saw a silent halt. The
+// vendor-sweep turns are the hot spot; 8192 leaves comfortable headroom while
+// still well under Haiku 4.5's per-message ceiling.
+const MAX_TOKENS = 8192;
 const MAX_TURNS_PER_REQUEST = 50;
 // Phase 14 bench saw two consecutive vendor-discovery turns fire 3+4 searches
 // each — wasteful, since the second turn's deltas were small. ADR-034

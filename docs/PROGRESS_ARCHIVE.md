@@ -8,6 +8,21 @@ so the live file stays small while nothing is lost. See
 
 ---
 
+## Current state — 2026-05-25 small-defect sweep (ADR-089 + ADR-090) (SUPERSEDED by 2026-05-25 onboarder robustness paper-cuts / ADR-091)
+
+**Deliverables:** ADR-089 + ADR-090 in DECISIONS.md. `vendor_quirks.yaml` edits for `bhphotovideo.com` + `backmarket.com` (regen'd `promptText.ts` + `vendor-quirks-data.ts` via `sync-prompt.js`). Fix in `worker/src/product_search/adapters/universal_ai.py` (curl_cffi → httpx fall-through). 2 new committed challenge fixtures + new tests + targeted updates to 3 existing tests stale after the B&H known_failure promotion.
+
+**What shipped:**
+- Registry: B&H + Backmarket → `known_failure: blocker` with dated multi-URL multi-tier evidence; ADR-088 lint stays green (contradiction-clean). `PREFER_DETAIL_HOSTS` regen'd as empty set (was just B&H); `FORCE_DETAIL_BACKUP_HOSTS` lost both hosts. `ALTERLAB_KNOWN_GOOD_HOSTS` lost Backmarket.
+- Adapter: `_fetch_html` curl_cffi block now catches broad `Exception` (was `ImportError` only), logs the transport error, and falls through to httpx — the documented cascade is honest again. Observed root case (2026-05-24): Best Buy detail URL after AlterLab returned a non-retryable 4xx → curl_cffi raised "HTTP/2 stream 1 was not closed cleanly: INTERNAL_ERROR (err 2)" → source died with 0 listings instead of trying httpx.
+- Fixtures: `bhphotovideo_detail_cloudflare_challenge_2026_05_25.html` (31,834 B) + `backmarket_search_cloudflare_challenge_2026_05_25.html` (32,126 B). Both are the "Just a moment…" CF interstitial; pin barren so the LLM cannot fabricate on top of a challenge body (ADR-001).
+- Tests: `test_curl_cffi_transport_error_falls_through_to_httpx` (mocks curl_cffi raising the exact HTTP/2 error string + asserts httpx runs + `fetcher == "httpx"`); parametrised barren test extended to B&H detail + Backmarket search; `test_cloudflare_walled_hosts_are_known_failures_not_known_good` extended to the two new hosts. Stale-after-promotion repairs: `test_zero_reason_callout_classifies_and_skips_clean` swapped its parser-gap exemplar from `bhphotovideo.com` → synthetic `mysterystore.example` so the test isn't coupled to whether a real vendor is currently `known_failure`; web `check-onboard-guards.test.mjs` swapped 3 B&H exemplars (now `known_failure`, no longer detail-preferred) to Best Buy + Adorama.
+- Green: worker 356/356 (+5); ruff clean on `universal_ai.py` + `test_vendor_quirks.py`; mypy clean on `universal_ai.py`; web tsc 0 errors, eslint clean on regen'd artifacts, test:parity 2/2, test:guards 11/11.
+
+**Finding worth remembering:** Two of the three "deferred bugs" weren't bugs at all — they were stale framings. The Phase 23 "B&H detail extraction is broken" item was actually "the page is a Cloudflare challenge body"; the Phase 24 "Backmarket transient CF challenge" was actually "fully CF-walled, persistent." The Cloudflare-walled-vendor pattern (microcenter → CC/SS → now B&H + Backmarket) is by far the dominant failure mode in this universe; re-probe periodically to keep the registry honest. The one *actual* code bug (curl_cffi never falling through to httpx) was masquerading as a per-vendor issue — the documented cascade was silently broken for every vendor, not just Best Buy. Diagnostic spend ≈ $0.04.
+
+---
+
 ## Current state — 2026-05-25 Phase 24 follow-up closed (SUPERSEDED by 2026-05-25 small-defect sweep / ADR-089 + ADR-090)
 
 **Deliverables:** ADR-088 in DECISIONS.md. `vendor_quirks.yaml` edits for `ebay.com` / `centralcomputer.com` / `serversupply.com` (regen'd `promptText.ts` + `vendor-quirks-data.ts` via `sync-prompt.js`). Refined lint in `worker/src/product_search/vendor_quirks.py`. 2 new committed challenge fixtures + 7 new tests.
