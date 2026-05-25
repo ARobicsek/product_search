@@ -793,3 +793,90 @@ Phases 20–25 layered in a lot of recall/robustness/transparency machinery — 
 - New features. This is verification + regression only.
 - Re-deriving decided ADRs — assume them correct and test that they HOLD, don't re-debate.
 
+---
+
+## Phase 27 — Fix the 3 Phase 26 defects + live re-verify (PROPOSED 2026-05-24)
+
+### Why
+Phase 26 ([STRESS_TEST_26.md](STRESS_TEST_26.md)) found three real defects in production: (D1) ADR-079's protection bypassable when the onboarder LLM drops a detail-preferred URL before save; (D2) ADR-084's callout silently swallows per-source `HTTPError` rows because the rendered `passed` count appears host-aggregated; (D3) `microcenter.com`'s `known_failure` registry entry is stale. Each is small on its own; they're bundled into one phase because they share infrastructure (live re-verify via throwaway `stress27-*` slugs, same MCP-driven pattern as Phase 26) and the bundle still fits one session.
+
+### Ground rules (carry-over from Phase 26)
+- **LIVE, costed session — budget ~$2–5**; stop and check with the user past ~$8. AlterLab + Haiku spend only.
+- **Throwaway slug prefix `stress27-*`**; never touch a live slug; delete every one at the end via the Phase 16 hard-delete path; verify live products untouched on `origin/main`.
+- **CLAUDE.md sync discipline**: `git fetch origin` and reason against `origin/main`; pull --rebase --autostash around your own commits.
+- **CI/test-suite rule (ADR-062) still holds**: any regression captured as a committed fixture + test under `worker/tests/fixtures/`, never a `products/<live-slug>/` dependency.
+- **Chrome DevTools MCP** is available (memory: `reference_chrome_devtools_mcp`); the orphan-profile-lock workaround from Phase 26 may bite — if so, ask the user to close the leftover MCP Chrome window (it surfaces as a one-line ask).
+- **Vendor quirks** (ADR-068): registry change MUST come with a `sync-prompt.js` regen so `web/lib/onboard/{promptText.ts,vendor-quirks-data.ts}` track.
+- **Push pre-authorized.** CLAUDE.md standing authorization applies.
+
+### Background you need (read these, in order)
+1. `docs/PROGRESS.md` (state) + this brief.
+2. `docs/STRESS_TEST_26.md` — full evidence for each defect with file:line pointers and live-data quotes.
+3. ADR-079 (`docs/DECISIONS.md`) for D1; ADR-084 (`docs/DECISIONS.md`) + `worker/src/product_search/source_reasons.py` for D2; ADR-068 + `worker/src/product_search/vendor_quirks.yaml` (microcenter entry) for D3.
+
+### Defect 1 — make ADR-079 hard to bypass *(P1)*
+
+**What's broken (from Phase 26):** on stress26-mx3s, the onboarder probed a B&H Photo detail URL, got `detailExtractable: false`, and **omitted the URL from the draft entirely** — leaving only a URL-less placeholder note in `sources_pending`. ADR-079's save-time gate (`web/lib/onboard/gate-universal-ai.ts`) only protects URLs that survive to `sources`, so the LLM's pre-emptive demotion bypasses the protection.
+
+**Two-part fix:**
+
+1. **Prompt rule** in `worker/src/product_search/onboarding/prompts/onboard_v1.txt` (regen → `web/lib/onboard/promptText.ts` via `node web/scripts/sync-prompt.js`): add a hard rule under the vendor-quirks knowledge map / probing-guidelines section — *"If a probe for a detail-preferred host (`prefer_page_type: detail` OR `force_detail_backup: true`) returns `detailExtractable: false`, you MUST KEEP the URL in `sources` with `extra.probe_note` set to a one-line summary. NEVER drop it to `sources_pending`. NEVER emit a URL-less placeholder note. The runtime escalation ladder + circuit breaker (ADR-078) own retry; one weak probe is not a reliable signal."*
+
+2. **Deterministic save-time guard** (sibling to existing checks in `web/lib/onboard/`): a new pure helper `detail-preference-presence.ts` (import-free, callers pass host sets — same shape as ADR-079's existing `detail-preference.ts`). For each host in `PREFER_DETAIL_HOSTS ∪ FORCE_DETAIL_BACKUP_HOSTS`, if the draft has zero `universal_ai_search` sources for that host in `sources` (URL-bearing entries in `sources_pending` don't count), AND the host appeared in the chat's intended vendor list (or there's a URL-less placeholder for it in `sources_pending`), emit a soft warning. Wire it into `web/app/api/onboard/save/route.ts` alongside the existing ADR-067/074/080 checks. The save still proceeds — soft warning, same pattern as the others.
+
+3. **Test**: add a case to `web/scripts/check-onboard-guards.test.mjs` (in CI) for the new helper — at minimum: a draft with a URL-less `sources_pending` for B&H Photo and zero B&H sources triggers the warning; a draft with a B&H detail URL in `sources` (with or without `probe_note`) does NOT trigger.
+
+### Defect 2 — fix ADR-084 per-source `passed` accounting *(P1)*
+
+**What's broken (from Phase 26):** on stress26-xm5, the Sources table rendered 3 rows for `bestbuy.com | error: HTTPError: ... HTTP/2 stream 1 was not closed cleanly | 0 | 2` — and the callout had NO bullet for any of them. Hypothesis: `source_stats[i].passed` carries a host-aggregated (or run-aggregated) total rather than the per-source count, so the classifier short-circuits at `passed > 0` → returns `OK` → no bullet.
+
+**Fix:**
+
+1. **Audit the search loop in `worker/src/product_search/cli.py`** (around line ~800, where `source_stats` rows are built). Specifically: confirm whether `source_stats[i].passed` is being overwritten with a host-level or run-level total before `_build_zero_reason_callout` reads it. The classifier itself at [`source_reasons.py:96`](../worker/src/product_search/source_reasons.py#L96) is correct given correct input.
+
+2. **Fix the per-source accounting** so each row in `source_stats` carries ONLY the count of listings that passed from THAT source. (Likely a small refactor where a running total was bound to a name that's then attached to every same-host row.) Sources-table display benefits too — `Passed | 2` on a row that fetched 0 is genuinely confusing for users.
+
+3. **Regression test in `worker/tests/test_cli.py`**: synthesise a `source_stats` shape mirroring the live xm5 case — one host appearing 4 times, one row `ok 4/2` and three rows `error: HTTPError ... 0/0`. Assert each erroring row's per-source `passed` is `0` and each lands in `_build_zero_reason_callout`'s output as a `transient` bullet. Naming idea: `test_build_zero_reason_callout_includes_per_source_httperror`.
+
+### Defect 3 — re-probe microcenter and update the registry *(P2)*
+
+**What's broken (from Phase 26):** stress26-mc's microcenter Ryzen 9700X detail URL extracted cleanly (`microcenter.com | ok | 1 | 1` at `$279.99`) via the Tier-1.5 detail extractor — yet the registry still marks microcenter `known_failure: blocker`. The onboarder consequently routes every microcenter URL into `sources_pending` and tells the user "this vendor is blocked", which is now a false negative.
+
+**Fix:**
+
+1. **Live probe ≥3 distinct microcenter URLs** at `country: us, min_tier: 3, wait_condition: networkidle` (the current registry defaults). Suggested: 1 search URL + 2 detail URLs across different product categories (e.g. a CPU, a motherboard, an SSD). Capture each `cli probe-url --render --detail` (or `--save-body`) output to evidence-file under `docs/`.
+2. **Decision rule**:
+   - ≥2 of 3 succeed → DOWNGRADE `severity: blocker` → `severity: warning` with an updated `summary` ("intermittent; succeeded for N/3 URLs on 2026-05-25 at tier 3 + networkidle; runtime breaker absorbs failures") AND remove the blanket `onboarder_action: "Put microcenter URLs in sources_pending"` so the onboarder can route to `sources` at its discretion.
+   - 3 of 3 succeed → REMOVE the `known_failure` block entirely; keep the `default_alterlab_options`.
+   - 0 or 1 of 3 succeed → KEEP the block (the Phase 26 success was a Cloudflare cache hit); add a note that it was re-checked.
+3. **Regenerate web artifacts** via `node web/scripts/sync-prompt.js` (regenerates `vendor-quirks-data.ts` + the rendered knowledge-map section of `promptText.ts`).
+4. **Cost**: ~$0.01–0.02 in AlterLab probes; trivial.
+
+### Live re-verification (the "test as you did this time" step)
+
+Mirror the Phase 26 stress pattern at smaller scale, ONLY targeting the three defect surfaces:
+
+- **stress27-mx3s** (single-SKU "new only" Logitech MX Master 3S, same vendors as Phase 26 — Amazon, Target, Best Buy, B&H Photo, eBay). Drive via MCP. Expected outcomes:
+  - **D1 PASS**: the saved profile has a B&H source in `sources` (with `probe_note` if the probe failed) OR triggers the new deterministic warning if the LLM still drops it. NOT an empty-URL `sources_pending` entry.
+  - Re-run via Run-now; verify B&H either contributes listings OR shows up in the ADR-084 callout with a classified reason (rather than silently disappearing).
+- **stress27-xm5** (multi-variant Sony WH-1000XM5, Best Buy + B&H + Target + Amazon, same as Phase 26). Drive via MCP. Expected outcomes:
+  - **D2 PASS** (live): if AlterLab is degraded during the run and we get the same Best-Buy-detail HTTPError pattern, every failed Best Buy detail row now appears as a `transient` bullet in the ADR-084 callout. (D2 PASS doesn't require this — the unit test is the primary proof — but the live run is the confidence check.)
+- **stress27-mc** (AMD Ryzen 7 9700X, same vendors as Phase 26 incl. Microcenter). Drive via MCP. Expected outcomes:
+  - **D3 PASS**: after registry update, the onboarder routes microcenter into `sources` (not `sources_pending`) WITHOUT requiring the manual promotion step we did in Phase 26. Run-now produces a report including a microcenter row in the Sources table with `ok N/M`.
+
+- **Mobile rendering check** at 375 px on the stress27-mx3s report — confirm the new `probe_note` doesn't break rendering and the callout still works.
+
+### Done when
+- All three defect fixes landed (prompt regen + new TS check + worker test + registry update with web artifact regen).
+- Worker suite green (`pytest`, `ruff src/`, `mypy` on touched files); web `tsc` 0 errors, `eslint` 0 errors (pre-existing warnings only), `npm run test:parity` 2/2, `npm run test:guards` includes the new D1 check, `next build` compiled.
+- Each of D1/D2/D3 has a live re-verification entry in a brief follow-up section appended to `docs/STRESS_TEST_26.md` (or a sibling `STRESS_TEST_27.md`, author's choice) — per-defect: expected / actual / PASS|FAIL + commit pointer.
+- All `stress27-*` slugs deleted via the Phase 16 path; live products confirmed untouched on `origin/main`.
+- ADR-079 amended (or a follow-up ADR added) noting the prompt+guard reinforcement; ADR-068 amended noting the microcenter status flip; ADR-084 amended noting the per-source `passed` fix. (Per `DECISIONS.md` discipline: append, don't rewrite existing ADR bodies — record the change as a new ADR or a status update on the original.)
+- PROGRESS.md updated + Phase 26 state block archived; commit + push.
+
+### Out of scope
+- Newegg parser-gap investigation (Phase 26 Defect 6) — capture as a fixture if you stumble onto it; don't chase.
+- `low_seller_feedback` flag description (Phase 26 Defect 5) — out of scope unless trivially in your way.
+- The `spec_attrs.required` schema mismatch (Phase 26 Defect 4) — out of scope this session; queue as a separate small task.
+- Phase 18 (second-product proof) — comes after Phase 27.
+
