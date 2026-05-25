@@ -281,9 +281,12 @@ def test_zero_reason_callout_classifies_and_skips_clean() -> None:
         {"source": "universal_ai_search", "display_source": "amazon.com",
          "match_host": "amazon.com", "fetched": 0, "passed": 0,
          "diagnostics": {"body_len": 0, "alterlab_pool_exhausted": True}},
-        # parser gap: full body, 0 parsed
-        {"source": "universal_ai_search", "display_source": "bhphotovideo.com",
-         "match_host": "bhphotovideo.com", "fetched": 0, "passed": 0,
+        # parser gap: full body, 0 parsed. Use a synthetic host so the test
+        # isn't coupled to whether a real vendor is currently `known_failure`
+        # in the committed registry (e.g. ADR-089 moved bhphotovideo.com from
+        # parser-gap to known_failure, which would flip this assertion).
+        {"source": "universal_ai_search", "display_source": "mysterystore.example",
+         "match_host": "mysterystore.example", "fetched": 0, "passed": 0,
          "diagnostics": {"body_len": 200_000}},
         # no match: fetched but none qualified
         {"source": "universal_ai_search", "display_source": "newegg.com",
@@ -292,7 +295,7 @@ def test_zero_reason_callout_classifies_and_skips_clean() -> None:
     callout = _build_zero_reason_callout(stats)
     assert "good.com" not in callout
     assert "**amazon.com** — _transient_" in callout
-    assert "**bhphotovideo.com** — _needs work_" in callout
+    assert "**mysterystore.example** — _needs work_" in callout
     assert "**newegg.com** — _no match_" in callout
     # No permanent source → NOTE, not WARNING.
     assert callout.startswith("> [!NOTE]")

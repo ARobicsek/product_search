@@ -30,11 +30,13 @@ test('ADR-079: detail page_type is always detail-preferred', () => {
 });
 
 test('ADR-079: a force_detail_backup / prefer_detail registry host is detail-preferred', () => {
-  // B&H is prefer_page_type:detail; Best Buy is force_detail_backup. www- and
+  // Best Buy is force_detail_backup; Adorama is force_detail_backup. www- and
   // search-shaped URLs on these hosts still count (the registry, not the URL,
-  // decides) so a weak probe never demotes them.
-  assert.equal(detailPreferred('https://www.bhphotovideo.com/c/search?q=sony'), true);
+  // decides) so a weak probe never demotes them. (B&H was the exemplar here
+  // until ADR-089 promoted it to known_failure: blocker; detail-preferred
+  // status no longer applies to known_failure hosts.)
   assert.equal(detailPreferred('https://www.bestbuy.com/site/searchpage.jsp?st=sony'), true);
+  assert.equal(detailPreferred('https://www.adorama.com/l/sony'), true);
 });
 
 test('ADR-079: an ordinary vendor search URL is NOT detail-preferred', () => {
@@ -70,33 +72,38 @@ test('ADR-080: no spec_filters / no title_excludes is a no-op', () => {
 const detailPresence = (draft) =>
   checkDetailPreferencePresence(draft, FORCE_DETAIL_BACKUP_HOSTS, PREFER_DETAIL_HOSTS);
 
-test('ADR-079 (Phase 27): URL-less placeholder for B&H Photo triggers warning + names the host', () => {
-  // Phase 26 / stress26-mx3s live shape: the LLM dropped the B&H detail URL
-  // and left a URL-less placeholder in sources_pending with the vendor name in
-  // the note. The Phase 27 reinforcement detects this and warns.
+test('ADR-079 (Phase 27): URL-less placeholder for a detail-preferred host triggers warning + names the host', () => {
+  // Phase 26 / stress26-mx3s live shape: the LLM dropped a detail-preferred
+  // vendor's URL and left a URL-less placeholder in sources_pending with the
+  // vendor name in the note. The Phase 27 reinforcement detects this and warns.
+  // (Original exemplar was B&H Photo; ADR-089 promoted bhphotovideo.com to
+  // known_failure: blocker, so URL-less B&H placeholders are now the EXPECTED
+  // shape. Best Buy is still force_detail_backup, so the bypass shape is the
+  // same and the test exercises the same code path.)
   const draft = {
     sources: [],
     sources_pending: [
       {
         id: 'universal_ai_search',
-        note: 'B&H Photo detail URL failed extraction on this probe; will retry search-style URL on next run',
+        note: 'Best Buy detail URL failed extraction on this probe; will retry search-style URL on next run',
       },
     ],
   };
   const warnings = detailPresence(draft);
   assert.equal(warnings.length, 1);
-  assert.match(warnings[0].message, /bhphotovideo\.com/);
+  assert.match(warnings[0].message, /bestbuy\.com/);
   assert.match(warnings[0].message, /URL-less placeholder/i);
 });
 
-test('ADR-079 (Phase 27): URL-bearing B&H detail source in sources does NOT trigger', () => {
-  // The healthy shape: B&H stays in sources with the URL intact, optionally
-  // annotated with a probe_note. No URL-less placeholder needed.
+test('ADR-079 (Phase 27): URL-bearing detail-preferred source in sources does NOT trigger', () => {
+  // The healthy shape: a detail-preferred vendor stays in sources with the URL
+  // intact, optionally annotated with a probe_note. No URL-less placeholder
+  // needed. (Was B&H; see ADR-089 — swapped to Best Buy.)
   const draftWithProbeNote = {
     sources: [
       {
         id: 'universal_ai_search',
-        url: 'https://www.bhphotovideo.com/c/product/123-XYZ',
+        url: 'https://www.bestbuy.com/site/product/123-XYZ',
         page_type: 'detail',
         extra: { probe_note: 'weak probe 2026-05-25: detailExtractable=false' },
       },
@@ -109,7 +116,7 @@ test('ADR-079 (Phase 27): URL-bearing B&H detail source in sources does NOT trig
     sources: [
       {
         id: 'universal_ai_search',
-        url: 'https://www.bhphotovideo.com/c/product/123-XYZ',
+        url: 'https://www.bestbuy.com/site/product/123-XYZ',
         page_type: 'detail',
       },
     ],
@@ -154,20 +161,21 @@ test('ADR-079 (Phase 27): URL-bearing pending entry does NOT trigger', () => {
 });
 
 test('ADR-079 (Phase 27): placeholder with host already present in sources is benign', () => {
-  // If the LLM emitted both a URL-bearing B&H source AND a noisy URL-less
-  // placeholder mentioning B&H, the vendor is already protected — no warn.
+  // If the LLM emitted both a URL-bearing source AND a noisy URL-less
+  // placeholder mentioning the same vendor, the vendor is already protected —
+  // no warn. (Was B&H; see ADR-089 — swapped to Best Buy.)
   const draft = {
     sources: [
       {
         id: 'universal_ai_search',
-        url: 'https://www.bhphotovideo.com/c/product/456-ABC',
+        url: 'https://www.bestbuy.com/site/product/456-ABC',
         page_type: 'detail',
       },
     ],
     sources_pending: [
       {
         id: 'universal_ai_search',
-        note: 'B&H Photo: alternate detail URL attempted earlier — superseded',
+        note: 'Best Buy: alternate detail URL attempted earlier — superseded',
       },
     ],
   };

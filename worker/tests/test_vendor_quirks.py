@@ -355,13 +355,16 @@ def test_ebay_is_dedicated_adapter_owned_with_no_render_defaults():
 @pytest.mark.parametrize("host_url", [
     "https://www.centralcomputer.com/catalogsearch/result/?q=epyc",
     "https://www.serversupply.com/",
+    # ADR-089 (2026-05-25): B&H detail + Backmarket are ALSO Cloudflare-walled.
+    "https://www.bhphotovideo.com/c/product/1703321-REG/logitech_910_006558_mx_master_3s_pale.html",
+    "https://www.backmarket.com/en-us/search?q=iphone%2015",
 ])
 def test_cloudflare_walled_hosts_are_known_failures_not_known_good(host_url: str):
-    """ADR-088: CentralComputer + ServerSupply are Cloudflare-walled (every
-    render rung returns a 'Just a moment...' interstitial). They must carry a
-    `known_failure` block (so the onboarder routes them to sources_pending) and
-    must NOT carry `alterlab_known_good` (which would falsely assert AlterLab
-    handles them and stop the save-time probe from demoting).
+    """ADR-088 + ADR-089: a Cloudflare-walled host (every render rung returns a
+    'Just a moment...' interstitial) must carry a `known_failure` block (so the
+    onboarder routes it to sources_pending) and must NOT carry
+    `alterlab_known_good` (which would falsely assert AlterLab handles it and
+    stop the save-time probe from demoting).
     """
     vendor_quirks._load_registry.cache_clear()
     quirks = vendor_quirks.get_quirks_for_url(host_url)

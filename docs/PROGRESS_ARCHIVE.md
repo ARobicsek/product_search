@@ -8,6 +8,21 @@ so the live file stays small while nothing is lost. See
 
 ---
 
+## Current state — 2026-05-25 Phase 24 follow-up closed (SUPERSEDED by 2026-05-25 small-defect sweep / ADR-089 + ADR-090)
+
+**Deliverables:** ADR-088 in DECISIONS.md. `vendor_quirks.yaml` edits for `ebay.com` / `centralcomputer.com` / `serversupply.com` (regen'd `promptText.ts` + `vendor-quirks-data.ts` via `sync-prompt.js`). Refined lint in `worker/src/product_search/vendor_quirks.py`. 2 new committed challenge fixtures + 7 new tests.
+
+**What shipped:**
+- Registry: eBay → `dedicated_adapter: ebay_search` (no render defaults); CC + SS → `known_failure: blocker` + dropped `alterlab_known_good`. `ALTERLAB_KNOWN_GOOD_HOSTS` regenerated (CC/SS dropped, ebay retained).
+- Lint `_check_alterlab_known_good_consistency`: exempts `known_failure` + `dedicated_adapter` hosts; warns on `alterlab_known_good`+`known_failure` contradiction.
+- Fixtures: `centralcomputer_search_cloudflare_challenge_2026_05_25.html`, `serversupply_cloudflare_challenge_2026_05_25.html` (~31.8 KB each). The 900 KB eBay render body was NOT committed (decision rests on code routing + lint exemption).
+- Tests: parametrised barren test in `test_universal_ai.py` (CC/SS challenge → 0 priced candidates, ≤5 anchors); `test_vendor_quirks.py` cases (eBay dedicated-adapter/no-defaults/merge→None; CC/SS known_failure-not-known-good; committed registry ZERO warnings; contradiction + dedicated-adapter exemption).
+- Green: worker 346/346 (+7); ruff/mypy clean on touched files (pre-existing E501 ×4 untouched); web tsc 0 errors, eslint clean on regen'd artifacts, test:parity 2/2, test:guards 11/11, next build compiled.
+
+**Finding worth remembering:** A queued "needs the Amazon render fix" item was wrong twice over — the only host that *could* take render defaults (eBay) doesn't need them (dedicated adapter + prices not in the rendered body), and the two assumed-fixable hosts are Cloudflare-walled (`known_failure`). The `alterlab_known_good` flag had been conflated with "needs render"; it actually means "don't demote on probe" and is orthogonal. Re-probe before assuming a flag's intent. Diagnostic spend ≈ $0.02.
+
+---
+
 ## Current state — 2026-05-25 Phase 28 closed (SUPERSEDED by 2026-05-25 Phase 24 follow-up / ADR-088)
 
 **Deliverables:** ADR-087 in DECISIONS.md (diagnosis + regression-guarded). 3 new fixture tests in `worker/tests/test_universal_ai.py`; 2 new committed fixtures under `worker/tests/fixtures/universal_ai/` (`newegg_search_mx_master_3s.html` 529 KB rendered; `bhphotovideo_search_mx_master_3s.html` 31.7 KB Cloudflare challenge). `vendor_quirks.yaml` notes strengthened for `bhphotovideo.com` + `newegg.com` (regen'd `promptText.ts` via `sync-prompt.js`).

@@ -59,6 +59,17 @@ CENTRALCOMPUTER_CHALLENGE_FIXTURE = (
 SERVERSUPPLY_CHALLENGE_FIXTURE = (
     FIXTURE_DIR / "serversupply_cloudflare_challenge_2026_05_25.html"
 )
+# ADR-089 (2026-05-25): B&H detail + Backmarket are ALSO Cloudflare-walled.
+# Each fixture is the ~32 KB "Just a moment..." interstitial returned by
+# AlterLab; same class as microcenter/CC/SS. Pinned so the extractor cannot
+# fabricate a listing on top of a challenge page (ADR-001) and so a future
+# wall-lifted capture would diff loudly.
+BHPHOTO_DETAIL_CHALLENGE_FIXTURE = (
+    FIXTURE_DIR / "bhphotovideo_detail_cloudflare_challenge_2026_05_25.html"
+)
+BACKMARKET_SEARCH_CHALLENGE_FIXTURE = (
+    FIXTURE_DIR / "backmarket_search_cloudflare_challenge_2026_05_25.html"
+)
 BASE_URL = "https://www.synthvendor.com/collections/headphones"
 SHOPIFY_BASE_URL = "https://shop.synthstore.example.com/collections/headphones"
 CUSTOM_BASE_URL = "https://customvendor.example.com/collections/all"
@@ -519,6 +530,65 @@ def test_alterlab_failure_falls_back_to_lower_tier(monkeypatch: pytest.MonkeyPat
     assert fetcher == "curl_cffi"
     assert status == 200
     assert "fallback ok" in html
+
+
+def test_curl_cffi_transport_error_falls_through_to_httpx(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """ADR-090: the documented cascade is curl_cffi -> httpx, but originally
+    only ``ImportError`` was caught — any transport-level curl_cffi failure
+    propagated out of ``_fetch_html`` and the source died with zero listings
+    even though httpx would have been the right next attempt. Reported on a
+    Best Buy detail URL 2026-05-24: curl_cffi raised
+    ``HTTP/2 stream 1 was not closed cleanly: INTERNAL_ERROR (err 2)`` after
+    AlterLab returned a non-retryable 4xx; httpx was never tried.
+    """
+    monkeypatch.delenv("ALTERLAB_API_KEY", raising=False)
+
+    import sys
+    import types as _types
+
+    def _curl_explodes(*_a: object, **_k: object) -> Any:
+        raise RuntimeError(
+            "HTTP/2 stream 1 was not closed cleanly: INTERNAL_ERROR (err 2)"
+        )
+
+    fake_cc = _types.ModuleType("curl_cffi")
+    fake_requests = _types.ModuleType("curl_cffi.requests")
+    fake_requests.get = _curl_explodes  # type: ignore[attr-defined]
+    fake_cc.requests = fake_requests  # type: ignore[attr-defined]
+    monkeypatch.setitem(sys.modules, "curl_cffi", fake_cc)
+    monkeypatch.setitem(sys.modules, "curl_cffi.requests", fake_requests)
+
+    httpx_called: dict[str, bool] = {"hit": False}
+
+    import httpx
+
+    class _FakeResp:
+        text = "<html><body>httpx ok</body></html>"
+        status_code = 200
+
+    class _FakeClient:
+        def __init__(self, *_a: object, **_k: object) -> None:
+            pass
+
+        def __enter__(self) -> _FakeClient:
+            return self
+
+        def __exit__(self, *_a: object) -> None:
+            pass
+
+        def get(self, _url: str) -> _FakeResp:
+            httpx_called["hit"] = True
+            return _FakeResp()
+
+    monkeypatch.setattr(httpx, "Client", _FakeClient)
+
+    html, status, fetcher = universal_ai._fetch_html("https://example.com/products")
+    assert httpx_called["hit"], "httpx must run after curl_cffi raises"
+    assert fetcher == "httpx"
+    assert status == 200
+    assert "httpx ok" in html
 
 
 def test_no_alterlab_key_skips_alterlab_path(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -988,19 +1058,25 @@ def test_bhphoto_search_is_cloudflare_walled_no_priced_candidates() -> None:
         SERVERSUPPLY_CHALLENGE_FIXTURE,
         "https://www.serversupply.com/",
     ),
+    (
+        BHPHOTO_DETAIL_CHALLENGE_FIXTURE,
+        "https://www.bhphotovideo.com/c/product/1703321-REG/logitech_910_006558_mx_master_3s_pale.html",
+    ),
+    (
+        BACKMARKET_SEARCH_CHALLENGE_FIXTURE,
+        "https://www.backmarket.com/en-us/search?q=iphone%2015",
+    ),
 ])
 def test_cloudflare_walled_host_search_yields_no_priced_candidates(
     fixture: Path, base_url: str
 ) -> None:
-    """ADR-088: CentralComputer + ServerSupply are Cloudflare bot-walled. Every
-    render rung (tier 3/4 × networkidle/domcontentloaded) returns the SAME
-    ~31.8 KB "Just a moment..." Cloudflare interstitial, never products — same
-    class as microcenter + B&H search. These fixtures (probed 2026-05-25) pin
-    that the challenge body yields ZERO priced candidates so the LLM tiers can
-    never fabricate a listing on top of a challenge page (ADR-001), and that
-    the registry's `known_failure` routing (→ sources_pending) is the correct
-    state. A future capture that DOES render products would diff here and
-    signal the Cloudflare wall lifted.
+    """ADR-088 + ADR-089: a Cloudflare-walled vendor returns a ~32 KB
+    "Just a moment..." interstitial through AlterLab at every tier. Pin every
+    such fixture as barren so the LLM tiers can never fabricate a listing on
+    top of a challenge page (ADR-001), and so a future capture that DOES render
+    products would diff loudly and signal the Cloudflare wall lifted. The
+    matching `known_failure: blocker` registry entries route the same hosts to
+    `sources_pending` at the onboarder layer.
     """
     html = fixture.read_text(encoding="utf-8")
     assert "just a moment" in html.lower(), (

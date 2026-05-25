@@ -97,15 +97,24 @@ backmarket.com:
     country: us
     min_tier: 3
     wait_condition: networkidle
-  alterlab_known_good: true
-  notes: |
-    Same JS-rendered shape as Amazon: bare datacenter fetch returns ~900 KB
-    with 0 JSON-LD and 0 product-shaped anchors (78 anchors are nav chrome).
-    Phase 24 / ADR-082 adds tier 3 + networkidle defaults so the runtime can
-    extract products; a transient probe on 2026-05-24 also surfaced a
-    Cloudflare "Just a moment..." challenge through AlterLab — ADR-078's
-    circuit breaker absorbs that if it persists. Detail URLs still recommended
-    as backup.
+  known_failure:
+    severity: blocker
+    summary: |
+      Cloudflare bot-walled — same class as microcenter / CC / SS / B&H
+      (ADR-089, probed 2026-05-25). Every path tested returns the SAME
+      ~32 KB "Just a moment..." Cloudflare interstitial through AlterLab:
+      search at tier 3 + networkidle, search at tier 4 + networkidle, and
+      the homepage. No working path today. The 2026-05-24 "transient
+      Cloudflare challenge" note in ADR-082 (kept the host in `sources` with
+      render defaults) was based on a single probe; the 2026-05-25 multi-tier
+      multi-path sweep shows it's persistent. NOTE: previously (mis)tagged
+      `alterlab_known_good: true` — false for a Cloudflare-walled host;
+      removed (would also trigger the ADR-088 contradiction lint).
+      default_alterlab_options kept to document the max attempt.
+    onboarder_action: |
+      Put backmarket.com URLs in `sources_pending` (NOT `sources`) with this
+      summary as the note. Do not promise the user Backmarket listings until
+      the Cloudflare bypass is solved.
 
 bestbuy.com:
   default_alterlab_options:
@@ -130,19 +139,30 @@ bhphotovideo.com:
     country: us
     min_tier: 3
     wait_condition: networkidle
-  prefer_page_type: detail
-  force_detail_backup: true
-  notes: |
-    B&H SEARCH is Cloudflare bot-walled — not recoverable today (ADR-087,
-    re-verified 2026-05-25). Every render rung (tier 3 AND tier 4 browser, both
-    networkidle AND domcontentloaded) returned the SAME 31.7 KB "Performing
-    security verification" Cloudflare interstitial (Ray ID, cf-* markers), never
-    the product grid. Same failure class as microcenter. Earlier captures that
-    DID partially render still leaked tiles to the static walker (a 200 KB page,
-    24 product mentions, yielded only 4 anchors). Recall therefore comes from
-    direct product-detail URLs with page_type:"detail" — the Tier 1.5 detail
-    extractor reads B&H detail pages reliably. Do NOT mark known_failure: detail
-    works; only search is walled.
+  known_failure:
+    severity: blocker
+    summary: |
+      Cloudflare bot-walled — same class as microcenter / CC / SS / Backmarket
+      (ADR-089, probed 2026-05-25). PREVIOUSLY the registry said "only search
+      is walled, detail works" (ADR-087, 2026-05-24); today's multi-URL
+      multi-tier probe sweep SUPERSEDES that — detail and category are ALSO
+      walled. Evidence (cli probe-url --render --detail, 2026-05-25):
+        - search MX Master 3S → 31.7 KB CF challenge (ADR-087)
+        - detail product 1703321 (Pale Gray) tier 3 → 31,834 B challenge
+        - detail product 1703321 (Pale Gray) tier 4 → 31,834 B challenge
+        - detail product 1718918 (Black Wireless) tier 3 → 31,846 B challenge
+        - category /c/buy/rtx-5090/ci/60217 tier 3 → 31,647 B challenge
+      Every body is the "Just a moment..." Cloudflare interstitial; no path
+      through AlterLab reaches the real page today. The earlier "detail works"
+      note rested on intermittent partial renders that have since lapsed.
+      Removed `prefer_page_type: detail` + `force_detail_backup: true` — both
+      assume detail recall, which today is zero. default_alterlab_options
+      kept to document the max attempt and so the runtime sends the right
+      options IF the wall lifts.
+    onboarder_action: |
+      Put bhphotovideo.com URLs in `sources_pending` (NOT `sources`) with this
+      summary as the note. Do not promise the user B&H listings until the
+      Cloudflare bypass is solved.
 
 centralcomputer.com:
   default_alterlab_options:

@@ -293,20 +293,37 @@ def _fetch_html(
 
     try:
         from curl_cffi import requests as cc_requests
-
-        # ``impersonate="chrome"`` selects whatever the latest pinned
-        # Chrome profile is (TLS, JA3, HTTP/2 settings — the full
-        # fingerprint). Most server-rendered storefronts accept this.
-        resp = cc_requests.get(
-            url,
-            headers=headers,
-            timeout=timeout,
-            impersonate="chrome",
-            allow_redirects=True,
-        )
-        return resp.text or "", int(resp.status_code), "curl_cffi"
     except ImportError:
-        pass
+        cc_requests = None  # type: ignore[assignment]
+
+    if cc_requests is not None:
+        try:
+            # ``impersonate="chrome"`` selects whatever the latest pinned
+            # Chrome profile is (TLS, JA3, HTTP/2 settings — the full
+            # fingerprint). Most server-rendered storefronts accept this.
+            resp = cc_requests.get(
+                url,
+                headers=headers,
+                timeout=timeout,
+                impersonate="chrome",
+                allow_redirects=True,
+            )
+            return resp.text or "", int(resp.status_code), "curl_cffi"
+        except Exception as exc:
+            # The documented cascade (see _fetch_html docstring) is
+            # curl_cffi -> httpx, but originally only ImportError was caught,
+            # so any transport-level curl_cffi failure propagated out and the
+            # httpx tier never ran. Observed 2026-05-25 on a Best Buy detail
+            # URL: AlterLab returned a non-retryable 4xx, the cascade dropped
+            # to curl_cffi, which raised
+            #   "HTTP/2 stream 1 was not closed cleanly: INTERNAL_ERROR (err 2)"
+            # and the source died with zero listings even though httpx would
+            # have been the right next attempt. Catching keeps the cascade
+            # honest at no extra AlterLab cost.
+            logger.warning(
+                "[universal_ai] curl_cffi fetch failed "
+                f"({type(exc).__name__}: {exc}); falling through to httpx."
+            )
 
     import httpx
 
