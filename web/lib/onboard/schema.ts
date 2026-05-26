@@ -1,5 +1,6 @@
 import 'server-only';
 import yaml from 'js-yaml';
+import { REPORT_COLUMN_IDS } from '../report-columns';
 
 // Mirrors worker/src/product_search/profile.py. The Python validator runs in
 // CI on every commit that touches products/, so this TS check is best-effort
@@ -40,28 +41,14 @@ export const KNOWN_FLAG_RULES = new Set<string>([
   'title_mentions',
 ]);
 
-// Mirrors worker/src/product_search/profile.py:KNOWN_REPORT_COLUMNS.
-// Keep in sync with worker/src/product_search/synthesizer/synthesizer.py:COLUMN_DEFS.
-export const KNOWN_REPORT_COLUMNS = new Set<string>([
-  'rank',
-  'source',
-  'title',
-  'pack_size',
-  'price',
-  'price_pack',
-  'price_unit',
-  'total_for_target',
-  'qty',
-  'condition',
-  'brand',
-  'mpn',
-  'seller',
-  'seller_rating',
-  'ship_from',
-  'qvl_status',
-  'flags',
-  'flavor',
-]);
+// Single TS source of truth for the column allow-list is REPORT_COLUMN_IDS in
+// ../report-columns (which also drives the in-app column chooser). Deriving the
+// validator allow-list from it makes the save-gate and the chooser structurally
+// incapable of drifting apart. Parity with the Python registry
+// (profile.py:KNOWN_REPORT_COLUMNS / synthesizer.py:COLUMN_DEFS) is enforced by
+// the shared-fixture guard (ADR-097): worker/tests/test_synthesizer.py and
+// web/scripts/check-report-columns-parity.test.mjs.
+export const KNOWN_REPORT_COLUMNS = new Set<string>(REPORT_COLUMN_IDS);
 
 const SLUG_RE = /^[a-z0-9][a-z0-9-]{0,63}$/;
 const CRON_FIELD_RE = /^[\d*/,\-]+$/;

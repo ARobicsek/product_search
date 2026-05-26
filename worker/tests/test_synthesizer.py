@@ -15,7 +15,6 @@ import pytest
 from product_search.models import Listing
 from product_search.profile import KNOWN_REPORT_COLUMNS
 from product_search.storage.diff import DiffResult, PriceChange
-from tests.conftest import load_ddr5_profile as load_profile
 from product_search.synthesizer import (
     COLUMN_DEFS,
     DEFAULT_REPORT_COLUMNS,
@@ -28,6 +27,7 @@ from product_search.synthesizer import (
     post_check,
     render_prompt,
 )
+from tests.conftest import load_ddr5_profile as load_profile
 
 
 def _listing(

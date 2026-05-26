@@ -2108,7 +2108,7 @@ def _install_stub_alterlab_client(
         def __init__(self, **_kw: object) -> None:
             pass
 
-        def __enter__(self) -> "_StubClient":
+        def __enter__(self) -> _StubClient:
             return self
 
         def __exit__(self, *_: object) -> None:
@@ -2184,7 +2184,7 @@ def _install_stub_alterlab_client_texts(
         def __init__(self, **_kw: object) -> None:
             pass
 
-        def __enter__(self) -> "_Client":
+        def __enter__(self) -> _Client:
             return self
 
         def __exit__(self, *_: object) -> None:
@@ -2739,7 +2739,12 @@ def test_degrade_search_url() -> None:
     # Query parameters based shapes
     assert universal_ai._degrade_search_url("https://www.walmart.com/search?q=dyson+v15+detect") == "https://www.walmart.com/search?q=dyson+v15"
     assert universal_ai._degrade_search_url("https://www.bestbuy.com/site/searchpage.jsp?st=dyson+v15") == "https://www.bestbuy.com/site/searchpage.jsp?st=dyson"
-    assert universal_ai._degrade_search_url("https://www.williams-sonoma.com/search/results.html?keywords=dyson+v15+detect") == "https://www.williams-sonoma.com/search/results.html?keywords=dyson+v15"
+    assert (
+        universal_ai._degrade_search_url(
+            "https://www.williams-sonoma.com/search/results.html?keywords=dyson+v15+detect"
+        )
+        == "https://www.williams-sonoma.com/search/results.html?keywords=dyson+v15"
+    )
 
     # Path based shapes
     assert universal_ai._degrade_search_url("https://www.target.com/s/dyson+v15+detect") == "https://www.target.com/s/dyson+v15"
@@ -2762,7 +2767,9 @@ def test_fetch_search_degradation_fallback(monkeypatch: pytest.MonkeyPatch) -> N
 
     fetched_urls = []
 
-    def _mock_fetch(url: str, timeout: float = 20.0, alterlab_options: dict[str, Any] | None = None) -> tuple[str, int, str]:
+    def _mock_fetch(
+        url: str, timeout: float = 20.0, alterlab_options: dict[str, Any] | None = None
+    ) -> tuple[str, int, str]:
         fetched_urls.append(url)
         if url == primary_url:
             # Return empty page

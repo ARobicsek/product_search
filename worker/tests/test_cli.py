@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import Any
 
 import pytest
 
@@ -180,7 +181,9 @@ def test_probe_url_with_alterlab_options(monkeypatch: pytest.MonkeyPatch) -> Non
     html = (FIXTURE_DIR / "shopify_jsonld.html").read_text(encoding="utf-8")
     captured_opts: list[dict[str, Any] | None] = []
 
-    def _mock_fetch(url: str, timeout: float = 20.0, alterlab_options: dict[str, Any] | None = None) -> tuple[str, int, str]:
+    def _mock_fetch(
+        url: str, timeout: float = 20.0, alterlab_options: dict[str, Any] | None = None
+    ) -> tuple[str, int, str]:
         captured_opts.append(alterlab_options)
         return (html, 200, "alterlab")
 
@@ -210,8 +213,8 @@ def test_probe_url_parser_setup(monkeypatch: pytest.MonkeyPatch) -> None:
     """The argument parser correctly parses --country, --min-tier, and
     --wait-condition and forwards them to _cmd_probe_url (ADR-071)."""
     import sys
+
     from product_search import cli
-    from typing import Any
 
     captured: list[dict[str, Any]] = []
 
@@ -237,7 +240,8 @@ def test_probe_url_parser_setup(monkeypatch: pytest.MonkeyPatch) -> None:
 
     monkeypatch.setattr(cli, "_cmd_probe_url", _mock_cmd_probe_url)
 
-    # Simulate: python -m product_search.cli probe-url "https://example.com" --country us --min-tier 3 --wait-condition networkidle --render --detail
+    # Simulate: python -m product_search.cli probe-url "https://example.com"
+    #   --country us --min-tier 3 --wait-condition networkidle --render --detail
     monkeypatch.setattr(sys, "argv", [
         "cli.py", "probe-url", "https://example.com",
         "--country", "us",

@@ -15,7 +15,8 @@ so the table column the user sees (status pill) is honest — no more
 from __future__ import annotations
 
 import json
-from datetime import date as _date, datetime, timezone
+from datetime import UTC, datetime
+from datetime import date as _date
 from pathlib import Path
 from typing import Any
 from urllib.parse import urlparse
@@ -181,7 +182,7 @@ def build_json_payload(
     n_shown = len(ranked)
     return {
         "schema_version": JSON_SCHEMA_VERSION,
-        "generated_at": (generated_at or datetime.now(timezone.utc)).isoformat(),
+        "generated_at": (generated_at or datetime.now(UTC)).isoformat(),
         "snapshot_date": snapshot_date.isoformat() if snapshot_date else None,
         "product": {
             "slug": profile.slug,

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from product_search.models import Listing
 from product_search.profile import QVL, FilterRule, FlagRule, Profile
 from product_search.validators.filters import apply_filters
 from product_search.validators.flags import apply_flags
