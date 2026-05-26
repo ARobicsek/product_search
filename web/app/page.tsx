@@ -4,11 +4,13 @@ import {
   getProducts,
   getProductReports,
   getReportContent,
+  getReportJsonSidecar,
   getLastRunInstant,
   getProductProfileContent,
 } from '@/lib/github';
 import { getActiveRuns } from '@/lib/dispatch';
 import { readScheduleFromYaml } from '@/lib/schedule';
+import { parseSidecar, type ReportSidecar } from '@/app/[product]/result-types';
 import { DeleteProductModal } from '@/components/DeleteProductModal';
 import { CardRunStatus } from './CardRunStatus';
 import AlertsBell from './AlertsBell';
@@ -17,16 +19,53 @@ import AlertsBell from './AlertsBell';
 // reasoning as the product detail page.
 export const dynamic = 'force-dynamic';
 
-// Helper to extract a summary from markdown (e.g., first non-heading line)
-function extractBottomLine(markdown: string) {
+// Strip inline markdown (bold/italic/code) so a legacy markdown summary reads
+// as plain prose on the card instead of leaking `**` etc.
+function stripMarkdown(text: string): string {
+  return text.replace(/\*\*/g, '').replace(/[*_`]/g, '').trim();
+}
+
+// Fallback summary for reports written before the ADR-096 JSON sidecar: the
+// first non-heading, non-table, non-list line of the markdown.
+function extractBottomLine(markdown: string): string {
   const lines = markdown.split('\n');
   for (const line of lines) {
-    const trimmed = line.trim();
+    const trimmed = stripMarkdown(line);
     if (trimmed && !trimmed.startsWith('#') && !trimmed.startsWith('|') && !trimmed.startsWith('-')) {
       return trimmed.substring(0, 150) + (trimmed.length > 150 ? '...' : '');
     }
   }
   return 'No summary available.';
+}
+
+// Top-level `display_name:` from a profile.yaml, for products that have no
+// JSON sidecar yet (no report run). Regex mirrors the lightweight reader in
+// lib/schedule.ts rather than pulling in a YAML parse just for one scalar.
+function displayNameFromProfile(yamlText: string | null): string | null {
+  if (!yamlText) return null;
+  const m = yamlText.match(/^display_name:[ \t]*(.+?)[ \t]*\r?$/m);
+  if (!m) return null;
+  return m[1].replace(/^["']|["']$/g, '').trim() || null;
+}
+
+function prettifySlug(slug: string): string {
+  return slug.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+function fmtPrice(n: number | null): string | null {
+  if (n === null || n === undefined) return null;
+  return `$${n.toLocaleString('en-US', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })}`;
+}
+
+function formatDuration(ms: number): string {
+  const s = Math.floor(ms / 1000);
+  if (s < 60) return `${s}s`;
+  const m = Math.floor(s / 60);
+  const rem = s % 60;
+  return `${m}m ${rem.toString().padStart(2, '0')}s`;
 }
 
 export default async function Home() {
@@ -46,13 +85,43 @@ export default async function Home() {
         getProductProfileContent(product).catch(() => null),
       ]);
       const latestDate = reports.length > 0 ? reports[0] : null;
-      let summary = 'No reports yet.';
 
+      // Prefer the structured JSON sidecar (ADR-096) for the card summary;
+      // fall back to the markdown's first prose line for legacy reports.
+      let sidecar: ReportSidecar | null = null;
+      let fallbackSummary = 'No reports yet.';
       if (latestDate) {
-        const content = await getReportContent(product, latestDate);
-        if (content) {
-          summary = extractBottomLine(content);
-        }
+        const [rawSidecar, content] = await Promise.all([
+          getReportJsonSidecar(product, latestDate),
+          getReportContent(product, latestDate),
+        ]);
+        sidecar = parseSidecar(rawSidecar);
+        fallbackSummary = content
+          ? extractBottomLine(content)
+          : 'No summary available.';
+      }
+
+      const title =
+        sidecar?.product.display_name ||
+        displayNameFromProfile(profile) ||
+        prettifySlug(product);
+
+      // Listings are price-ranked, so listings[0] is the cheapest passing
+      // option. total_passed is the full count (listings[] may be capped).
+      const cheapest = sidecar?.listings?.[0] ?? null;
+      const priceLabel = cheapest ? fmtPrice(cheapest.price_usd) : null;
+      const listingCount = sidecar ? sidecar.listings_meta.total_passed : null;
+
+      // Run duration = report build time (sidecar.generated_at) minus run
+      // start (the data-CSV instant). Both UTC. A hand-built or stale sidecar
+      // can be paired with an unrelated CSV, so cap at 30 min — real runs are
+      // bounded well under that by the wall-budget; anything larger is omitted.
+      let durationMs: number | null = null;
+      if (sidecar?.generated_at && lastRunIso) {
+        const d =
+          new Date(sidecar.generated_at).getTime() -
+          new Date(lastRunIso).getTime();
+        if (d > 0 && d < 30 * 60 * 1000) durationMs = d;
       }
 
       // An on-demand run carries the slug in its title (so we know its exact
@@ -79,11 +148,15 @@ export default async function Home() {
 
       return {
         product,
+        title,
         latestDate,
         lastRunIso,
         status,
         runningSinceIso,
-        summary,
+        priceLabel,
+        listingCount,
+        durationMs,
+        fallbackSummary,
       };
     })
   );
@@ -116,31 +189,49 @@ export default async function Home() {
           {productData.map((data) => (
             <div
               key={data.product}
-              className="relative group block p-6 bg-white dark:bg-gray-950 rounded-xl shadow-sm border border-gray-100 dark:border-gray-800 hover:shadow-md transition-shadow"
+              className="relative group block p-5 bg-white dark:bg-gray-950 rounded-xl shadow-sm border border-gray-100 dark:border-gray-800 hover:shadow-md transition-shadow"
             >
-              <div className="flex justify-between items-start mb-3">
-                <h2 className="text-xl font-semibold capitalize">
-                  <Link 
+              <div className="flex items-start justify-between gap-3">
+                <h2 className="text-lg font-semibold leading-snug min-w-0 flex-1 break-words">
+                  <Link
                     href={`/${data.product}`}
                     className="focus:outline-none rounded focus:ring-2 focus:ring-blue-500 before:absolute before:inset-0 z-0"
                   >
-                    {data.product.replace(/-/g, ' ')}
+                    {data.title}
                   </Link>
                 </h2>
-                <div className="flex items-center gap-2 relative z-10">
-                  <CardRunStatus
-                    lastRunIso={data.lastRunIso}
-                    fallbackDate={data.latestDate}
-                    status={data.status}
-                    runningSinceIso={data.runningSinceIso}
-                  />
-                  <div className="-mr-2">
-                    <DeleteProductModal productSlug={data.product} webSecret={process.env.WEB_SHARED_SECRET || ''} />
-                  </div>
+                <div className="shrink-0 -mr-2 relative z-10">
+                  <DeleteProductModal productSlug={data.product} webSecret={process.env.WEB_SHARED_SECRET || ''} />
                 </div>
               </div>
-              <p className="text-gray-600 dark:text-gray-400 text-sm line-clamp-2 relative z-10 pointer-events-none">
-                {data.summary}
+              <div className="mt-2 relative z-10">
+                <CardRunStatus
+                  lastRunIso={data.lastRunIso}
+                  fallbackDate={data.latestDate}
+                  status={data.status}
+                  runningSinceIso={data.runningSinceIso}
+                />
+              </div>
+              <p className="mt-2 text-sm text-gray-600 dark:text-gray-400 line-clamp-2 relative z-10 pointer-events-none">
+                {data.listingCount === 0 ? (
+                  <>
+                    No passing listings
+                    {data.durationMs !== null && ` · took ${formatDuration(data.durationMs)}`}
+                  </>
+                ) : data.listingCount !== null ? (
+                  <>
+                    {data.priceLabel && (
+                      <span className="font-semibold text-gray-900 dark:text-gray-100">
+                        {data.priceLabel}
+                      </span>
+                    )}
+                    {data.priceLabel && ' · '}
+                    {data.listingCount} listing{data.listingCount === 1 ? '' : 's'}
+                    {data.durationMs !== null && ` · took ${formatDuration(data.durationMs)}`}
+                  </>
+                ) : (
+                  data.fallbackSummary
+                )}
               </p>
             </div>
           ))}
