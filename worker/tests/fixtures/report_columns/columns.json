@@ -1,0 +1,33 @@
+{
+  "_comment": "Canonical report-column contract shared by the Python worker and the TS web app. Four places must agree on this set, and historically drifted (ADR-094 added `price` to the worker but not the web side, which broke the onboarder save-gate). Both suites pin against this fixture: worker/tests/test_synthesizer.py and web/scripts/check-report-columns-parity.test.mjs. If you add/remove a column, update profile.py:KNOWN_REPORT_COLUMNS, synthesizer.py:COLUMN_DEFS, schema.ts:KNOWN_REPORT_COLUMNS, report-columns.ts:REPORT_COLUMN_DEFS, the onboard_v1.txt available-columns list, AND this fixture together.",
+  "columns": [
+    "brand",
+    "condition",
+    "flags",
+    "flavor",
+    "mpn",
+    "pack_size",
+    "price",
+    "price_pack",
+    "price_unit",
+    "qty",
+    "qvl_status",
+    "rank",
+    "seller",
+    "seller_rating",
+    "ship_from",
+    "source",
+    "title",
+    "total_for_target"
+  ],
+  "default": [
+    "rank",
+    "source",
+    "title",
+    "price",
+    "total_for_target",
+    "qty",
+    "seller",
+    "flags"
+  ]
+}

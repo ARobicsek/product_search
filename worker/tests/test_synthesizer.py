@@ -6,12 +6,14 @@ not the actual LLM call. The benchmark exercises real providers.
 
 from __future__ import annotations
 
+import json
 from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
 
 from product_search.models import Listing
+from product_search.profile import KNOWN_REPORT_COLUMNS
 from product_search.storage.diff import DiffResult, PriceChange
 from tests.conftest import load_ddr5_profile as load_profile
 from product_search.synthesizer import (
@@ -234,6 +236,22 @@ def test_default_report_columns_match_table_shape() -> None:
     ]
     for col in DEFAULT_REPORT_COLUMNS:
         assert col in COLUMN_DEFS
+
+
+def test_report_columns_match_parity_fixture() -> None:
+    """Anti-drift guard (ADR-097): the Python column registry must match the
+    shared contract fixture that the TS web app also pins against. ADR-094
+    added `price` to the worker but not the web validator's allow-list, which
+    silently broke the onboarder save-gate until a user hit it. This and its
+    TS twin (web/scripts/check-report-columns-parity.test.mjs) make any future
+    one-sided edit go red in CI.
+    """
+    fixture_path = Path(__file__).parent / "fixtures" / "report_columns" / "columns.json"
+    contract = json.loads(fixture_path.read_text(encoding="utf-8"))
+
+    assert set(KNOWN_REPORT_COLUMNS) == set(contract["columns"])
+    assert set(COLUMN_DEFS) == set(contract["columns"])
+    assert DEFAULT_REPORT_COLUMNS == contract["default"]
 
 
 def test_table_uses_default_columns_when_none() -> None:

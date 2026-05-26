@@ -14,7 +14,14 @@ export const REPORT_COLUMN_DEFS: ReportColumnDef[] = [
   { id: 'rank', label: 'Rank', description: '1, 2, 3 — listing position in the table' },
   { id: 'source', label: 'Source', description: 'Adapter id (linked to the listing URL)' },
   { id: 'title', label: 'Title', description: 'Listing title as the seller wrote it' },
-  { id: 'price_unit', label: 'Price (unit)', description: 'Per-unit price in USD' },
+  { id: 'pack_size', label: 'Pack size', description: 'Modules per kit / items per pack' },
+  {
+    id: 'price',
+    label: 'Price',
+    description: 'As-sold price (kit price for kits, unit price otherwise) — what a buyer pays',
+  },
+  { id: 'price_pack', label: 'Price (pack)', description: 'As-sold price; header reads "pack" for multi-packs' },
+  { id: 'price_unit', label: 'Price (unit)', description: 'Strict per-unit price in USD' },
   {
     id: 'total_for_target',
     label: 'Total for target',
@@ -29,6 +36,7 @@ export const REPORT_COLUMN_DEFS: ReportColumnDef[] = [
   { id: 'ship_from', label: 'Ships from', description: 'Country of origin' },
   { id: 'qvl_status', label: 'QVL', description: 'Whether MPN is in the qualified vendor list' },
   { id: 'flags', label: 'Flags', description: 'Any flags raised by the validator pipeline' },
+  { id: 'flavor', label: 'Flavor', description: 'Flavor / variant attribute when the adapter sets it' },
 ];
 
 export const REPORT_COLUMN_IDS: string[] = REPORT_COLUMN_DEFS.map((c) => c.id);
@@ -37,7 +45,7 @@ export const DEFAULT_REPORT_COLUMNS: string[] = [
   'rank',
   'source',
   'title',
-  'price_unit',
+  'price',
   'total_for_target',
   'qty',
   'seller',
