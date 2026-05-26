@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-05-26T13:19:18.888667+00:00",
+  "generated_at": "2026-05-26T16:23:12.541790+00:00",
   "snapshot_date": "2026-05-26",
   "product": {
     "slug": "the-week-1yr-subscription",
@@ -35,105 +35,6 @@
     },
     {
       "rank": 2,
-      "source": "magazinesdirect.com",
-      "vendor_host": "www.magazinesdirect.com",
-      "url": "http://www.magazinesdirect.com/us/the-week-subscription/dp/230bb860",
-      "title": "The Week",
-      "price_usd": 94.0,
-      "total_for_target_usd": 94.0,
-      "currency_approx_fx": null,
-      "condition": "new",
-      "seller_name": "www.magazinesdirect.com",
-      "is_kit": false,
-      "kit_module_count": 1,
-      "badges": [
-        {
-          "key": "low_feedback",
-          "label": "Limited reviews",
-          "severity": "info"
-        }
-      ]
-    },
-    {
-      "rank": 3,
-      "source": "pocketmags.com",
-      "vendor_host": "www.pocketmags.com",
-      "url": "https://www.pocketmags.com/us/the-week-magazine",
-      "title": "The Week Magazine",
-      "price_usd": 159.99,
-      "total_for_target_usd": 159.99,
-      "currency_approx_fx": null,
-      "condition": "new",
-      "seller_name": "www.pocketmags.com",
-      "is_kit": true,
-      "kit_module_count": 51,
-      "badges": [
-        {
-          "key": "low_feedback",
-          "label": "Limited reviews",
-          "severity": "info"
-        }
-      ]
-    },
-    {
-      "rank": 4,
-      "source": "magazines.com",
-      "vendor_host": "www.magazines.com",
-      "url": "https://www.magazines.com/the-week-magazine.html",
-      "title": "The Week Magazine Subscription",
-      "price_usd": 179.0,
-      "total_for_target_usd": 179.0,
-      "currency_approx_fx": null,
-      "condition": "new",
-      "seller_name": "www.magazines.com",
-      "is_kit": true,
-      "kit_module_count": 52,
-      "badges": [
-        {
-          "key": "low_feedback",
-          "label": "Limited reviews",
-          "severity": "info"
-        }
-      ]
-    },
-    {
-      "rank": 5,
-      "source": "magazineline.com",
-      "vendor_host": "www.magazineline.com",
-      "url": "https://www.magazineline.com/the-week-printdigital-magazine",
-      "title": "The Week Print+Digital Magazine Subscription",
-      "price_usd": 199.0,
-      "total_for_target_usd": 199.0,
-      "currency_approx_fx": null,
-      "condition": "new",
-      "seller_name": "www.magazineline.com",
-      "is_kit": true,
-      "kit_module_count": 52,
-      "badges": [
-        {
-          "key": "low_feedback",
-          "label": "Limited reviews",
-          "severity": "info"
-        },
-        {
-          "key": "digital_only",
-          "label": "Digital only",
-          "severity": "info"
-        },
-        {
-          "key": "print_only",
-          "label": "print_only",
-          "severity": "info"
-        },
-        {
-          "key": "print_digital_combo",
-          "label": "print_digital_combo",
-          "severity": "info"
-        }
-      ]
-    },
-    {
-      "rank": 6,
       "source": "magazine-agent.com",
       "vendor_host": "www.magazine-agent.com",
       "url": "https://www.magazine-agent.com/The-Week/Subscription/",
@@ -155,8 +56,8 @@
     }
   ],
   "listings_meta": {
-    "total_passed": 6,
-    "shown": 6,
+    "total_passed": 2,
+    "shown": 2,
     "cap": 30
   },
   "sources": [
@@ -190,11 +91,11 @@
     {
       "label": "magazineline.com",
       "host": "magazineline.com",
-      "fetched": 1,
-      "passed": 1,
-      "status": "ok",
-      "status_label": "ok",
-      "reason": ""
+      "fetched": 0,
+      "passed": 0,
+      "status": "empty_page",
+      "status_label": "no results",
+      "reason": "The vendor's page loaded but had no matching products \u2014 most likely it genuinely has nothing right now, so re-running won't change anything. **What to do:** if you expected results, open **Edit Profile** and check the search URL / keywords; otherwise nothing \u2014 scheduled runs will catch it when the vendor lists a match."
     },
     {
       "label": "magazine-agent.com",
@@ -208,29 +109,29 @@
     {
       "label": "magazines.com",
       "host": "magazines.com",
-      "fetched": 1,
-      "passed": 1,
-      "status": "ok",
-      "status_label": "ok",
-      "reason": ""
+      "fetched": 0,
+      "passed": 0,
+      "status": "transient",
+      "status_label": "transient",
+      "reason": "Skipped this run because AlterLab was failing on earlier sources (skipped: per-run fetch budget (480s) exceeded). **What to do:** run this product again once AlterLab recovers \u2014 the next scheduled run also retries automatically."
     },
     {
       "label": "pocketmags.com",
       "host": "pocketmags.com",
-      "fetched": 1,
-      "passed": 1,
-      "status": "ok",
-      "status_label": "ok",
-      "reason": ""
+      "fetched": 0,
+      "passed": 0,
+      "status": "transient",
+      "status_label": "transient",
+      "reason": "Skipped this run because AlterLab was failing on earlier sources (skipped: per-run fetch budget (480s) exceeded). **What to do:** run this product again once AlterLab recovers \u2014 the next scheduled run also retries automatically."
     },
     {
       "label": "magazinesdirect.com",
       "host": "magazinesdirect.com",
-      "fetched": 1,
-      "passed": 1,
-      "status": "ok",
-      "status_label": "ok",
-      "reason": ""
+      "fetched": 0,
+      "passed": 0,
+      "status": "transient",
+      "status_label": "transient",
+      "reason": "Skipped this run because AlterLab was failing on earlier sources (skipped: per-run fetch budget (480s) exceeded). **What to do:** run this product again once AlterLab recovers \u2014 the next scheduled run also retries automatically."
     }
   ],
   "sources_pending": [
@@ -246,52 +147,28 @@
         "step": "magsstore.com",
         "provider": "anthropic",
         "model": "claude-haiku-4-5",
-        "input_tokens": 709,
-        "output_tokens": 17,
-        "cost_usd": 0.000794
+        "input_tokens": 711,
+        "output_tokens": 44,
+        "cost_usd": 0.0009310000000000001
       },
       {
         "step": "barnesandnoble.com",
         "provider": "anthropic",
         "model": "claude-haiku-4-5",
-        "input_tokens": 720,
+        "input_tokens": 724,
         "output_tokens": 17,
-        "cost_usd": 0.000805
-      },
-      {
-        "step": "magazineline.com",
-        "provider": "anthropic",
-        "model": "claude-haiku-4-5",
-        "input_tokens": 1551,
-        "output_tokens": 72,
-        "cost_usd": 0.0019110000000000002
-      },
-      {
-        "step": "magazines.com",
-        "provider": "anthropic",
-        "model": "claude-haiku-4-5",
-        "input_tokens": 3118,
-        "output_tokens": 69,
-        "cost_usd": 0.003463
-      },
-      {
-        "step": "pocketmags.com",
-        "provider": "anthropic",
-        "model": "claude-haiku-4-5",
-        "input_tokens": 4004,
-        "output_tokens": 67,
-        "cost_usd": 0.004339
+        "cost_usd": 0.000809
       },
       {
         "step": "ai_filter",
         "provider": "anthropic",
         "model": "claude-haiku-4-5",
-        "input_tokens": 2145,
-        "output_tokens": 298,
-        "cost_usd": 0.003635
+        "input_tokens": 1489,
+        "output_tokens": 111,
+        "cost_usd": 0.0020440000000000002
       }
     ],
-    "total_usd": 0.014946999999999998,
+    "total_usd": 0.0037840000000000005,
     "any_unpriced": false
   }
 }
