@@ -1,0 +1,64 @@
+# Per-listing flag → human-readable badge registry (ADR-096).
+#
+# The post-run JSON sidecar enriches each listing with `badges[]`
+# pills. Each badge is `{key, label, severity}` derived from the
+# listing's stable flag IDs via this registry.
+#
+# Lookup, per the ADR-095 pattern in build_flags_md, walks:
+#
+#   1. flag label as emitted into Listing.flags         (e.g. "low_feedback")
+#   2. fallback to the originating spec_flags RULE name (e.g. "low_seller_feedback")
+#   3. fallback to {key: <raw>, label: <raw>, severity: info}
+#
+# Unmapped flags surface their raw ID — loud, not silent — so a new
+# user-emitted custom flag gets a label PR-ed in here rather than
+# shipping as ugly jargon to the user.
+#
+# severity:
+#   info     — neutral context the user might care about
+#   warning  — buyer caution; commonly resolvable by choosing another vendor
+#   danger   — actively likely-bad listing (untested / aftermarket / wrong target)
+
+low_feedback:
+  label: Limited reviews
+  severity: info
+
+low_seller_feedback:
+  label: Limited reviews
+  severity: info
+
+unknown_quantity:
+  label: Quantity unknown
+  severity: info
+
+digital_only:
+  label: Digital only
+  severity: info
+
+china_shipping:
+  label: Ships from China/HK
+  severity: warning
+
+smart_memory:
+  label: OEM SmartMemory
+  severity: warning
+
+kingston_e_suffix:
+  label: Kingston E-suffix (likely UDIMM)
+  severity: warning
+
+compatible_with_other_server:
+  label: For a different server
+  severity: warning
+
+generic_brand:
+  label: Generic brand
+  severity: warning
+
+similar_bose_model:
+  label: Different Bose model
+  severity: warning
+
+suspicious_listing:
+  label: Suspicious listing
+  severity: danger

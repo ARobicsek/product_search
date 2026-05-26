@@ -1,15 +1,21 @@
-"""Synthesizer — render today's listings + diff into a markdown report.
+"""Synthesizer — render today's listings into a deterministic markdown report.
 
-Architecture (ADR-028, supersedes the structure left after ADR-027):
+Architecture (ADR-096, supersedes ADR-028's "LLM contributes Context"):
 
-The LLM contributes ONE qualitative paragraph (the **Context** section).
-Every other report section — Bottom line, Ranked listings, Diff,
-Flags — is built deterministically from the verified listing data. The
-post-check still rejects any digit in the LLM's paragraph that isn't
-present in the input payload, but with the LLM's job narrowed to
-qualitative prose the failure mode "model fabricates a percentage in a
-narrative comparison" can no longer originate inside a fact-laden
-sentence we asked the model to write.
+The report shown to the user is now a structured JSON sidecar produced
+by :mod:`product_search.synthesizer.report_json`; the markdown emitted
+here is the legacy-renderer fallback. Both are derived deterministically
+from the verified listing data — no LLM call. Bottom line, Diff, Flags
+legend, and Context were removed from the markdown output: Bottom line
+folded into the React winner-less card stack (cards rank by price, no
+winner elevation), Context retired (the LLM's last contribution),
+Flags legend replaced by per-listing human badges in the JSON, and
+Diff dropped pending a real diff-surfacing pass.
+
+``build_input_payload``, ``render_prompt``, ``post_check``, and
+``PostCheckError`` remain on the module surface for backwards-compat
+imports + future re-introduction; they are no longer invoked by
+:func:`synthesize` at runtime.
 
 Public entry point is :func:`synthesize`.
 """
@@ -22,9 +28,8 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import date as _date
 from pathlib import Path
-from typing import Any, cast
+from typing import Any
 
-from product_search.llm import Message, ProviderName, call_llm
 from product_search.models import Listing
 from product_search.profile import Profile
 from product_search.storage.diff import DiffResult
@@ -42,12 +47,17 @@ class PostCheckError(RuntimeError):
 
 @dataclass
 class SynthesisResult:
+    """Result of :func:`synthesize`.
+
+    Post-ADR-096 the synth LLM call is retired, so the provider/model/
+    token fields that used to populate the Run-cost panel's ``synth`` row
+    have been removed — cli.py no longer appends that row. The dataclass
+    is kept (rather than collapsed to a bare str) so future callers can
+    re-introduce structured metadata (e.g. JSON-sidecar path) without
+    churning the import surface.
+    """
+
     report_md: str
-    provider: str
-    model: str
-    input_tokens: int | None
-    output_tokens: int | None
-    prompt_chars: int
 
 
 # ---------------------------------------------------------------------------
@@ -534,99 +544,19 @@ def synthesize(
     diff: DiffResult | None,
     profile: Profile,
     *,
-    provider: str,
-    model: str,
     snapshot_date: _date | None = None,
-    max_tokens: int = 1024,
 ) -> SynthesisResult:
-    """Build the payload, ask the LLM for a Context paragraph, assemble the report.
+    """Build the deterministic markdown report (legacy-renderer fallback).
 
-    Per ADR-028, every numeric/structural section (Bottom line, Ranked
-    listings, Diff, Flags) is built deterministically here. The LLM's only
-    job is one qualitative paragraph. We still post-check that paragraph
-    against the input payload — any digit the LLM emits that isn't in the
-    JSON is rejected — so the no-fabricated-numbers invariant from ADR-001
-    is preserved structurally rather than by prompt discipline alone.
+    Per ADR-096 the post-run UI consumes a JSON sidecar emitted by
+    :mod:`product_search.synthesizer.report_json`; the markdown produced
+    here is the legacy fallback the React page uses when no sidecar
+    exists. The markdown is the Ranked-listings table only — Bottom line,
+    Diff, Flags legend, and Context have all been removed from the
+    output. Sources panel + Run cost are appended by cli.py.
 
-    On a PostCheckError we retry exactly once with a stricter prompt that
-    names the rejected digits. If the retry also fails the original error
-    propagates and ``cli.py``'s stub-report path takes over.
+    ``diff`` and ``snapshot_date`` are accepted for signature compat
+    with older callers but no longer affect the rendered markdown.
     """
-    payload = build_input_payload(listings, diff, profile, snapshot_date=snapshot_date)
-    system_prompt = render_prompt()
-    user_content = json.dumps(payload, default=str, indent=2)
-
-    def _call(system: str) -> Any:
-        return call_llm(
-            provider=cast(ProviderName, provider),
-            model=model,
-            system=system,
-            messages=[Message(role="user", content=user_content)],
-            max_tokens=max_tokens,
-        )
-
-    resp = _call(system_prompt)
-    context_text = _strip_context_prefix(resp.text.strip())
-    total_input_tokens = resp.input_tokens or 0
-    total_output_tokens = resp.output_tokens or 0
-
-    try:
-        post_check(context_text, payload)
-    except PostCheckError as exc:
-        import sys
-
-        print(
-            f"[synth] post-check rejected {exc.bad_numbers} in Context; "
-            f"retrying once with stricter prompt",
-            file=sys.stderr,
-        )
-        retry_system = (
-            system_prompt
-            + "\n\n# RETRY — PRIOR ATTEMPT REJECTED\n\n"
-            + "Your previous Context paragraph was REJECTED because it "
-            + "contained digit-tokens NOT present in the input JSON: "
-            + f"{exc.bad_numbers}. These were almost certainly computed "
-            + "comparisons (percentages, ratios, savings, averages).\n\n"
-            + "Re-emit the Context paragraph using ONLY qualitative "
-            + "phrasing. NO digits at all unless they appear inside a "
-            + "product-model name that already shows up verbatim in the "
-            + "input titles. Use 'cheapest', 'lower-end', 'a small "
-            + "fraction', 'most listings' instead of any number, "
-            + "percentage, or comparison. Plain prose only, no headers."
-        )
-        resp = _call(retry_system)
-        context_text = _strip_context_prefix(resp.text.strip())
-        total_input_tokens += resp.input_tokens or 0
-        total_output_tokens += resp.output_tokens or 0
-        post_check(context_text, payload)
-
-    if not context_text:
-        context_text = (
-            "_(The synthesizer returned an empty Context paragraph. The "
-            "deterministic sections above show the day's data.)_"
-        )
-
-    bl_md = build_bottom_line_md(listings, profile)
     listings_md = build_listings_table_md(listings, profile.report_columns)
-    diff_md = build_diff_md(diff)
-    flags_md = build_flags_md(listings, profile)
-
-    final_report_md = (
-        f"{bl_md}\n\n"
-        f"{listings_md}\n\n"
-        f"{diff_md}\n\n"
-        f"{flags_md}\n\n"
-        f"**Context.** {context_text}"
-    )
-
-    # `input_tokens` / `output_tokens` are SUMS across the initial call and
-    # the retry (if any), so the Run cost panel reflects the true synth
-    # spend rather than only the surviving call.
-    return SynthesisResult(
-        report_md=final_report_md,
-        provider=provider,
-        model=model,
-        input_tokens=total_input_tokens,
-        output_tokens=total_output_tokens,
-        prompt_chars=len(system_prompt) + len(user_content),
-    )
+    return SynthesisResult(report_md=listings_md)

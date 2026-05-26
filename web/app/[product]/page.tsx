@@ -5,6 +5,7 @@ import {
   getProductProfileExists,
   getProductReports,
   getReportContent,
+  getReportJsonSidecar,
 } from '@/lib/github';
 import { getLastCompletedRun } from '@/lib/dispatch';
 import ReactMarkdown from 'react-markdown';
@@ -16,6 +17,8 @@ import { ColumnChooserButton } from './ColumnChooserButton';
 import { ScheduleEditorButton } from './ScheduleEditorButton';
 import { RunInfoFooter } from './RunInfoFooter';
 import { ReportSection } from './ReportSection';
+import { ResultView } from './ResultView';
+import { parseSidecar } from './result-types';
 
 // Force every request through SSR so the Vercel edge can never serve a
 // rendered HTML/RSC payload from before a Run-now's commit. The `cache: 'no-store'`
@@ -116,11 +119,21 @@ export default async function ProductPage({
 
   // Use requested date or the latest one
   const selectedDate = date && reports.includes(date) ? date : reports[0];
-  const content = await getReportContent(product, selectedDate);
+
+  // ADR-096: fetch the structured JSON sidecar in parallel with the
+  // markdown. New reports (post-ADR-096) have both — the React UI
+  // prefers the sidecar. Older reports have only the markdown and fall
+  // through to the legacy renderer.
+  const [content, sidecarRaw] = await Promise.all([
+    getReportContent(product, selectedDate),
+    getReportJsonSidecar(product, selectedDate),
+  ]);
 
   if (!content) {
     return notFound();
   }
+
+  const sidecar = parseSidecar(sidecarRaw);
 
   return (
     <main className="min-h-screen bg-gray-50 dark:bg-[#0a0a0a] pb-12">
@@ -179,18 +192,22 @@ export default async function ProductPage({
       {/* Report Content */}
       <article className="p-4 max-w-2xl mx-auto w-full mt-2">
         <ReportSection>
-          <div className="prose prose-sm sm:prose-base dark:prose-invert max-w-none
-            prose-headings:font-semibold
-            prose-a:text-blue-600 dark:prose-a:text-blue-400
-            prose-table:w-full prose-table:border-collapse
-            prose-th:border prose-th:border-gray-200 dark:prose-th:border-gray-800 prose-th:p-2 prose-th:bg-gray-50 dark:prose-th:bg-gray-900
-            prose-td:border prose-td:border-gray-200 dark:prose-td:border-gray-800 prose-td:p-2
-            prose-tr:border-b prose-tr:border-gray-200 dark:prose-tr:border-gray-800"
-          >
-            <ReactMarkdown remarkPlugins={[remarkGfm]}>
-              {content}
-            </ReactMarkdown>
-          </div>
+          {sidecar ? (
+            <ResultView data={sidecar} />
+          ) : (
+            <div className="prose prose-sm sm:prose-base dark:prose-invert max-w-none
+              prose-headings:font-semibold
+              prose-a:text-blue-600 dark:prose-a:text-blue-400
+              prose-table:w-full prose-table:border-collapse
+              prose-th:border prose-th:border-gray-200 dark:prose-th:border-gray-800 prose-th:p-2 prose-th:bg-gray-50 dark:prose-th:bg-gray-900
+              prose-td:border prose-td:border-gray-200 dark:prose-td:border-gray-800 prose-td:p-2
+              prose-tr:border-b prose-tr:border-gray-200 dark:prose-tr:border-gray-800"
+            >
+              <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                {content}
+              </ReactMarkdown>
+            </div>
+          )}
           {footerInfo && <RunInfoFooter lastRun={footerInfo} />}
         </ReportSection>
       </article>

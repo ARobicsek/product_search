@@ -100,6 +100,35 @@ export async function getProductReports(product: string): Promise<string[]> {
   }
 }
 
+/**
+ * Fetch the structured JSON sidecar (ADR-096) emitted by the worker
+ * alongside the markdown report. Returns null when the sidecar isn't
+ * present (e.g. for historical reports written before ADR-096), in
+ * which case the page falls back to the legacy markdown renderer.
+ */
+export async function getReportJsonSidecar(
+  product: string,
+  date: string,
+): Promise<unknown | null> {
+  try {
+    const url = `https://api.github.com/repos/${REPO}/contents/reports/${product}/${date}.json?ref=${BRANCH}&_cb=${Date.now()}`;
+    const res = await fetch(url, {
+      headers: getHeaders(),
+      cache: 'no-store',
+    });
+    if (!res.ok) {
+      if (res.status === 404) return null;
+      throw new Error(`GitHub contents fetch error: ${res.status} ${res.statusText}`);
+    }
+    const data = await res.json();
+    const raw = Buffer.from(data.content, 'base64').toString('utf8');
+    return JSON.parse(raw);
+  } catch (err) {
+    console.error(`Failed to fetch JSON sidecar for ${product}/${date}:`, err);
+    return null;
+  }
+}
+
 export async function getReportContent(product: string, date: string): Promise<string | null> {
   try {
     // Use the strongly consistent REST API instead of raw.githubusercontent.com.

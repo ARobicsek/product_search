@@ -1,12 +1,18 @@
-"""Synthesizer — turns verified listings + diff into a markdown report.
+"""Synthesizer — turns verified listings into a deterministic markdown report.
 
 Public surface::
 
-    from product_search.synthesizer import synthesize, PostCheckError
+    from product_search.synthesizer import synthesize
 
-The post-check enforces ADR-001: the LLM never produces a price, URL,
-MPN, or stock count that wasn't in its input. If it does, the run fails
-loudly rather than committing fabricated data.
+Per ADR-096 the synth LLM call has been retired — every section of the
+report is now built deterministically from verified data. The post-check
+machinery (``PostCheckError``, ``post_check``, ``render_prompt``) is
+retained on the public surface for backwards-compat imports and future
+re-introduction, but is not invoked by ``synthesize()`` at runtime.
+
+The React UI consumes a JSON sidecar emitted by
+``product_search.synthesizer.report_json``; the markdown produced here
+is the legacy-renderer fallback.
 """
 
 from product_search.synthesizer.report import default_report_path, write_report

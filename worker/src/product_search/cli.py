@@ -542,62 +542,22 @@ def _cmd_search(
     from product_search.validators import ai_filter as ai_filter_mod
 
     if not no_report and passed_listings:
-        from product_search.config import synth_config
         from product_search.synthesizer import (
             SYNTH_MAX_LISTINGS,
-            PostCheckError,
             default_report_path,
             synthesize,
             write_report,
         )
 
-        cfg = synth_config()
-        print(
-            f"Synthesizing report via {cfg.provider}/{cfg.model} ...",
-            file=sys.stderr,
+        print("Synthesizing report (deterministic, per ADR-096) ...", file=sys.stderr)
+        result = synthesize(
+            passed_listings,
+            diff_result,
+            profile,
+            snapshot_date=snapshot_date,
         )
-        try:
-            result = synthesize(
-                passed_listings,
-                diff_result,
-                profile,
-                provider=cfg.provider,
-                model=cfg.model,
-                snapshot_date=snapshot_date,
-            )
-        except PostCheckError as exc:
-            print(f"ERROR (synth post-check): {exc}", file=sys.stderr)
-            # Even on failure, surface ai_filter cost (synth's two failed
-            # calls are not counted because no surviving SynthesisResult).
-            stub_calls: list[dict[str, Any]] = list(universal_ai_usage)
-            if ai_filter_mod.LAST_RUN_USAGE:
-                stub_calls.append(ai_filter_mod.LAST_RUN_USAGE)
-            stub_cost_md = _build_run_cost_md(stub_calls)
-            stub_body = (
-                f"_Run failed at synthesizer post-check on "
-                f"{snapshot_date.isoformat()}._\n\n"
-                f"**Synth post-check error.**\n\n"
-                f"```\n{exc}\n```\n\n"
-                f"The validator pipeline kept "
-                f"{len(passed_listings)} of {len(all_listings)} listing(s); "
-                f"the synthesizer's output was rejected because it contained "
-                f"numeric values not present in the input payload. The full "
-                f"set of passing listings is persisted to a per-run CSV "
-                f"under `reports/<slug>/data/`.\n\n{sources_md}\n\n{stub_cost_md}"
-            )
-            report_path = default_report_path(slug, snapshot_date)
-            write_report(report_path, stub_body)
-            print(f"Wrote post-check stub report: {report_path}", file=sys.stderr)
-            sys.exit(1)
 
         body = result.report_md
-        if not body.strip():
-            body = (
-                "_The synthesizer returned an empty response — "
-                "the listing payload may be too large or the LLM may have "
-                "refused. Raw listings are available in this run's CSV "
-                "under `reports/<slug>/data/`._"
-            )
 
         n_passed = len(passed_listings)
         if n_passed > SYNTH_MAX_LISTINGS:
@@ -608,17 +568,11 @@ def _cmd_search(
             )
 
         # Build deterministic Run cost panel from each universal_ai
-        # source (if any) + ai_filter (if any) + synth.
+        # source (if any) + ai_filter (if any). Per ADR-096, the synth
+        # LLM call is retired, so there's no `synth` row.
         run_calls: list[dict[str, Any]] = list(universal_ai_usage)
         if ai_filter_mod.LAST_RUN_USAGE:
             run_calls.append(ai_filter_mod.LAST_RUN_USAGE)
-        run_calls.append({
-            "step": "synth",
-            "provider": result.provider,
-            "model": result.model,
-            "input_tokens": result.input_tokens,
-            "output_tokens": result.output_tokens,
-        })
         run_cost_md = _build_run_cost_md(run_calls)
 
         # --- Alerts evaluator (Phase 17 Part C; modes per ADR-056) -----------
@@ -662,11 +616,28 @@ def _cmd_search(
         if alerts_md:
             report_body += "\n\n" + alerts_md
         write_report(report_path, report_body)
-        print(
-            f"Wrote report: {report_path}  "
-            f"(in={result.input_tokens}, out={result.output_tokens})",
-            file=sys.stderr,
+
+        # ADR-096: emit the structured JSON sidecar alongside the markdown.
+        # The React UI prefers the sidecar and falls back to markdown only
+        # for historical reports that pre-date this commit.
+        from product_search.synthesizer.report_json import (
+            build_json_payload,
+            default_json_path,
+            write_json_sidecar,
         )
+
+        json_payload = build_json_payload(
+            listings=passed_listings,
+            profile=profile,
+            source_stats=source_stats,
+            run_calls=run_calls,
+            snapshot_date=snapshot_date,
+        )
+        json_path = default_json_path(slug, snapshot_date)
+        write_json_sidecar(json_path, json_payload)
+
+        print(f"Wrote report: {report_path}", file=sys.stderr)
+        print(f"Wrote JSON sidecar: {json_path}", file=sys.stderr)
     elif not no_report:
         # No listings passed the validator pipeline, so there's nothing for
         # the synthesizer to summarise — but the user still wants to see
@@ -690,7 +661,28 @@ def _cmd_search(
 
         report_path = default_report_path(slug, snapshot_date)
         write_report(report_path, body)
+
+        # ADR-096: emit the JSON sidecar for the zero-pass case too so
+        # the React UI can render the "no listings, here's why" state
+        # natively (an empty listings[] + the populated sources[]).
+        from product_search.synthesizer.report_json import (
+            build_json_payload,
+            default_json_path,
+            write_json_sidecar,
+        )
+
+        zero_payload = build_json_payload(
+            listings=[],
+            profile=profile,
+            source_stats=source_stats,
+            run_calls=zero_pass_calls,
+            snapshot_date=snapshot_date,
+        )
+        zero_json_path = default_json_path(slug, snapshot_date)
+        write_json_sidecar(zero_json_path, zero_payload)
+
         print(f"Wrote sources-only report: {report_path}", file=sys.stderr)
+        print(f"Wrote JSON sidecar: {zero_json_path}", file=sys.stderr)
 
     # --- Output ---------------------------------------------------------------
     print(json.dumps([lst.to_dict() for lst in passed_listings], indent=2))
@@ -872,13 +864,33 @@ def _build_sources_searched_md(
     Independent of the LLM — purely tabulated counts so the synthesizer's
     post-check (which forbids fabricated numbers) sees only data we control.
     """
+    # ADR-096: the Status column uses ADR-084's classifier directly, so
+    # a source with `fetched: 0` no longer reports `ok`. The classifier
+    # returns a short label ("ok" / "no match" / "no results" / "needs
+    # work" / "transient" / "blocked") that lines up with the JSON
+    # sidecar's `status_label` field — the legacy renderer and the
+    # React renderer tell the same story.
+    from product_search.source_reasons import classify_source_outcome
+    from product_search.vendor_quirks import get_quirks_for_host
+
     lines = ["**Sources searched.**", ""]
 
     lines.append("| Source | Status | Fetched | Passed |")
     lines.append("|--------|--------|---------|--------|")
     for s in source_stats:
-        err = s.get("error")
-        status = "ok" if err is None else f"error: {err}"
+        host = s.get("match_host")
+        known_failure = None
+        if isinstance(host, str) and host:
+            known_failure = get_quirks_for_host(host).get("known_failure")
+        outcome = classify_source_outcome(
+            fetched=int(s.get("fetched", 0) or 0),
+            passed=int(s.get("passed", 0) or 0),
+            error=s.get("error"),
+            skip_reason=s.get("skip_reason"),
+            diagnostics=s.get("diagnostics"),
+            known_failure=known_failure,
+        )
+        status = outcome.label
         status = status.replace("|", "\\|").replace("\n", " ").replace("\r", "")
         # ``display_source`` is the human-friendly label (e.g.
         # ``universal_ai (audio46.com)``) when the source loop set one;

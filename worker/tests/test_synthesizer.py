@@ -511,14 +511,17 @@ def test_build_flags_dedupes_across_listings_and_sorts_stably() -> None:
 
 
 # ---------------------------------------------------------------------------
-# synthesize() — LLM is responsible for Context only (ADR-028)
+# synthesize() — deterministic Ranked-listings markdown (ADR-096)
 # ---------------------------------------------------------------------------
+#
+# Per ADR-096 the synth LLM call is retired: synthesize() returns only the
+# Ranked-listings markdown table. Bottom line / Diff / Flags-legend /
+# Context have been removed from the output (the React UI consumes the
+# JSON sidecar; the markdown is the legacy-renderer fallback only).
 
 
-def test_synthesize_uses_only_context_from_llm_and_assembles_rest_deterministically() -> None:
-    from unittest.mock import patch
-
-    from product_search.llm import LLMResponse
+def test_synthesize_emits_only_the_ranked_listings_table() -> None:
+    """ADR-096: synth markdown is just the listings table now."""
     from product_search.synthesizer import synthesize
 
     profile = load_profile("ddr5-rdimm-256gb")
@@ -528,128 +531,61 @@ def test_synthesize_uses_only_context_from_llm_and_assembles_rest_deterministica
         total_for_target_usd=960.0,
     )
 
-    # The LLM emits ONLY a qualitative paragraph — no headers, no numbers
-    # except those that appear in the payload.
-    llm_paragraph = (
-        "Today's market is dominated by a single seller offering the "
-        "cheapest path; the remaining listings cluster at the higher end."
-    )
-    resp = LLMResponse(
-        provider="glm",
-        model="glm-4.5-flash",
-        text=llm_paragraph,
-        input_tokens=1,
-        output_tokens=1,
-    )
-    with patch(
-        "product_search.synthesizer.synthesizer.call_llm",
-        side_effect=lambda **kw: resp,
-    ):
-        result = synthesize(
-            [listing], None, profile, provider="glm", model="glm-4.5-flash"
-        )
-
+    result = synthesize([listing], None, profile)
     md = result.report_md
-    assert "**Bottom line.**" in md
-    assert "$960.00" in md  # deterministic Bottom line
+
     assert "**Ranked listings.**" in md
-    assert "**Diff vs yesterday.**" in md
-    assert "**Flags.**" in md
-    assert "**Context.**" in md
-    assert llm_paragraph in md
+    # Sections retired by ADR-096 must NOT appear in the output.
+    assert "**Bottom line.**" not in md
+    assert "**Diff vs yesterday.**" not in md
+    assert "**Flags.**" not in md
+    assert "**Context.**" not in md
 
 
-def test_synthesize_strips_redundant_context_prefix_from_llm() -> None:
-    """Even if the LLM disobeys the prompt and prefixes 'Context.' the
-    deterministic layer should normalise it."""
-    from unittest.mock import patch
+def test_synthesize_signature_drops_provider_and_model() -> None:
+    """ADR-096 removes the LLM-call kwargs from synthesize().
 
-    from product_search.llm import LLMResponse
+    A regression that re-introduced ``provider=`` / ``model=`` would
+    silently re-enable an LLM round-trip nobody wants — pin the shape.
+    """
+    import inspect
+
+    from product_search.synthesizer import synthesize
+
+    sig = inspect.signature(synthesize)
+    assert "provider" not in sig.parameters
+    assert "model" not in sig.parameters
+    assert "max_tokens" not in sig.parameters
+
+
+def test_synthesis_result_carries_only_report_md() -> None:
+    """ADR-096: SynthesisResult is reduced to the markdown payload —
+    no more provider/model/tokens fields (synth LLM retired)."""
+    from dataclasses import fields
+
+    from product_search.synthesizer import SynthesisResult
+
+    field_names = {f.name for f in fields(SynthesisResult)}
+    assert field_names == {"report_md"}
+
+
+def test_synthesize_ignores_diff_argument_for_markdown_output() -> None:
+    """diff is kept on the signature for caller compatibility but the
+    markdown output no longer changes when a diff is present (Diff section
+    was dropped per ADR-096)."""
     from product_search.synthesizer import synthesize
 
     profile = load_profile("ddr5-rdimm-256gb")
     listing = _listing("https://x/a", total_for_target_usd=960.0)
 
-    resp = LLMResponse(
-        provider="glm",
-        model="glm-4.5-flash",
-        text="**Context.** Most listings come from familiar sellers.",
-        input_tokens=1,
-        output_tokens=1,
+    diff = DiffResult(
+        new=[_listing("https://x/new", total_for_target_usd=500.0)],
+        dropped=[_listing("https://x/old", total_for_target_usd=900.0)],
+        changed=[],
     )
-    with patch(
-        "product_search.synthesizer.synthesizer.call_llm",
-        side_effect=lambda **kw: resp,
-    ):
-        result = synthesize(
-            [listing], None, profile, provider="glm", model="glm-4.5-flash"
-        )
-    # The Context header appears exactly once (the deterministic one).
-    assert result.report_md.count("**Context.**") == 1
-
-
-def test_synthesize_retries_once_when_llm_fabricates_in_context() -> None:
-    from unittest.mock import patch
-
-    from product_search.llm import LLMResponse
-    from product_search.synthesizer import synthesize
-
-    profile = load_profile("ddr5-rdimm-256gb")
-    listing = _listing(
-        "https://x/a", unit_price_usd=120.0, total_for_target_usd=960.0
-    )
-
-    bad = LLMResponse(
-        provider="glm",
-        model="glm-4.5-flash",
-        text="The cheapest entry saves 7.7% versus the average.",
-        input_tokens=1,
-        output_tokens=1,
-    )
-    good = LLMResponse(
-        provider="glm",
-        model="glm-4.5-flash",
-        text="The cheapest entry sits well below the rest of the field.",
-        input_tokens=1,
-        output_tokens=1,
-    )
-    responses = iter([bad, good])
-    with patch(
-        "product_search.synthesizer.synthesizer.call_llm",
-        side_effect=lambda **kw: next(responses),
-    ):
-        result = synthesize(
-            [listing], None, profile, provider="glm", model="glm-4.5-flash"
-        )
-    assert "well below" in result.report_md
-
-
-def test_synthesize_propagates_error_when_retry_also_fabricates() -> None:
-    from unittest.mock import patch
-
-    from product_search.llm import LLMResponse
-    from product_search.synthesizer import synthesize
-
-    profile = load_profile("ddr5-rdimm-256gb")
-    listing = _listing(
-        "https://x/a", unit_price_usd=120.0, total_for_target_usd=960.0
-    )
-
-    bad = LLMResponse(
-        provider="glm",
-        model="glm-4.5-flash",
-        text="The cheapest entry saves 7.7% versus the average.",
-        input_tokens=1,
-        output_tokens=1,
-    )
-    with patch(
-        "product_search.synthesizer.synthesizer.call_llm",
-        side_effect=lambda **kw: bad,
-    ):
-        with pytest.raises(PostCheckError):
-            synthesize(
-                [listing], None, profile, provider="glm", model="glm-4.5-flash"
-            )
+    with_diff = synthesize([listing], diff, profile).report_md
+    without_diff = synthesize([listing], None, profile).report_md
+    assert with_diff == without_diff
 
 
 # ---------------------------------------------------------------------------
