@@ -856,7 +856,7 @@ def _build_zero_reason_callout(source_stats: list[dict[str, Any]]) -> str:
 
 
 def _build_sources_searched_md(
-    source_stats: list[dict[str, object]],
+    source_stats: list[dict[str, Any]],
     profile: object,
 ) -> str:
     """Render the deterministic 'Sources searched' panel for the daily report.
