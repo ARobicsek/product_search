@@ -306,7 +306,7 @@ def _fetch_html(
     try:
         from curl_cffi import requests as cc_requests
     except ImportError:
-        cc_requests = None
+        cc_requests = None  # type: ignore[assignment]
 
     if cc_requests is not None:
         try:
