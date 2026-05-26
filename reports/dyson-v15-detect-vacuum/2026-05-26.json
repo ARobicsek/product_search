@@ -1,0 +1,76 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-05-26T16:08:27.980598+00:00",
+  "snapshot_date": "2026-05-26",
+  "product": {
+    "slug": "dyson-v15-detect-vacuum",
+    "display_name": "Dyson V15 Detect Vacuum"
+  },
+  "listings": [],
+  "listings_meta": {
+    "total_passed": 0,
+    "shown": 0,
+    "cap": 30
+  },
+  "sources": [
+    {
+      "label": "target.com",
+      "host": "target.com",
+      "fetched": 0,
+      "passed": 0,
+      "status": "parser_gap",
+      "status_label": "needs work",
+      "reason": "Fetched a full page (164,324 chars) but couldn't read any product listings off it \u2014 the page rendered, but our reader didn't recognise this vendor's layout (not a true empty result). **What to do:** open **Edit Profile** and add the vendor's product-page (detail) URL \u2014 that path extracts more reliably. If that also returns nothing, it needs a scraper fix (re-running won't help)."
+    },
+    {
+      "label": "bestbuy.com",
+      "host": "bestbuy.com",
+      "fetched": 0,
+      "passed": 0,
+      "status": "transient",
+      "status_label": "transient",
+      "reason": "AlterLab couldn't render this vendor's page this time, so nothing could be extracted. **What to do:** run this product again \u2014 this is usually temporary and the next scheduled run retries automatically."
+    },
+    {
+      "label": "walmart.com",
+      "host": "walmart.com",
+      "fetched": 0,
+      "passed": 0,
+      "status": "transient",
+      "status_label": "transient",
+      "reason": "AlterLab couldn't render this vendor's page this time, so nothing could be extracted. **What to do:** run this product again \u2014 this is usually temporary and the next scheduled run retries automatically."
+    },
+    {
+      "label": "williams-sonoma.com",
+      "host": "williams-sonoma.com",
+      "fetched": 0,
+      "passed": 0,
+      "status": "transient",
+      "status_label": "transient",
+      "reason": "Skipped this run because AlterLab was failing on earlier sources (skipped: per-run fetch budget (480s) exceeded). **What to do:** run this product again once AlterLab recovers \u2014 the next scheduled run also retries automatically."
+    }
+  ],
+  "sources_pending": [],
+  "run_cost": {
+    "steps": [
+      {
+        "step": "target.com",
+        "provider": "anthropic",
+        "model": "claude-haiku-4-5",
+        "input_tokens": 2835,
+        "output_tokens": 204,
+        "cost_usd": 0.003855
+      },
+      {
+        "step": "walmart.com",
+        "provider": "anthropic",
+        "model": "claude-haiku-4-5",
+        "input_tokens": 2834,
+        "output_tokens": 129,
+        "cost_usd": 0.0034790000000000003
+      }
+    ],
+    "total_usd": 0.007334,
+    "any_unpriced": false
+  }
+}
