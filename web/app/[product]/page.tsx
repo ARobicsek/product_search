@@ -27,6 +27,21 @@ import { parseSidecar } from './result-types';
 // rendering on top of that.
 export const dynamic = 'force-dynamic';
 
+// Top-level `display_name:` from a profile.yaml — the product's real name,
+// with capitals only where they belong (e.g. "AMD EPYC 9255"). Mirrors the
+// home page so the title is consistent across both surfaces. Regex follows
+// the lightweight reader in lib/schedule.ts rather than a full YAML parse.
+function displayNameFromProfile(yamlText: string | null): string | null {
+  if (!yamlText) return null;
+  const m = yamlText.match(/^display_name:[ \t]*(.+?)[ \t]*\r?$/m);
+  if (!m) return null;
+  return m[1].replace(/^["']|["']$/g, '').trim() || null;
+}
+
+function prettifySlug(slug: string): string {
+  return slug.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
 export default async function ProductPage({
   params,
   searchParams,
@@ -67,6 +82,8 @@ export default async function ProductPage({
     initialRun = { sinceIso: activeRuns.scheduledTickStartedIso, kind: 'scheduled' };
   }
 
+  const displayName = displayNameFromProfile(profileYaml) || prettifySlug(product);
+
   // Footer time = the true latest run. Keep the on-demand duration/conclusion
   // only when that run IS the latest one (instants within 10 min — the worker
   // writes the CSV a minute or two before the workflow marks itself complete).
@@ -103,8 +120,8 @@ export default async function ProductPage({
             <ChevronLeft className="w-5 h-5 mr-1" />
             Back
           </Link>
-          <h1 className="font-semibold capitalize truncate max-w-[50%]">
-            {product.replace(/-/g, ' ')}
+          <h1 className="font-semibold truncate max-w-[50%]">
+            {displayName}
           </h1>
           <span className="w-12" aria-hidden />
         </header>
@@ -167,8 +184,8 @@ export default async function ProductPage({
           <ChevronLeft className="w-5 h-5 mr-1" />
           Back
         </Link>
-        <h1 className="font-semibold capitalize truncate max-w-[50%]">
-          {product.replace(/-/g, ' ')}
+        <h1 className="font-semibold truncate max-w-[50%]">
+          {displayName}
         </h1>
         
         {/* Simple History Dropdown (Using pure CSS/HTML details element for simplicity) */}
