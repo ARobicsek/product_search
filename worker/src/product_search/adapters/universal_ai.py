@@ -303,10 +303,13 @@ def _fetch_html(
         "Accept-Language": "en-US,en;q=0.9",
     }
 
+    cc_requests: Any = None
     try:
-        from curl_cffi import requests as cc_requests
+        from curl_cffi import requests as _cc
+
+        cc_requests = _cc
     except ImportError:
-        cc_requests = None  # type: ignore[assignment]
+        pass
 
     if cc_requests is not None:
         try:
