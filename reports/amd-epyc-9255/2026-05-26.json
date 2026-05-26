@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-05-26T14:34:20.571282+00:00",
+  "generated_at": "2026-05-26T15:05:09.880910+00:00",
   "snapshot_date": "2026-05-26",
   "product": {
     "slug": "amd-epyc-9255",
@@ -97,6 +97,14 @@
         "cost_usd": 0.001451
       },
       {
+        "step": "serversupply.com",
+        "provider": "anthropic",
+        "model": "claude-haiku-4-5",
+        "input_tokens": 711,
+        "output_tokens": 51,
+        "cost_usd": 0.0009660000000000001
+      },
+      {
         "step": "cdw.com",
         "provider": "anthropic",
         "model": "claude-haiku-4-5",
@@ -121,7 +129,7 @@
         "cost_usd": 0.001786
       }
     ],
-    "total_usd": 0.007624000000000001,
+    "total_usd": 0.00859,
     "any_unpriced": false
   }
 }
