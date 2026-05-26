@@ -1,4 +1,4 @@
-slug: the-week-1yr-subscription
+slug: "the-week-1yr-subscription"
 display_name: The Week – 1 Year Subscription
 description: Track the cheapest 1-year subscription to The Week magazine (print or print+digital).
 target:
@@ -11,6 +11,20 @@ spec_flags:
     flag: low_feedback
     rating_pct_below: 98
     count_below: 50
+  - rule: title_mentions
+    flag: digital_only
+    values:
+      - digital
+  - rule: title_mentions
+    flag: print_only
+    values:
+      - print
+  - rule: title_mentions
+    flag: print_digital_combo
+    values:
+      - print+digital
+      - print & digital
+      - print and digital
 sources:
   - id: universal_ai_search
     url: https://www.magsstore.com/the-week-magazine-subscription
@@ -35,7 +49,7 @@ sources:
     url: https://www.magazines.com/the-week-magazine.html
     page_type: detail
   - id: universal_ai_search
-    url: https://pocketmags.com/us/the-week-magazine
+    url: https://www.pocketmags.com/us/the-week-magazine
     page_type: detail
   - id: universal_ai_search
     url: https://www.magazinesdirect.com/us/the-week-subscription/dp/230bb860
