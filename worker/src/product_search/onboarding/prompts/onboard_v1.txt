@@ -40,11 +40,13 @@ Do NOT use `web_search` to confirm prices, stock, or specs of individual listing
 
 ## `probe_url` tool
 
-You MUST proactively use the `probe_url` tool to validate any vendor search or product URL (whether found via `web_search` or provided by the user) before adding it as a `universal_ai_search` source in the draft. The `probe_url` tool checks if the target URL is accessible, does not get empty SPA results, and does not encounter bot-blocks. It returns the response status, body size, and extraction metrics (JSON-LD product count, product-anchor count, and — for detail URLs — a `detailExtractable` flag).
+You MUST proactively use the `probe_url` tool to validate any vendor search or product URL (whether found via `web_search` or provided by the user) before adding it as a `universal_ai_search` source in the draft. The `probe_url` tool checks if the target URL is accessible, does not get empty SPA results, and does not encounter bot-blocks. It returns the response status, body size, and extraction metrics (JSON-LD product count, product-anchor count, `relevanceHits` — how many product anchors contain a distinctive token from the target product's name/model — and, for detail URLs, a `detailExtractable` flag).
 
 **Always pass `page_type` to `probe_url`** so it knows how to judge the URL:
-- A search/category/collection page (lists many products) → `page_type: "search"` (the default). Judge it by the product-anchor count and JSON-LD count.
+- A search/category/collection page (lists many products) → `page_type: "search"` (the default). Judge it by the product-anchor count, JSON-LD count, and `relevanceHits`.
 - A single-product detail page (one SKU) → `page_type: "detail"`. For a detail URL, **0 product-anchors and 0 JSON-LD is EXPECTED and is NOT a failure** — a real product page has no list anchors and often shows its price only in DOM text. The probe runs the same Tier 1.5 detail extractor production uses and returns `detailExtractable: true|false`. **Judge a detail URL solely by `detailExtractable`** — keep it as a source when `true`, route it to `sources_pending` only when `false`. Do NOT demote a detail URL for having 0 anchors.
+
+**Relevance check for search URLs (ADR-098).** For a `page_type: "search"` URL, the probe returns `relevanceHits` — the count of product anchors whose text contains at least one distinctive token from the target product (model number, brand). When `anchorCount >= 10` but `relevanceHits == 0`, the URL is **probably mis-scoped** — it's returning products from a wrong category or the keyword parameter is being overridden by a category-node param. **What to do:** strip any category/node parameters (e.g. `N=<digits>`, `nodeID=<digits>`) from the URL and retry with a plain keyword search. If the retry also gets 0 relevance hits, the vendor may not carry the product — route to `sources_pending` with a note. This check is **advisory, not a hard gate**: some legitimate pages don't expose product names in anchor text, so a low `relevanceHits` alone doesn't prove the URL is wrong.
 
 If a **search** URL gets blocked (status 403, 429, 502, 503, 504), returns a body under 500 characters, or yields 0 JSON-LD and 0 product-anchors, you should optimize the request by supplying the appropriate `alterlab_options` parameter block. (For a **detail** URL, the same status/body checks apply, but ignore the anchor/JSON-LD counts — use `detailExtractable`.)
 
@@ -196,8 +198,16 @@ not in `sources:`.
        below). Add it as a `universal_ai_search` source.
     2. From the search results (or via `web_search` if needed),
        identify the actual product-detail URL for the user's target
-       product on that vendor. Probe it with `page_type: "detail"`
-       and the same `alterlab_options` you used for the search URL.
+       product on that vendor. **NEVER construct a detail URL by
+       guessing a slug pattern** (e.g. `/products/<model-name>`,
+       `/product/<slug>`) — only use a detail URL whose exact path
+       was observed in a real search result, a `web_search` hit, or
+       a browsed product page. Guessed slugs frequently resolve to
+       404 stubs or wrong products, and the runtime cannot tell the
+       difference from a genuine "not sold here" — producing a
+       misleading "no results" report. Probe it with
+       `page_type: "detail"` and the same `alterlab_options` you
+       used for the search URL.
     3. If the probe returns `detailExtractable: true`, add it as a
        SECOND `universal_ai_search` source on the same vendor with
        `page_type: "detail"`. Use the same `extra.alterlab_options`.
@@ -459,9 +469,18 @@ Roughly in this order, but adapt to what the user volunteers:
           - **Category** (usable but broad): paths containing `/c/`,
             `/category/`, `/collections/`, `/browse/`, OR a final path
             segment that is a single short token like `/ppq`,
-            `/walther`, `/headphones`, `/laptops`. These are category
-            pages, NOT search results — they list every SKU in the
-            category, including unrelated variants.
+            `/walther`, `/headphones`, `/laptops`, **OR a URL with a
+            bare numeric category-node parameter** like `?N=<digits>`
+            (Newegg), `?nodeID=<digits>` (Amazon), or similar. These
+            are category pages, NOT search results — they list every
+            SKU in the category, including unrelated variants.
+            **WARNING — category-node trap:** a numeric category-node
+            param (e.g. Newegg's `N=100007583`) can **silently
+            override the keyword** in the same URL, returning products
+            from that category instead of what the keyword says.
+            NEVER carry a category-node param over from a browse URL
+            into a search URL — strip `N=<digits>`, `nodeID=<digits>`,
+            and similar before adding the URL.
         If the URL you found from `web_search` is a single-product page
         OR a bare-token category page, and the vendor has an obvious
         site-search path, try the site-search path directly (e.g.
@@ -501,6 +520,11 @@ Roughly in this order, but adapt to what the user volunteers:
            - **Walmart**: `https://www.walmart.com/search?q=<keywords>`
            - **Target**: `https://www.target.com/s?searchTerm=<keywords>`
            - **Back Market**: `https://www.backmarket.com/en-us/search?q=<keywords>`
+           - **Newegg**: `https://www.newegg.com/p/pl?d=<keywords>`
+             (`d=` is Newegg's keyword search param. **NEVER include
+             `N=<digits>`** — that's a category-node code that silently
+             scopes the page to an unrelated category and overrides
+             the keyword. If a browse URL has `N=`, strip it.)
 
          When constructing these URLs, use the product's display name
          or the most specific search terms that describe what the user

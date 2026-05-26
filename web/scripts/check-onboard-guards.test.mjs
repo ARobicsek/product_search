@@ -181,3 +181,35 @@ test('ADR-079 (Phase 27): placeholder with host already present in sources is be
   };
   assert.equal(detailPresence(draft).length, 0);
 });
+
+// --- ADR-098 prompt-content guards ---
+
+import { promptText } from '../lib/onboard/promptText.ts';
+
+test('ADR-098 fix #2: prompt contains Newegg search pattern with d= param', () => {
+  assert.ok(
+    promptText.includes('newegg.com/p/pl?d='),
+    'prompt must include the Newegg search URL pattern with d= param',
+  );
+});
+
+test('ADR-098 fix #2: prompt warns about N= category-node trap', () => {
+  assert.ok(
+    promptText.includes('category-node trap'),
+    'prompt must warn about the N= category-node trap',
+  );
+});
+
+test('ADR-098 fix #5: prompt prohibits guessing detail-URL slugs', () => {
+  assert.ok(
+    promptText.includes('NEVER construct a detail URL by'),
+    'prompt must contain the strengthened no-guessed-slug prohibition',
+  );
+});
+
+test('ADR-098 fix #1: prompt documents relevanceHits', () => {
+  assert.ok(
+    promptText.includes('relevanceHits'),
+    'prompt must document the relevanceHits probe field',
+  );
+});

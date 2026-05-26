@@ -168,6 +168,10 @@ export interface ProbeResult {
   bodyLength: number;
   jsonldCount: number;
   anchorCount: number;
+  // ADR-098 fix #1: how many product-anchor texts contain a distinctive token
+  // from the target product (model number, brand).  Advisory — used by the
+  // onboarder to detect mis-scoped search URLs (many anchors, 0 relevance).
+  relevanceHits: number;
   // For page_type:"detail" URLs: true if the Tier 1.5 mirror extracted a
   // verbatim-verified price, false if not, null if not a detail probe (or the
   // probe never reached extraction, e.g. a hard fetch failure). For a detail
@@ -459,6 +463,80 @@ export function countProductAnchors(html: string, baseUrl: string): number {
   return seen.size;
 }
 
+// --- ADR-098 fix #1: relevance-hit counting for search URLs ---------------
+
+/**
+ * Tokenize a product name into "distinctive" tokens — words ≥3 chars that
+ * are likely model numbers, brand names, or identifying substrings.
+ * Short words ("of", "the", "for", "in", "and", "or", "to", "a", "an")
+ * and generic e-commerce words are excluded so they don't inflate hits.
+ */
+function distinctiveTokens(name: string): string[] {
+  const STOP_WORDS = new Set([
+    'the', 'and', 'for', 'with', 'new', 'set', 'kit', 'pack', 'pair',
+    'lot', 'box', 'qty', 'pcs', 'item', 'items', 'product', 'products',
+  ]);
+  return name
+    .toLowerCase()
+    .split(/[\s\-\/,.()+]+/)
+    .filter(t => t.length >= 3 && !STOP_WORDS.has(t));
+}
+
+/**
+ * Count how many product-anchor texts contain at least one distinctive token
+ * from `targetName`. Returns 0 when `targetName` is empty/undefined.
+ */
+export function countRelevanceHits(
+  html: string,
+  baseUrl: string,
+  targetName: string | undefined,
+): number {
+  if (!targetName?.trim()) return 0;
+  const tokens = distinctiveTokens(targetName);
+  if (tokens.length === 0) return 0;
+
+  // Regex that captures both href and the visible anchor text.
+  const re = /<a\s[^>]*href\s*=\s*['"]([^'"]+)['"][^>]*>([\s\S]*?)<\/a>/gi;
+  let baseParsed: URL;
+  try {
+    baseParsed = new URL(baseUrl);
+  } catch {
+    return 0;
+  }
+
+  const seen = new Set<string>();
+  let hits = 0;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(html)) !== null) {
+    const rawHref = m[1].trim();
+    const anchorText = m[2].replace(/<[^>]*>/g, '').trim().toLowerCase();
+    if (!rawHref || !anchorText) continue;
+
+    // Dedupe by canonical URL (same as countProductAnchors)
+    let abs: URL;
+    try {
+      abs = new URL(rawHref, baseParsed);
+    } catch {
+      continue;
+    }
+    if (abs.protocol !== 'http:' && abs.protocol !== 'https:') continue;
+    const canonical = `${abs.protocol}//${abs.host.toLowerCase()}${abs.pathname.replace(/\/+$/, '')}`;
+    if (seen.has(canonical)) continue;
+    seen.add(canonical);
+
+    // Skip nav / search / category links — same filter as countProductAnchors
+    const absStr = abs.toString();
+    if (isSearchOrCategoryUrl(absStr) || looksLikeNavPath(absStr)) continue;
+    if (!looksLikeProductUrl(absStr)) continue;
+
+    // Check if any distinctive token appears in the anchor text
+    if (tokens.some(t => anchorText.includes(t))) {
+      hits++;
+    }
+  }
+  return hits;
+}
+
 // --- Tier 1.5 detail extraction (mirror of universal_ai._extract_detail_listing)
 // stripToMainText / priceInText now live in alterlab-shared.ts (imported above).
 
@@ -531,6 +609,7 @@ export async function probeUrl(
   url: string,
   alterlabOptions?: AlterlabOptions,
   pageType?: 'search' | 'detail',
+  targetName?: string,
 ): Promise<ProbeResult> {
   let result: ProbeResult = {
     ok: false,
@@ -539,6 +618,7 @@ export async function probeUrl(
     bodyLength: 0,
     jsonldCount: 0,
     anchorCount: 0,
+    relevanceHits: 0,
     detailExtractable: null,
     reason: null,
   };
@@ -647,6 +727,7 @@ export async function probeUrl(
       ...result,
       jsonldCount: listings.length,
       anchorCount: anchors,
+      relevanceHits: pageType !== 'detail' ? countRelevanceHits(html, url, targetName) : 0,
       detailExtractable,
       ok: true,
       jsonldListings: listings,

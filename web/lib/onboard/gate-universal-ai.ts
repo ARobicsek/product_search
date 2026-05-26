@@ -99,6 +99,7 @@ export async function gateUniversalAiUrls(
         bodyLength: 0,
         jsonldCount: 0,
         anchorCount: 0,
+        relevanceHits: 0,
         detailExtractable: null,
         reason: `unexpected probe error: ${msg}`,
         jsonldListings: undefined,

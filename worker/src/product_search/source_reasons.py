@@ -26,6 +26,12 @@ from typing import Any
 # split can't be made perfectly deterministic), so the messages hedge.
 SUBSTANTIVE_BODY_FLOOR = 50_000
 
+# A body *below* this ceiling with 0 candidates is almost certainly a 404 stub,
+# bot-block interstitial, or wrong-URL page — NOT proof the product isn't sold
+# there.  ADR-098 fix #3: classify as TRANSIENT ("check the URL") instead of
+# EMPTY_PAGE ("genuinely has nothing"), which was actively misleading.
+THIN_BODY_CEILING = 5_000
+
 
 class OutcomeCategory(StrEnum):
     """Why a source produced the result it did (only the non-OK ones surface)."""
@@ -81,6 +87,7 @@ def classify_source_outcome(
     skip_reason: str | None = None,
     diagnostics: dict[str, Any] | None = None,
     known_failure: dict[str, Any] | None = None,
+    dominant_rejection: str | None = None,
 ) -> SourceOutcome:
     """Classify one source's outcome into a category + plain-English reason.
 
@@ -100,6 +107,19 @@ def classify_source_outcome(
     #    classify it before any degraded/transient signal.
     if fetched > 0:
         plural = "listing" if fetched == 1 else "listings"
+        # ADR-098 fix #4: when the dominant rejection reason is relevance_check,
+        # the URL is probably mis-scoped (returning unrelated products), not a
+        # filter that needs loosening.
+        if dominant_rejection == "relevance_check":
+            return SourceOutcome(
+                OutcomeCategory.NO_MATCH,
+                f"Found {fetched} {plural} but none matched what you're "
+                f"tracking — this source's search URL may be mis-scoped "
+                f"(returning unrelated products). **What to do:** open "
+                f"**Edit Profile** and check or replace the search URL for "
+                f"this vendor. The AI filter diagnostic below lists the "
+                f"specific rejections.",
+            )
         return SourceOutcome(
             OutcomeCategory.NO_MATCH,
             f"Found {fetched} {plural} but none met your search criteria "
@@ -190,6 +210,20 @@ def classify_source_outcome(
             f"to do:** open **Edit Profile** and add the vendor's product-page "
             f"(detail) URL — that path extracts more reliably. If that also "
             f"returns nothing, it needs a scraper fix (re-running won't help).",
+        )
+
+    # ADR-098 fix #3: a tiny body (under THIN_BODY_CEILING) with 0 candidates
+    # is almost certainly a 404 stub, bot-block page, or wrong-URL page — NOT
+    # proof the product isn't sold there.  Classify as TRANSIENT so the user
+    # gets honest "check the URL" guidance instead of "genuinely has nothing."
+    if 0 < body_len < THIN_BODY_CEILING:
+        return SourceOutcome(
+            OutcomeCategory.TRANSIENT,
+            f"The vendor's page returned an unusually small body "
+            f"({body_len:,} chars) with no products — most likely a 404 stub, "
+            f"bot-block, or wrong URL, not proof the product isn't sold there. "
+            f"**What to do:** open **Edit Profile** and check the search URL; "
+            f"re-running may also help if this was a transient block.",
         )
 
     return SourceOutcome(

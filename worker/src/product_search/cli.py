@@ -467,6 +467,26 @@ def _cmd_search(
             (s["source"], s.get("match_host"), s.get("match_url")), 0
         )
 
+    # ADR-098 fix #4: compute the dominant rejection reason per source so
+    # the classifier can give "URL may be mis-scoped" guidance instead of
+    # "loosen your filter" when most rejections are relevance-driven.
+    from product_search.validators import ai_filter as _af_mod
+
+    _rejection_log = list(_af_mod.LAST_RUN_LOG)
+    _rejected_entries = [e for e in _rejection_log if not e.get("pass")]
+    for s in source_stats:
+        src_id = s.get("source")
+        src_rejected = [
+            e for e in _rejected_entries if e.get("source") == src_id
+        ]
+        if src_rejected:
+            relevance_count = sum(
+                1 for e in src_rejected
+                if "relevance_check" in str(e.get("reason", "")).lower()
+            )
+            if relevance_count >= len(src_rejected) * 0.5:
+                s["dominant_rejection"] = "relevance_check"
+
     print(
         f"Fetched {len(all_listings)} listing(s). "
         f"Passed: {len(passed_listings)}, Rejected: {rejected_count}.",
@@ -837,6 +857,7 @@ def _build_zero_reason_callout(source_stats: list[dict[str, Any]]) -> str:
             skip_reason=s.get("skip_reason"),
             diagnostics=s.get("diagnostics"),
             known_failure=known_failure,
+            dominant_rejection=s.get("dominant_rejection"),
         )
         if outcome.is_clean:
             continue
@@ -889,6 +910,7 @@ def _build_sources_searched_md(
             skip_reason=s.get("skip_reason"),
             diagnostics=s.get("diagnostics"),
             known_failure=known_failure,
+            dominant_rejection=s.get("dominant_rejection"),
         )
         status = outcome.label
         status = status.replace("|", "\\|").replace("\n", " ").replace("\r", "")

@@ -87,9 +87,21 @@ def test_substantive_body_zero_candidates_is_parser_gap() -> None:
     assert "80,000" in out.message
 
 
-def test_small_body_zero_candidates_is_empty_page() -> None:
+def test_thin_body_zero_candidates_is_transient() -> None:
+    """ADR-098 fix #3: a tiny body (<5 KB) with 0 candidates is TRANSIENT
+    ('check the URL'), NOT EMPTY_PAGE ('genuinely has nothing')."""
     out = classify_source_outcome(
         fetched=0, passed=0, diagnostics={"body_len": 1_200},
+    )
+    assert out.category is OutcomeCategory.TRANSIENT
+    assert "small body" in out.message.lower() or "stub" in out.message.lower()
+
+
+def test_medium_body_zero_candidates_is_empty_page() -> None:
+    """A body between THIN_BODY_CEILING and SUBSTANTIVE_BODY_FLOOR (e.g. 20 KB)
+    with 0 candidates is still EMPTY_PAGE — only tiny bodies get reclassified."""
+    out = classify_source_outcome(
+        fetched=0, passed=0, diagnostics={"body_len": 20_000},
     )
     assert out.category is OutcomeCategory.EMPTY_PAGE
 
@@ -109,3 +121,25 @@ def test_fetched_listings_beats_degraded_signal() -> None:
         diagnostics={"body_len": 50_000, "alterlab_degraded": True},
     )
     assert out.category is OutcomeCategory.NO_MATCH
+
+
+# --- ADR-098 fix #4: relevance-dominated NO_MATCH ---
+
+
+def test_no_match_relevance_dominated_warns_mis_scoped() -> None:
+    """When fetched>0/passed=0 and dominant_rejection='relevance_check',
+    the message says 'mis-scoped', NOT 'loosen your filter'."""
+    out = classify_source_outcome(
+        fetched=36, passed=0, dominant_rejection="relevance_check",
+    )
+    assert out.category is OutcomeCategory.NO_MATCH
+    assert "mis-scoped" in out.message.lower()
+    assert "loosen" not in out.message.lower()
+
+
+def test_no_match_without_dominant_rejection_uses_default_message() -> None:
+    """When dominant_rejection is absent, the default 'loosen your filter'
+    guidance still applies."""
+    out = classify_source_outcome(fetched=4, passed=0)
+    assert out.category is OutcomeCategory.NO_MATCH
+    assert "filter" in out.message.lower()
