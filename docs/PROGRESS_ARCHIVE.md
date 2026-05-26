@@ -8,7 +8,18 @@ so the live file stays small while nothing is lost. See
 
 ---
 
+## Current state — 2026-05-26 Post-run report redesign (ADR-096) (SUPERSEDED by 2026-05-26 ADR-098 supermicro-zero-results)
+
+**Deliverables:** ADR-096 in DECISIONS.md. Worker edits: synthesizer.py (synth LLM call excised; final markdown pruned to ranked-listings table only), cli.py (post-check removed, JSON sidecar emit, sources Status derives from classify_source_outcome). New worker files: flag_labels.yaml + flag_labels.py, report_json.py. Web edits: github.ts, page.tsx. New web files: result-types.ts, ResultView.tsx. Test edits: test_synthesizer.py (4 deleted + 4 new) + new test_report_json.py (15 tests).
+
+**What shipped:** Synth LLM retired (ADR-028 seam closed — all report text is now deterministic). JSON sidecar emitted alongside markdown. Human-readable flag badges via flag_labels.yaml. Sources status enum from classify_source_outcome replaces status:ok-everywhere. React ResultView with equal-sized listing cards (no winner elevation per user). Legacy markdown fallback preserved. Green: worker 379/379, web tsc 0, guards 11/11, parity 2/2.
+
+**Finding worth remembering:** When a "necessary evil" architectural concession (an LLM doing qualitative prose) is no longer load-bearing (the user doesn't read it), retire the seam entirely and reclaim the structural guarantee.
+
+---
+
 ## Current state — 2026-05-26 Remaining onboarder paper-cuts (ADR-095) + ADR-093/091 live re-verify (SUPERSEDED by 2026-05-26 Post-run report redesign / ADR-096)
+
 
 **Deliverables:** ADR-095 in DECISIONS.md. Worker edits: [worker/src/product_search/profile.py](../worker/src/product_search/profile.py) (`SpecAttrDef.required` → `bool = False` default + docstring), [worker/src/product_search/synthesizer/synthesizer.py](../worker/src/product_search/synthesizer/synthesizer.py) (`build_flags_md` 3-tier fallback + bare-bullet on miss), [worker/src/product_search/onboarding/prompts/onboard_v1.txt](../worker/src/product_search/onboarding/prompts/onboard_v1.txt) (spec_attrs OPTIONAL callout). Web edits: [web/lib/onboard/schema.ts](../web/lib/onboard/schema.ts) (`validateSpecAttrs` — `required` now optional, rejects only when present-but-non-boolean). Onboarder prompt resynced to [web/lib/onboard/promptText.ts](../web/lib/onboard/promptText.ts) via `sync-prompt.js`. 4 new worker tests.
 
