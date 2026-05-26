@@ -1,35 +1,51 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-05-26T16:08:27.980598+00:00",
+  "generated_at": "2026-05-26T16:24:25.677245+00:00",
   "snapshot_date": "2026-05-26",
   "product": {
     "slug": "dyson-v15-detect-vacuum",
     "display_name": "Dyson V15 Detect Vacuum"
   },
-  "listings": [],
+  "listings": [
+    {
+      "rank": 1,
+      "source": "bestbuy.com",
+      "vendor_host": "www.bestbuy.com",
+      "url": "https://www.bestbuy.com/product/dyson-v15-detect-extra-cordless-vacuum-with-10-accessories-yellow-nickel/J3ZCSY279C",
+      "title": "Dyson - V15 Detect Extra Cordless Vacuum with 10 accessories - Yellow/Nickel",
+      "price_usd": 649.99,
+      "total_for_target_usd": 649.99,
+      "currency_approx_fx": null,
+      "condition": "new",
+      "seller_name": "www.bestbuy.com",
+      "is_kit": false,
+      "kit_module_count": 1,
+      "badges": []
+    }
+  ],
   "listings_meta": {
-    "total_passed": 0,
-    "shown": 0,
+    "total_passed": 1,
+    "shown": 1,
     "cap": 30
   },
   "sources": [
     {
       "label": "target.com",
       "host": "target.com",
-      "fetched": 0,
+      "fetched": 20,
       "passed": 0,
-      "status": "parser_gap",
-      "status_label": "needs work",
-      "reason": "Fetched a full page (164,324 chars) but couldn't read any product listings off it \u2014 the page rendered, but our reader didn't recognise this vendor's layout (not a true empty result). **What to do:** open **Edit Profile** and add the vendor's product-page (detail) URL \u2014 that path extracts more reliably. If that also returns nothing, it needs a scraper fix (re-running won't help)."
+      "status": "no_match",
+      "status_label": "no match",
+      "reason": "Found 20 listings but none met your search criteria (price, condition, or keyword filters). **What to do:** nothing, unless you expected matches here \u2014 if so, open **Edit Profile** and loosen the relevant filter (price cap, condition, keywords). The AI filter diagnostic below lists the specific rejections."
     },
     {
       "label": "bestbuy.com",
       "host": "bestbuy.com",
-      "fetched": 0,
-      "passed": 0,
-      "status": "transient",
-      "status_label": "transient",
-      "reason": "AlterLab couldn't render this vendor's page this time, so nothing could be extracted. **What to do:** run this product again \u2014 this is usually temporary and the next scheduled run retries automatically."
+      "fetched": 4,
+      "passed": 1,
+      "status": "ok",
+      "status_label": "ok",
+      "reason": ""
     },
     {
       "label": "walmart.com",
@@ -57,20 +73,36 @@
         "step": "target.com",
         "provider": "anthropic",
         "model": "claude-haiku-4-5",
-        "input_tokens": 2835,
-        "output_tokens": 204,
-        "cost_usd": 0.003855
+        "input_tokens": 6691,
+        "output_tokens": 3185,
+        "cost_usd": 0.022616
+      },
+      {
+        "step": "bestbuy.com",
+        "provider": "anthropic",
+        "model": "claude-haiku-4-5",
+        "input_tokens": 3248,
+        "output_tokens": 652,
+        "cost_usd": 0.006508
       },
       {
         "step": "walmart.com",
         "provider": "anthropic",
         "model": "claude-haiku-4-5",
         "input_tokens": 2834,
-        "output_tokens": 129,
-        "cost_usd": 0.0034790000000000003
+        "output_tokens": 126,
+        "cost_usd": 0.003464
+      },
+      {
+        "step": "ai_filter",
+        "provider": "anthropic",
+        "model": "claude-haiku-4-5",
+        "input_tokens": 5808,
+        "output_tokens": 1438,
+        "cost_usd": 0.012998
       }
     ],
-    "total_usd": 0.007334,
+    "total_usd": 0.045586,
     "any_unpriced": false
   }
 }
