@@ -1,0 +1,127 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-05-26T14:34:20.571282+00:00",
+  "snapshot_date": "2026-05-26",
+  "product": {
+    "slug": "amd-epyc-9255",
+    "display_name": "AMD EPYC 9255"
+  },
+  "listings": [],
+  "listings_meta": {
+    "total_passed": 0,
+    "shown": 0,
+    "cap": 30
+  },
+  "sources": [
+    {
+      "label": "wiredzone.com",
+      "host": "wiredzone.com",
+      "fetched": 1,
+      "passed": 0,
+      "status": "no_match",
+      "status_label": "no match",
+      "reason": "Found 1 listing but none met your search criteria (price, condition, or keyword filters). **What to do:** nothing, unless you expected matches here \u2014 if so, open **Edit Profile** and loosen the relevant filter (price cap, condition, keywords). The AI filter diagnostic below lists the specific rejections."
+    },
+    {
+      "label": "newegg.com",
+      "host": "newegg.com",
+      "fetched": 1,
+      "passed": 0,
+      "status": "no_match",
+      "status_label": "no match",
+      "reason": "Found 1 listing but none met your search criteria (price, condition, or keyword filters). **What to do:** nothing, unless you expected matches here \u2014 if so, open **Edit Profile** and loosen the relevant filter (price cap, condition, keywords). The AI filter diagnostic below lists the specific rejections."
+    },
+    {
+      "label": "serversupply.com",
+      "host": "serversupply.com",
+      "fetched": 0,
+      "passed": 0,
+      "status": "permanent",
+      "status_label": "blocked",
+      "reason": "This vendor is blocked \u2014 an anti-bot wall we have no working path through right now \u2014 so re-running won't help. **What to do:** nothing in the app recovers this; getting it working needs deeper scraper changes and isn't guaranteed. Cloudflare bot-walled \u2014 same class as microcenter (ADR-088, probed 2026-05-25). The homepage returns a ~31.7 KB \"Just a moment... / Performing security verification\" Cloudflare interstitial (Ray ID, 0 product anchors) through AlterLab at tier 3 + networkidle. The 2026-05-17 detail-page capture was the identical challenge body (pinned barren by test_strip_real_botwall_fixture). No working path today. NOTE: previously (mis)tagged `alterlab_known_good: true` \u2014 false for a Cloudflare-walled host; removed. default_alterlab_options kept to document the max attempt."
+    },
+    {
+      "label": "cdw.com",
+      "host": "cdw.com",
+      "fetched": 1,
+      "passed": 0,
+      "status": "no_match",
+      "status_label": "no match",
+      "reason": "Found 1 listing but none met your search criteria (price, condition, or keyword filters). **What to do:** nothing, unless you expected matches here \u2014 if so, open **Edit Profile** and loosen the relevant filter (price cap, condition, keywords). The AI filter diagnostic below lists the specific rejections."
+    },
+    {
+      "label": "pcnation.com",
+      "host": "pcnation.com",
+      "fetched": 0,
+      "passed": 0,
+      "status": "transient",
+      "status_label": "transient",
+      "reason": "AlterLab couldn't render this vendor's page this time, so nothing could be extracted. **What to do:** run this product again \u2014 this is usually temporary and the next scheduled run retries automatically."
+    },
+    {
+      "label": "centralcomputer.com",
+      "host": "centralcomputer.com",
+      "fetched": 0,
+      "passed": 0,
+      "status": "permanent",
+      "status_label": "blocked",
+      "reason": "This vendor is blocked \u2014 an anti-bot wall we have no working path through right now \u2014 so re-running won't help. **What to do:** nothing in the app recovers this; getting it working needs deeper scraper changes and isn't guaranteed. Cloudflare bot-walled \u2014 same class as microcenter (ADR-088, probed 2026-05-25). Search AND homepage return the SAME ~31.9 KB \"Just a moment...\" Cloudflare interstitial (Ray ID, cf-* markers, 0 product anchors) through AlterLab at tier 3 + networkidle. The 2026-05-17 detail-page capture was already the identical challenge body (pinned barren by test_strip_real_botwall_fixture). Detail URLs do NOT escape it either \u2014 there is no working path today. NOTE: this host was previously (mis)tagged `alterlab_known_good: true`; that asserted AlterLab renders it fine, which is false. Removed \u2014 a Cloudflare-walled host is the opposite of known-good. default_alterlab_options kept to document the max attempt and so the runtime sends the right options IF the wall lifts."
+    },
+    {
+      "label": "provantage.com",
+      "host": "provantage.com",
+      "fetched": 0,
+      "passed": 0,
+      "status": "transient",
+      "status_label": "transient",
+      "reason": "Skipped this run because AlterLab was failing on earlier sources (skipped: per-run fetch budget (480s) exceeded). **What to do:** run this product again once AlterLab recovers \u2014 the next scheduled run also retries automatically."
+    }
+  ],
+  "sources_pending": [],
+  "run_cost": {
+    "steps": [
+      {
+        "step": "wiredzone.com",
+        "provider": "anthropic",
+        "model": "claude-haiku-4-5",
+        "input_tokens": 1481,
+        "output_tokens": 98,
+        "cost_usd": 0.0019709999999999997
+      },
+      {
+        "step": "newegg.com",
+        "provider": "anthropic",
+        "model": "claude-haiku-4-5",
+        "input_tokens": 981,
+        "output_tokens": 94,
+        "cost_usd": 0.001451
+      },
+      {
+        "step": "cdw.com",
+        "provider": "anthropic",
+        "model": "claude-haiku-4-5",
+        "input_tokens": 1178,
+        "output_tokens": 75,
+        "cost_usd": 0.0015530000000000001
+      },
+      {
+        "step": "pcnation.com",
+        "provider": "anthropic",
+        "model": "claude-haiku-4-5",
+        "input_tokens": 798,
+        "output_tokens": 13,
+        "cost_usd": 0.0008629999999999999
+      },
+      {
+        "step": "ai_filter",
+        "provider": "anthropic",
+        "model": "claude-haiku-4-5",
+        "input_tokens": 1366,
+        "output_tokens": 84,
+        "cost_usd": 0.001786
+      }
+    ],
+    "total_usd": 0.007624000000000001,
+    "any_unpriced": false
+  }
+}
