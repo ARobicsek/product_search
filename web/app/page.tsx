@@ -68,6 +68,16 @@ function formatDuration(ms: number): string {
   return `${m}m ${rem.toString().padStart(2, '0')}s`;
 }
 
+// Later of two ISO instants (either may be null). Used to reconcile the
+// data-CSV run instant with the report sidecar's generated_at: a zero-pass
+// run writes a report (and sidecar) but no data CSV, so the CSV alone would
+// report a stale older run as the latest.
+function laterIso(a: string | null, b: string | null): string | null {
+  if (!a) return b;
+  if (!b) return a;
+  return Date.parse(a) >= Date.parse(b) ? a : b;
+}
+
 export default async function Home() {
   const products = await getProducts();
 
@@ -124,6 +134,11 @@ export default async function Home() {
         if (d > 0 && d < 30 * 60 * 1000) durationMs = d;
       }
 
+      // The card's "last run" time: prefer whichever is newer, the data-CSV
+      // instant or the latest report's build time. (lastRunIso above stays the
+      // raw CSV instant — it's the run START used for the duration math.)
+      const lastRunDisplayIso = laterIso(lastRunIso, sidecar?.generated_at ?? null);
+
       // An on-demand run carries the slug in its title (so we know its exact
       // start). A scheduler-tick has no per-product title, so it's attributed
       // to any product declaring a schedule block — best-effort, since one
@@ -150,7 +165,7 @@ export default async function Home() {
         product,
         title,
         latestDate,
-        lastRunIso,
+        lastRunIso: lastRunDisplayIso,
         status,
         runningSinceIso,
         priceLabel,

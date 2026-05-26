@@ -42,6 +42,13 @@ function prettifySlug(slug: string): string {
   return slug.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
+// Later of two ISO instants (either may be null).
+function laterIso(a: string | null, b: string | null): string | null {
+  if (!a) return b;
+  if (!b) return a;
+  return Date.parse(a) >= Date.parse(b) ? a : b;
+}
+
 export default async function ProductPage({
   params,
   searchParams,
@@ -83,27 +90,6 @@ export default async function ProductPage({
   }
 
   const displayName = displayNameFromProfile(profileYaml) || prettifySlug(product);
-
-  // Footer time = the true latest run. Keep the on-demand duration/conclusion
-  // only when that run IS the latest one (instants within 10 min — the worker
-  // writes the CSV a minute or two before the workflow marks itself complete).
-  // A much-newer CSV instant means the latest run was scheduled: show the time
-  // only (no per-product duration exists for a multi-product scheduler tick).
-  let footerInfo:
-    | { completedAt: string; durationMs: number | null; conclusion: string | null }
-    | null = null;
-  if (lastRunIso || lastRun) {
-    const sameRun =
-      lastRun && lastRunIso
-        ? Math.abs(Date.parse(lastRunIso) - Date.parse(lastRun.completedAt)) <=
-          10 * 60_000
-        : !lastRunIso;
-    footerInfo = {
-      completedAt: lastRunIso ?? lastRun!.completedAt,
-      durationMs: sameRun && lastRun ? lastRun.durationMs : null,
-      conclusion: sameRun && lastRun ? lastRun.conclusion : null,
-    };
-  }
 
   if (reports.length === 0) {
     // Fresh onboard: profile exists but no report has been generated yet.
@@ -172,6 +158,37 @@ export default async function ProductPage({
   }
 
   const sidecar = parseSidecar(sidecarRaw);
+
+  // Footer time = the true latest run. The data-CSV instant (lastRunIso) only
+  // exists for runs that produced listings — a zero-pass run writes a report
+  // (and sidecar) but no CSV, so the CSV alone reports a stale older run. When
+  // viewing the latest report, reconcile with its sidecar's generated_at so the
+  // footer reflects the most recent run regardless of whether it had data. (Only
+  // for the latest report — an older report's generated_at isn't the last run.)
+  const latestRunInstant =
+    selectedDate === reports[0]
+      ? laterIso(lastRunIso, sidecar?.generated_at ?? null)
+      : lastRunIso;
+  // Keep the on-demand duration/conclusion only when that run IS the latest one
+  // (instants within 10 min — the worker writes the CSV a minute or two before
+  // the workflow marks itself complete). A much-newer instant means the latest
+  // run was scheduled: show the time only (no per-product duration exists for a
+  // multi-product scheduler tick).
+  let footerInfo:
+    | { completedAt: string; durationMs: number | null; conclusion: string | null }
+    | null = null;
+  if (latestRunInstant || lastRun) {
+    const sameRun =
+      lastRun && latestRunInstant
+        ? Math.abs(Date.parse(latestRunInstant) - Date.parse(lastRun.completedAt)) <=
+          10 * 60_000
+        : !latestRunInstant;
+    footerInfo = {
+      completedAt: latestRunInstant ?? lastRun!.completedAt,
+      durationMs: sameRun && lastRun ? lastRun.durationMs : null,
+      conclusion: sameRun && lastRun ? lastRun.conclusion : null,
+    };
+  }
 
   return (
     <main className="min-h-screen bg-gray-50 dark:bg-[#0a0a0a] pb-12">
