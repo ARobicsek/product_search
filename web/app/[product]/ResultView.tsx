@@ -154,9 +154,10 @@ function ListingCard({ listing }: { listing: ResultListing }) {
         {listing.condition && (
           <span className="capitalize">{listing.condition}</span>
         )}
-        {listing.seller_name && listing.seller_name !== cleanHost && (
-          <span>Seller: {listing.seller_name}</span>
-        )}
+        {listing.seller_name &&
+          listing.seller_name.replace(/^www\./, '') !== cleanHost && (
+            <span>Seller: {listing.seller_name}</span>
+          )}
         {listing.is_kit && listing.kit_module_count > 1 && (
           <span>{listing.kit_module_count}-pack</span>
         )}
