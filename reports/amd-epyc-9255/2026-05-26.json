@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-05-26T15:05:09.880910+00:00",
+  "generated_at": "2026-05-26T15:27:35.366864+00:00",
   "snapshot_date": "2026-05-26",
   "product": {
     "slug": "amd-epyc-9255",
@@ -101,8 +101,8 @@
         "provider": "anthropic",
         "model": "claude-haiku-4-5",
         "input_tokens": 711,
-        "output_tokens": 51,
-        "cost_usd": 0.0009660000000000001
+        "output_tokens": 13,
+        "cost_usd": 0.000776
       },
       {
         "step": "cdw.com",
@@ -125,11 +125,11 @@
         "provider": "anthropic",
         "model": "claude-haiku-4-5",
         "input_tokens": 1366,
-        "output_tokens": 84,
-        "cost_usd": 0.001786
+        "output_tokens": 85,
+        "cost_usd": 0.001791
       }
     ],
-    "total_usd": 0.00859,
+    "total_usd": 0.008405,
     "any_unpriced": false
   }
 }
