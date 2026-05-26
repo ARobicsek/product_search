@@ -159,6 +159,83 @@ def test_pipeline_calculates_total_cost() -> None:
     assert passed[0].total_for_target_usd == 760.0
 
 
+def _make_subscription_profile(amount: int = 1) -> Profile:
+    """Profile shaped like a magazine subscription / single-SKU consumer
+    good — ``target.configurations`` is empty (no RAM-style fulfillment
+    math). Exercises the generic arm of ``_calculate_total`` added in
+    ADR-094.
+    """
+    import copy
+
+    sub = copy.deepcopy(VALID_PROFILE)
+    sub["slug"] = "test-subscription"
+    sub["display_name"] = "Test Subscription"
+    sub["target"] = {"unit": "count", "amount": amount, "configurations": []}
+    sub["spec_attrs"] = {}
+    sub["spec_filters"] = [{"rule": "in_stock"}]
+    sub["spec_flags"] = []
+    sub["sources"] = [
+        {"id": "universal_ai_search", "url": "https://example.com/sub", "page_type": "detail"}
+    ]
+    sub.pop("qvl_file", None)
+    return Profile.model_validate(sub)
+
+
+def test_pipeline_total_for_target_uses_kit_price_for_subscription(
+    monkeypatch,
+) -> None:
+    """A 52-issue subscription kit at $199 with target.amount=1 must yield
+    total_for_target_usd=$199 — the as-sold subscription price — NOT the
+    derived per-issue rate (~$3.83). Pre-ADR-094 the function returned
+    None for any listing without ``capacity_gb``, which made the
+    synthesizer rank by per-issue unit price and surface impossible
+    headline prices like "$3.44 cheapest subscription" (the-week-
+    1yr-subscription 2026-05-25 report).
+    """
+    monkeypatch.setenv("WORKER_USE_FIXTURES", "1")
+    lst = _make_listing(
+        attrs={"vendor_host": "www.magazineline.com", "extractor": "detail_llm"},
+        title="The Week Print+Digital Magazine Subscription",
+        url="https://www.magazineline.com/the-week-printdigital-magazine",
+        condition="new",
+        is_kit=True,
+        kit_module_count=52,
+        unit_price_usd=3.83,
+        kit_price_usd=199.0,
+        quantity_available=None,
+    )
+    profile = _make_subscription_profile()
+    passed, rejected = run_pipeline([lst], profile, None)
+    assert rejected == 0
+    assert len(passed) == 1
+    assert passed[0].total_for_target_usd == 199.0
+
+
+def test_pipeline_total_for_target_uses_unit_price_for_non_kit_consumer_good(
+    monkeypatch,
+) -> None:
+    """A single-SKU consumer good (is_kit=False) with target.amount=1
+    yields total = unit_price. Locks in the generic arm's non-kit
+    branch added in ADR-094.
+    """
+    monkeypatch.setenv("WORKER_USE_FIXTURES", "1")
+    lst = _make_listing(
+        attrs={"vendor_host": "www.dyson.com"},
+        title="Dyson V15 Detect Cordless Vacuum",
+        url="https://www.dyson.com/v15",
+        condition="new",
+        is_kit=False,
+        kit_module_count=1,
+        unit_price_usd=749.99,
+        kit_price_usd=None,
+        quantity_available=None,
+    )
+    profile = _make_subscription_profile()
+    passed, _ = run_pipeline([lst], profile, None)
+    assert len(passed) == 1
+    assert passed[0].total_for_target_usd == 749.99
+
+
 def test_pipeline_flags_unknown_quantity() -> None:
     lst = _make_listing(
         attrs={"capacity_gb": 32},

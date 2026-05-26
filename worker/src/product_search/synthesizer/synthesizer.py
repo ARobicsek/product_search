@@ -238,6 +238,18 @@ COLUMN_DEFS: dict[str, tuple[str, Callable[[int, Listing], str]]] = {
     "source": ("Source", lambda i, lst: f"[{_esc(_source_label(lst))}]({lst.url})"),
     "title": ("Title", lambda i, lst: _esc(lst.title)),
     "pack_size": ("Pack size", lambda i, lst: str(lst.kit_module_count)),
+    # The recommended default for ANY product: shows the as-sold price
+    # (kit_price for kits, unit_price otherwise — same formula as
+    # price_pack but with a header that reads correctly for non-kit
+    # consumer goods AND for subscriptions where "pack" would be
+    # misleading). Matches the alert "total" semantics from the
+    # price_below ADR. Added 2026-05-25 (ADR-094) after the-week-
+    # 1yr-subscription report showed per-issue $3.44 as the headline
+    # price because the default column was ``price_unit``.
+    "price": (
+        "Price",
+        lambda i, lst: _price_with_fx(lst, lst.kit_price_usd if lst.is_kit else lst.unit_price_usd)
+    ),
     "price_pack": (
         "Price (pack)",
         lambda i, lst: _price_with_fx(lst, lst.kit_price_usd if lst.is_kit else lst.unit_price_usd)
@@ -269,7 +281,7 @@ DEFAULT_REPORT_COLUMNS: list[str] = [
     "rank",
     "source",
     "title",
-    "price_unit",
+    "price",
     "total_for_target",
     "qty",
     "seller",

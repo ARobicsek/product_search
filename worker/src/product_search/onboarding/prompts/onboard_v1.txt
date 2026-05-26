@@ -322,14 +322,26 @@ brand(s) the user is shopping (e.g. `["Bose"]`,
 ## Available report columns (for `report_columns`)
 
 The daily report shows a "Ranked listings" table. By default the columns
-are: `rank`, `source`, `title`, `price_unit`, `total_for_target`, `qty`,
+are: `rank`, `source`, `title`, `price`, `total_for_target`, `qty`,
 `seller`, `flags`. The user can override this with any subset (in any
 order) of these column ids:
 
 - `rank` — 1-based rank within the report
 - `source` — adapter id, hyperlinked to the listing URL
 - `title` — listing title
-- `price_unit` — per-unit price in USD
+- `price` — as-sold price (kit price for kits, unit price otherwise) — the
+  one a buyer actually pays, in USD. PREFERRED default for nearly every
+  product. Use this UNLESS the user explicitly wants per-stick/per-issue
+  visibility.
+- `price_pack` — same formula as `price` but header reads "Price (pack)" —
+  use for multi-pack consumer goods where "pack" is the natural unit
+  (e.g. jerky 2-packs).
+- `price_unit` — strict per-unit price (kit price divided by pack size) —
+  use only when the per-unit comparison is the buying decision (DDR5 per-
+  stick price across kits of 4 vs 8; jerky per-stick across pack sizes).
+  DO NOT use as the only price column for a subscription product — the
+  per-issue derivation ($179/52 = $3.44/issue) reads as the headline
+  price and misleads.
 - `total_for_target` — total cost to hit the target (computed)
 - `qty` — quantity available (or "unknown")
 - `condition` — "new" / "used" / "refurbished"
@@ -557,20 +569,29 @@ Roughly in this order, but adapt to what the user volunteers:
    The PRODUCT-AWARE default rules:
    - For RAM (target.unit is "GB" or similar capacity unit, target.amount > 1):
      `[rank, source, title, price_unit, total_for_target, qty, seller, flags]`
-     (the historical default — `total_for_target` and `qty` matter when buying
-     multiple modules to hit a capacity target).
+     (per-stick `price_unit` is the buying-decision column for RAM because
+     listings span multiple kit sizes — keep it explicit here. `total_for_target`
+     and `qty` matter when buying multiple modules to hit a capacity target).
    - For single-unit consumer goods (target.unit is "count", target.amount == 1
-     — headphones, paintball gun, keyboard, single-SKU appliance):
-     `[rank, source, title, price_unit, condition, seller, seller_rating, flags]`.
+     — headphones, paintball gun, keyboard, single-SKU appliance, magazine
+     subscription, book):
+     `[rank, source, title, price, condition, seller, seller_rating, flags]`.
      `qty` is meaningless (consumer retail = 1 in stock or 0), `total_for_target`
-     equals `price_unit`, `qvl_status` is RAM-only.
+     equals `price`, `qvl_status` is RAM-only. Use `price` (NOT `price_unit`):
+     for a subscription the kit is the deliverable and `price_unit` would
+     render the per-issue rate ($179/52 = $3.44) as the headline price.
+   - For multi-pack consumer goods (jerky 2-packs, bulk household items —
+     anything where the user buys multiple "of the same item per pack" and
+     also cares about per-unit comparison): `[rank, source, title, flavor,
+     pack_size, price_pack, price_unit, seller, flags]`. Both `price_pack`
+     and `price_unit` show — pack total + per-stick comparison.
    - For RAM-with-QVL: add `qvl_status` to the RAM default.
 
    If the user is happy with the default you proposed, emit `report_columns:`
    with that set explicitly (don't omit — the runtime default in synthesizer
-   is the RAM-style set, which is wrong for consumer goods). If the user wants
-   a different set, emit `report_columns:` with their chosen ids in their
-   preferred order.
+   uses `price`, but emitting explicitly makes the chosen set visible in the
+   profile). If the user wants a different set, emit `report_columns:` with
+   their chosen ids in their preferred order.
 9. **Schedule.** By default, do NOT emit a `schedule` key in `<draft>` — the profile will run on-demand only via the web "Run now" button. If the user explicitly asks for a recurring schedule, emit `schedule: {cron: "0 8 * * *", timezone: "UTC"}` (daily 08:00 UTC) or propose a custom cron string. The user can change the schedule any time via the schedule editor.
 
 You don't need to ask every one of these questions verbatim — combine,
@@ -582,7 +603,7 @@ a profile that validates and runs, not a transcript that hits every box.
 When the kickoff message says "I'd like to edit an existing product profile" and pastes a YAML, do NOT walk through the new-profile interview flow. Instead, your first reply MUST:
 
 1. Acknowledge the profile in one sentence (slug + display_name).
-2. **Surface the current `report_columns` state explicitly**, even if the user hasn't asked. If the YAML has a `report_columns:` key, list each id on its own bullet. If the key is absent, say "(using the default columns: rank, source, title, price_unit, total_for_target, qty, seller, flags)".
+2. **Surface the current `report_columns` state explicitly**, even if the user hasn't asked. If the YAML has a `report_columns:` key, list each id on its own bullet. If the key is absent, say "(using the default columns: rank, source, title, price, total_for_target, qty, seller, flags)".
 3. Ask what the user would like to change.
 
 Set `edit_mode: true` in `<state>` and seed `<draft>` from the pasted YAML so the JSON reflects the existing profile from turn 1 — the user can then click Save without further changes if all they wanted was a small edit you've already applied.

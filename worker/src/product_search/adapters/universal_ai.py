@@ -135,6 +135,18 @@ Hard rules:
   - "condition" stays "new" unless the page explicitly states otherwise.
   - "in_stock" is false if the page says out of stock / sold out / backorder
     / "notify me" / "email when available"; true otherwise.
+  - **Subscription / multi-issue offers**: if the page offers multiple
+    subscription terms for the same product (single issue, monthly,
+    quarterly, semi-annual, annual / 1-year / 2-year), pick the LONGEST
+    term offered and set ``price_usd`` to that term's total price and
+    ``pack_size`` to the number of issues / months included (e.g. annual
+    magazine subscription = 12 monthly issues → pack_size 12; weekly
+    magazine annual = 52 issues → pack_size 52). Picking the single-issue
+    or per-month price for a product that is sold as a longer subscription
+    misrepresents the as-sold cost (the 2026-05-25 pocketmags case:
+    annual sub $159.99 was missed in favor of $3.99 single-issue —
+    ADR-094 D3). When only one term is offered, use it as-is with the
+    matching pack_size.
   - Output JSON ONLY. No prose preamble, no markdown fences.
 """
 

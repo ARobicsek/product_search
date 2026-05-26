@@ -221,9 +221,15 @@ def test_prompt_file_lives_in_package() -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_default_report_columns_match_legacy_table_shape() -> None:
+def test_default_report_columns_match_table_shape() -> None:
+    # Updated 2026-05-25 (ADR-094): `price` replaced `price_unit` in the
+    # default set so subscriptions don't surface a derived per-issue rate
+    # (e.g. $179÷52=$3.44) as the headline price column. The legacy
+    # `price_unit` is still available as an explicit column id for RAM
+    # profiles and multi-pack consumer goods that DO want per-stick
+    # comparison.
     assert DEFAULT_REPORT_COLUMNS == [
-        "rank", "source", "title", "price_unit", "total_for_target",
+        "rank", "source", "title", "price", "total_for_target",
         "qty", "seller", "flags",
     ]
     for col in DEFAULT_REPORT_COLUMNS:
@@ -232,7 +238,44 @@ def test_default_report_columns_match_legacy_table_shape() -> None:
 
 def test_table_uses_default_columns_when_none() -> None:
     md = build_listings_table_md([_listing("https://x/a")], None)
-    assert "| Rank | Source | Title | Price (unit) | Total for target | Qty | Seller | Flags |" in md
+    assert "| Rank | Source | Title | Price | Total for target | Qty | Seller | Flags |" in md
+
+
+def test_price_column_shows_kit_price_for_kit_subscription() -> None:
+    """The `price` column (ADR-094) renders the as-sold price: kit_price
+    for kits, unit_price for non-kits. For a 52-issue subscription kit at
+    $199 with derived per-issue $3.83, the cell MUST read $199.00 — not
+    the per-issue rate that pre-ADR-094 `price_unit` would have shown.
+    """
+    listing = _listing(
+        "https://www.magazineline.com/the-week-printdigital-magazine",
+        title="The Week Print+Digital Magazine Subscription",
+        unit_price_usd=3.83,
+    )
+    listing.is_kit = True
+    listing.kit_module_count = 52
+    listing.kit_price_usd = 199.0
+    md = build_listings_table_md([listing], ["rank", "title", "price"])
+    assert "| Rank | Title | Price |" in md
+    assert "| $199.00 |" in md
+    assert "$3.83" not in md  # the misleading per-issue rate must not appear
+
+
+def test_price_column_falls_back_to_unit_price_for_non_kit() -> None:
+    """For a non-kit consumer good (is_kit=False), the `price` column
+    shows unit_price_usd unchanged.
+    """
+    listing = _listing(
+        "https://www.dyson.com/v15",
+        title="Dyson V15 Detect Cordless Vacuum",
+        unit_price_usd=749.99,
+    )
+    listing.is_kit = False
+    listing.kit_module_count = 1
+    listing.kit_price_usd = None
+    md = build_listings_table_md([listing], ["rank", "title", "price"])
+    assert "| Rank | Title | Price |" in md
+    assert "| $749.99 |" in md
 
 
 def test_table_respects_custom_column_set_and_order() -> None:

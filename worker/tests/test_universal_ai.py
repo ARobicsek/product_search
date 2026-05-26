@@ -1535,6 +1535,68 @@ def test_tier15_found_false_returns_empty(
     assert universal_ai.fetch(query) == []
 
 
+def test_detail_prompt_includes_subscription_term_preference() -> None:
+    """ADR-094 D3: the DETAIL_SYSTEM_PROMPT must instruct the LLM to
+    prefer the LONGEST subscription term when a page offers multiple
+    (single-issue / monthly / annual). Pre-ADR-094 the prompt was
+    silent on multi-term pages, which led pocketmags (2026-05-25) to
+    return $3.99 single-issue instead of the $159.99 annual sub.
+
+    This pins the directive's presence in the prompt — runtime behavior
+    is verified by ``test_detail_llm_annual_subscription_yields_kit``
+    below (stubbed) and by a live re-run captured in PROGRESS.md.
+    """
+    prompt = universal_ai.DETAIL_SYSTEM_PROMPT
+    assert "subscription" in prompt.lower()
+    assert "longest" in prompt.lower()
+    assert "pack_size" in prompt
+
+
+def test_detail_llm_annual_subscription_yields_kit_pricing(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """When the LLM (following the ADR-094 D3 prompt directive) picks the
+    annual term + pack_size=52 from a multi-term subscription page, the
+    resulting Listing has is_kit=True / kit_module_count=52 /
+    kit_price=$159.99, and unit_price_usd is the derived per-issue rate.
+    The downstream report renders kit_price as the headline `price`
+    column (ADR-094 D2), not the per-issue derivation.
+    """
+    body = (
+        "<html><body>"
+        "<h1>The Week Magazine</h1>"
+        "Single Issue: $3.99 per issue."
+        "Annual Subscription: $159.99 billed annually, 52 issues."
+        "</body></html>"
+    )
+    monkeypatch.setattr(
+        universal_ai, "_fetch_html",
+        lambda url, timeout=20.0, **_kw: (body, 200, "stub"),
+    )
+    monkeypatch.setattr(universal_ai, "call_llm", _stub_llm_response(
+        '{"found": true, "title": "The Week Magazine", '
+        '"price_usd": 159.99, "condition": "new", "in_stock": true, '
+        '"pack_size": 52}'
+    ))
+
+    query = AdapterQuery(
+        source_id="universal_ai_search",
+        extra={
+            "url": "https://pocketmags.com/us/the-week-magazine",
+            "page_type": "detail",
+        },
+    )
+    results = universal_ai.fetch(query)
+    assert len(results) == 1
+    r = results[0]
+    assert r.is_kit is True
+    assert r.kit_module_count == 52
+    assert r.kit_price_usd == 159.99
+    # Per-issue derivation lives in unit_price_usd but is no longer the
+    # headline price (synthesizer `price` column shows kit_price for kits).
+    assert r.unit_price_usd == round(159.99 / 52, 2)
+
+
 def test_tier15_explicit_detail_does_not_fall_through_to_anchor(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

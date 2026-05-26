@@ -93,13 +93,20 @@ synthesis_hints:
 # --- Report columns ----------------------------------------------------------
 # Optional. Per-product override of the daily report's "Ranked listings" table
 # columns. Omit to use the default set:
-#   [rank, source, title, price_unit, total_for_target, qty, seller, flags]
+#   [rank, source, title, price, total_for_target, qty, seller, flags]
 # Available column ids:
-#   rank, source, title, price_unit, total_for_target, qty, condition,
-#   brand, mpn, seller, seller_rating, ship_from, qvl_status, flags
+#   rank, source, title, price, price_pack, price_unit, total_for_target, qty,
+#   condition, brand, mpn, seller, seller_rating, ship_from, qvl_status, flags
+#
+# `price` shows the as-sold price (kit price for kits, unit price otherwise)
+# and is the right default for nearly every product. Use `price_unit` only
+# when per-stick / per-issue comparison is the buying decision (RAM kits;
+# multi-pack consumer goods alongside `price_pack`); never as the only price
+# column for a subscription product (per-issue rates read as the headline
+# price and mislead).
 #
 # Example (headphones — drop quantity, surface condition):
-# report_columns: [rank, source, title, condition, price_unit, seller, flags]
+# report_columns: [rank, source, title, condition, price, seller, flags]
 
 # --- Schedule ----------------------------------------------------------------
 #

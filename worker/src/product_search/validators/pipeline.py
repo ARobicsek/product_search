@@ -37,7 +37,51 @@ def infer_brand_from_title(listing: Listing, candidates: list[str]) -> None:
 
 
 def _calculate_total(listing: Listing, profile: Profile) -> float | None:
-    """Calculate `total_for_target_usd` if the listing meets the target."""
+    """Calculate `total_for_target_usd` if the listing meets the target.
+
+    Two paths:
+
+    * **RAM (``target.configurations`` non-empty)** — original behavior.
+      Matches the listing's ``capacity_gb`` against a configuration,
+      divides the configuration's ``module_count`` by the listing's
+      ``kit_module_count`` to get units needed, multiplies by the
+      listing's as-sold price (kit or unit).
+
+    * **Generic (``target.configurations`` empty)** — for non-RAM products
+      (single-unit consumer goods, subscriptions, books, etc.). The
+      as-sold price IS the total when one kit/unit fulfills the
+      ``target.amount``; otherwise multiply. A magazine sub with
+      ``is_kit=True, kit_module_count=52, kit_price=$179`` and
+      ``target.unit=count, target.amount=1`` yields $179 — exactly what
+      the buyer pays for one subscription. Previously this path returned
+      ``None`` because it was gated on ``capacity_gb``, which broke the
+      synthesizer's rank-by-total + Bottom-line picker for every
+      non-RAM product (ADR-094, surfaced by the-week-1yr-subscription
+      2026-05-25 report showing $3.44/issue as the headline price).
+    """
+    # Generic path: no RAM configurations declared.
+    if not profile.target.configurations:
+        # As-sold price (matches ADR price_below "total" semantics — kit if
+        # kit, else unit).
+        if listing.is_kit and listing.kit_price_usd is not None:
+            as_sold = listing.kit_price_usd
+        else:
+            as_sold = listing.unit_price_usd
+        if as_sold is None:
+            return None
+        # One kit/unit fulfills target.amount when the kit covers it; for
+        # subscriptions and single-SKU consumer goods (the only generic-path
+        # shapes today) target.amount is 1 and the kit IS the deliverable, so
+        # the as-sold price IS the total. For target.amount > N (e.g. "buy 3
+        # of the same SKU") we'd multiply, but no live profile uses that
+        # shape — keep the simple formula and let the multi-unit case land
+        # when a real product needs it.
+        units_needed = max(1, profile.target.amount)
+        if listing.quantity_available is not None and listing.quantity_available < units_needed:
+            return None
+        return round(as_sold * units_needed, 2)
+
+    # RAM path (unchanged).
     cap = listing.attrs.get("capacity_gb")
     if cap is None:
         return None
@@ -62,7 +106,7 @@ def _calculate_total(listing: Listing, profile: Profile) -> float | None:
         return None
 
     units_needed = matched_config.module_count // listing.kit_module_count
-    
+
     # If quantity is known and insufficient, we can't fulfill it.
     if listing.quantity_available is not None and listing.quantity_available < units_needed:
         return None
