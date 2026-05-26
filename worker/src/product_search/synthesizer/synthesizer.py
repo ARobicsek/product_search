@@ -378,10 +378,17 @@ def build_bottom_line_md(listings: list[Listing], profile: Profile) -> str:
 def build_flags_md(listings: list[Listing], profile: Profile) -> str:
     """Render the deterministic **Flags** section.
 
-    One bullet per distinct flag that appears in the visible listings,
-    using ``FlagRule.description`` from the profile when present, else a
-    fallback from :data:`FLAG_FALLBACK_DESCRIPTIONS`, else the bare flag
-    id. Output is stable (sorted) so daily reports diff cleanly.
+    One bullet per distinct flag that appears in the visible listings. The
+    description lookup walks three layers (ADR-095): profile-supplied
+    ``FlagRule.description`` → ``FLAG_FALLBACK_DESCRIPTIONS`` keyed by
+    the flag label → ``FLAG_FALLBACK_DESCRIPTIONS`` keyed by the
+    *rule name* the flag was emitted by (so the canonical e.g.
+    ``rule: low_seller_feedback`` / ``flag: low_feedback`` mapping still
+    surfaces its built-in description, fixing the literal "(no
+    description)" render bug). If no description is available at any
+    layer, the bullet renders bare — ``- **flag_name**`` — rather than
+    the misleading "(no description)" placeholder. Output is stable
+    (sorted) so daily reports diff cleanly.
     """
     seen: set[str] = set()
     for lst in listings:
@@ -392,18 +399,24 @@ def build_flags_md(listings: list[Listing], profile: Profile) -> str:
         return "**Flags.** (no flags)"
 
     profile_desc: dict[str, str] = {}
+    flag_to_rule: dict[str, str] = {}
     for rule in profile.spec_flags:
         if rule.description and rule.flag not in profile_desc:
             profile_desc[rule.flag] = rule.description
+        if rule.flag not in flag_to_rule:
+            flag_to_rule[rule.flag] = rule.rule
 
     lines = ["**Flags.**", ""]
     for flag in sorted(seen):
         desc = (
             profile_desc.get(flag)
             or FLAG_FALLBACK_DESCRIPTIONS.get(flag)
-            or "(no description)"
+            or FLAG_FALLBACK_DESCRIPTIONS.get(flag_to_rule.get(flag, ""))
         )
-        lines.append(f"- **{flag}**: {desc}")
+        if desc:
+            lines.append(f"- **{flag}**: {desc}")
+        else:
+            lines.append(f"- **{flag}**")
     return "\n".join(lines)
 
 

@@ -173,7 +173,10 @@ function validateSpecAttrs(specAttrs: unknown, ctx: ValidationContext) {
     if (t !== null && !SPEC_TYPES.has(t)) {
       ctx.errors.push(`spec_attrs.${k}.type: must be one of ${[...SPEC_TYPES].join(',')}`);
     }
-    if (typeof def.required !== 'boolean') {
+    // ``required`` is optional with default False (ADR-095, mirrors
+    // profile.py:SpecAttrDef). The onboarder used to 422 when it forgot
+    // to emit this; we now accept omission and treat it as ``required: false``.
+    if (def.required !== undefined && typeof def.required !== 'boolean') {
       ctx.errors.push(`spec_attrs.${k}.required: expected boolean`);
     }
     if (def.enum !== undefined && def.enum !== null) {

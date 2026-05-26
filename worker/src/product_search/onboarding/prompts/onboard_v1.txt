@@ -103,7 +103,10 @@ target:
 
 spec_attrs:
   <attr_name>: { type: <int|str|float|bool>, required: <bool>, enum: [...] }
-  # one or more attribute definitions
+  # one or more attribute definitions. `required` is OPTIONAL (defaults to
+  # false — the forgiving choice). Only emit `required: true` when the user
+  # genuinely needs the validator to DROP listings that omit this attr; for
+  # most typed-attr cases you can omit `required` entirely.
 
 spec_filters:
   - { rule: "<rule_name>", <rule-specific params> }

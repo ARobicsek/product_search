@@ -125,7 +125,12 @@ class Target(BaseModel):
 
 class SpecAttrDef(BaseModel):
     type: Literal["int", "str", "float", "bool"]
-    required: bool
+    # ``required`` defaults to False (ADR-095) — the onboarder sometimes
+    # omits the key on freshly-drafted component-product profiles and the
+    # save then 422s. False is the forgiving default: if a listing is
+    # missing this attr, the validator won't drop it. Profiles that
+    # genuinely need strict presence can still set ``required: true``.
+    required: bool = False
     enum: list[str] | None = None
 
 

@@ -358,6 +358,45 @@ def test_target_configurations_is_optional_for_non_ram() -> None:
     assert profile.target.configurations == []
 
 
+def test_spec_attrs_required_defaults_to_false_when_omitted() -> None:
+    """spec_attrs entries can omit ``required:`` (ADR-095 — onboarder paper-cut).
+
+    Pinned because the onboarder used to 422 a freshly-drafted profile
+    when it emitted ``spec_attrs: { form_factor: { type: str } }`` without
+    the required-flag — costing the user a corrective round-trip per
+    component product. ``required: false`` is the forgiving default
+    (matches the typical typed-attr intent: tag listings, don't drop them).
+    Strict drop-on-missing remains available via explicit ``required: true``.
+    """
+    import copy
+
+    p = copy.deepcopy(VALID_PROFILE)
+    # Mirror the live ddr5 onboarder bug: type-only entries, no `required:`.
+    p["spec_attrs"] = {
+        "form_factor": {"type": "str"},
+        "ecc": {"type": "bool"},
+        "capacity_gb": {"type": "int"},
+    }
+    profile = Profile.model_validate(p)  # must not raise
+    assert profile.spec_attrs["form_factor"].required is False
+    assert profile.spec_attrs["ecc"].required is False
+    assert profile.spec_attrs["capacity_gb"].required is False
+
+
+def test_spec_attrs_required_still_honored_when_set_explicitly() -> None:
+    """Explicit `required: true` must continue to work (no regression for RAM)."""
+    import copy
+
+    p = copy.deepcopy(VALID_PROFILE)
+    p["spec_attrs"] = {
+        "capacity_gb": {"type": "int", "required": True},
+        "speed_mts": {"type": "int"},  # mixed: one explicit, one defaulted
+    }
+    profile = Profile.model_validate(p)
+    assert profile.spec_attrs["capacity_gb"].required is True
+    assert profile.spec_attrs["speed_mts"].required is False
+
+
 def test_qvl_file_is_optional_for_non_ram() -> None:
     """Non-RAM profiles can omit `qvl_file` entirely.
 

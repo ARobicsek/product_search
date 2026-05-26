@@ -446,6 +446,55 @@ def test_build_flags_falls_back_to_builtin_dict_when_profile_missing_description
     assert FLAG_FALLBACK_DESCRIPTIONS["low_seller_feedback"] in md
 
 
+def test_build_flags_falls_back_via_rule_name_when_flag_label_differs() -> None:
+    """ADR-095 paper-cut B regression.
+
+    The onboarder canonically emits ``rule: low_seller_feedback`` with
+    ``flag: low_feedback`` (a *different* label). Before the fix the
+    fallback dict missed because it was keyed by the rule name, and every
+    live report rendered ``- **low_feedback**: (no description)``. The
+    renderer now walks ``profile_desc[flag] → fallback[flag] →
+    fallback[rule_of_flag]`` so the built-in description still surfaces.
+    """
+    from product_search.profile import FlagRule, Profile
+
+    base = load_profile("ddr5-rdimm-256gb")
+    rule = FlagRule(rule="low_seller_feedback", flag="low_feedback")  # no description
+    profile = base.model_copy(update={"spec_flags": [rule]})
+    assert isinstance(profile, Profile)
+    listing = _listing("https://x/a", flags=["low_feedback"])
+    md = build_flags_md([listing], profile)
+    # The built-in description from FLAG_FALLBACK_DESCRIPTIONS["low_seller_feedback"]
+    # must surface even though the flag *label* is "low_feedback".
+    assert FLAG_FALLBACK_DESCRIPTIONS["low_seller_feedback"] in md
+    assert "(no description)" not in md
+    assert "**low_feedback**" in md
+
+
+def test_build_flags_renders_bare_when_no_description_anywhere() -> None:
+    """Unknown flags with no description render bare (no '(no description)' placeholder).
+
+    Pinned because the literal ``(no description)`` placeholder is
+    user-visible noise. If a profile declares a custom flag without a
+    description and the flag id isn't in the fallback dict, the right
+    move is to render the bare label — the listings table already
+    surfaces *that* the flag fired; the legend bullet only adds value
+    when it can explain *why*.
+    """
+    from product_search.profile import FlagRule, Profile
+
+    base = load_profile("ddr5-rdimm-256gb")
+    rule = FlagRule(rule="title_mentions", flag="some_custom_flag", values=["foo"])
+    profile = base.model_copy(update={"spec_flags": [rule]})
+    assert isinstance(profile, Profile)
+    listing = _listing("https://x/a", flags=["some_custom_flag"])
+    md = build_flags_md([listing], profile)
+    assert "**some_custom_flag**" in md
+    assert "(no description)" not in md
+    # Bare bullet — no colon since there's no description following.
+    assert "- **some_custom_flag**\n" in md + "\n" or md.rstrip().endswith("**some_custom_flag**")
+
+
 def test_build_flags_dedupes_across_listings_and_sorts_stably() -> None:
     profile = load_profile("ddr5-rdimm-256gb")
     listings = [
