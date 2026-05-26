@@ -1,0 +1,411 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-05-26T14:25:43.245509+00:00",
+  "snapshot_date": "2026-05-26",
+  "product": {
+    "slug": "breville-barista-express",
+    "display_name": "Breville Barista Express Espresso Machine"
+  },
+  "listings": [
+    {
+      "rank": 1,
+      "source": "ebay_search",
+      "vendor_host": "www.ebay.com",
+      "url": "https://www.ebay.com/itm/257514622937?_skw=breville+barista+express&hash=item3bf5114fd9:g:GRIAAeSwM4hp~OVB",
+      "title": "Breville the Barista BES870XL Express Machine Brushed Stainless Steel NEW",
+      "price_usd": 499.0,
+      "total_for_target_usd": 499.0,
+      "currency_approx_fx": null,
+      "condition": "new",
+      "seller_name": "wookeyz",
+      "is_kit": false,
+      "kit_module_count": 1,
+      "badges": []
+    },
+    {
+      "rank": 2,
+      "source": "ebay_search",
+      "vendor_host": "www.ebay.com",
+      "url": "https://www.ebay.com/itm/178065057435?_skw=breville+barista+express&hash=item297581269b:g:dFkAAeSw8s5pi06n",
+      "title": "New Breville The Barista Express Black Stainless Steel Hearth & Hand Exclusive C",
+      "price_usd": 499.0,
+      "total_for_target_usd": 499.0,
+      "currency_approx_fx": null,
+      "condition": "new",
+      "seller_name": "raven_warsong3",
+      "is_kit": false,
+      "kit_module_count": 1,
+      "badges": []
+    },
+    {
+      "rank": 3,
+      "source": "ebay_search",
+      "vendor_host": "www.ebay.com",
+      "url": "https://www.ebay.com/itm/306957315381?_skw=breville+barista+express&hash=item477814ed35:g:v6AAAeSwd2xqEbs8",
+      "title": "Breville Barista Express BES870XL Espresso Machine Stainless Steel - Brand New",
+      "price_usd": 499.99,
+      "total_for_target_usd": 499.99,
+      "currency_approx_fx": null,
+      "condition": "new",
+      "seller_name": "monzer29",
+      "is_kit": false,
+      "kit_module_count": 1,
+      "badges": []
+    },
+    {
+      "rank": 4,
+      "source": "ebay_search",
+      "vendor_host": "www.ebay.com",
+      "url": "https://www.ebay.com/itm/358593274759?_skw=breville+barista+express&hash=item537dd32387:g:9xIAAeSwGTpqEvIF&amdata=enc%3AAQALAAAA8ACCtXRWQnOEpyOqnQQ8KGaR4Lh9HMFRv7NmcRqAV%2Ft68U0pHfvKweOLdxVR3TY5R5MXrElJOnWwSdEI0LMkUkkssUDWPnFqiS2mSaedzfBLQXKmrRkt3nCI4CKbjGBHpAmQOMx0LBxRtYuPGGEPmkdwRSyTZ15P%2FSwy3ops1%2FgmH5dqco%2BegtT%2BeLodZvIYfLrPEHvHSzqVcqyKpiEzofss7iG1%2FYfoKOLIwEBMu%2Ba%2FwCUtgVoV1IUGZjLFQd2t6NRKLSYdyJVjwc%2BeEqlxjPeQNzoF4%2BYzmDgT4TrBth6NDOn50MsjVUd8fBQVIHBeig%3D%3D",
+      "title": "Breville Barista Express Espresso Machine w/ Built-In Burr Grinder, Silver",
+      "price_usd": 520.0,
+      "total_for_target_usd": 520.0,
+      "currency_approx_fx": null,
+      "condition": "new",
+      "seller_name": "geicol0",
+      "is_kit": false,
+      "kit_module_count": 1,
+      "badges": [
+        {
+          "key": "low_feedback",
+          "label": "Limited reviews",
+          "severity": "info"
+        }
+      ]
+    },
+    {
+      "rank": 5,
+      "source": "ebay_search",
+      "vendor_host": "www.ebay.com",
+      "url": "https://www.ebay.com/itm/147290543373?_skw=breville+barista+express&hash=item224b33550d:g:WQMAAeSwH-dp9mic",
+      "title": "Breville Barista Express BES870BST Espresso - Black Stainless Steel (E10049902)",
+      "price_usd": 529.95,
+      "total_for_target_usd": 529.95,
+      "currency_approx_fx": null,
+      "condition": "new",
+      "seller_name": "ezpawncorpnyc",
+      "is_kit": false,
+      "kit_module_count": 1,
+      "badges": []
+    },
+    {
+      "rank": 6,
+      "source": "ebay_search",
+      "vendor_host": "www.ebay.com",
+      "url": "https://www.ebay.com/itm/257514607799?_skw=breville+barista+express&hash=item3bf51114b7:g:49UAAeSwqyxqDLTX",
+      "title": "Breville Barista Express Espresso Machine Black Stainless Steel - Hearth & Hand",
+      "price_usd": 531.98,
+      "total_for_target_usd": 531.98,
+      "currency_approx_fx": null,
+      "condition": "new",
+      "seller_name": "wookeyz",
+      "is_kit": false,
+      "kit_module_count": 1,
+      "badges": []
+    },
+    {
+      "rank": 7,
+      "source": "ebay_search",
+      "vendor_host": "www.ebay.com",
+      "url": "https://www.ebay.com/itm/257496186400?_skw=breville+barista+express&hash=item3bf3f7fe20:g:N1cAAeSwU9Bp~OcK",
+      "title": "Breville Barista Express Black Brushed Stainless Steel Espresso Machine Exclusiv",
+      "price_usd": 549.99,
+      "total_for_target_usd": 549.99,
+      "currency_approx_fx": null,
+      "condition": "new",
+      "seller_name": "wookeyz",
+      "is_kit": false,
+      "kit_module_count": 1,
+      "badges": []
+    },
+    {
+      "rank": 8,
+      "source": "ebay_search",
+      "vendor_host": "www.ebay.com",
+      "url": "https://www.ebay.com/itm/297796619215?_skw=breville+barista+express&hash=item45560fcbcf:g:fCQAAeSwFMZpfDgh",
+      "title": "Breville Stainless Steel Barista Express Espresso Machine BES870XL",
+      "price_usd": 575.0,
+      "total_for_target_usd": 575.0,
+      "currency_approx_fx": null,
+      "condition": "new",
+      "seller_name": "caracara_curios",
+      "is_kit": false,
+      "kit_module_count": 1,
+      "badges": []
+    },
+    {
+      "rank": 9,
+      "source": "ebay_search",
+      "vendor_host": "www.ebay.com",
+      "url": "https://www.ebay.com/itm/227107393527?_skw=breville+barista+express&hash=item34e0a7cff7:g:zFoAAeSwhSppKhC1",
+      "title": "Breville Barista Express  Espresso Machine - BES870BST (Black Color) BRAND NEW",
+      "price_usd": 599.95,
+      "total_for_target_usd": 599.95,
+      "currency_approx_fx": null,
+      "condition": "new",
+      "seller_name": "pawnltd",
+      "is_kit": false,
+      "kit_module_count": 1,
+      "badges": []
+    },
+    {
+      "rank": 10,
+      "source": "bestbuy.com",
+      "vendor_host": "www.bestbuy.com",
+      "url": "https://www.bestbuy.com/product/breville-the-barista-express-espresso-machine-with-15-bars-of-pressure-milk-frother-and-integrated-grinder-stainless-steel/J72668V6ZR",
+      "title": "Breville - the Barista Express Espresso Machine with 15 bars of pressure, Milk Frother and integrated grinder - Stainless Steel",
+      "price_usd": 645.0,
+      "total_for_target_usd": 645.0,
+      "currency_approx_fx": null,
+      "condition": "new",
+      "seller_name": "www.bestbuy.com",
+      "is_kit": false,
+      "kit_module_count": 1,
+      "badges": [
+        {
+          "key": "low_feedback",
+          "label": "Limited reviews",
+          "severity": "info"
+        }
+      ]
+    },
+    {
+      "rank": 11,
+      "source": "amazon.com",
+      "vendor_host": "www.amazon.com",
+      "url": "https://www.amazon.com/Breville-BES870BSXL-Barista-Express-Machine/dp/B00DS4767K/ref=sr_1_9?dib=eyJ2IjoiMSJ9.2ce1ehWJVun9sGlho9J8S5Bkui4jLLRJnHHZsqfc62pZhg2X9RdDwevdM94RQlKY3hF4qjga-_sZn9rJ3zE93UuIJGMp0ldOuERHCMUaTtuY6vPIi2goU14ZF_V7fLFew-EgvjZEzsBCCfaDvjXRPbTJEve3g5lrBZdrQl8NJOhpZSget25t11mg37p7OMnCFYov81KfLvxtyJOVbjL00u0PmUiSOM5GnWx9MqSjeLoEMxvOMu-aLGFSRkkTtzw-uTxvZ6YHEshFSdvtmQ6IEFuFLi0_DtvRx-qmGg3wx8Y.gWhb-dXa-tVX_ycMZQbE0ywEph3M2lhnq9-eCxT4NJM&dib_tag=se&keywords=breville+barista&qid=1779805205&sr=8-9",
+      "title": "Breville Barista Express Espresso Machine BES870BSXL, Black Sesame",
+      "price_usd": 679.95,
+      "total_for_target_usd": 679.95,
+      "currency_approx_fx": null,
+      "condition": "new",
+      "seller_name": "www.amazon.com",
+      "is_kit": false,
+      "kit_module_count": 1,
+      "badges": [
+        {
+          "key": "low_feedback",
+          "label": "Limited reviews",
+          "severity": "info"
+        }
+      ]
+    },
+    {
+      "rank": 12,
+      "source": "amazon.com",
+      "vendor_host": "www.amazon.com",
+      "url": "https://www.amazon.com/Breville-BES870XL-Barista-Express-Espresso/dp/B00CH9QWOU/ref=sr_1_1?dib=eyJ2IjoiMSJ9.2ce1ehWJVun9sGlho9J8S5Bkui4jLLRJnHHZsqfc62pZhg2X9RdDwevdM94RQlKY3hF4qjga-_sZn9rJ3zE93UuIJGMp0ldOuERHCMUaTtuY6vPIi2goU14ZF_V7fLFew-EgvjZEzsBCCfaDvjXRPbTJEve3g5lrBZdrQl8NJOhpZSget25t11mg37p7OMnCFYov81KfLvxtyJOVbjL00u0PmUiSOM5GnWx9MqSjeLoEMxvOMu-aLGFSRkkTtzw-uTxvZ6YHEshFSdvtmQ6IEFuFLi0_DtvRx-qmGg3wx8Y.gWhb-dXa-tVX_ycMZQbE0ywEph3M2lhnq9-eCxT4NJM&dib_tag=se&keywords=breville+barista&qid=1779805205&sr=8-1",
+      "title": "Breville Barista Express Espresso Machine BES870XL, Brushed Stainless Steel",
+      "price_usd": 689.99,
+      "total_for_target_usd": 689.99,
+      "currency_approx_fx": null,
+      "condition": "new",
+      "seller_name": "www.amazon.com",
+      "is_kit": false,
+      "kit_module_count": 1,
+      "badges": [
+        {
+          "key": "low_feedback",
+          "label": "Limited reviews",
+          "severity": "info"
+        }
+      ]
+    },
+    {
+      "rank": 13,
+      "source": "amazon.com",
+      "vendor_host": "www.amazon.com",
+      "url": "https://www.amazon.com/Breville-Barista-Express-Espresso-BES870BTR/dp/B0GKQFHV6X/ref=sr_1_8?dib=eyJ2IjoiMSJ9.2ce1ehWJVun9sGlho9J8S5Bkui4jLLRJnHHZsqfc62pZhg2X9RdDwevdM94RQlKY3hF4qjga-_sZn9rJ3zE93UuIJGMp0ldOuERHCMUaTtuY6vPIi2goU14ZF_V7fLFew-EgvjZEzsBCCfaDvjXRPbTJEve3g5lrBZdrQl8NJOhpZSget25t11mg37p7OMnCFYov81KfLvxtyJOVbjL00u0PmUiSOM5GnWx9MqSjeLoEMxvOMu-aLGFSRkkTtzw-uTxvZ6YHEshFSdvtmQ6IEFuFLi0_DtvRx-qmGg3wx8Y.gWhb-dXa-tVX_ycMZQbE0ywEph3M2lhnq9-eCxT4NJM&dib_tag=se&keywords=breville+barista&qid=1779805205&sr=8-8",
+      "title": "Breville Barista Express Espresso Machine BES870BTR, Black Truffle",
+      "price_usd": 699.95,
+      "total_for_target_usd": 699.95,
+      "currency_approx_fx": null,
+      "condition": "new",
+      "seller_name": "www.amazon.com",
+      "is_kit": false,
+      "kit_module_count": 1,
+      "badges": [
+        {
+          "key": "low_feedback",
+          "label": "Limited reviews",
+          "severity": "info"
+        }
+      ]
+    },
+    {
+      "rank": 14,
+      "source": "target.com",
+      "vendor_host": "www.target.com",
+      "url": "https://www.target.com/p/breville-stainless-steel-barista-express-espresso-machine-light-silver-bes870xl/-/A-88306830#lnk=sametab",
+      "title": "Breville Stainless Steel Barista Express Espresso Machine Light Silver BES870XL",
+      "price_usd": 699.99,
+      "total_for_target_usd": 699.99,
+      "currency_approx_fx": null,
+      "condition": "new",
+      "seller_name": "www.target.com",
+      "is_kit": false,
+      "kit_module_count": 1,
+      "badges": [
+        {
+          "key": "low_feedback",
+          "label": "Limited reviews",
+          "severity": "info"
+        }
+      ]
+    },
+    {
+      "rank": 15,
+      "source": "target.com",
+      "vendor_host": "www.target.com",
+      "url": "https://www.target.com/p/breville-barista-express-espresso-machine-black-stainless-steel-hearth-38-hand-8482-with-magnolia/-/A-94071306#lnk=sametab",
+      "title": "Breville Barista Express Espresso Machine Black Stainless Steel - Hearth & Hand with Magnolia",
+      "price_usd": 699.99,
+      "total_for_target_usd": 699.99,
+      "currency_approx_fx": null,
+      "condition": "new",
+      "seller_name": "www.target.com",
+      "is_kit": false,
+      "kit_module_count": 1,
+      "badges": [
+        {
+          "key": "low_feedback",
+          "label": "Limited reviews",
+          "severity": "info"
+        }
+      ]
+    }
+  ],
+  "listings_meta": {
+    "total_passed": 15,
+    "shown": 15,
+    "cap": 30
+  },
+  "sources": [
+    {
+      "label": "ebay_search",
+      "host": null,
+      "fetched": 50,
+      "passed": 9,
+      "status": "ok",
+      "status_label": "ok",
+      "reason": ""
+    },
+    {
+      "label": "amazon.com",
+      "host": "amazon.com",
+      "fetched": 23,
+      "passed": 3,
+      "status": "ok",
+      "status_label": "ok",
+      "reason": ""
+    },
+    {
+      "label": "target.com",
+      "host": "target.com",
+      "fetched": 17,
+      "passed": 2,
+      "status": "ok",
+      "status_label": "ok",
+      "reason": ""
+    },
+    {
+      "label": "remanufactured.brevilleusa.com",
+      "host": "remanufactured.brevilleusa.com",
+      "fetched": 8,
+      "passed": 0,
+      "status": "no_match",
+      "status_label": "no match",
+      "reason": "Found 8 listings but none met your search criteria (price, condition, or keyword filters). **What to do:** nothing, unless you expected matches here \u2014 if so, open **Edit Profile** and loosen the relevant filter (price cap, condition, keywords). The AI filter diagnostic below lists the specific rejections."
+    },
+    {
+      "label": "williams-sonoma.com",
+      "host": "williams-sonoma.com",
+      "fetched": 0,
+      "passed": 0,
+      "status": "empty_page",
+      "status_label": "no results",
+      "reason": "The vendor's page loaded but had no matching products \u2014 most likely it genuinely has nothing right now, so re-running won't change anything. **What to do:** if you expected results, open **Edit Profile** and check the search URL / keywords; otherwise nothing \u2014 scheduled runs will catch it when the vendor lists a match."
+    },
+    {
+      "label": "bestbuy.com",
+      "host": "bestbuy.com",
+      "fetched": 15,
+      "passed": 1,
+      "status": "ok",
+      "status_label": "ok",
+      "reason": ""
+    },
+    {
+      "label": "seattlecoffeegear.com",
+      "host": "seattlecoffeegear.com",
+      "fetched": 0,
+      "passed": 0,
+      "status": "parser_gap",
+      "status_label": "needs work",
+      "reason": "Fetched a full page (711,205 chars) but couldn't read any product listings off it \u2014 the page rendered, but our reader didn't recognise this vendor's layout (not a true empty result). **What to do:** open **Edit Profile** and add the vendor's product-page (detail) URL \u2014 that path extracts more reliably. If that also returns nothing, it needs a scraper fix (re-running won't help)."
+    }
+  ],
+  "sources_pending": [],
+  "run_cost": {
+    "steps": [
+      {
+        "step": "amazon.com",
+        "provider": "anthropic",
+        "model": "claude-haiku-4-5",
+        "input_tokens": 32917,
+        "output_tokens": 5840,
+        "cost_usd": 0.062117000000000006
+      },
+      {
+        "step": "target.com",
+        "provider": "anthropic",
+        "model": "claude-haiku-4-5",
+        "input_tokens": 7826,
+        "output_tokens": 2928,
+        "cost_usd": 0.022466
+      },
+      {
+        "step": "remanufactured.brevilleusa.com",
+        "provider": "anthropic",
+        "model": "claude-haiku-4-5",
+        "input_tokens": 2227,
+        "output_tokens": 581,
+        "cost_usd": 0.005131999999999999
+      },
+      {
+        "step": "williams-sonoma.com",
+        "provider": "anthropic",
+        "model": "claude-haiku-4-5",
+        "input_tokens": 1248,
+        "output_tokens": 116,
+        "cost_usd": 0.001828
+      },
+      {
+        "step": "bestbuy.com",
+        "provider": "anthropic",
+        "model": "claude-haiku-4-5",
+        "input_tokens": 11126,
+        "output_tokens": 2394,
+        "cost_usd": 0.023096
+      },
+      {
+        "step": "seattlecoffeegear.com",
+        "provider": "anthropic",
+        "model": "claude-haiku-4-5",
+        "input_tokens": 3415,
+        "output_tokens": 83,
+        "cost_usd": 0.00383
+      },
+      {
+        "step": "ai_filter",
+        "provider": "anthropic",
+        "model": "claude-haiku-4-5",
+        "input_tokens": 36561,
+        "output_tokens": 5557,
+        "cost_usd": 0.064346
+      }
+    ],
+    "total_usd": 0.182815,
+    "any_unpriced": false
+  }
+}
