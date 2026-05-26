@@ -1,0 +1,279 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-05-26T23:50:24.827125+00:00",
+  "snapshot_date": "2026-05-26",
+  "product": {
+    "slug": "supermicro-h14ssl-n",
+    "display_name": "Supermicro H14SSL-N Motherboard"
+  },
+  "listings": [
+    {
+      "rank": 1,
+      "source": "wiredzone.com",
+      "vendor_host": "www.wiredzone.com",
+      "url": "https://www.wiredzone.com/shop/product/10032891-supermicro-h14ssl-n-mainstream-server-board-atx-single-socket-sp5-amd-epyc-9005-series-processors-15588",
+      "title": "Supermicro H14SSL-N Mainstream Server Board ATX Single Socket SP5 AMD EPYC 9005 Series Processors",
+      "price_usd": 672.0,
+      "total_for_target_usd": 672.0,
+      "currency_approx_fx": null,
+      "condition": "new",
+      "seller_name": "www.wiredzone.com",
+      "is_kit": false,
+      "kit_module_count": 1,
+      "badges": [
+        {
+          "key": "low_feedback",
+          "label": "Limited reviews",
+          "severity": "info"
+        }
+      ]
+    },
+    {
+      "rank": 2,
+      "source": "ebay_search",
+      "vendor_host": "www.ebay.com",
+      "url": "https://www.ebay.com/itm/366435742108?_skw=Supermicro+H14SSL-N&hash=item555145b19c:g:TBQAAeSwDe5qFd42",
+      "title": "Supermicro Motherboard H14SSL-N - ATX - Mainboard - Mainboard - ATX",
+      "price_usd": 905.0,
+      "total_for_target_usd": 905.0,
+      "currency_approx_fx": null,
+      "condition": "new",
+      "seller_name": "digi-techx",
+      "is_kit": false,
+      "kit_module_count": 1,
+      "badges": []
+    },
+    {
+      "rank": 3,
+      "source": "ebay_search",
+      "vendor_host": "www.ebay.com",
+      "url": "https://www.ebay.com/itm/227332625924?_skw=Supermicro+H14SSL-N&hash=item34ee149604:g:17sAAeSwl6Zp-3Ek",
+      "title": "Brand New & Sealed - Supermicro H14SSL-N AMD EPYC SP5 Motherboard",
+      "price_usd": 999.0,
+      "total_for_target_usd": 999.0,
+      "currency_approx_fx": null,
+      "condition": "new",
+      "seller_name": "semiarbitrage",
+      "is_kit": false,
+      "kit_module_count": 1,
+      "badges": []
+    },
+    {
+      "rank": 4,
+      "source": "ebay_search",
+      "vendor_host": "www.ebay.com",
+      "url": "https://www.ebay.com/itm/137294609790?_skw=Supermicro+H14SSL-N&hash=item1ff7657d7e:g:6hgAAOSw6cNkQStg",
+      "title": "Supermicro H14SSL-N Support AMD EPYC 9004/9005 Series Processors ",
+      "price_usd": 1188.0,
+      "total_for_target_usd": 1188.0,
+      "currency_approx_fx": null,
+      "condition": "new",
+      "seller_name": "inwm9492",
+      "is_kit": false,
+      "kit_module_count": 1,
+      "badges": []
+    },
+    {
+      "rank": 5,
+      "source": "ebay_search",
+      "vendor_host": "www.ebay.com",
+      "url": "https://www.ebay.com/itm/178118733225?_skw=Supermicro+H14SSL-N&hash=item2978b42da9:g:6hgAAOSw6cNkQStg",
+      "title": "Supermicro H14SSL-N Support AMD EPYC 9004/9005 Series Processors",
+      "price_usd": 1188.0,
+      "total_for_target_usd": 1188.0,
+      "currency_approx_fx": null,
+      "condition": "new",
+      "seller_name": "tugm4470",
+      "is_kit": false,
+      "kit_module_count": 1,
+      "badges": []
+    },
+    {
+      "rank": 6,
+      "source": "ebay_search",
+      "vendor_host": "www.ebay.com",
+      "url": "https://www.ebay.com/itm/236807103826?_skw=Supermicro+H14SSL-N&hash=item3722cda552:g:6hgAAOSw6cNkQStg",
+      "title": "Supermicro H14SSL-N Support AMD EPYC 9004/9005 Series Processors",
+      "price_usd": 1188.0,
+      "total_for_target_usd": 1188.0,
+      "currency_approx_fx": null,
+      "condition": "new",
+      "seller_name": "electronic-2018",
+      "is_kit": false,
+      "kit_module_count": 1,
+      "badges": []
+    },
+    {
+      "rank": 7,
+      "source": "ebay_search",
+      "vendor_host": "www.ebay.com",
+      "url": "https://www.ebay.com/itm/137294609737?_skw=Supermicro+H14SSL-N&hash=item1ff7657d49:g:6hgAAOSw6cNkQStg",
+      "title": "Supermicro H14SSL-N Support AMD EPYC 9004/9005 Series Processors",
+      "price_usd": 1188.0,
+      "total_for_target_usd": 1188.0,
+      "currency_approx_fx": null,
+      "condition": "new",
+      "seller_name": "kgda_68",
+      "is_kit": false,
+      "kit_module_count": 1,
+      "badges": []
+    },
+    {
+      "rank": 8,
+      "source": "ebay_search",
+      "vendor_host": "www.ebay.com",
+      "url": "https://www.ebay.com/itm/336100974317?_skw=Supermicro+H14SSL-N&hash=item4e412ddeed:g:BsEAAeSwd31oi~r4",
+      "title": "SuperMicro H14SSL-N Motherboard - EPYC 9005 series",
+      "price_usd": 1199.99,
+      "total_for_target_usd": 1199.99,
+      "currency_approx_fx": null,
+      "condition": "new",
+      "seller_name": "tm_space",
+      "is_kit": false,
+      "kit_module_count": 1,
+      "badges": []
+    }
+  ],
+  "listings_meta": {
+    "total_passed": 8,
+    "shown": 8,
+    "cap": 30
+  },
+  "sources": [
+    {
+      "label": "ebay_search",
+      "host": null,
+      "fetched": 25,
+      "passed": 7,
+      "status": "ok",
+      "status_label": "ok",
+      "reason": ""
+    },
+    {
+      "label": "newegg.com",
+      "host": "newegg.com",
+      "fetched": 0,
+      "passed": 0,
+      "status": "transient",
+      "status_label": "transient",
+      "reason": "AlterLab couldn't render this vendor's page this time, so nothing could be extracted. **What to do:** run this product again \u2014 this is usually temporary and the next scheduled run retries automatically."
+    },
+    {
+      "label": "wiredzone.com",
+      "host": "wiredzone.com",
+      "fetched": 1,
+      "passed": 1,
+      "status": "ok",
+      "status_label": "ok",
+      "reason": ""
+    },
+    {
+      "label": "tech-america.com",
+      "host": "tech-america.com",
+      "fetched": 0,
+      "passed": 0,
+      "status": "transient",
+      "status_label": "transient",
+      "reason": "AlterLab couldn't render this vendor's page this time, so nothing could be extracted. **What to do:** run this product again \u2014 this is usually temporary and the next scheduled run retries automatically."
+    },
+    {
+      "label": "bestbuy.com",
+      "host": "bestbuy.com",
+      "fetched": 4,
+      "passed": 0,
+      "status": "no_match",
+      "status_label": "no match",
+      "reason": "Found 4 listings but none met your search criteria (price, condition, or keyword filters). **What to do:** nothing, unless you expected matches here \u2014 if so, open **Edit Profile** and loosen the relevant filter (price cap, condition, keywords). The AI filter diagnostic below lists the specific rejections."
+    },
+    {
+      "label": "esaitech.com",
+      "host": "esaitech.com",
+      "fetched": 0,
+      "passed": 0,
+      "status": "parser_gap",
+      "status_label": "needs work",
+      "reason": "Fetched a full page (421,737 chars) but couldn't read any product listings off it \u2014 the page rendered, but our reader didn't recognise this vendor's layout (not a true empty result). **What to do:** open **Edit Profile** and add the vendor's product-page (detail) URL \u2014 that path extracts more reliably. If that also returns nothing, it needs a scraper fix (re-running won't help)."
+    },
+    {
+      "label": "gotodirect.com",
+      "host": "gotodirect.com",
+      "fetched": 12,
+      "passed": 0,
+      "status": "no_match",
+      "status_label": "no match",
+      "reason": "Found 12 listings but none met your search criteria (price, condition, or keyword filters). **What to do:** nothing, unless you expected matches here \u2014 if so, open **Edit Profile** and loosen the relevant filter (price cap, condition, keywords). The AI filter diagnostic below lists the specific rejections."
+    },
+    {
+      "label": "altex.com",
+      "host": "altex.com",
+      "fetched": 15,
+      "passed": 0,
+      "status": "no_match",
+      "status_label": "no match",
+      "reason": "Found 15 listings but none met your search criteria (price, condition, or keyword filters). **What to do:** nothing, unless you expected matches here \u2014 if so, open **Edit Profile** and loosen the relevant filter (price cap, condition, keywords). The AI filter diagnostic below lists the specific rejections."
+    }
+  ],
+  "sources_pending": [],
+  "run_cost": {
+    "steps": [
+      {
+        "step": "wiredzone.com",
+        "provider": "anthropic",
+        "model": "claude-haiku-4-5",
+        "input_tokens": 2415,
+        "output_tokens": 97,
+        "cost_usd": 0.0029000000000000002
+      },
+      {
+        "step": "tech-america.com",
+        "provider": "anthropic",
+        "model": "claude-haiku-4-5",
+        "input_tokens": 709,
+        "output_tokens": 13,
+        "cost_usd": 0.000774
+      },
+      {
+        "step": "bestbuy.com",
+        "provider": "anthropic",
+        "model": "claude-haiku-4-5",
+        "input_tokens": 3627,
+        "output_tokens": 894,
+        "cost_usd": 0.008097
+      },
+      {
+        "step": "esaitech.com",
+        "provider": "anthropic",
+        "model": "claude-haiku-4-5",
+        "input_tokens": 2611,
+        "output_tokens": 71,
+        "cost_usd": 0.002966
+      },
+      {
+        "step": "gotodirect.com",
+        "provider": "anthropic",
+        "model": "claude-haiku-4-5",
+        "input_tokens": 68502,
+        "output_tokens": 1269,
+        "cost_usd": 0.074847
+      },
+      {
+        "step": "altex.com",
+        "provider": "anthropic",
+        "model": "claude-haiku-4-5",
+        "input_tokens": 13649,
+        "output_tokens": 2610,
+        "cost_usd": 0.026699
+      },
+      {
+        "step": "ai_filter",
+        "provider": "anthropic",
+        "model": "claude-haiku-4-5",
+        "input_tokens": 10255,
+        "output_tokens": 2178,
+        "cost_usd": 0.021145
+      }
+    ],
+    "total_usd": 0.137428,
+    "any_unpriced": false
+  }
+}
