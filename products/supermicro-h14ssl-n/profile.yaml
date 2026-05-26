@@ -1,0 +1,37 @@
+slug: supermicro-h14ssl-n
+display_name: Supermicro H14SSL-N Motherboard
+description: Track cheapest new, in-stock Supermicro H14SSL-N AMD EPYC 9005 SP5 motherboard
+target:
+  unit: count
+  amount: 1
+spec_filters:
+  - rule: condition_in
+    values:
+      - new
+  - rule: in_stock
+spec_flags:
+  - rule: low_seller_feedback
+    flag: low_feedback
+    rating_pct_below: 98
+    count_below: 50
+sources:
+  - id: ebay_search
+    queries:
+      - supermicro h14ssl-n
+    max_results_per_query: 50
+  - id: universal_ai_search
+    url: https://www.amazon.com/s?k=supermicro+h14ssl-n&i=electronics
+  - id: universal_ai_search
+    url: https://www.newegg.com/p/pl?N=100007583&Keywords=supermicro+h14ssl-n
+  - id: universal_ai_search
+    url: https://www.wiredzone.com/products/supermicro-h14ssl-n
+    page_type: detail
+  - id: universal_ai_search
+    url: https://www.gotodirect.com/search?q=supermicro+h14ssl-n
+sources_pending:
+  - id: universal_ai_search
+    url: https://www.altex.com/search?q=supermicro+h14ssl-n
+    note: Probe returned 0 anchors; may need JS rendering or product not in stock
+  - id: universal_ai_search
+    url: https://www.techamerica.com/search?q=supermicro+h14ssl-n
+    note: Fetch failed (internal error); may require special handling
