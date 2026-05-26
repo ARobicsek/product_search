@@ -56,18 +56,57 @@ export interface LastRun {
   conclusion: string | null;
 }
 
+export interface InitialRun {
+  // run_started_at of the in-flight run, or null if unknown.
+  sinceIso: string | null;
+  // on-demand runs are visible to the run-status API (so we can poll them to
+  // completion and auto-refresh); a scheduler tick is not per-product, so we
+  // only reflect that it's running and rely on a reload.
+  kind: 'ondemand' | 'scheduled';
+}
+
 export function RunNowButton({
   product,
   lastRun,
+  initialRun,
 }: {
   product: string;
   lastRun?: LastRun | null;
+  initialRun?: InitialRun | null;
 }) {
   const [state, setState] = useState<RunState>('idle');
   const [message, setMessage] = useState<string>('');
   const [elapsed, setElapsed] = useState<string>('');
   const cancelled = useRef(false);
   const startedAtRef = useRef<number>(0);
+
+  // An on-demand run detected as already in flight on page load (started from
+  // the home page or another device). The slug-in-title match is precise, so
+  // take the full running treatment: enter the polling state (which hides the
+  // stale report and disables Run-now) and poll it to completion so the page
+  // auto-refreshes when it finishes — just as if the user had clicked here.
+  // A scheduled tick is NOT per-product (it's attributed to any product with a
+  // schedule), so it gets only a soft badge below — never hides the report.
+  useEffect(() => {
+    if (
+      !initialRun ||
+      initialRun.kind !== 'ondemand' ||
+      !initialRun.sinceIso ||
+      state !== 'idle'
+    ) {
+      return;
+    }
+    cancelled.current = false;
+    startedAtRef.current = Date.parse(initialRun.sinceIso);
+    // Seeding state from a server-detected run is the intended one-shot effect
+    // here, mirroring CardRunStatus/RunInfoFooter's post-mount localization.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setState('polling');
+    setMessage('Running…');
+    pollUntilComplete(initialRun.sinceIso);
+    // Run once on mount: this seeds state from the server-detected run.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     return () => {
@@ -282,7 +321,7 @@ export function RunNowButton({
         )}
         {inFlight ? 'Running' : state === 'error' ? 'Retry' : 'Run now'}
       </button>
-      {message && (
+      {message ? (
         <span
           className={`text-[11px] max-w-56 text-right truncate ${
             state === 'error'
@@ -293,8 +332,15 @@ export function RunNowButton({
         >
           {elapsed ? `${message} (${elapsed})` : message}
         </span>
-      )}
-      {!message && lastRun && (
+      ) : initialRun?.kind === 'scheduled' && state === 'idle' ? (
+        <span className="text-[11px] max-w-56 text-right truncate inline-flex items-center gap-1.5 text-green-600 dark:text-green-400">
+          <span className="relative flex h-2 w-2">
+            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-green-500 opacity-75" />
+            <span className="relative inline-flex h-2 w-2 rounded-full bg-green-500" />
+          </span>
+          Scheduled run in progress
+        </span>
+      ) : lastRun ? (
         <span
           className="text-[11px] max-w-56 text-right truncate text-gray-500 dark:text-gray-400"
           title={`Completed ${new Date(lastRun.completedAt).toLocaleString()}${
@@ -306,7 +352,7 @@ export function RunNowButton({
           Last run: {formatElapsed(lastRun.durationMs)} ·{' '}
           {formatRelativeAgo(lastRun.completedAt) || 'completed'}
         </span>
-      )}
+      ) : null}
     </div>
   );
 }

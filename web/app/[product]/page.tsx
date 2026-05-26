@@ -7,7 +7,8 @@ import {
   getReportContent,
   getReportJsonSidecar,
 } from '@/lib/github';
-import { getLastCompletedRun } from '@/lib/dispatch';
+import { getActiveRuns, getLastCompletedRun } from '@/lib/dispatch';
+import { readScheduleFromYaml } from '@/lib/schedule';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { ChevronLeft, History, Sparkles } from 'lucide-react';
@@ -36,7 +37,7 @@ export default async function ProductPage({
   const { product } = await params;
   const { date } = await searchParams;
 
-  const [reports, lastRun, lastRunIso, profileYaml] = await Promise.all([
+  const [reports, lastRun, lastRunIso, profileYaml, activeRuns] = await Promise.all([
     getProductReports(product),
     getLastCompletedRun(product).catch(() => null),
     // Authoritative most-recent-run instant (scheduled OR on-demand). The
@@ -44,7 +45,27 @@ export default async function ProductPage({
     // scheduled run its timestamp is stale — this CSV-derived instant fixes it.
     getLastRunInstant(product).catch(() => null),
     getProductProfileContent(product).catch(() => null),
+    getActiveRuns().catch(() => ({
+      onDemand: [] as { title: string; startedIso: string | null }[],
+      scheduledTickActive: false,
+      scheduledTickStartedIso: null as string | null,
+    })),
   ]);
+
+  // Detect a run already in flight (started from the home page, another
+  // device, or the scheduler) so the detail page reflects it on load — not
+  // just runs the user kicks off in this tab. Same attribution logic as the
+  // home page: an on-demand run carries the slug in its title; a scheduler
+  // tick has no per-product title, so it's attributed to any product with a
+  // schedule block. `RunNowButton` initializes into its running state from this.
+  const hasSchedule = !!profileYaml && readScheduleFromYaml(profileYaml) !== null;
+  const onDemandMatch = activeRuns.onDemand.find((r) => r.title.includes(product));
+  let initialRun: { sinceIso: string | null; kind: 'ondemand' | 'scheduled' } | null = null;
+  if (onDemandMatch) {
+    initialRun = { sinceIso: onDemandMatch.startedIso, kind: 'ondemand' };
+  } else if (activeRuns.scheduledTickActive && hasSchedule) {
+    initialRun = { sinceIso: activeRuns.scheduledTickStartedIso, kind: 'scheduled' };
+  }
 
   // Footer time = the true latest run. Keep the on-demand duration/conclusion
   // only when that run IS the latest one (instants within 10 min — the worker
@@ -97,7 +118,7 @@ export default async function ProductPage({
           >
             Edit Profile
           </Link>
-          <RunNowButton product={product} lastRun={lastRun} />
+          <RunNowButton product={product} lastRun={lastRun} initialRun={initialRun} />
         </div>
 
         <section className="p-6 max-w-2xl mx-auto w-full mt-2">
@@ -186,7 +207,7 @@ export default async function ProductPage({
         >
           Edit Profile
         </Link>
-        <RunNowButton product={product} lastRun={lastRun} />
+        <RunNowButton product={product} lastRun={lastRun} initialRun={initialRun} />
       </div>
 
       {/* Report Content */}
