@@ -270,7 +270,7 @@ def _fetch_html(
     scrappey_key = os.environ.get("SCRAPPEY_API_KEY", "").strip()
     use_scrappey = alterlab_options and alterlab_options.get("use_scrappey")
     if scrappey_key and use_scrappey:
-        proxy_country = alterlab_options.get("proxy_country", "UnitedStates")
+        proxy_country = (alterlab_options or {}).get("proxy_country", "UnitedStates")
         try:
             return _fetch_via_scrappey(url, scrappey_key, proxy_country)
         except Exception as exc:
