@@ -981,3 +981,68 @@ fixture, then all work + tests run against committed HTML.
 - A dedicated native Newegg/B&H adapter (Tier-A work, separate scope) — this
   phase stays within the universal_ai search-extraction path.
 
+---
+
+## Phase 29 — Recall & reproducibility overhaul: registry-driven URLs, parser-gap recovery, auto-Scrappey, prompt diet, honest diagnostics (PROPOSED 2026-05-27)
+
+### Why
+A 2026-05-27 evaluation session traced the DJI Neo 2 Motion Fly More Combo run end-to-end against `origin/main` and found the run-to-run inconsistency the user reports is **five distinct systemic defects**, not one bug. Evidence from that single run (`reports/dji-neo-2-motion-fly-more-combo/2026-05-27.json` + `.filter.jsonl`):
+
+- **eBay** 24 passed ✓; **B&H** (detail URL, Scrappey) 1 passed ✓.
+- **Microcenter** was *reached* (24 products via Scrappey) but the onboarder built a **mis-scoped URL** — `search_results.aspx?fq=brand%3ADJI&st=DJI+Neo+2+Motion+Fly+More`. The `fq=brand:DJI` facet returned Microcenter's entire DJI catalog (Mic 3, Osmo, RS 5 gimbals); the `st=` keyword was ignored. The Neo 2 drone (live at `/product/706337/...`) was never in the result set. All 24 were correctly relevance-rejected — but the report said the bland "no match — loosen your filters" instead of "your search URL is mis-scoped."
+- **Walmart** fetched a full 140,077-char page but extracted **0 listings** (`parser_gap`) — a genuine extraction gap, not a fetch problem; Scrappey can't help.
+- **Amazon** returned a 2,317-byte bot-wall (`transient`) despite `country: us, min_tier: 3, wait_condition: networkidle`; nothing rescued it because Amazon is `alterlab_known_good` but has no Scrappey path.
+
+Root causes (each → one ADR):
+1. **Vendor URL construction is prompt-recited prose, not registry data** → the LLM guesses param names and guesses wrong (Microcenter). **ADR-105.**
+2. **No recall recovery for "rendered but 0 parsed"** substantive pages (Walmart). **ADR-106.**
+3. **Auto-Scrappey fallback is too narrow** — fires on weak render but not for `alterlab_known_good` vendors that come back thin-body/bot-walled (Amazon). **ADR-107.**
+4. **The 752-line onboard prompt is bloated and internally contradictory** (the detail-URL-backup rule appears ~5×; "prefer search URLs" vs. "add detail URLs for every single-SKU"; inline ADR citations) → inconsistent LLM behaviour on a Haiku-class model. **ADR-108.**
+5. **Diagnostics mislabel mis-scoped URLs** — the ADR-098 mis-scope detector didn't fire for Microcenter; per-source rejection attribution is unreliable because every `universal_ai_search` source shares the id `universal_ai_search`. **ADR-109.**
+
+Read the proposed ADR bodies (105–109) in `docs/DECISIONS.md` for the full per-defect context, decision, and consequence. This phase implements them. It is larger than one session — **split across sessions by ADR**; ADR-105 + ADR-109 are the highest-leverage pair for the Microcenter class of bug and should go first.
+
+### Ground rules
+- **CLAUDE.md sync discipline**: `git fetch origin` and reason against `origin/main` (the app rewrites `products/**` + `reports/**` between sessions); `pull --rebase --autostash` around your own commits. Never trust local `products/*/profile.yaml`.
+- **Vendor quirks (ADR-068)**: every `vendor_quirks.yaml` change MUST be followed by `node web/scripts/sync-prompt.js` so `web/lib/onboard/{promptText.ts,vendor-quirks-data.ts}` track. The T5 parity guard (`alterlab-shared.ts` ↔ `_build_alterlab_body`) must stay green.
+- **CI/test rule (ADR-062)**: any regression captured as a committed fixture + test under `worker/tests/fixtures/`, never a `products/<live-slug>/` dependency.
+- **Architecture invariant (ADR-001)**: none of these touch the no-fabrication boundary — the LLM still never types a URL or invents a price. URL templates are filled by deterministic code; extraction still maps prices verbatim by index.
+- **Live spend**: ADR-105/106/109 can be developed against committed fixtures (capture the DJI Walmart + Microcenter bodies first). Only ADR-107 verification needs a small live AlterLab+Scrappey spend (~$1–3); throwaway slug prefix, delete at end.
+- **Push pre-authorized** (CLAUDE.md standing authorization).
+
+### Background you need (read in order)
+1. `docs/PROGRESS.md` (state) + this brief.
+2. Proposed ADR-105 through ADR-109 bodies in `docs/DECISIONS.md`.
+3. For ADR-105/108: `worker/src/product_search/vendor_quirks.yaml`, `worker/src/product_search/onboarding/prompts/onboard_v1.txt`, `web/scripts/sync-prompt.js`, `web/lib/onboard/probe-url.ts`.
+4. For ADR-106: `worker/src/product_search/adapters/universal_ai.py` (`fetch`, `_extract_via_full_html`, `_extract_via_anchor_walker`, `_union_by_canonical`); `worker/src/product_search/source_reasons.py` (`PARSER_GAP`).
+5. For ADR-107: `universal_ai.py` (`_fetch_html`, `_fetch_with_escalation`, `_fetch_via_scrappey`); `vendor_quirks.yaml` (`alterlab_known_good`, `use_scrappey`).
+6. For ADR-109: `worker/src/product_search/cli.py` (~line 470–490, `dominant_rejection`; ~800–910, `source_stats` build); `worker/src/product_search/validators/ai_filter.py` (`LAST_RUN_LOG` `source` field); `source_reasons.py`.
+
+### Suggested first capture (do before coding)
+Capture the two DJI fixtures so ADR-105/106/109 are testable offline:
+- Walmart search body (the 140K parser-gap page) → `worker/tests/fixtures/universal_ai/walmart_dji_neo2_parser_gap.html`.
+- Microcenter brand-catalog body (the mis-scoped 24-product page) → `worker/tests/fixtures/universal_ai/microcenter_dji_brand_misscope.html`, plus the correct keyword-search body (`?Ntt=DJI+Neo+2`) as the positive control.
+
+### Task breakdown (by ADR — each is independently shippable)
+
+**ADR-105 — registry-driven search URLs *(P1, do first with 109)*.** Add an optional `search_url_template` (and optional `search_url_notes`) field per host in `vendor_quirks.yaml` (e.g. Microcenter `…/search/search_results.aspx?Ntt={q}`). Build a deterministic helper that, given a vendor host + keyword string, renders the canonical search URL. The onboarder fills `{q}` from the product keywords; the probe must confirm `relevanceHits > 0` before the URL is accepted. Migrate the ~80 lines of "Known vendor search-results URL patterns" prose out of `onboard_v1.txt` into the registry's rendered block. Done when: Microcenter (and the existing Amazon/Walmart/Newegg/Target patterns) come from the registry, `sync-prompt.js` renders them, and a test asserts the rendered Microcenter URL uses `Ntt=` not `fq=brand`.
+
+**ADR-106 — parser-gap recall recovery *(P1)*.** For a substantive body (≥`SUBSTANTIVE_BODY_FLOOR`) that yields 0 merged listings, add a recovery path before reporting `parser_gap`: e.g. a second full-HTML LLM pass with larger/segmented input, or a deterministic fallback selector pass. Use the captured Walmart fixture as the failing regression test (≥N priced candidates extracted post-fix, target present). If Walmart's layout is genuinely unrecoverable in the universal path, the fallback is auto-suggesting the detail-URL path and the ADR records that decision with evidence.
+
+**ADR-107 — generalize auto-Scrappey *(P2, needs small live spend)*.** Extend the dynamic Scrappey fallback so any `alterlab_known_good` vendor whose final body is thin/bot-walled (below `THIN_BODY_CEILING` or matching `_WEAK_RENDER_SIGNATURES`) auto-retries via Scrappey when `SCRAPPEY_API_KEY` is set — even without per-vendor `use_scrappey: true`. Bounded cost (€1/1k). Verify against Amazon live. Guard against double-charging (don't Scrappey-retry a vendor already routed through Scrappey).
+
+**ADR-108 — onboard prompt diet *(P2)*.** Cut `onboard_v1.txt` ~50%: one canonical statement per rule (collapse the ~5 detail-URL-backup repetitions, the ~4 "never drop a vendor" repetitions, the known-good `ok`-vs-`fetchStatus` paragraph), remove inline ADR citations, and rely on the registry-rendered block for vendor facts (depends on ADR-105). Verify by re-running the DJI onboard 3× via MCP and checking URL correctness + consistency across runs. Keep `check-onboard-guards.test.mjs` green; the deterministic save-time gates are what enforce rules now, not prose.
+
+**ADR-109 — honest per-source diagnostics *(P1, do first with 105)*.** Fix the attribution so the mis-scoped-URL message fires when it should. Investigate whether `ai_filter.LAST_RUN_LOG` entries carry the adapter id (`universal_ai_search`) while `source_stats` rows are keyed by host — if so, key rejection attribution by URL/host so `dominant_rejection == "relevance_check"` is computed per-source correctly. Add the captured Microcenter mis-scope fixture as the regression: 24 relevance rejections on one host → `NO_MATCH` with the "search URL may be mis-scoped" message, not the generic "loosen your filters."
+
+### Done when (per the ADR(s) tackled in a given session)
+- The ADR(s) implemented are marked ACCEPTED with a Consequence noting what shipped.
+- Each defect has a fixture-backed regression test that fails pre-fix and passes post-fix (offline for 105/106/109).
+- Worker suite green (`pytest`, `ruff src/`, `mypy` on touched files); if `vendor_quirks.yaml` or the prompt changed, `node web/scripts/sync-prompt.js` re-run and web `tsc`/`eslint`/`test:parity`/`test:guards`/`next build` green.
+- PROGRESS.md updated, remaining ADRs left queued with explicit next-step; commit + push.
+
+### Out of scope
+- Reducing the ADR count / archiving superseded ADRs (104 ADRs is its own bloat, but a separate docs-hygiene task).
+- A dedicated native adapter for any vendor (Tier-A work).
+- Microcenter/Backmarket production Cloudflare strategy beyond the existing Scrappey path.
+

@@ -13,6 +13,11 @@ Status values:
 
 One line per ADR (newest first). Skim this; open only the bodies you need. (No ADR-036 — numbering gap.)
 
+- **ADR-109** — Honest per-source diagnostics: label mis-scoped URLs as such (PROPOSED, Phase 29). The ADR-098 "search URL may be mis-scoped" message didn't fire for Microcenter's 24 relevance-rejections because per-source rejection attribution matches the shared adapter id `universal_ai_search` instead of the per-host/URL source. Fix attribution so the mis-scope message fires; regression-test with the Microcenter fixture.
+- **ADR-108** — Onboard prompt diet (PROPOSED, Phase 29). The 752-line `onboard_v1.txt` repeats rules ~5× and contains internal contradictions, driving run-to-run onboarder inconsistency on Haiku. Cut ~50%: one canonical statement per rule, drop inline ADR citations, move vendor URL data to the registry (ADR-105), lean on save-time gates as the enforcement layer. Verify with a 3× DJI onboard re-run.
+- **ADR-107** — Generalize automatic Scrappey fallback to known-good thin-body bot-walls (PROPOSED, Phase 29). Amazon returned a 2,317-byte bot-wall on the DJI run with no rescue because it's `alterlab_known_good` but has no `use_scrappey`. Decision: when `SCRAPPEY_API_KEY` is set, any thin/bot-walled `alterlab_known_good` vendor auto-retries via Scrappey before reporting empty (guard against double-fetch). Recall over cost.
+- **ADR-106** — Parser-gap recall recovery for substantive-but-unparsed pages (PROPOSED, Phase 29). Walmart rendered 140K chars but extracted 0 listings (`parser_gap`) — an extraction gap Scrappey can't fix. Add a recovery path (segmented full-HTML LLM pass and/or deterministic embedded-state parsing, index/verbatim per ADR-001) before reporting parser_gap; failing Walmart fixture as the regression.
+- **ADR-105** — Registry-driven vendor search-URL templates (PROPOSED, Phase 29). The onboarder guessed Microcenter's URL (`fq=brand:DJI&st=…`) and got the whole DJI catalog instead of the Neo 2 — root cause of "not found at Microcenter." Move per-vendor search-URL construction from prompt prose into `vendor_quirks.yaml` (`search_url_template`), fill `{q}` deterministically, probe-validate `relevanceHits>0`. Fixes the mis-scope class + makes onboarding reproducible.
 - **ADR-103** — Cloudflare challenge pages and production scraping compatibility constraints (ACCEPTED). The skip_alterlab: true bypass uses curl_cffi to mimic Chrome TLS signatures to bypass Cloudflare. This bypass functions flawlessly when run locally because local execution occurs on a residential IP. However, when run in a production environment (e.g. Vercel, AWS), the execution occurs on a Datacenter IP. Cloudflare strictly blocks Datacenter IPs regardless of TLS impersonation, returning a ~5.7KB 'Just a moment...' challenge page. Furthermore, the source_reasons.py classifier incorrectly categorized this 5.7KB challenge page as an EMPTY_PAGE ('no results') because it fell above the THIN_BODY_CEILING of 5,000 bytes. Decision: (1) Revert skip_alterlab bypassed vendors (Microcenter, B&H, Backmarket, CentralComputer, ServerSupply) to severity: blocker since they are truly unreachable in production; (2) Increase THIN_BODY_CEILING from 5,000 to 15,000 bytes so that standard Cloudflare challenge pages are correctly categorized as TRANSIENT bot-walls.
 - **ADR-102** — Background profile validation via LLM tool (ACCEPTED). Add a validate_profile tool to the onboarder LLM (powered by a DRY extraction of the save endpoint's validation logic) so it can catch and fix guardrail warnings/errors in the background before showing the draft to the user.
 - **ADR-101** — Enforce match_aliases seeding to protect the carry-gate — ACCEPTED
@@ -115,6 +120,91 @@ One line per ADR (newest first). Skim this; open only the bodies you need. (No A
 - **ADR-003** — eBay Browse API (not HTML scraping) for the eBay adapter — ACCEPTED
 - **ADR-002** — Repo-as-database; SQLite as workflow-local cache only — ACCEPTED
 - **ADR-001** — LLM is downstream of verified data only (architectural commitment) — ACCEPTED
+
+---
+
+## ADR-109 — Honest per-source diagnostics: label mis-scoped URLs as such
+
+**Status**: PROPOSED — 2026-05-27 (Phase 29).
+
+**Date**: 2026-05-27
+
+**Context**: On the 2026-05-27 DJI Neo 2 run, Microcenter was fetched and returned 24 products, all relevance-rejected (the URL was mis-scoped — see ADR-105). The report told the user "Found 24 listings but none met your search criteria … loosen the relevant filter" — the generic `NO_MATCH` message. But the *correct* message exists: ADR-098 fix #4 added a "this source's search URL may be mis-scoped" variant that fires when `dominant_rejection == "relevance_check"`. It didn't fire. The likely cause: in `cli.py` (~line 476–487) `dominant_rejection` is computed by matching `ai_filter.LAST_RUN_LOG` rejection entries where `e.get("source") == s.get("source")`, but every `universal_ai_search` source shares the id `universal_ai_search`, so per-source attribution is ambiguous/aggregated and the per-host `source_stats` row (`label: microcenter.com`) never matches the adapter-id-keyed rejection log. Net effect: the single most useful diagnostic ("your URL is wrong, here's where to fix it") silently degrades to "loosen your filters," sending the user to adjust the wrong thing. The user explicitly cited this confusion ("I don't know why we didn't find this at Microcenter").
+
+**Decision**: Make per-source rejection attribution reliable and ensure the mis-scoped-URL message fires.
+1. Investigate the actual `source` field values in `ai_filter.LAST_RUN_LOG` vs the keys on `source_stats` rows. If they mismatch (adapter-id vs host/url), key rejection attribution by a stable per-source discriminator (the source URL, or a per-source index assigned at fetch time) so each `universal_ai_search` row gets its own rejection tally.
+2. With correct attribution, a host whose rejections are ≥50% `relevance_check` reports the "search URL may be mis-scoped — open Edit Profile and check/replace the search URL for this vendor" message (the ADR-098 fix #4 text), not the generic loosen-your-filters text.
+3. Regression test using the captured Microcenter mis-scope fixture: 24 relevance rejections attributed to the microcenter source → `NO_MATCH` with the mis-scoped message.
+
+**Consequence**: The report's "explain the zero" (ADR-084) becomes trustworthy for the mis-scope case — the most common onboarder-URL failure. No runtime-recall change; purely diagnostic honesty. Risk: keying by URL needs the rejection log to carry the source URL — if it doesn't today, that's a small plumbing add in the filter pipeline. Pairs with ADR-105 (which prevents most mis-scopes) — together they turn "silent wrong-URL" into "prevented, or clearly explained."
+
+---
+
+## ADR-108 — Onboard prompt diet: deduplicate rules, move vendor facts to the registry
+
+**Status**: PROPOSED — 2026-05-27 (Phase 29).
+
+**Date**: 2026-05-27
+
+**Context**: `onboard_v1.txt` is 752 lines and has grown by accretion across ~30 phases — nearly every onboarder fix *added* prose, almost none removed any. Measured redundancy and tension found in the 2026-05-27 review: the "add a redundant detail-URL backup" rule is stated ~5 times; "never silently drop a vendor" ~4 times; the known-good `ok`-vs-`fetchStatus` rule is a ~200-word paragraph; many sections cite ADR numbers inline (067/068/077/078/079/098/099/100) that mean nothing to the model. The prompt also pulls in opposite directions — "STRONGLY PREFER search-style URLs" vs. "add a detail URL for every single-SKU on stable-URL vendors," and "narrow `sources_pending` to genuine dead-ends" vs. a long enumeration of demote conditions. For a Haiku-4.5-class model this volume of partially-contradictory instruction is a direct cause of the run-to-run inconsistency the user reports (different vendors found on different onboards of the same product). The per-vendor URL templates in the prompt are also pure data that ADR-105 moves to the registry.
+
+**Decision**: Cut the prompt by roughly half without losing enforced behaviour.
+1. Collapse each repeated rule to ONE canonical statement (detail-URL backup, never-drop-a-vendor, known-good handling).
+2. Remove inline ADR citations from the prompt (keep them in `DECISIONS.md`).
+3. Delete the hand-listed "Known vendor search-results URL patterns" once ADR-105 renders them from the registry.
+4. Lean on the deterministic save-time gates (ADR-079/080/101/102 `validate_profile`) as the *enforcement* layer; the prompt only needs to describe intent, not re-litigate every edge case — anything that must hold is a gate, not a paragraph.
+5. Verify behaviourally: re-run the DJI onboard 3× via Chrome DevTools MCP and confirm URL correctness and consistency across runs (the same product yields the same sources).
+
+**Consequence**: A shorter, internally consistent prompt the model follows reliably; lower input-token cost per onboard turn (prompt is cached, but smaller is still cheaper on cache-miss turns). Risk: deleting a rule that was load-bearing — mitigated by (a) keeping the save-time gates as the real guardrail, (b) the `check-onboard-guards.test.mjs` suite, and (c) the 3× behavioural re-run. Depends on ADR-105 for the URL-template removal. Does not change any schema or runtime behaviour.
+
+---
+
+## ADR-107 — Generalize automatic Scrappey fallback to known-good thin-body bot-walls
+
+**Status**: PROPOSED — 2026-05-27 (Phase 29).
+
+**Date**: 2026-05-27
+
+**Context**: The dynamic Scrappey fallback (added 2026-05-27, ADR-104 lineage) fires in two places in `universal_ai.py`: (a) in `_fetch_html` when an AlterLab fetch *raises*, and (b) in `_fetch_with_escalation` when every escalation rung is a *weak render* — but only for vendors NOT already flagged `use_scrappey: true`. On the DJI run, Amazon returned a 2,317-byte body (a successful HTTP 200 bot-wall — not a raised error, and short enough that escalation's weak-render path should catch it) yet contributed 0 listings and was reported `transient`. Amazon is `alterlab_known_good: true` (so the onboarder keeps it as a source) but has no `use_scrappey` path, and there's no rule that says "a known-good vendor that comes back thin-body should try the stronger scraper." So a vendor the system *expects* to be hard gets one render attempt and gives up. This contradicts the project's stated stance (memory: "maximize recall over scrape cost" — AlterLab + Scrappey are cheap, over-fetch freely, guard only against clearly-wrong data).
+
+**Decision**: When `SCRAPPEY_API_KEY` is set, any vendor whose final fetched body is thin/bot-walled (below `THIN_BODY_CEILING` or matching `_WEAK_RENDER_SIGNATURES`) auto-retries via Scrappey before the source is reported empty — regardless of whether the registry set `use_scrappey: true`. Gate it on `alterlab_known_good: true` (or simply any `universal_ai_search` source — to be decided in implementation; default to known-good vendors to bound cost). Guard against double-charging: never Scrappey-retry a body that was already fetched via Scrappey. Verify against Amazon live (small spend).
+
+**Consequence**: Known-hard vendors (Amazon, and any future `alterlab_known_good` host) get the stronger scraper automatically instead of silently returning 0 — directly improves recall, the user's primary objective. Cost rises modestly (€1/1k browser requests, only on the thin-body path). Risk: a vendor that's genuinely empty now pays one extra Scrappey request to confirm it — acceptable under the recall-over-cost principle. The circuit breaker + per-run budget (ADR-078) still bound total latency. ADR-001 untouched (Scrappey only fetches HTML; extraction is unchanged).
+
+---
+
+## ADR-106 — Parser-gap recall recovery for substantive-but-unparsed pages
+
+**Status**: PROPOSED — 2026-05-27 (Phase 29).
+
+**Date**: 2026-05-27
+
+**Context**: On the DJI run, Walmart fetched a full 140,077-char page (the render succeeded) but the universal extraction pipeline — JSON-LD tier, anchor-walker, and full-HTML-LLM tier — produced 0 listings, reported as `PARSER_GAP` ("needs work … add the detail URL"). This is the failure mode the user asked about ("shouldn't it fall back to Scrappey?") — but Scrappey is the wrong lever here: the fetch already worked; the gap is in *extraction*. Walmart's search-results markup (heavy client-side JSON state, non-standard anchor/price structure) isn't recognised by any of the three tiers. This class — substantive body, zero parsed — is the single biggest silent recall leak on large retailers, because no downstream filter can recover a product that never entered the candidate set.
+
+**Decision**: Add a recovery path for the "substantive body (≥`SUBSTANTIVE_BODY_FLOOR`) → 0 merged listings" case, before the source is reported as `parser_gap`. Candidate mechanisms (pick during implementation, evidence-driven against the captured Walmart fixture):
+1. A second full-HTML LLM pass with larger or segmented input (the current tier may be truncating a 140K page), and/or a prompt tuned for embedded-JSON-state pages.
+2. A deterministic extraction of common embedded state blobs (`__NEXT_DATA__` / `window.__PRELOADED_STATE__` / Walmart's `__WML_REDUX_INITIAL_STATE__`) into the candidate set, mapping price+url by structure (no LLM URL/price fabrication — same index/verbatim discipline as ADR-001/ADR-077).
+3. If Walmart search is genuinely unrecoverable in the universal path, the documented fallback is auto-suggesting the detail-URL path, and the ADR records that with evidence.
+
+**Consequence**: Recovers recall on big retailers that render but don't parse — the highest-value recall lever found in the review. Captured as a failing fixture test (`walmart_dji_neo2_parser_gap.html`) so it can't silently regress. Risk: an extra LLM pass adds cost on the 0-listing path only (bounded — it runs once per affected source per run); embedded-state parsing is brittle to vendor markup changes, mitigated by the fixture test failing loudly (the project's stated preference over silent fabrication). ADR-001 untouched.
+
+---
+
+## ADR-105 — Registry-driven vendor search-URL templates (stop the onboarder guessing URLs)
+
+**Status**: PROPOSED — 2026-05-27 (Phase 29).
+
+**Date**: 2026-05-27
+
+**Context**: The onboarder builds vendor search URLs from prose recited in `onboard_v1.txt` ("Known vendor search-results URL patterns": Amazon `/s?k=`, Walmart `/search?q=`, Newegg `/p/pl?d=`, Target `/s?searchTerm=`, ThriftBooks, AbeBooks, Biblio, Alibris, Back Market…). Microcenter is **not** in that list, so on the 2026-05-27 DJI run the LLM guessed the URL structure and produced `search_results.aspx?fq=brand%3ADJI&st=DJI+Neo+2+Motion+Fly+More` — a brand-facet that returned Microcenter's entire DJI catalog (24 unrelated products) while the `st=` keyword was ignored. The target drone was never in the result set. This is the root cause of "we didn't find it at Microcenter": not a fetch failure, but the onboarder pointing the scraper at the wrong page. URL construction is deterministic per-vendor knowledge — exactly the kind of fact ADR-068 says belongs in `vendor_quirks.yaml` (single source of truth, read by adapter + prompt + gate), not narrated to an LLM that applies it inconsistently and can't extend it to unlisted vendors.
+
+**Decision**: Move vendor search-URL construction into the registry and make it deterministic.
+1. Add an optional `search_url_template` (and optional `search_url_notes`) per host in `vendor_quirks.yaml`, e.g. `microcenter.com: search_url_template: "https://www.microcenter.com/search/search_results.aspx?Ntt={q}"`. Seed it with the vendors currently listed in the prompt plus Microcenter (real keyword param `Ntt=`).
+2. A deterministic helper renders `{q}` (URL-encoded keywords) → canonical search URL, shared/parity-checked between the worker and `web/lib/onboard` the way `alterlab-shared.ts`/`_build_alterlab_body` are.
+3. The onboarder uses the registry template when the host is known (fills `{q}` only); the probe must still confirm `relevanceHits > 0` before the URL is accepted (catches a stale template).
+4. Regenerate web artifacts via `node web/scripts/sync-prompt.js`; the rendered registry block replaces the ~80 lines of URL-pattern prose in `onboard_v1.txt` (feeds ADR-108's prompt diet).
+
+**Consequence**: Kills the entire mis-scoped-URL class for known vendors (Microcenter included) and makes onboarding *reproducible* — the same product yields the same correct URL every run instead of a fresh guess. Removes a large block of data-as-prose from the prompt. Risk: a vendor changes its search param (mitigated by the probe's `relevanceHits` check at onboard time + the ADR-109 mis-scope diagnostic at run time); unknown vendors still need the LLM to construct a URL, but those now also benefit from ADR-109's honest "mis-scoped" feedback. ADR-001 untouched (code fills the template; the LLM still never invents a price/URL into a listing).
 
 ---
 
