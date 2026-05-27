@@ -1,0 +1,27 @@
+slug: adata-xg7000-2tb
+display_name: ADATA XG7000 2TB NVMe SSD
+description: Track the cheapest currently-available ADATA XG7000 2TB PCIe Gen 4 NVMe M.2 internal SSD, new sealed units, in stock
+target:
+  unit: count
+  amount: 1
+spec_filters:
+  - rule: in_stock
+  - rule: condition_in
+    values:
+      - new
+spec_flags:
+  - rule: low_seller_feedback
+    flag: low_feedback
+    rating_pct_below: 98
+    count_below: 50
+sources:
+  - id: universal_ai_search
+    url: https://www.microcenter.com/product/706219/xg7000-2tb-3d-tlc-nand-pcie-gen-4-x4-nvme-m2-internal-ssd
+    page_type: detail
+  - id: universal_ai_search
+    url: https://www.newegg.com/p/pl?d=XG7000+2TB
+  - id: ebay_search
+    queries:
+      - XG7000 2TB
+    max_results_per_query: 50
+sources_pending: []
