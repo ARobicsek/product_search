@@ -155,12 +155,12 @@ def classify_source_outcome(
             "product.",
         )
 
-    # 3. Vendor flagged in the registry as a known failure — an anti-bot wall
+    # 3. Vendor flagged in the registry as a known failure (blocker) — an anti-bot wall
     #    with no working path. Re-running won't help; only deeper scraper work
     #    can recover it (and may not). Use the registry's own summary so the
     #    report and the onboarder tell the same story. Do NOT promise an
     #    automatic fix — these are parked, not actively in flight.
-    if known_failure:
+    if known_failure and known_failure.get("severity") == "blocker":
         summary = " ".join(str(known_failure.get("summary", "")).split())
         detail = f" {summary}" if summary else ""
         return SourceOutcome(
