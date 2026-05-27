@@ -10,8 +10,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test:parity": "node --test --experimental-strip-types scripts/check-alterlab-parity.test.mjs scripts/check-report-columns-parity.test.mjs",
-    "test:guards": "node --test --experimental-strip-types scripts/check-onboard-guards.test.mjs"
+    "test:parity": "npx tsx --test scripts/check-alterlab-parity.test.mjs scripts/check-report-columns-parity.test.mjs",
+    "test:guards": "npx tsx --test scripts/check-onboard-guards.test.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.91.1",
@@ -38,6 +38,7 @@
     "eslint-config-next": "16.2.4",
     "server-only": "^0.0.1",
     "tailwindcss": "^4",
+    "tsx": "^4.22.3",
     "typescript": "^5"
   }
 }
