@@ -30,7 +30,7 @@ SUBSTANTIVE_BODY_FLOOR = 50_000
 # bot-block interstitial, or wrong-URL page — NOT proof the product isn't sold
 # there.  ADR-098 fix #3: classify as TRANSIENT ("check the URL") instead of
 # EMPTY_PAGE ("genuinely has nothing"), which was actively misleading.
-THIN_BODY_CEILING = 5_000
+THIN_BODY_CEILING = 15_000
 
 # ADR-099: the carry-gate (universal_ai.fetch) writes a skip reason starting
 # with this prefix when it deliberately skips the paid LLM extractors because

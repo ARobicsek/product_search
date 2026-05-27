@@ -1,59 +1,112 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-05-27T04:06:38.782206+00:00",
+  "generated_at": "2026-05-27T04:04:20.032783+00:00",
   "snapshot_date": "2026-05-27",
   "product": {
     "slug": "adata-xg7000-2tb",
     "display_name": "ADATA XG7000 2TB NVMe SSD"
   },
-  "listings": [],
+  "listings": [
+    {
+      "rank": 1,
+      "source": "microcenter.com",
+      "vendor_host": "www.microcenter.com",
+      "url": "https://www.microcenter.com/product/706219/xg7000-2tb-3d-tlc-nand-pcie-gen-4-x4-nvme-m2-internal-ssd",
+      "title": "XG7000 2TB 3D TLC NAND PCIe Gen 4 x4 NVMe M.2 Internal SSD",
+      "price_usd": 289.99,
+      "total_for_target_usd": 289.99,
+      "currency_approx_fx": null,
+      "condition": "new",
+      "seller_name": "www.microcenter.com",
+      "is_kit": false,
+      "kit_module_count": 1,
+      "badges": [
+        {
+          "key": "low_feedback",
+          "label": "Limited reviews",
+          "severity": "info"
+        }
+      ]
+    },
+    {
+      "rank": 2,
+      "source": "ebay_search",
+      "vendor_host": "www.ebay.com",
+      "url": "https://www.ebay.com/itm/147209229977?_skw=XG7000+2TB&hash=item22465a9699:g:RzoAAeSwyXJpwNnJ",
+      "title": "XG7000 2TB NVMe SSD PCIe 4.0-7400MB/s Read Speed, 3D TLC NAND M.2 2280 Intern...",
+      "price_usd": 430.12,
+      "total_for_target_usd": 430.12,
+      "currency_approx_fx": null,
+      "condition": "new",
+      "seller_name": "komi_3169",
+      "is_kit": false,
+      "kit_module_count": 1,
+      "badges": []
+    }
+  ],
   "listings_meta": {
-    "total_passed": 0,
-    "shown": 0,
+    "total_passed": 2,
+    "shown": 2,
     "cap": 30
   },
   "sources": [
     {
       "label": "microcenter.com",
       "host": "microcenter.com",
-      "fetched": 0,
-      "passed": 0,
-      "status": "empty_page",
-      "status_label": "no results",
-      "reason": "The vendor's page loaded but had no matching products \u2014 most likely it genuinely has nothing right now, so re-running won't change anything. **What to do:** if you expected results, open **Edit Profile** and check the search URL / keywords; otherwise nothing \u2014 scheduled runs will catch it when the vendor lists a match."
+      "fetched": 1,
+      "passed": 1,
+      "status": "ok",
+      "status_label": "ok",
+      "reason": ""
     },
     {
       "label": "newegg.com",
       "host": "newegg.com",
-      "fetched": 0,
+      "fetched": 2,
       "passed": 0,
-      "status": "transient",
-      "status_label": "transient",
-      "reason": "AlterLab couldn't render this vendor's page this time, so nothing could be extracted. **What to do:** run this product again \u2014 this is usually temporary and the next scheduled run retries automatically."
+      "status": "no_match",
+      "status_label": "no match",
+      "reason": "Found 2 listings but none met your search criteria (price, condition, or keyword filters). **What to do:** nothing, unless you expected matches here \u2014 if so, open **Edit Profile** and loosen the relevant filter (price cap, condition, keywords). The AI filter diagnostic below lists the specific rejections."
     },
     {
       "label": "ebay_search",
       "host": null,
       "fetched": 8,
-      "passed": 0,
-      "status": "no_match",
-      "status_label": "no match",
-      "reason": "Found 8 listings but none met your search criteria (price, condition, or keyword filters). **What to do:** nothing, unless you expected matches here \u2014 if so, open **Edit Profile** and loosen the relevant filter (price cap, condition, keywords). The AI filter diagnostic below lists the specific rejections."
+      "passed": 1,
+      "status": "ok",
+      "status_label": "ok",
+      "reason": ""
     }
   ],
   "sources_pending": [],
   "run_cost": {
     "steps": [
       {
+        "step": "microcenter.com",
+        "provider": "anthropic",
+        "model": "claude-haiku-4-5",
+        "input_tokens": 6536,
+        "output_tokens": 99,
+        "cost_usd": 0.007031
+      },
+      {
+        "step": "newegg.com",
+        "provider": "anthropic",
+        "model": "claude-haiku-4-5",
+        "input_tokens": 23941,
+        "output_tokens": 376,
+        "cost_usd": 0.025821
+      },
+      {
         "step": "ai_filter",
         "provider": "anthropic",
         "model": "claude-haiku-4-5",
-        "input_tokens": 3247,
-        "output_tokens": 502,
-        "cost_usd": 0.005757
+        "input_tokens": 3998,
+        "output_tokens": 592,
+        "cost_usd": 0.006958
       }
     ],
-    "total_usd": 0.005757,
+    "total_usd": 0.03981,
     "any_unpriced": false
   }
 }

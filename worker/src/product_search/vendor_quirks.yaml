@@ -103,10 +103,11 @@ backmarket.com:
     wait_condition: networkidle
     skip_alterlab: true
   known_failure:
-    severity: warning
+    severity: blocker
     summary: |
       Cloudflare bot-walled for AlterLab. We bypass AlterLab with skip_alterlab: true 
-      to force a direct curl_cffi fetch which works perfectly.
+      to force a direct curl_cffi fetch, but this only works locally. Datacenter IPs
+      in production are still blocked by Cloudflare.
 
 bestbuy.com:
   default_alterlab_options:
@@ -133,11 +134,11 @@ bhphotovideo.com:
     wait_condition: networkidle
     skip_alterlab: true
   known_failure:
-    severity: warning
+    severity: blocker
     summary: |
       Cloudflare bot-walled for AlterLab. We bypass AlterLab with skip_alterlab: true 
-      to force a direct curl_cffi fetch which perfectly mimics Chrome TLS and bypasses 
-      the Cloudflare challenge.
+      to force a direct curl_cffi fetch, but this only works locally. Datacenter IPs
+      in production are still blocked by Cloudflare.
 
 centralcomputer.com:
   default_alterlab_options:
@@ -146,10 +147,11 @@ centralcomputer.com:
     wait_condition: networkidle
     skip_alterlab: true
   known_failure:
-    severity: warning
+    severity: blocker
     summary: |
       Cloudflare bot-walled for AlterLab. We bypass AlterLab with skip_alterlab: true 
-      to force a direct curl_cffi fetch which works perfectly.
+      to force a direct curl_cffi fetch, but this only works locally. Datacenter IPs
+      in production are still blocked by Cloudflare.
 
 costco.com:
   force_detail_backup: true
@@ -209,10 +211,11 @@ microcenter.com:
     wait_condition: networkidle
     skip_alterlab: true
   known_failure:
-    severity: warning
+    severity: blocker
     summary: |
       Cloudflare bot-walled for AlterLab. We bypass AlterLab with skip_alterlab: true 
-      to force a direct curl_cffi fetch which works perfectly.
+      to force a direct curl_cffi fetch, but this only works locally. Datacenter IPs
+      in production are still blocked by Cloudflare.
 
 rei.com:
   force_detail_backup: true
@@ -224,10 +227,11 @@ serversupply.com:
     wait_condition: networkidle
     skip_alterlab: true
   known_failure:
-    severity: warning
+    severity: blocker
     summary: |
       Cloudflare bot-walled for AlterLab. We bypass AlterLab with skip_alterlab: true 
-      to force a direct curl_cffi fetch which works perfectly.
+      to force a direct curl_cffi fetch, but this only works locally. Datacenter IPs
+      in production are still blocked by Cloudflare.
 
 sweetwater.com:
   force_detail_backup: true
