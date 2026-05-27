@@ -17,6 +17,7 @@ import assert from 'node:assert/strict';
 import { isDetailPreferred } from '../lib/onboard/detail-preference.ts';
 import { checkTitleExcludes } from '../lib/onboard/title-excludes-check.ts';
 import { checkDetailPreferencePresence } from '../lib/onboard/detail-preference-presence.ts';
+import { checkMatchAliases } from '../lib/onboard/match-aliases-check.ts';
 import {
   FORCE_DETAIL_BACKUP_HOSTS,
   PREFER_DETAIL_HOSTS,
@@ -180,6 +181,26 @@ test('ADR-079 (Phase 27): placeholder with host already present in sources is be
     ],
   };
   assert.equal(detailPresence(draft).length, 0);
+});
+
+// --- ADR-101 match_aliases guard ---
+
+test('ADR-101: match_aliases check passes cleanly when aliases are present', () => {
+  const draft = { display_name: 'Supermicro H14SSL-N', match_aliases: ['H14SSL-N', 'H14SSL N'] };
+  assert.equal(checkMatchAliases(draft).length, 0);
+});
+
+test('ADR-101: match_aliases check returns soft warning when no aliases but confident model token exists', () => {
+  const draft = { display_name: 'Supermicro H14SSL-N motherboard', match_aliases: [] };
+  const warnings = checkMatchAliases(draft);
+  assert.equal(warnings.length, 1);
+  assert.match(warnings[0].message, /match_aliases is empty/);
+  assert.match(warnings[0].message, /'h14ssl'/);
+});
+
+test('ADR-101: match_aliases check throws error when no aliases and NO confident model token', () => {
+  const draft = { display_name: 'The Economist 1yr subscription', match_aliases: [] };
+  assert.throws(() => checkMatchAliases(draft), /MUST provide match_aliases/);
 });
 
 // --- ADR-098 prompt-content guards ---

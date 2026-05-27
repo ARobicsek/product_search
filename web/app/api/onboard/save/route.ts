@@ -14,6 +14,7 @@ import {
   FORCE_DETAIL_BACKUP_HOSTS,
   PREFER_DETAIL_HOSTS,
 } from '@/lib/onboard/vendor-quirks-data';
+import { checkMatchAliases } from '@/lib/onboard/match-aliases-check';
 
 export const runtime = 'nodejs';
 export const maxDuration = 60;
@@ -119,6 +120,7 @@ export async function POST(request: NextRequest) {
           PREFER_DETAIL_HOSTS,
         ),
       );
+      warnings.push(...checkMatchAliases(draft));
       yamlText = renderProfileYaml(draft);
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'render-yaml failed';
