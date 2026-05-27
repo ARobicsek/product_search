@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-05-27T04:04:20.032783+00:00",
+  "generated_at": "2026-05-27T14:32:03.573538+00:00",
   "snapshot_date": "2026-05-27",
   "product": {
     "slug": "adata-xg7000-2tb",
@@ -62,11 +62,11 @@
     {
       "label": "newegg.com",
       "host": "newegg.com",
-      "fetched": 2,
+      "fetched": 1,
       "passed": 0,
       "status": "no_match",
       "status_label": "no match",
-      "reason": "Found 2 listings but none met your search criteria (price, condition, or keyword filters). **What to do:** nothing, unless you expected matches here \u2014 if so, open **Edit Profile** and loosen the relevant filter (price cap, condition, keywords). The AI filter diagnostic below lists the specific rejections."
+      "reason": "Found 1 listing but none met your search criteria (price, condition, or keyword filters). **What to do:** nothing, unless you expected matches here \u2014 if so, open **Edit Profile** and loosen the relevant filter (price cap, condition, keywords). The AI filter diagnostic below lists the specific rejections."
     },
     {
       "label": "ebay_search",
@@ -85,28 +85,28 @@
         "step": "microcenter.com",
         "provider": "anthropic",
         "model": "claude-haiku-4-5",
-        "input_tokens": 6536,
+        "input_tokens": 7318,
         "output_tokens": 99,
-        "cost_usd": 0.007031
+        "cost_usd": 0.007813
       },
       {
         "step": "newegg.com",
         "provider": "anthropic",
         "model": "claude-haiku-4-5",
-        "input_tokens": 23941,
-        "output_tokens": 376,
-        "cost_usd": 0.025821
+        "input_tokens": 5620,
+        "output_tokens": 136,
+        "cost_usd": 0.0063
       },
       {
         "step": "ai_filter",
         "provider": "anthropic",
         "model": "claude-haiku-4-5",
-        "input_tokens": 3998,
-        "output_tokens": 592,
-        "cost_usd": 0.006958
+        "input_tokens": 3745,
+        "output_tokens": 593,
+        "cost_usd": 0.006710000000000001
       }
     ],
-    "total_usd": 0.03981,
+    "total_usd": 0.020823,
     "any_unpriced": false
   }
 }
