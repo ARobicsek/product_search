@@ -20,6 +20,17 @@
 #       → rendered vendor knowledge replaces the hand-authored list in the
 #         onboarder prompt so prompt and adapter never drift apart.
 #
+# --- Cloudflare-walled vendor bypass constraint (ADR-103) ---
+# Several vendors (microcenter, bhphotovideo, backmarket, centralcomputer,
+# serversupply) are Cloudflare-walled: AlterLab's proxies are blocked, and
+# curl_cffi only works on residential IPs (not GitHub Actions datacenter IPs).
+# A managed scraping API with CF bypass is the intended solution, but:
+#   - ScrapFly is RULED OUT — requires a monthly subscription (user constraint).
+#   - ZenRows is RULED OUT — requires a monthly subscription (user constraint).
+#   - Any replacement MUST be pay-as-you-go (prepaid balance / per-request).
+#   - Active candidate: Scrappey (EUR 1.00/1K browser requests PAYG, 95%+ CF
+#     success claimed). Also consider Bright Data Web Unlocker ($1.50/1K PAYG).
+#
 # Hosts are keyed WITHOUT the `www.` prefix; the loader strips it before
 # lookup. Add/edit entries when you learn a vendor-level fact — do NOT patch a
 # per-product profile.yaml instead (that's the drift this registry exists to
@@ -210,12 +221,14 @@ microcenter.com:
     min_tier: 3
     wait_condition: networkidle
     skip_alterlab: true
+    use_scrappey: true
+    proxy_country: UnitedStates
   known_failure:
-    severity: blocker
+    severity: warning
     summary: |
-      Cloudflare bot-walled for AlterLab. We bypass AlterLab with skip_alterlab: true 
-      to force a direct curl_cffi fetch, but this only works locally. Datacenter IPs
-      in production are still blocked by Cloudflare.
+      Cloudflare bot-walled for AlterLab and datacenter IPs. Bypassed via
+      Scrappey (PAYG browser-render API with US residential proxy). Tested
+      2026-05-27: 433KB rendered body, 79 product anchors, real prices.
 
 rei.com:
   force_detail_backup: true

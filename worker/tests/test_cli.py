@@ -306,15 +306,16 @@ def test_zero_reason_callout_classifies_and_skips_clean() -> None:
 
 
 def test_zero_reason_callout_known_failure_is_warning() -> None:
-    # microcenter.com carries a known_failure in the committed vendor_quirks.
+    # bhphotovideo.com carries a known_failure: blocker in the committed
+    # vendor_quirks (microcenter.com was downgraded to warning — ADR-103).
     stats = [
-        {"source": "universal_ai_search", "display_source": "microcenter.com",
-         "match_host": "microcenter.com", "fetched": 0, "passed": 0,
+        {"source": "universal_ai_search", "display_source": "bhphotovideo.com",
+         "match_host": "bhphotovideo.com", "fetched": 0, "passed": 0,
          "diagnostics": {"body_len": 0}},
     ]
     callout = _build_zero_reason_callout(stats)
     assert callout.startswith("> [!WARNING]")
-    assert "**microcenter.com** — _blocked_" in callout
+    assert "**bhphotovideo.com** — _blocked_" in callout
 
 
 def test_build_zero_reason_callout_includes_per_source_httperror() -> None:

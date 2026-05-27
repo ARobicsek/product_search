@@ -540,10 +540,10 @@ Roughly in this order, but adapt to what the user volunteers:
            - **ThriftBooks**: `https://www.thriftbooks.com/browse/?b.search=<keywords>#b.s=price-asc&b.p=1&b.pp=50&b.oos`
            - **AbeBooks**: `https://www.abebooks.com/servlet/SearchResults?kn=<keywords>&sortby=17`
            - **Better World Books**: `https://www.betterworldbooks.com/search/results?query=<keywords>`
-             (Note: BetterWorldBooks is a JS-heavy SPA — the adapter
-             needs AlterLab/ScrapFly JS rendering to extract listings.
-             If listings come back empty, the production renderer may
-             not be reaching the page.)
+              (Note: BetterWorldBooks is a JS-heavy SPA — the adapter
+              needs AlterLab or a managed scraping API with JS rendering
+              to extract listings. If listings come back empty, the
+              production renderer may not be reaching the page.)
            - **Biblio**: `https://www.biblio.com/search.php?title=<title>&author=<author>&stage=1`
              (Note: Biblio uses separate `title` and `author` params,
              NOT a single `query` param. The path must be `search.php`,

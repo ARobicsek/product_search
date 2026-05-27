@@ -243,26 +243,44 @@ def _fetch_html(
 ) -> tuple[str, int, str]:
     """Fetch ``url`` and return ``(html, status_code, fetcher_label)``.
 
-    Three-tier fetch strategy:
+    Four-tier fetch strategy:
 
-    1. **ScrapFly** — when ``SCRAPFLY_API_KEY`` is set in the environment.
-       Routes through their API with ``render_js=true`` (full headless-Chrome
-       render) and ``asp=true`` (anti-scraping protection: residential
-       proxies + challenge solving). Costs credits, but gets us past
-       Cloudflare/Datadome/Akamai/full-React-SPA pages that the lower
-       tiers can't touch. Free tier is ~1k credits/month.
+    1. **Scrappey** — when ``SCRAPPEY_API_KEY`` is set AND the vendor's
+       ``alterlab_options`` include ``use_scrappey: true``. Routes through
+       the Scrappey browser-render API with a US residential proxy.
+       Bypasses Cloudflare Turnstile/WAF on walled vendors (ADR-103).
+       Pay-as-you-go (EUR 1/1K browser requests, no subscription).
 
-    2. **curl_cffi** — Chrome TLS fingerprint impersonation. Free, fast,
+    2. **AlterLab** — rendered fetch with residential proxies and JS
+       execution. Gets past most bot walls except aggressive CF on
+       datacenter-banned vendors.
+
+    3. **curl_cffi** — Chrome TLS fingerprint impersonation. Free, fast,
        beats basic Cloudflare TLS-fingerprint blocks but does no JS
        execution. Works on most server-rendered storefronts.
 
-    3. **httpx** — plain HTTP fallback when ``curl_cffi`` isn't installed.
+    4. **httpx** — plain HTTP fallback when ``curl_cffi`` isn't installed.
        Default Python TLS fingerprint, fails on most modern bot detection.
 
     Either way the response body is returned verbatim — non-2xx status
     codes are logged but the body is still returned because some sites
     serve a challenge page with status 200 and others 403.
     """
+    # ── Tier 1: Scrappey (CF-walled vendors only) ──────────────────────
+    scrappey_key = os.environ.get("SCRAPPEY_API_KEY", "").strip()
+    use_scrappey = alterlab_options and alterlab_options.get("use_scrappey")
+    if scrappey_key and use_scrappey:
+        proxy_country = alterlab_options.get("proxy_country", "UnitedStates")
+        try:
+            return _fetch_via_scrappey(url, scrappey_key, proxy_country)
+        except Exception as exc:
+            logger.warning(
+                "[universal_ai] Scrappey fetch failed "
+                f"({type(exc).__name__}: {exc}); falling through to "
+                "AlterLab/curl_cffi/httpx."
+            )
+
+    # ── Tier 2: AlterLab ──────────────────────────────────────────────
     alterlab_key = os.environ.get("ALTERLAB_API_KEY", "").strip()
     skip_alterlab = alterlab_options and alterlab_options.get("skip_alterlab")
     if alterlab_key and not skip_alterlab:
@@ -347,6 +365,80 @@ def _fetch_html(
     with httpx.Client(follow_redirects=True, headers=headers, timeout=timeout) as client:
         httpx_resp = client.get(url)
         return httpx_resp.text or "", httpx_resp.status_code, "httpx"
+
+
+# ── Scrappey browser-render fetch (ADR-103) ─────────────────────────────────
+
+
+def _fetch_via_scrappey(
+    url: str,
+    api_key: str,
+    proxy_country: str = "UnitedStates",
+) -> tuple[str, int, str]:
+    """Fetch *url* through the Scrappey browser-render API.
+
+    Scrappey spins up a real browser (Firefox) on a residential proxy and
+    returns the fully-rendered DOM. This bypasses Cloudflare Turnstile,
+    DataDome, and similar JS-challenge bot walls that block datacenter IPs.
+
+    Cost: ~EUR 1.00 per 1,000 browser requests (PAYG, no subscription).
+    Only successful requests are billed.
+    """
+    import httpx
+
+    api_url = f"https://publisher.scrappey.com/api/v1?key={api_key}"
+    payload = {
+        "cmd": "request.get",
+        "url": url,
+        "proxyCountry": proxy_country,
+    }
+
+    with httpx.Client(timeout=120.0) as client:
+        resp = client.post(
+            api_url,
+            json=payload,
+            headers={"Content-Type": "application/json"},
+        )
+        resp.raise_for_status()
+
+    data = resp.json()
+
+    # Scrappey wraps the page body in {"solution": {"response": "...", ...}}
+    solution = data.get("solution", {})
+    body = solution.get("response", "")
+    origin_status = solution.get("statusCode", 200)
+    ip_info = solution.get("ipInfo", {})
+
+    # Log the exit-IP country so we can debug geo-blocks.
+    exit_ip = ip_info.get("query", "?")
+    exit_country = ip_info.get("country", "?")
+    is_hosting = ip_info.get("hosting", False)
+    logger.info(
+        "[universal_ai] Scrappey fetch: %s → %d chars, "
+        "exit_ip=%s (%s, hosting=%s)",
+        url[:80],
+        len(body),
+        exit_ip,
+        exit_country,
+        is_hosting,
+    )
+
+    # Check for Scrappey-level errors (DNS failures, timeouts, etc.)
+    if data.get("error"):
+        error_msg = str(data["error"])
+        # Short body + error ⇒ the fetch genuinely failed.
+        if len(body) < _WEAK_BODY_FLOOR:
+            raise RuntimeError(f"Scrappey error: {error_msg[:200]}")
+        # Long body + error ⇒ Scrappey logged a warning but the page
+        # rendered. Treat it as a success (the body is usable).
+        logger.warning(
+            "[universal_ai] Scrappey reported error but body is %d chars "
+            "(keeping): %s",
+            len(body),
+            error_msg[:200],
+        )
+
+    return body, int(origin_status) if origin_status else 200, "scrappey"
 
 
 # ADR-078 (R1): how many times to retry the AlterLab API on a transient 5xx
@@ -657,7 +749,7 @@ def _fetch_html_with_retry(
 _WEAK_RENDER_SIGNATURES = re.compile(
     r"just a moment|checking your browser|attention required|"
     r"please enable (?:js|javascript) and cookies|enable javascript to continue|"
-    r"there was a temporary issue|/cdn-cgi/challenge|captcha-delivery|"
+    r"there was a temporary issue|/cdn-cgi/challenge(?!-platform)|captcha-delivery|"
     r"px-captcha|verify you are (?:a )?human|access to this page has been denied",
     re.IGNORECASE,
 )

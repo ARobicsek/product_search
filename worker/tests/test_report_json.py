@@ -257,8 +257,8 @@ def test_source_status_is_transient_when_alterlab_degraded() -> None:
 
 
 def test_source_status_is_empty_page_when_no_error_and_short_body() -> None:
-    """No error, fetched=0, body above THIN_BODY_CEILING but below
-    SUBSTANTIVE_BODY_FLOOR → EMPTY_PAGE (genuine no-results), not OK."""
+    """No error, fetched=0, body above THIN_BODY_CEILING (15K) but below
+    SUBSTANTIVE_BODY_FLOOR (50K) → EMPTY_PAGE (genuine no-results), not OK."""
     profile = load_profile()
     payload = build_json_payload(
         listings=[],
@@ -269,7 +269,7 @@ def test_source_status_is_empty_page_when_no_error_and_short_body() -> None:
             "fetched": 0,
             "passed": 0,
             "error": None,
-            "diagnostics": {"body_len": 10_000},
+            "diagnostics": {"body_len": 20_000},
         }],
         run_calls=[],
     )
