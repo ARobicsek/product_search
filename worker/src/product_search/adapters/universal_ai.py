@@ -264,7 +264,8 @@ def _fetch_html(
     serve a challenge page with status 200 and others 403.
     """
     alterlab_key = os.environ.get("ALTERLAB_API_KEY", "").strip()
-    if alterlab_key:
+    skip_alterlab = alterlab_options and alterlab_options.get("skip_alterlab")
+    if alterlab_key and not skip_alterlab:
         # AlterLab needs its own (much longer) timeout: render_js spins up
         # a real Chrome and can take 30-60s on heavy pages (B&H, Crutchfield).
         # The outer `timeout` arg is sized for the cheap raw-HTTP fetchers and
@@ -813,7 +814,8 @@ def _fetch_with_escalation(
     """
     attempts: list[str] = []
     have_alterlab = bool(os.environ.get("ALTERLAB_API_KEY", "").strip())
-    if not have_alterlab:
+    skip_alterlab = alterlab_options and alterlab_options.get("skip_alterlab")
+    if not have_alterlab or skip_alterlab:
         html, status, fetcher = _fetch_html_with_retry(url, alterlab_options=alterlab_options)
         return html, status, fetcher, attempts, False
 

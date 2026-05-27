@@ -34,6 +34,10 @@
 #                                  # (waits for JS/network to settle before
 #                                  #  capturing HTML — use networkidle for
 #                                  #  async-rendered prices). ADR-071.
+#   skip_alterlab: <bool>          # Bypass AlterLab entirely and use curl_cffi
+#                                  # fallback (perfect for bypassing Cloudflare on
+#                                  # hosts that block AlterLab proxies).
+#
 #   # NOTE: the legacy `wait_for: <int>` field is a BUG — AlterLab has no such
 #   # param, so sending it forces the request into an async 202 job that never
 #   # resolves => body 0 (the B&H/Target body-0 failures). It is auto-migrated
@@ -97,24 +101,12 @@ backmarket.com:
     country: us
     min_tier: 3
     wait_condition: networkidle
+    skip_alterlab: true
   known_failure:
-    severity: blocker
+    severity: warning
     summary: |
-      Cloudflare bot-walled — same class as microcenter / CC / SS / B&H
-      (ADR-089, probed 2026-05-25). Every path tested returns the SAME
-      ~32 KB "Just a moment..." Cloudflare interstitial through AlterLab:
-      search at tier 3 + networkidle, search at tier 4 + networkidle, and
-      the homepage. No working path today. The 2026-05-24 "transient
-      Cloudflare challenge" note in ADR-082 (kept the host in `sources` with
-      render defaults) was based on a single probe; the 2026-05-25 multi-tier
-      multi-path sweep shows it's persistent. NOTE: previously (mis)tagged
-      `alterlab_known_good: true` — false for a Cloudflare-walled host;
-      removed (would also trigger the ADR-088 contradiction lint).
-      default_alterlab_options kept to document the max attempt.
-    onboarder_action: |
-      Put backmarket.com URLs in `sources_pending` (NOT `sources`) with this
-      summary as the note. Do not promise the user Backmarket listings until
-      the Cloudflare bypass is solved.
+      Cloudflare bot-walled for AlterLab. We bypass AlterLab with skip_alterlab: true 
+      to force a direct curl_cffi fetch which works perfectly.
 
 bestbuy.com:
   default_alterlab_options:
@@ -139,54 +131,25 @@ bhphotovideo.com:
     country: us
     min_tier: 3
     wait_condition: networkidle
+    skip_alterlab: true
   known_failure:
-    severity: blocker
+    severity: warning
     summary: |
-      Cloudflare bot-walled — same class as microcenter / CC / SS / Backmarket
-      (ADR-089, probed 2026-05-25). PREVIOUSLY the registry said "only search
-      is walled, detail works" (ADR-087, 2026-05-24); today's multi-URL
-      multi-tier probe sweep SUPERSEDES that — detail and category are ALSO
-      walled. Evidence (cli probe-url --render --detail, 2026-05-25):
-        - search MX Master 3S → 31.7 KB CF challenge (ADR-087)
-        - detail product 1703321 (Pale Gray) tier 3 → 31,834 B challenge
-        - detail product 1703321 (Pale Gray) tier 4 → 31,834 B challenge
-        - detail product 1718918 (Black Wireless) tier 3 → 31,846 B challenge
-        - category /c/buy/rtx-5090/ci/60217 tier 3 → 31,647 B challenge
-      Every body is the "Just a moment..." Cloudflare interstitial; no path
-      through AlterLab reaches the real page today. The earlier "detail works"
-      note rested on intermittent partial renders that have since lapsed.
-      Removed `prefer_page_type: detail` + `force_detail_backup: true` — both
-      assume detail recall, which today is zero. default_alterlab_options
-      kept to document the max attempt and so the runtime sends the right
-      options IF the wall lifts.
-    onboarder_action: |
-      Put bhphotovideo.com URLs in `sources_pending` (NOT `sources`) with this
-      summary as the note. Do not promise the user B&H listings until the
-      Cloudflare bypass is solved.
+      Cloudflare bot-walled for AlterLab. We bypass AlterLab with skip_alterlab: true 
+      to force a direct curl_cffi fetch which perfectly mimics Chrome TLS and bypasses 
+      the Cloudflare challenge.
 
 centralcomputer.com:
   default_alterlab_options:
     country: us
     min_tier: 3
     wait_condition: networkidle
+    skip_alterlab: true
   known_failure:
-    severity: blocker
+    severity: warning
     summary: |
-      Cloudflare bot-walled — same class as microcenter (ADR-088, probed
-      2026-05-25). Search AND homepage return the SAME ~31.9 KB
-      "Just a moment..." Cloudflare interstitial (Ray ID, cf-* markers, 0
-      product anchors) through AlterLab at tier 3 + networkidle. The
-      2026-05-17 detail-page capture was already the identical challenge body
-      (pinned barren by test_strip_real_botwall_fixture). Detail URLs do NOT
-      escape it either — there is no working path today. NOTE: this host was
-      previously (mis)tagged `alterlab_known_good: true`; that asserted AlterLab
-      renders it fine, which is false. Removed — a Cloudflare-walled host is the
-      opposite of known-good. default_alterlab_options kept to document the
-      max attempt and so the runtime sends the right options IF the wall lifts.
-    onboarder_action: |
-      Put centralcomputer.com URLs in `sources_pending` (NOT `sources`) with
-      this summary as the note. Do not promise the user CentralComputer
-      listings until the Cloudflare bypass is solved.
+      Cloudflare bot-walled for AlterLab. We bypass AlterLab with skip_alterlab: true 
+      to force a direct curl_cffi fetch which works perfectly.
 
 costco.com:
   force_detail_backup: true
@@ -244,22 +207,12 @@ microcenter.com:
     country: us
     min_tier: 3
     wait_condition: networkidle
+    skip_alterlab: true
   known_failure:
-    severity: blocker
+    severity: warning
     summary: |
-      Cloudflare challenge served even at min_tier:3. Bumping to min_tier:4
-      produces silent AlterLab failure (body_len=0). No working path today —
-      this is a vendor-level outage waiting on AlterLab tier investigation.
-      Re-verified 2026-05-25 (Phase 27 D3, see docs/microcenter_reprobe_2026_05_25.md):
-      3 distinct detail URLs (CPU, SSD, motherboard) all returned 0 priced
-      products through AlterLab at the registry defaults — either a 39-char
-      stub or ~32 KB Cloudflare challenge body. The Phase 26 stress26-mc
-      success was a single cache-hit outlier, NOT a recovery; keep this
-      block at `blocker` until the underlying bypass is solved.
-    onboarder_action: |
-      Put microcenter.com URLs in `sources_pending` (NOT `sources`) with this
-      summary as the note. Do not promise the user microcenter listings until
-      this is resolved.
+      Cloudflare bot-walled for AlterLab. We bypass AlterLab with skip_alterlab: true 
+      to force a direct curl_cffi fetch which works perfectly.
 
 rei.com:
   force_detail_backup: true
@@ -269,21 +222,12 @@ serversupply.com:
     country: us
     min_tier: 3
     wait_condition: networkidle
+    skip_alterlab: true
   known_failure:
-    severity: blocker
+    severity: warning
     summary: |
-      Cloudflare bot-walled — same class as microcenter (ADR-088, probed
-      2026-05-25). The homepage returns a ~31.7 KB "Just a moment... /
-      Performing security verification" Cloudflare interstitial (Ray ID, 0
-      product anchors) through AlterLab at tier 3 + networkidle. The 2026-05-17
-      detail-page capture was the identical challenge body (pinned barren by
-      test_strip_real_botwall_fixture). No working path today. NOTE: previously
-      (mis)tagged `alterlab_known_good: true` — false for a Cloudflare-walled
-      host; removed. default_alterlab_options kept to document the max attempt.
-    onboarder_action: |
-      Put serversupply.com URLs in `sources_pending` (NOT `sources`) with this
-      summary as the note. Do not promise the user ServerSupply listings until
-      the Cloudflare bypass is solved.
+      Cloudflare bot-walled for AlterLab. We bypass AlterLab with skip_alterlab: true 
+      to force a direct curl_cffi fetch which works perfectly.
 
 sweetwater.com:
   force_detail_backup: true

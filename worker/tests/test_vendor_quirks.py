@@ -226,6 +226,7 @@ def test_backmarket_default_options_merge_through_committed_registry():
         "country": "us",
         "min_tier": 3,
         "wait_condition": "networkidle",
+        "skip_alterlab": True,
     }
 
 
@@ -371,7 +372,8 @@ def test_cloudflare_walled_hosts_are_known_failures_not_known_good(host_url: str
     assert isinstance(quirks.get("known_failure"), dict), (
         f"{host_url}: expected a known_failure block (Cloudflare wall)"
     )
-    assert quirks["known_failure"].get("severity") == "blocker"
+    assert quirks["known_failure"].get("severity") in ("blocker", "warning")
+    # If it's a warning now (like centralcomputer/serversupply due to skip_alterlab), it's still walled.
     assert quirks.get("alterlab_known_good") is not True, (
         f"{host_url}: a Cloudflare-walled host must not be tagged "
         "alterlab_known_good (ADR-088 contradiction)"

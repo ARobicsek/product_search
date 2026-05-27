@@ -188,6 +188,10 @@ def normalize_alterlab_options(
         except (TypeError, ValueError):
             out.pop("min_tier", None)
 
+    sa = out.get("skip_alterlab")
+    if sa is not None:
+        out["skip_alterlab"] = bool(sa)
+
     return out or None
 
 
