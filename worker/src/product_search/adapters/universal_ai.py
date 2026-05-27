@@ -339,7 +339,7 @@ def _fetch_html(
 
     cc_requests: Any = None
     try:
-        from curl_cffi import requests as _cc  # type: ignore[import-not-found, import-untyped]
+        from curl_cffi import requests as _cc
 
         cc_requests = _cc
     except ImportError:
