@@ -98,6 +98,7 @@ amazon.com:
     min_tier: 3
     wait_condition: networkidle
   alterlab_known_good: true
+  force_detail_backup: true
   notes: |
     Amazon search + detail are JS-rendered: a bare datacenter fetch (or even
     AlterLab without `wait_condition: networkidle`) returns a 1+ MB body with

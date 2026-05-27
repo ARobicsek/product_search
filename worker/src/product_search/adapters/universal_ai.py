@@ -303,12 +303,26 @@ def _fetch_html(
                 # We raise so fetch() catches it and bubbles up to cli.py
                 raise RuntimeError(f"AlterLab API issue: HTTP {exc.response.status_code} quota or auth error") from exc
             # Don't let an AlterLab outage zero a run — fall through to
-            # the cheap tiers. The worker log captures the failure so
-            # repeated outages are debuggable.
-            logger.warning(
-                f"[universal_ai] AlterLab fetch failed ({type(exc).__name__}: "
-                f"{exc}); falling back to curl_cffi/httpx."
-            )
+            # Scrappey (if available) or the cheap tiers. The worker log
+            # captures the failure so repeated outages are debuggable.
+            if scrappey_key and not use_scrappey:
+                logger.warning(
+                    f"[universal_ai] AlterLab fetch failed ({type(exc).__name__}: "
+                    f"{exc}); dynamically falling back to Scrappey."
+                )
+                try:
+                    proxy_country = (alterlab_options or {}).get("proxy_country", "UnitedStates")
+                    return _fetch_via_scrappey(url, scrappey_key, proxy_country)
+                except Exception as sc_exc:
+                    logger.warning(
+                        "[universal_ai] Dynamic Scrappey fallback failed "
+                        f"({type(sc_exc).__name__}: {sc_exc}); falling back to curl_cffi/httpx."
+                    )
+            else:
+                logger.warning(
+                    f"[universal_ai] AlterLab fetch failed ({type(exc).__name__}: "
+                    f"{exc}); falling back to curl_cffi/httpx."
+                )
 
     headers = {
         "User-Agent": (
