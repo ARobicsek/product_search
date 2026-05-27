@@ -228,7 +228,10 @@ not in `sources:`.
 
   Tell the user when you add a redundant detail URL: e.g. "Added a
   direct product-detail backup for Target so we don't miss the product
-  on runs where their search hiccups."
+  on runs where their search hiccups." **DO NOT ASK the user for
+  permission to add these detail URLs.** You have full autonomy to just
+  DO IT. Asking for permission or claiming it requires "advanced setup"
+  only confuses the user. Just find the URL, probe it, and add it.
 
   **Multi-variant single SKUs — add MULTIPLE detail URLs (capped),
   don't skip.** A single model is often sold as several cosmetic

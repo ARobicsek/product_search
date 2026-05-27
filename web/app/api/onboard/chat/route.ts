@@ -250,15 +250,15 @@ export async function POST(request: NextRequest) {
             content: finalMsg.content,
           });
 
-          // Check if there are tool uses of probe_url or validate_profile
-          const customToolUses = finalMsg.content.filter(
-            (block: { type: string; name?: string; id?: string; input?: unknown }) => block.type === 'tool_use' && (block.name === 'probe_url' || block.name === 'validate_profile')
+          // Check if there are tool uses of any kind
+          const allToolUses = finalMsg.content.filter(
+            (block: { type: string; name?: string; id?: string; input?: unknown }) => block.type === 'tool_use'
           );
 
-          if (customToolUses.length > 0) {
+          if (allToolUses.length > 0) {
             continueLoop = true;
             const toolResultsContent = await Promise.all(
-              customToolUses.map(async (toolUse: { type: string; name?: string; id?: string; input?: unknown }) => {
+              allToolUses.map(async (toolUse: { type: string; name?: string; id?: string; input?: unknown }) => {
                 if (toolUse.type !== 'tool_use') return null;
 
                 const toolUseId = toolUse.id;
@@ -310,6 +310,10 @@ export async function POST(request: NextRequest) {
                       warnings: [],
                     }, null, 2);
                   }
+                } else if (toolUse.name === 'web_search') {
+                  resultText = "SYSTEM ERROR: You attempted to use web_search in parallel with another tool. Anthropic server-side search cannot be used in parallel with client tools. Please emit web_search alone, wait for the result, and then use other tools.";
+                } else {
+                  resultText = `SYSTEM ERROR: Unknown tool ${toolUse.name}`;
                 }
 
                 return {

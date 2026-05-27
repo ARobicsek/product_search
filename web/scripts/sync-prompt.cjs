@@ -47,8 +47,9 @@ function renderQuirksProse(registry) {
     if (known && typeof known === 'object') {
       const summary = String(known.summary || '').replace(/\s+/g, ' ').trim();
       const action = String(known.onboarder_action || '').replace(/\s+/g, ' ').trim();
+      const prefix = known.severity === 'warning' ? 'KNOWN QUIRK (warning)' : `KNOWN FAILURE (${known.severity || 'blocker'})`;
       parts.push(
-        `KNOWN FAILURE (${known.severity || 'blocker'}) — ${summary}` +
+        `${prefix} — ${summary}` +
           (action ? ` ACTION: ${action}` : ''),
       );
     }
