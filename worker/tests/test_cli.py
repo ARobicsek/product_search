@@ -17,10 +17,119 @@ from product_search.cli import (
     _build_zero_reason_callout,
     _cmd_probe_url,
     _passed_match_key,
+    annotate_dominant_rejections,
 )
 from product_search.models import Listing
 
 FIXTURE_DIR = Path(__file__).parent / "fixtures" / "universal_ai"
+
+
+def _load_filterlog(name: str) -> list[dict[str, Any]]:
+    import json
+
+    path = FIXTURE_DIR / name
+    return [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line.strip()]
+
+
+# ADR-109: the mis-scoped Microcenter search URL from the 2026-05-27 DJI run.
+_DJI_MICROCENTER_MISSCOPE_URL = (
+    "https://www.microcenter.com/search/search_results.aspx"
+    "?fq=brand%3ADJI&st=DJI+Neo+2+Motion+Fly+More"
+)
+_DJI_BH_URL = "https://www.bhphotovideo.com/c/search?q=DJI+Neo+2+Motion+Fly+More+Combo"
+
+
+def test_dominant_rejection_attributed_per_universal_source() -> None:
+    """ADR-109: two `universal_ai_search` rows share `source` but must be
+    attributed by `match_url`. The mis-scoped Microcenter row (24/24
+    relevance rejections) gets `dominant_rejection`; the B&H row (which passed)
+    does not — the old adapter-id keying could not tell them apart.
+    """
+    log = _load_filterlog("dji_microcenter_misscope_filterlog.jsonl")
+    stats = [
+        {
+            "source": "universal_ai_search",
+            "match_host": "microcenter.com",
+            "match_url": _DJI_MICROCENTER_MISSCOPE_URL,
+            "fetched": 24,
+            "passed": 0,
+        },
+        {
+            "source": "universal_ai_search",
+            "match_host": "bhphotovideo.com",
+            "match_url": _DJI_BH_URL,
+            "fetched": 1,
+            "passed": 1,
+        },
+    ]
+    annotate_dominant_rejections(stats, log)
+    assert stats[0]["dominant_rejection"] == "relevance_check"
+    assert "dominant_rejection" not in stats[1]
+
+
+def test_dominant_rejection_no_cross_contamination() -> None:
+    """ADR-109: a second universal source whose rejections are NOT relevance
+    must not inherit the Microcenter row's relevance verdict, and the
+    Microcenter row must not be diluted by the other source's rejections.
+    """
+    log = _load_filterlog("dji_microcenter_misscope_filterlog.jsonl")
+    other_url = "https://www.example.com/search?q=dji+neo+2"
+    log += [
+        {
+            "index": 100 + i,
+            "pass": False,
+            "reason": "Price_max failed: $999 exceeds cap.",
+            "title": f"unrelated {i}",
+            "price": 999.0,
+            "url": f"https://www.example.com/p/{i}",
+            "source": "universal_ai_search",
+            "source_url": other_url,
+        }
+        for i in range(5)
+    ]
+    stats = [
+        {
+            "source": "universal_ai_search",
+            "match_host": "microcenter.com",
+            "match_url": _DJI_MICROCENTER_MISSCOPE_URL,
+            "fetched": 24,
+            "passed": 0,
+        },
+        {
+            "source": "universal_ai_search",
+            "match_host": "example.com",
+            "match_url": other_url,
+            "fetched": 5,
+            "passed": 0,
+        },
+    ]
+    annotate_dominant_rejections(stats, log)
+    assert stats[0]["dominant_rejection"] == "relevance_check"
+    assert "dominant_rejection" not in stats[1]
+
+
+def test_misscope_attribution_reaches_json_sidecar() -> None:
+    """ADR-109: end-to-end — the attributed `dominant_rejection` must flow into
+    the JSON sidecar's source reason (the React UI's source of truth, ADR-096),
+    not just the legacy markdown. This is the bug that left the 2026-05-27 DJI
+    Microcenter row saying 'loosen your filters' in the app.
+    """
+    from product_search.synthesizer.report_json import _source_payload
+
+    log = _load_filterlog("dji_microcenter_misscope_filterlog.jsonl")
+    stat = {
+        "source": "universal_ai_search",
+        "match_host": "microcenter.com",
+        "match_url": _DJI_MICROCENTER_MISSCOPE_URL,
+        "display_source": "microcenter.com",
+        "fetched": 24,
+        "passed": 0,
+    }
+    annotate_dominant_rejections([stat], log)
+    payload = _source_payload(stat)
+    assert payload["status"] == "no_match"
+    assert "mis-scoped" in payload["reason"].lower()
+    assert "loosen" not in payload["reason"].lower()
 
 
 def _make_listing(source: str, attrs: dict | None = None) -> Listing:

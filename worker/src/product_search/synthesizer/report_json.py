@@ -94,6 +94,7 @@ def _source_payload(s: dict[str, Any]) -> dict[str, Any]:
         skip_reason=s.get("skip_reason"),
         diagnostics=s.get("diagnostics"),
         known_failure=known_failure,
+        dominant_rejection=s.get("dominant_rejection"),
     )
     return {
         "label": s.get("display_source") or s.get("source") or "?",

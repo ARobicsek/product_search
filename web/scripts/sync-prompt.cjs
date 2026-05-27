@@ -62,6 +62,15 @@ function renderQuirksProse(registry) {
       parts.push(`default alterlab_options \`{ ${rendered} }\` (auto-merged by the adapter)`);
     }
 
+    if (entry.search_url_template) {
+      let part =
+        `search URL template \`${entry.search_url_template}\` ` +
+        '(fill `{q}` with URL-encoded keywords, spaces as `+`)';
+      const urlNotes = String(entry.search_url_notes || '').replace(/\s+/g, ' ').trim();
+      if (urlNotes) part += `. ${urlNotes}`;
+      parts.push(part);
+    }
+
     if (entry.force_detail_backup === true) {
       parts.push(
         'ADR-067: single-SKU products on this vendor need BOTH a search URL ' +
@@ -118,16 +127,22 @@ function buildQuirksData(registry) {
   const forceDetailBackup = [];
   const alterlabKnownGood = [];
   const preferDetail = [];
+  const searchUrlTemplates = {};
   for (const [host, entry] of Object.entries(registry)) {
     const h = normalizeHost(host);
     if (entry && entry.force_detail_backup === true) forceDetailBackup.push(h);
     if (entry && entry.alterlab_known_good === true) alterlabKnownGood.push(h);
     if (entry && entry.prefer_page_type === 'detail') preferDetail.push(h);
+    if (entry && typeof entry.search_url_template === 'string' && entry.search_url_template.includes('{q}')) {
+      searchUrlTemplates[h] = entry.search_url_template;
+    }
   }
   forceDetailBackup.sort();
   alterlabKnownGood.sort();
   preferDetail.sort();
-  return { forceDetailBackup, alterlabKnownGood, preferDetail };
+  const sortedTemplates = {};
+  for (const k of Object.keys(searchUrlTemplates).sort()) sortedTemplates[k] = searchUrlTemplates[k];
+  return { forceDetailBackup, alterlabKnownGood, preferDetail, searchUrlTemplates: sortedTemplates };
 }
 
 try {
@@ -179,6 +194,16 @@ export const ALTERLAB_KNOWN_GOOD_HOSTS: ReadonlySet<string> = new Set(${JSON.str
 export const PREFER_DETAIL_HOSTS: ReadonlySet<string> = new Set(${JSON.stringify(
     data.preferDetail,
   )});
+
+// ADR-105: canonical per-vendor search-results URL templates. \`{q}\` is the
+// URL-encoded keyword placeholder. renderSearchUrl() (search-url-shared.ts)
+// fills it deterministically so the onboarder never guesses a vendor's search
+// param name. Parity-checked against the worker's render_search_url().
+export const SEARCH_URL_TEMPLATES: Readonly<Record<string, string>> = ${JSON.stringify(
+    data.searchUrlTemplates,
+    null,
+    2,
+  )};
 `;
   fs.writeFileSync(quirksDest, dataCode);
 

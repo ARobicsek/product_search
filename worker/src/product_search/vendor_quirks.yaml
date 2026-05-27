@@ -75,6 +75,19 @@
 #                                  # fail (5xx, tiny body) but production
 #                                  # AlterLab handles it. Don't demote on probe.
 #
+# search_url_template: <str>       # ADR-105: canonical search-results URL for
+#                                  # this vendor, with `{q}` where the
+#                                  # URL-encoded keywords go (spaces -> `+`).
+#                                  # e.g. "https://www.microcenter.com/search/
+#                                  # search_results.aspx?Ntt={q}". render_search_url()
+#                                  # fills `{q}` deterministically so the onboarder
+#                                  # never guesses param names. The onboarder still
+#                                  # probes the rendered URL (relevanceHits > 0)
+#                                  # before accepting it.
+# search_url_notes: <str>          # free-text caveat about the template (e.g. a
+#                                  # category param to add for books); rendered
+#                                  # into the onboarder prompt next to the template.
+#
 # prefer_page_type: detail         # Onboarder hint: this vendor's search-tile
 #                                  # walker is unreliable; prefer detail URLs
 #                                  # via Tier 1.5 extractor.
@@ -89,8 +102,14 @@
 
 # --- Entries (alphabetical by host) ----------------------------------------
 
+abebooks.com:
+  search_url_template: "https://www.abebooks.com/servlet/SearchResults?kn={q}&sortby=17"
+
 adorama.com:
   force_detail_backup: true
+
+alibris.com:
+  search_url_template: "https://www.alibris.com/booksearch?keyword={q}"
 
 amazon.com:
   default_alterlab_options:
@@ -99,6 +118,10 @@ amazon.com:
     wait_condition: networkidle
   alterlab_known_good: true
   force_detail_backup: true
+  search_url_template: "https://www.amazon.com/s?k={q}"
+  search_url_notes: |
+    Append a department param to narrow results when you know the category:
+    `&i=stripbooks` for books, `&i=electronics` for electronics, etc.
   notes: |
     Amazon search + detail are JS-rendered: a bare datacenter fetch (or even
     AlterLab without `wait_condition: networkidle`) returns a 1+ MB body with
@@ -116,6 +139,7 @@ backmarket.com:
     skip_alterlab: true
     use_scrappey: true
     proxy_country: UnitedStates
+  search_url_template: "https://www.backmarket.com/en-us/search?q={q}"
   known_failure:
     severity: warning
     summary: |
@@ -139,6 +163,13 @@ bestbuy.com:
         onboardings get HTTP/2 protocol errors and zero listings.
   force_detail_backup: true
   alterlab_known_good: true
+
+betterworldbooks.com:
+  search_url_template: "https://www.betterworldbooks.com/search/results?query={q}"
+  search_url_notes: |
+    JS-heavy SPA — the adapter needs AlterLab (or a JS-rendering scraper) to
+    extract listings. If listings come back empty, the renderer isn't reaching
+    the page.
 
 bhphotovideo.com:
   default_alterlab_options:
@@ -167,6 +198,13 @@ centralcomputer.com:
     summary: |
       Cloudflare bot-walled for AlterLab and datacenter IPs. Bypassed via
       Scrappey (PAYG browser-render API with US residential proxy).
+
+biblio.com:
+  search_url_template: "https://www.biblio.com/search.php?title={q}&author=&stage=1"
+  search_url_notes: |
+    Biblio uses separate `title` and `author` params, NOT a single `query`
+    param; the path must be `search.php` (not `/search`, which 404s). The
+    template fills `title={q}`; add `author=` manually when you have an author.
 
 costco.com:
   force_detail_backup: true
@@ -209,6 +247,11 @@ newegg.com:
   default_alterlab_options:
     wait_condition: networkidle
   force_detail_backup: true
+  search_url_template: "https://www.newegg.com/p/pl?d={q}"
+  search_url_notes: |
+    `d=` is Newegg's keyword param. NEVER include `N=<digits>` — that's a
+    category-node code that silently scopes the page to an unrelated category
+    and overrides the keyword. If a browse URL has `N=`, strip it.
   notes: |
     Newegg renders pricing asynchronously via JS — give it wait time before
     extracting (wait_condition: networkidle). No adapter yet for a dedicated
@@ -227,6 +270,11 @@ microcenter.com:
     skip_alterlab: true
     use_scrappey: true
     proxy_country: UnitedStates
+  search_url_template: "https://www.microcenter.com/search/search_results.aspx?Ntt={q}"
+  search_url_notes: |
+    `Ntt=` is Microcenter's keyword param. Do NOT use `fq=brand:<X>` — that's a
+    brand facet that returns the vendor's ENTIRE catalog for that brand and
+    ignores the keyword (the 2026-05-27 DJI Neo 2 mis-scope, ADR-105).
   known_failure:
     severity: warning
     summary: |
@@ -254,12 +302,16 @@ serversupply.com:
 sweetwater.com:
   force_detail_backup: true
 
+thriftbooks.com:
+  search_url_template: "https://www.thriftbooks.com/browse/?b.search={q}#b.s=price-asc&b.p=1&b.pp=50&b.oos"
+
 target.com:
   default_alterlab_options:
     country: us
     min_tier: 3
   force_detail_backup: true
   alterlab_known_good: true
+  search_url_template: "https://www.target.com/s?searchTerm={q}"
   notes: |
     Target search results are non-deterministic: the same `target.com/s/...`
     URL surfaces the user's exact product on one run and only refurbished/
@@ -272,6 +324,7 @@ walmart.com:
     min_tier: 3
   force_detail_backup: true
   alterlab_known_good: true
+  search_url_template: "https://www.walmart.com/search?q={q}"
   notes: |
     Advanced anti-bot footprint — needs high-tier residential proxying.
 

@@ -23,7 +23,7 @@ import logging
 from functools import lru_cache
 from pathlib import Path
 from typing import Any
-from urllib.parse import parse_qsl, urlencode, urlparse, urlunparse
+from urllib.parse import parse_qsl, quote_plus, urlencode, urlparse, urlunparse
 
 import yaml
 
@@ -122,6 +122,22 @@ def _check_alterlab_known_good_consistency(registry: dict[str, dict[str, Any]]) 
 
 def get_quirks_for_host(host: str) -> dict[str, Any]:
     return _load_registry().get(_normalize_host(host), {})
+
+
+def render_search_url(host: str, query: str) -> str | None:
+    """Render a vendor's registered search-results URL for ``query`` (ADR-105).
+
+    Returns ``None`` when the host has no ``search_url_template`` (the onboarder
+    then falls back to constructing a URL itself). The template's ``{q}``
+    placeholder is replaced with the URL-encoded keywords (spaces -> ``+``), so
+    the param name (``Ntt``, ``d``, ``searchTerm`` …) comes from the registry,
+    never from an LLM guess. This is the single source of truth shared with the
+    TypeScript ``renderSearchUrl`` (parity-checked, like ``_build_alterlab_body``).
+    """
+    template = get_quirks_for_host(host).get("search_url_template")
+    if not isinstance(template, str) or "{q}" not in template:
+        return None
+    return template.replace("{q}", quote_plus(query.strip()))
 
 
 def get_quirks_for_url(url: str) -> dict[str, Any]:

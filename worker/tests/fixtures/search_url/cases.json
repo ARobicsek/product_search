@@ -1,0 +1,69 @@
+{
+  "cases": [
+    {
+      "host": "microcenter.com",
+      "query": "DJI Neo 2 Motion Fly More Combo",
+      "expected_url": "https://www.microcenter.com/search/search_results.aspx?Ntt=DJI+Neo+2+Motion+Fly+More+Combo"
+    },
+    {
+      "host": "amazon.com",
+      "query": "bose nc 700",
+      "expected_url": "https://www.amazon.com/s?k=bose+nc+700"
+    },
+    {
+      "host": "newegg.com",
+      "query": "ddr5 rdimm 64gb",
+      "expected_url": "https://www.newegg.com/p/pl?d=ddr5+rdimm+64gb"
+    },
+    {
+      "host": "walmart.com",
+      "query": "sony wh-1000xm5",
+      "expected_url": "https://www.walmart.com/search?q=sony+wh-1000xm5"
+    },
+    {
+      "host": "target.com",
+      "query": "lego star wars",
+      "expected_url": "https://www.target.com/s?searchTerm=lego+star+wars"
+    },
+    {
+      "host": "backmarket.com",
+      "query": "iphone 14 pro",
+      "expected_url": "https://www.backmarket.com/en-us/search?q=iphone+14+pro"
+    },
+    {
+      "host": "abebooks.com",
+      "query": "dune frank herbert",
+      "expected_url": "https://www.abebooks.com/servlet/SearchResults?kn=dune+frank+herbert&sortby=17"
+    },
+    {
+      "host": "thriftbooks.com",
+      "query": "the hobbit",
+      "expected_url": "https://www.thriftbooks.com/browse/?b.search=the+hobbit#b.s=price-asc&b.p=1&b.pp=50&b.oos"
+    },
+    {
+      "host": "biblio.com",
+      "query": "moby dick",
+      "expected_url": "https://www.biblio.com/search.php?title=moby+dick&author=&stage=1"
+    },
+    {
+      "host": "alibris.com",
+      "query": "pride & prejudice",
+      "expected_url": "https://www.alibris.com/booksearch?keyword=pride+%26+prejudice"
+    },
+    {
+      "host": "betterworldbooks.com",
+      "query": "1984 orwell",
+      "expected_url": "https://www.betterworldbooks.com/search/results?query=1984+orwell"
+    },
+    {
+      "host": "example.com",
+      "query": "anything",
+      "expected_url": null
+    },
+    {
+      "host": "www.microcenter.com",
+      "query": "a b",
+      "expected_url": "https://www.microcenter.com/search/search_results.aspx?Ntt=a+b"
+    }
+  ]
+}

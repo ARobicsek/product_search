@@ -446,6 +446,10 @@ ONLY output the JSON object.
     for idx in range(len(listings)):
         lst = listings[idx]
         verdict = evaluations_by_index.get(idx)
+        # ADR-109: carry the per-source search URL so rejection attribution can
+        # distinguish two `universal_ai_search` rows (which share `lst.source`)
+        # by the URL the listing was fetched from. cli.py sets this attr.
+        source_url = (lst.attrs or {}).get("source_url")
         if verdict is None:
             log_entries.append({
                 "index": idx,
@@ -455,6 +459,7 @@ ONLY output the JSON object.
                 "price": lst.unit_price_usd,
                 "url": lst.url,
                 "source": lst.source,
+                "source_url": source_url,
             })
             continue
 
@@ -468,6 +473,7 @@ ONLY output the JSON object.
             "price": lst.unit_price_usd,
             "url": lst.url,
             "source": lst.source,
+            "source_url": source_url,
         })
         if passed:
             passed_listings.append(lst)

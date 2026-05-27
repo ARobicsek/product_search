@@ -10,7 +10,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test:parity": "node --test --experimental-strip-types scripts/check-alterlab-parity.test.mjs scripts/check-report-columns-parity.test.mjs",
+    "test:parity": "node --test --experimental-strip-types scripts/check-alterlab-parity.test.mjs scripts/check-report-columns-parity.test.mjs scripts/check-search-url-parity.test.mjs",
     "test:guards": "node --test --experimental-strip-types scripts/check-onboard-guards.test.mjs"
   },
   "dependencies": {

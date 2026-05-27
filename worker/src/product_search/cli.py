@@ -59,6 +59,45 @@ def _passed_match_key(lst: "Listing") -> tuple[str, str | None, str | None]:
     return (lst.source, None, None)
 
 
+def annotate_dominant_rejections(
+    source_stats: list[dict[str, Any]],
+    rejection_log: list[dict[str, Any]],
+) -> None:
+    """Set ``dominant_rejection`` on each source-stats row, in place (ADR-109).
+
+    ADR-098 fix #4 surfaces a "your search URL may be mis-scoped" message when a
+    source's rejections are predominantly ``relevance_check`` (the page returned
+    unrelated products). That only works if rejections are attributed to the
+    *right* source. Every ``universal_ai_search`` row shares ``source ==
+    'universal_ai_search'``, so keying attribution by the adapter id (the old
+    behaviour) lumped all universal sources together and let one mis-scoped
+    vendor's relevance rejections bleed onto unrelated vendors (or be diluted
+    below the 50% threshold). The ai_filter rejection log now carries
+    ``source_url`` (the exact URL the listing was fetched from), so we key by
+    ``match_url`` per universal source and fall back to the adapter id only for
+    dedicated single-source adapters (ebay_search, etc.).
+    """
+    rejected = [e for e in rejection_log if not e.get("pass")]
+    if not rejected:
+        return
+    for s in source_stats:
+        match_url = s.get("match_url")
+        if isinstance(match_url, str) and match_url:
+            src_rejected = [e for e in rejected if e.get("source_url") == match_url]
+        else:
+            src_id = s.get("source")
+            src_rejected = [e for e in rejected if e.get("source") == src_id]
+        if not src_rejected:
+            continue
+        relevance_count = sum(
+            1
+            for e in src_rejected
+            if "relevance_check" in str(e.get("reason", "")).lower()
+        )
+        if relevance_count >= len(src_rejected) * 0.5:
+            s["dominant_rejection"] = "relevance_check"
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(
         prog="product-search",
@@ -466,25 +505,12 @@ def _cmd_search(
             (s["source"], s.get("match_host"), s.get("match_url")), 0
         )
 
-    # ADR-098 fix #4: compute the dominant rejection reason per source so
-    # the classifier can give "URL may be mis-scoped" guidance instead of
+    # ADR-098 fix #4 / ADR-109: compute the dominant rejection reason per source
+    # so the classifier can give "URL may be mis-scoped" guidance instead of
     # "loosen your filter" when most rejections are relevance-driven.
     from product_search.validators import ai_filter as _af_mod
 
-    _rejection_log = list(_af_mod.LAST_RUN_LOG)
-    _rejected_entries = [e for e in _rejection_log if not e.get("pass")]
-    for s in source_stats:
-        src_id = s.get("source")
-        src_rejected = [
-            e for e in _rejected_entries if e.get("source") == src_id
-        ]
-        if src_rejected:
-            relevance_count = sum(
-                1 for e in src_rejected
-                if "relevance_check" in str(e.get("reason", "")).lower()
-            )
-            if relevance_count >= len(src_rejected) * 0.5:
-                s["dominant_rejection"] = "relevance_check"
+    annotate_dominant_rejections(source_stats, list(_af_mod.LAST_RUN_LOG))
 
     print(
         f"Fetched {len(all_listings)} listing(s). "
