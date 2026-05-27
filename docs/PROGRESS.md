@@ -72,3 +72,5 @@ None blocking. CI is green (ADR-062 decoupled the worker suite + `validate-profi
 - Added threading.Lock() for circuit breaker logic
 - Refactored cli.py _cmd_search to run source fetches in parallel via ThreadPoolExecutor with max_workers=10
 - Implemented dynamic Scrappey fallback in _fetch_with_escalation for when all AlterLab rungs result in weak renders (Cloudflare bot walls)
+- Cleaned up redundant inline mypy type ignore comment on curl_cffi import to satisfy strict unused-ignore checks
+
