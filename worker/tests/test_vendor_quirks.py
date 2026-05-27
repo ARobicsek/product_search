@@ -227,6 +227,8 @@ def test_backmarket_default_options_merge_through_committed_registry():
         "min_tier": 3,
         "wait_condition": "networkidle",
         "skip_alterlab": True,
+        "use_scrappey": True,
+        "proxy_country": "UnitedStates"
     }
 
 
