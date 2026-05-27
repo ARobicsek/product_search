@@ -328,6 +328,9 @@ def _cmd_search(
     source_names = ", ".join(sorted(list({s.id for s in profile.sources})))
     print(f"Searching {slug!r} via {source_names} [{mode} mode] ...", file=sys.stderr)
 
+    run_started_at = datetime.now(tz=UTC)
+    snapshot_date = run_started_at.date()
+
     # --- Run adapters ---------------------------------------------------------
     from product_search.models import Listing
 
@@ -494,8 +497,6 @@ def _cmd_search(
     )
 
     # --- Persist (Phase 4) ----------------------------------------------------
-    run_started_at = datetime.now(tz=UTC)
-    snapshot_date = run_started_at.date()
     diff_result = None
     # ``csv_path`` is set when storage runs; the Phase 17 alerts evaluator
     # reads it to exclude the just-written CSV when picking the previous run.

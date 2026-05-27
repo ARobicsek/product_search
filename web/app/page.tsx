@@ -68,6 +68,12 @@ function formatDuration(ms: number): string {
   return `${m}m ${rem.toString().padStart(2, '0')}s`;
 }
 
+function formatCost(usd: number): string {
+  if (usd === 0) return '$0.00';
+  if (usd < 0.01) return `$${usd.toFixed(4)}`;
+  return `$${usd.toFixed(2)}`;
+}
+
 // Later of two ISO instants (either may be null). Used to reconcile the
 // data-CSV run instant with the report sidecar's generated_at: a zero-pass
 // run writes a report (and sidecar) but no data CSV, so the CSV alone would
@@ -139,6 +145,11 @@ export default async function Home() {
       // raw CSV instant — it's the run START used for the duration math.)
       const lastRunDisplayIso = laterIso(lastRunIso, sidecar?.generated_at ?? null);
 
+      let costUsd: number | null = null;
+      if (sidecar?.run_cost && typeof sidecar.run_cost.total_usd === 'number') {
+        costUsd = sidecar.run_cost.total_usd;
+      }
+
       // An on-demand run carries the slug in its title (so we know its exact
       // start). A scheduler-tick has no per-product title, so it's attributed
       // to any product declaring a schedule block — best-effort, since one
@@ -171,6 +182,7 @@ export default async function Home() {
         priceLabel,
         listingCount,
         durationMs,
+        costUsd,
         fallbackSummary,
       };
     })
@@ -232,6 +244,7 @@ export default async function Home() {
                   <>
                     No passing listings
                     {data.durationMs !== null && ` · took ${formatDuration(data.durationMs)}`}
+                    {data.costUsd !== null && ` · ${formatCost(data.costUsd)}`}
                   </>
                 ) : data.listingCount !== null ? (
                   <>
@@ -243,6 +256,7 @@ export default async function Home() {
                     {data.priceLabel && ' · '}
                     {data.listingCount} listing{data.listingCount === 1 ? '' : 's'}
                     {data.durationMs !== null && ` · took ${formatDuration(data.durationMs)}`}
+                    {data.costUsd !== null && ` · ${formatCost(data.costUsd)}`}
                   </>
                 ) : (
                   data.fallbackSummary
