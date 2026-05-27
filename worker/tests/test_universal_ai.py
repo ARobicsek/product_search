@@ -210,9 +210,9 @@ def test_fetch_emits_listings_with_verbatim_urls(monkeypatch: pytest.MonkeyPatch
     assert by_url[refurb_url].condition == "refurbished"
     assert by_url[used_url].condition == "used"
 
-    assert universal_ai.LAST_RUN_USAGE is not None
-    assert universal_ai.LAST_RUN_USAGE["step"] == "universal_ai_search"
-    assert universal_ai.LAST_RUN_USAGE["model"] == "claude-haiku-4-5"
+    assert getattr(universal_ai.tls, "last_run_usage", None) is not None
+    assert universal_ai.tls.last_run_usage["step"] == "universal_ai_search"
+    assert universal_ai.tls.last_run_usage["model"] == "claude-haiku-4-5"
 
 
 def test_fetch_drops_invented_indices(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -498,8 +498,9 @@ def test_alterlab_failure_falls_back_to_lower_tier(monkeypatch: pytest.MonkeyPat
     """AlterLab outage / 5xx must not zero a run; we fall back to
     curl_cffi/httpx so existing free-fetch sites keep working."""
     monkeypatch.setenv("ALTERLAB_API_KEY", "test-key")
+    monkeypatch.delenv("SCRAPPEY_API_KEY", raising=False)
 
-    def _alterlab_explodes(url: str, key: str, *, timeout: float = 60.0) -> Any:
+    def _alterlab_explodes(*args: object, **kwargs: object) -> Any:
         raise RuntimeError("alterlab is down")
 
     fallback_called: dict[str, bool] = {"hit": False}
@@ -1474,8 +1475,8 @@ def test_tier15_emits_single_listing_with_source_url(
     assert r.attrs["extractor"] == "detail_llm"
     assert r.attrs["vendor_host"] == "www.sabrepc.com"
     assert r.quantity_available is None  # in_stock True → unknown qty
-    assert universal_ai.LAST_RUN_USAGE is not None
-    assert universal_ai.LAST_RUN_USAGE["step"] == "universal_ai_search"
+    assert getattr(universal_ai.tls, "last_run_usage", None) is not None
+    assert universal_ai.tls.last_run_usage["step"] == "universal_ai_search"
 
 
 def test_tier15_out_of_stock_sets_quantity_zero(
@@ -2024,6 +2025,7 @@ def _stub_escalation_fetches(
         return html, status, "alterlab"
 
     monkeypatch.setattr(universal_ai, "_fetch_html_with_retry", _fake)
+    monkeypatch.delenv("SCRAPPEY_API_KEY", raising=False)
     return seen_opts
 
 
@@ -2227,7 +2229,7 @@ def test_alterlab_pool_exhausted_422_retries_then_succeeds(
     assert fetcher == "alterlab"
     assert "recovered" in html
     assert counter["posts"] == 2  # one retry then success
-    assert universal_ai._LAST_ALTERLAB_POOL_EXHAUSTED is True
+    assert getattr(universal_ai.tls, "last_alterlab_pool_exhausted", False) is True
 
 
 def test_alterlab_pool_exhausted_422_raises_after_exhausting_retries(
@@ -2244,7 +2246,7 @@ def test_alterlab_pool_exhausted_422_raises_after_exhausting_retries(
     with pytest.raises(httpx.HTTPStatusError):
         universal_ai._fetch_via_alterlab("https://busy.example/p", "test-key")
     assert counter["posts"] == universal_ai._ALTERLAB_5XX_MAX_ATTEMPTS
-    assert universal_ai._LAST_ALTERLAB_POOL_EXHAUSTED is True
+    assert getattr(universal_ai.tls, "last_alterlab_pool_exhausted", False) is True
 
 
 def test_alterlab_non_transient_422_raises_immediately(
@@ -2261,7 +2263,7 @@ def test_alterlab_non_transient_422_raises_immediately(
     with pytest.raises(httpx.HTTPStatusError):
         universal_ai._fetch_via_alterlab("https://bad.example/p", "test-key")
     assert counter["posts"] == 1  # no retry
-    assert universal_ai._LAST_ALTERLAB_POOL_EXHAUSTED is False
+    assert getattr(universal_ai.tls, "last_alterlab_pool_exhausted", False) is False
 
 
 # --- ADR-084: fetch() populates LAST_FETCH_DIAGNOSTICS ---------------------
@@ -2283,7 +2285,7 @@ def test_fetch_populates_diagnostics(monkeypatch: pytest.MonkeyPatch) -> None:
     query = AdapterQuery(source_id="universal_ai_search", extra={"url": BASE_URL})
     assert universal_ai.fetch(query) == []
 
-    diag = universal_ai.LAST_FETCH_DIAGNOSTICS
+    diag = getattr(universal_ai.tls, "last_fetch_diagnostics", None)
     assert diag is not None
     assert diag["body_len"] == len(body)
     assert diag["final_status"] == 200
@@ -2336,8 +2338,8 @@ def test_fetch_short_circuits_when_breaker_open(monkeypatch: pytest.MonkeyPatch)
     query = AdapterQuery(source_id="universal_ai_search", extra={"url": BASE_URL})
     results = universal_ai.fetch(query)
     assert results == []
-    assert universal_ai.LAST_SKIP_REASON is not None
-    assert "circuit open" in universal_ai.LAST_SKIP_REASON
+    assert getattr(universal_ai.tls, "last_skip_reason", None) is not None
+    assert "circuit open" in getattr(universal_ai.tls, "last_skip_reason", None)
 
 
 def test_fetch_short_circuits_when_budget_exceeded(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -2354,8 +2356,8 @@ def test_fetch_short_circuits_when_budget_exceeded(monkeypatch: pytest.MonkeyPat
     query = AdapterQuery(source_id="universal_ai_search", extra={"url": BASE_URL})
     results = universal_ai.fetch(query)
     assert results == []
-    assert universal_ai.LAST_SKIP_REASON is not None
-    assert "budget" in universal_ai.LAST_SKIP_REASON
+    assert getattr(universal_ai.tls, "last_skip_reason", None) is not None
+    assert "budget" in getattr(universal_ai.tls, "last_skip_reason", None)
 
 
 def test_fetch_escalation_bails_mid_ladder_when_budget_exceeded(
@@ -2673,13 +2675,13 @@ def test_search_union_recall_gap_end_to_end(monkeypatch: pytest.MonkeyPatch) -> 
         f"anchor-walker must contribute its 2 priced products; got {anchor_count}"
     )
     # LAST_RUN_USAGE should be accumulated across both LLM calls.
-    assert universal_ai.LAST_RUN_USAGE is not None
-    assert universal_ai.LAST_RUN_USAGE["input_tokens"] > 0
+    assert getattr(universal_ai.tls, "last_run_usage", None) is not None
+    assert universal_ai.tls.last_run_usage["input_tokens"] > 0
 
 
 def test_accumulate_usage_sums_tokens() -> None:
     """_accumulate_usage must SUM tokens across multiple calls, not clobber."""
-    universal_ai.LAST_RUN_USAGE = None
+    universal_ai.tls.last_run_usage = None
 
     class _FakeResp:
         input_tokens: int
@@ -2689,15 +2691,15 @@ def test_accumulate_usage_sums_tokens() -> None:
     r1.input_tokens = 100
     r1.output_tokens = 50
     universal_ai._accumulate_usage(r1)
-    assert universal_ai.LAST_RUN_USAGE["input_tokens"] == 100
-    assert universal_ai.LAST_RUN_USAGE["output_tokens"] == 50
+    assert universal_ai.tls.last_run_usage["input_tokens"] == 100
+    assert universal_ai.tls.last_run_usage["output_tokens"] == 50
 
     r2 = _FakeResp()
     r2.input_tokens = 200
     r2.output_tokens = 75
     universal_ai._accumulate_usage(r2)
-    assert universal_ai.LAST_RUN_USAGE["input_tokens"] == 300
-    assert universal_ai.LAST_RUN_USAGE["output_tokens"] == 125
+    assert universal_ai.tls.last_run_usage["input_tokens"] == 300
+    assert universal_ai.tls.last_run_usage["output_tokens"] == 125
 
 
 def test_extract_target_search_full_html_recall() -> None:
@@ -2796,6 +2798,7 @@ def test_fetch_search_degradation_fallback(monkeypatch: pytest.MonkeyPatch) -> N
         return "", 404, "httpx"
 
     monkeypatch.setattr(universal_ai, "_fetch_html", _mock_fetch)
+    monkeypatch.delenv("SCRAPPEY_API_KEY", raising=False)
     monkeypatch.setenv("ALTERLAB_API_KEY", "dummy-key")
 
     query = AdapterQuery(
@@ -2963,8 +2966,8 @@ def test_fetch_carry_gate_skips_when_product_absent(monkeypatch: pytest.MonkeyPa
     )
     results = universal_ai.fetch(query, profile=_gate_profile())
     assert results == []
-    assert universal_ai.LAST_SKIP_REASON is not None
-    assert universal_ai.LAST_SKIP_REASON.startswith("watch-gate:")
+    assert getattr(universal_ai.tls, "last_skip_reason", None) is not None
+    assert getattr(universal_ai.tls, "last_skip_reason", None).startswith("watch-gate:")
 
 
 def test_fetch_carry_gate_passes_when_token_present(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -2985,7 +2988,7 @@ def test_fetch_carry_gate_passes_when_token_present(monkeypatch: pytest.MonkeyPa
     )
     universal_ai.fetch(query, profile=_gate_profile())
     assert calls, "carry-gate should allow extraction when the product token is present"
-    assert universal_ai.LAST_SKIP_REASON is None
+    assert getattr(universal_ai.tls, "last_skip_reason", None) is None
 
 
 def test_fetch_carry_gate_self_disables_without_model_token(monkeypatch: pytest.MonkeyPatch) -> None:

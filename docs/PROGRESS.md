@@ -65,3 +65,10 @@ None blocking. CI is green (ADR-062 decoupled the worker suite + `validate-profi
 - **Phase 5 benchmark fixtures vs live data** — synth picks not re-confirmed against live `anthropic/claude-haiku-4-5` payloads (per ADR-019; not blocking, live data proves Haiku works).
 
 > Older "noticed but deferred" / open-questions / per-phase notes (Phase 10–12 era) live in [PROGRESS_ARCHIVE.md](PROGRESS_ARCHIVE.md); they were stale fossils, not live items.
+
+
+## 2026-05-27: Fixed time budget exhaustion and dynamic Scrappey fallback
+- Converted universal_ai.py global variables to use threading.local() for thread safety
+- Added threading.Lock() for circuit breaker logic
+- Refactored cli.py _cmd_search to run source fetches in parallel via ThreadPoolExecutor with max_workers=10
+- Implemented dynamic Scrappey fallback in _fetch_with_escalation for when all AlterLab rungs result in weak renders (Cloudflare bot walls)

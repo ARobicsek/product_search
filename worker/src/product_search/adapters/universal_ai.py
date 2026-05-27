@@ -33,6 +33,7 @@ import logging
 import os
 import re
 import time
+import threading
 from datetime import UTC, datetime
 from typing import Any
 from urllib.parse import (
@@ -205,26 +206,25 @@ Hard rules:
 
 # --- Module-level capture for cli.py's run-cost panel -----------------------
 
-LAST_RUN_USAGE: dict[str, Any] | None = None
+tls = threading.local()
 
 
 def _accumulate_usage(resp: Any) -> None:
-    """Fold one LLM call's token usage into ``LAST_RUN_USAGE``.
+    """Fold one LLM call's token usage into ``tls.last_run_usage``.
 
     A single ``fetch()`` can now make several Haiku calls (anchor tier +
     full-HTML tier, possibly chunked). The cost panel reads one usage record
     per source, so we SUM input/output tokens across every call in the fetch
     rather than letting the last call clobber the earlier ones.
     """
-    global LAST_RUN_USAGE
-    prev = LAST_RUN_USAGE or {
+    prev = getattr(tls, "last_run_usage", None) or {
         "step": "universal_ai_search",
         "provider": "anthropic",
         "model": "claude-haiku-4-5",
         "input_tokens": 0,
         "output_tokens": 0,
     }
-    LAST_RUN_USAGE = {
+    tls.last_run_usage = {
         "step": "universal_ai_search",
         "provider": "anthropic",
         "model": "claude-haiku-4-5",
@@ -472,13 +472,6 @@ _ALTERLAB_5XX_BACKOFF_SECONDS = 2.0
 _ALTERLAB_422_TRANSIENT_MARKERS = ("browser_pool_exhausted",)
 _ALTERLAB_POOL_BACKOFF_SECONDS = 5.0
 
-# Per-fetch flag: True when AlterLab returned a transient `browser_pool_exhausted`
-# 422 during this source's fetch (even if retries then failed and we fell through
-# to a cheaper fetcher). Reset at the top of every ``fetch()`` call and folded
-# into ``LAST_FETCH_DIAGNOSTICS`` so the source-reason classifier (ADR-084) can
-# label the outcome specifically ("AlterLab pool exhausted; retry likely").
-_LAST_ALTERLAB_POOL_EXHAUSTED = False
-
 
 def _is_transient_alterlab_422(resp: Any) -> bool:
     """True if a 422 response body names a transient (retryable) AlterLab error.
@@ -625,8 +618,7 @@ def _fetch_via_alterlab(
             # the flag regardless of whether the retry ultimately succeeds, so
             # the source-reason classifier can name the cause (ADR-084).
             if resp.status_code == 422 and _is_transient_alterlab_422(resp):
-                global _LAST_ALTERLAB_POOL_EXHAUSTED
-                _LAST_ALTERLAB_POOL_EXHAUSTED = True
+                tls.last_alterlab_pool_exhausted = True
                 if attempt < _ALTERLAB_5XX_MAX_ATTEMPTS:
                     logger.warning(
                         f"[universal_ai] AlterLab API 422 browser_pool_exhausted "
@@ -799,36 +791,25 @@ _BREAKER_THRESHOLD = 3
 # ensures an in-flight source actually honors this.
 _RUN_BUDGET_SECONDS = float(os.environ.get("UNIVERSAL_AI_RUN_BUDGET_SECONDS", "480"))
 
+tls = threading.local()
+
 _consecutive_alterlab_failures = 0
 _circuit_open = False
 _run_deadline: float | None = None
-
-# Set by ``fetch()`` when it skips a source (breaker open / budget exceeded), so
-# ``cli._cmd_search`` can record the reason against that source. Cleared at the
-# top of every ``fetch()`` call.
-LAST_SKIP_REASON: str | None = None
-
-# ADR-084: per-source fetch facts the source-reason classifier needs but cli
-# can't otherwise see (it only gets the returned Listing count). Set by
-# ``fetch()`` after the fetch resolves, read right after ``fetch()`` in the
-# cli source loop (same pattern as ``LAST_SKIP_REASON``). ``None`` means the
-# source was skipped before fetching (circuit open / budget) — the classifier
-# falls back to ``LAST_SKIP_REASON`` in that case.
-#   {body_len, final_status, final_fetcher, alterlab_degraded, alterlab_pool_exhausted}
-LAST_FETCH_DIAGNOSTICS: dict[str, Any] | None = None
-
+_breaker_lock = threading.Lock()
 
 def reset_run_state() -> None:
     """Reset the per-run circuit breaker + budget. Call once at the top of a
     search run (``cli._cmd_search``) before iterating sources, so state never
     leaks between runs in a long-lived process (or across tests)."""
     global _consecutive_alterlab_failures, _circuit_open, _run_deadline
-    global _LAST_ALTERLAB_POOL_EXHAUSTED, LAST_FETCH_DIAGNOSTICS
-    _consecutive_alterlab_failures = 0
-    _circuit_open = False
+    with _breaker_lock:
+        _consecutive_alterlab_failures = 0
+        _circuit_open = False
     _run_deadline = time.monotonic() + _RUN_BUDGET_SECONDS
-    _LAST_ALTERLAB_POOL_EXHAUSTED = False
-    LAST_FETCH_DIAGNOSTICS = None
+    tls.last_skip_reason = None
+    tls.last_alterlab_pool_exhausted = False
+    tls.last_fetch_diagnostics = None
 
 
 def _budget_exceeded() -> bool:
@@ -843,12 +824,13 @@ def _note_alterlab_outcome(degraded: bool) -> None:
     was weak). A healthy AlterLab render resets the consecutive counter.
     """
     global _consecutive_alterlab_failures, _circuit_open
-    if degraded:
-        _consecutive_alterlab_failures += 1
-        if _consecutive_alterlab_failures >= _BREAKER_THRESHOLD:
-            _circuit_open = True
-    else:
-        _consecutive_alterlab_failures = 0
+    with _breaker_lock:
+        if degraded:
+            _consecutive_alterlab_failures += 1
+            if _consecutive_alterlab_failures >= _BREAKER_THRESHOLD:
+                _circuit_open = True
+        else:
+            _consecutive_alterlab_failures = 0
 
 
 def _weak_render_reason(html: str, status: int) -> str | None:
@@ -971,6 +953,27 @@ def _fetch_with_escalation(
         f"[universal_ai] all {len(ladder)} fetch attempts weak for {url}; "
         f"returning best-effort body (len={len(html)})."
     )
+
+    # Dynamic Scrappey Fallback for Weak Renders
+    scrappey_key = os.environ.get("SCRAPPEY_API_KEY", "").strip()
+    use_scrappey = alterlab_options and alterlab_options.get("use_scrappey")
+    if scrappey_key and not use_scrappey:
+        logger.warning(
+            f"[universal_ai] AlterLab hit weak render/bot wall for {url}; "
+            f"dynamically falling back to Scrappey."
+        )
+        try:
+            proxy_country = (alterlab_options or {}).get("proxy_country", "UnitedStates")
+            s_html, s_status, s_fetcher = _fetch_via_scrappey(url, scrappey_key, proxy_country)
+            attempts.append(f"dynamic_scrappey_fallback: status={s_status} len={len(s_html)}")
+            return s_html, s_status, s_fetcher, attempts, False
+        except Exception as sc_exc:
+            logger.warning(
+                f"[universal_ai] Dynamic Scrappey fallback failed "
+                f"({type(sc_exc).__name__}: {sc_exc})"
+            )
+            attempts.append(f"dynamic_scrappey_fallback: FAILED ({sc_exc})")
+
     return html, status, fetcher, attempts, True
 
 
@@ -1283,6 +1286,7 @@ _FOREIGN_CURRENCY_RE = re.compile(
     r")\s*\d{1,6}(?:[.,]\d{2,3})*",
     re.IGNORECASE,
 )
+
 
 # Amazon and similar SPAs render prices as
 #   <span class="a-price-symbol">$</span>
@@ -2768,12 +2772,10 @@ def _page_carries_product(
 
 def fetch(query: AdapterQuery, profile: Any | None = None) -> list[Listing]:
     """Fetch and extract product listings from an arbitrary vendor URL."""
-    global LAST_RUN_USAGE, LAST_SKIP_REASON, LAST_FETCH_DIAGNOSTICS
-    global _LAST_ALTERLAB_POOL_EXHAUSTED
-    LAST_RUN_USAGE = None
-    LAST_SKIP_REASON = None
-    LAST_FETCH_DIAGNOSTICS = None
-    _LAST_ALTERLAB_POOL_EXHAUSTED = False
+    tls.last_run_usage = None
+    tls.last_skip_reason = None
+    tls.last_fetch_diagnostics = None
+    tls.last_alterlab_pool_exhausted = False
 
     if os.environ.get("WORKER_USE_FIXTURES", "").strip() in ("1", "true", "yes"):
         logger.info("WORKER_USE_FIXTURES=1; universal_ai returning empty list.")
@@ -2788,17 +2790,17 @@ def fetch(query: AdapterQuery, profile: Any | None = None) -> list[Listing]:
     # the per-run fetch budget is spent — don't grind this source through the
     # full escalation ladder + curl_cffi timeout just to fail like the last N.
     if _circuit_open:
-        LAST_SKIP_REASON = (
+        tls.last_skip_reason = (
             f"skipped: AlterLab circuit open after "
             f"{_consecutive_alterlab_failures} consecutive failures"
         )
-        logger.warning(f"[universal_ai] {LAST_SKIP_REASON}; not fetching {url}.")
+        logger.warning(f"[universal_ai] {tls.last_skip_reason}; not fetching {url}.")
         return []
     if _budget_exceeded():
-        LAST_SKIP_REASON = (
+        tls.last_skip_reason = (
             f"skipped: per-run fetch budget ({_RUN_BUDGET_SECONDS:.0f}s) exceeded"
         )
-        logger.warning(f"[universal_ai] {LAST_SKIP_REASON}; not fetching {url}.")
+        logger.warning(f"[universal_ai] {tls.last_skip_reason}; not fetching {url}.")
         return []
 
     alterlab_options = query.extra.get("alterlab_options")
@@ -2841,24 +2843,24 @@ def fetch(query: AdapterQuery, profile: Any | None = None) -> list[Listing]:
         # A raised fetch (auth/quota, or AlterLab + curl_cffi both failing) is an
         # AlterLab-degraded outcome for breaker purposes (ADR-078, R6).
         _note_alterlab_outcome(degraded=True)
-        LAST_FETCH_DIAGNOSTICS = {
+        tls.last_fetch_diagnostics = {
             "body_len": 0,
             "final_status": 0,
             "final_fetcher": None,
             "alterlab_degraded": True,
-            "alterlab_pool_exhausted": _LAST_ALTERLAB_POOL_EXHAUSTED,
+            "alterlab_pool_exhausted": getattr(tls, "last_alterlab_pool_exhausted", False),
         }
         logger.error(f"[universal_ai] Fetch failed: {type(exc).__name__}: {exc}")
         # Bubble up explicit fetch errors (like AlterLab quota/auth) so cli.py
         # can surface them in the UI.
         raise
     _note_alterlab_outcome(alterlab_degraded)
-    LAST_FETCH_DIAGNOSTICS = {
+    tls.last_fetch_diagnostics = {
         "body_len": len(html),
         "final_status": status,
         "final_fetcher": fetcher,
         "alterlab_degraded": alterlab_degraded,
-        "alterlab_pool_exhausted": _LAST_ALTERLAB_POOL_EXHAUSTED,
+        "alterlab_pool_exhausted": getattr(tls, "last_alterlab_pool_exhausted", False),
     }
 
     logger.info(
@@ -2918,7 +2920,7 @@ def fetch(query: AdapterQuery, profile: Any | None = None) -> list[Listing]:
         html, gate_token, gate_aliases
     ):
         n = len(gate_aliases)
-        LAST_SKIP_REASON = (
+        tls.last_skip_reason = (
             f"{WATCH_GATE_REASON_PREFIX} product identifier '{gate_token}' "
             f"not present on page (+{n} alias{'es' if n != 1 else ''} checked)"
         )

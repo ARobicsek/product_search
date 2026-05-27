@@ -343,13 +343,17 @@ def _cmd_search(
     # before iterating sources so state never leaks between runs.
     from product_search.adapters import universal_ai as _universal_ai_mod
     _universal_ai_mod.reset_run_state()
-    for source in profile.sources:
+    from concurrent.futures import ThreadPoolExecutor
+
+    def _process_source(source) -> tuple[list[Listing], dict[str, Any], list[dict[str, Any]]]:
         query = AdapterQuery.from_profile_source(source.model_dump())
         listings: list[Listing] = []
         error_msg: str | None = None
         # ADR-084: extra per-source signal for the source-reason classifier.
         skip_reason: str | None = None
         diagnostics: dict[str, Any] | None = None
+        usages: list[dict[str, Any]] = []
+
         try:
             if source.id == "ebay_search":
                 from product_search.adapters.ebay import EbayAuthError
@@ -376,63 +380,41 @@ def _cmd_search(
             elif source.id == "universal_ai_search":
                 from product_search.adapters import universal_ai as universal_ai_mod
                 listings = universal_ai_mod.fetch(query, profile=profile)
-                # ADR-084 (Phase 27 reinforcement): stamp the EXACT source URL
-                # into each emitted listing's ``attrs`` so per-source ``passed``
-                # accounting can tell apart multiple URLs on the same host
-                # (e.g. 4 Best Buy detail URLs all share ``vendor_host =
-                # bestbuy.com``). Without this, ``passed`` collapses to the
-                # per-host total on every same-host row and an error row gets
-                # silently treated as OK by the ADR-084 classifier.
                 src_url_for_attrs = query.extra.get("url") or query.storefront_url
                 if src_url_for_attrs:
                     for _lst in listings:
                         if _lst.attrs is None:
                             _lst.attrs = {}
                         _lst.attrs["source_url"] = src_url_for_attrs
-                # ADR-078 (R6): surface a circuit-breaker / budget skip in the
-                # Sources panel so a short-circuited run is visible, not silent.
-                # ADR-099: a carry-gate skip is NOT an error (the vendor just
-                # isn't stocking the product) — pass it as skip_reason only so
-                # the classifier returns WATCHED, and leave error_msg unset.
-                if universal_ai_mod.LAST_SKIP_REASON:
-                    from product_search.source_reasons import (
-                        WATCH_GATE_REASON_PREFIX,
-                    )
-                    skip_reason = universal_ai_mod.LAST_SKIP_REASON
+                
+                # Fetch thread-local variables safely
+                tls_skip_reason = getattr(universal_ai_mod.tls, "last_skip_reason", None)
+                if tls_skip_reason:
+                    from product_search.source_reasons import WATCH_GATE_REASON_PREFIX
+                    skip_reason = tls_skip_reason
                     if not skip_reason.startswith(WATCH_GATE_REASON_PREFIX):
                         error_msg = skip_reason
-                # ADR-084: capture per-fetch diagnostics for the reason classifier.
-                if universal_ai_mod.LAST_FETCH_DIAGNOSTICS:
-                    diagnostics = dict(universal_ai_mod.LAST_FETCH_DIAGNOSTICS)
-                if universal_ai_mod.LAST_RUN_USAGE:
-                    # Tag with the source URL so the cost panel can
-                    # disambiguate when a profile has multiple vendor URLs.
-                    usage = dict(universal_ai_mod.LAST_RUN_USAGE)
-                    src_url = (
-                        query.extra.get("url")
-                        or query.storefront_url
-                        or "?"
-                    )
-                    # Use the vendor host for the cost panel's Step column —
-                    # the literal adapter id and full URL are noise; the host
-                    # uniquely identifies the vendor for users.
+                
+                tls_diagnostics = getattr(universal_ai_mod.tls, "last_fetch_diagnostics", None)
+                if tls_diagnostics:
+                    diagnostics = dict(tls_diagnostics)
+                
+                tls_usage = getattr(universal_ai_mod.tls, "last_run_usage", None)
+                if tls_usage:
+                    usage = dict(tls_usage)
+                    src_url = (query.extra.get("url") or query.storefront_url or "?")
                     from urllib.parse import urlparse as _urlparse
                     host_for_step = _urlparse(src_url).netloc.lower()
                     if host_for_step.startswith("www."):
                         host_for_step = host_for_step[4:]
                     usage["step"] = host_for_step or src_url
-                    universal_ai_usage.append(usage)
+                    usages.append(usage)
             else:
                 error_msg = "no adapter wired"
-            all_listings.extend(listings)
         except Exception as exc:
             error_msg = f"{type(exc).__name__}: {exc}"
             print(f"ERROR ({source.id} fetch): {exc}", file=sys.stderr)
-        # Disambiguate multiple universal_ai_search rows in the Sources
-        # panel by the vendor host so the user can tell which vendor
-        # returned what (e.g. "audio46.com" vs "headphones.com" instead of
-        # three identical rows). Drop the literal adapter id from the
-        # display label — users don't care that it's the universal adapter.
+            
         display_source = source.id
         match_host: str | None = None
         match_url: str | None = None
@@ -447,14 +429,9 @@ def _cmd_search(
                     match_host = host
                     display_source = host
                 match_url = src_url
-        source_stats.append({
+
+        stat = {
             "source": source.id,
-            # ``match_host`` and ``match_url`` are the per-source-entry tiebreakers
-            # for the ``passed`` count below. host alone collapses on vendors with
-            # multiple URLs (e.g. four Best Buy detail URLs all share
-            # ``bestbuy.com``); the URL is the unique key per source-row, so an
-            # error row's ``passed`` doesn't inherit a sibling row's success
-            # (the Phase 26 bug: STRESS_TEST_26.md § Defect 2).
             "match_host": match_host,
             "match_url": match_url,
             "display_source": display_source,
@@ -462,7 +439,19 @@ def _cmd_search(
             "error": error_msg,
             "skip_reason": skip_reason,
             "diagnostics": diagnostics,
-        })
+        }
+        return listings, stat, usages
+
+    with ThreadPoolExecutor(max_workers=10) as executor:
+        futures = [executor.submit(_process_source, source) for source in profile.sources]
+        for future in futures:
+            try:
+                listings, stat, usages = future.result()
+                all_listings.extend(listings)
+                source_stats.append(stat)
+                universal_ai_usage.extend(usages)
+            except Exception as exc:
+                print(f"ERROR (worker thread): {exc}", file=sys.stderr)
 
     # --- Pipeline -------------------------------------------------------------
     from product_search.validators.pipeline import run_pipeline
