@@ -231,3 +231,21 @@ test('ADR-099: prompt states the carry-gate alias distinctiveness guardrail', ()
     'prompt must state the alias distinctiveness guardrail so the onboarder seeds safe aliases',
   );
 });
+
+test('ADR-100: prompt instructs to keep empty-now keyword searches', () => {
+  assert.ok(
+    promptText.includes('genuinely has 0 matches today'),
+    'prompt must instruct to keep keyword search URLs even when they return 0 matches',
+  );
+  assert.ok(
+    promptText.includes('DO NOT drop a working, correctly-scoped keyword search URL to `sources_pending`'),
+    'prompt must forbid dropping empty search URLs',
+  );
+});
+
+test('ADR-100: prompt reserves sources_pending for genuinely unreachable vendors', () => {
+  assert.ok(
+    promptText.includes('Narrow `sources_pending` to genuine dead-ends'),
+    'prompt must instruct to reserve sources_pending for unreachable vendors',
+  );
+});
