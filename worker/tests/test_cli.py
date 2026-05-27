@@ -308,11 +308,11 @@ def test_zero_reason_callout_classifies_and_skips_clean() -> None:
 def test_zero_reason_callout_known_failure_is_warning(monkeypatch) -> None:
     # We mock a blocker host, since there are no blocker hosts in the real
     # registry right now after ADR-104 downgraded the CF-walls to warnings.
-    from product_search import vendor_quirks
+    from product_search.vendor_quirks import _load_registry
     
-    def mock_get_quirks_for_host(host):
-        return {"known_failure": {"severity": "blocker"}}
-    monkeypatch.setattr(vendor_quirks, "get_quirks_for_host", mock_get_quirks_for_host)
+    def mock_load_registry(*args, **kwargs):
+        return {"blocked.com": {"known_failure": {"severity": "blocker"}}}
+    monkeypatch.setattr("product_search.vendor_quirks._load_registry", mock_load_registry)
 
     stats = [
         {"source": "universal_ai_search", "display_source": "blocked.com",

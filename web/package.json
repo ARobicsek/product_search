@@ -9,8 +9,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test:parity": "node --test --experimental-strip-types scripts/check-alterlab-parity.test.mjs scripts/check-report-columns-parity.test.mjs",
-    "test:guards": "node --test --experimental-strip-types scripts/check-onboard-guards.test.mjs"
+    "test:parity": "node --test --experimental-strip-types --experimental-default-type=module scripts/check-alterlab-parity.test.mjs scripts/check-report-columns-parity.test.mjs",
+    "test:guards": "node --test --experimental-strip-types --experimental-default-type=module scripts/check-onboard-guards.test.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.91.1",
