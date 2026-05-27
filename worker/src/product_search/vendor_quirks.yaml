@@ -113,12 +113,13 @@ backmarket.com:
     min_tier: 3
     wait_condition: networkidle
     skip_alterlab: true
+    use_scrappey: true
+    proxy_country: UnitedStates
   known_failure:
-    severity: blocker
+    severity: warning
     summary: |
-      Cloudflare bot-walled for AlterLab. We bypass AlterLab with skip_alterlab: true 
-      to force a direct curl_cffi fetch, but this only works locally. Datacenter IPs
-      in production are still blocked by Cloudflare.
+      Cloudflare bot-walled for AlterLab and datacenter IPs. Bypassed via
+      Scrappey (PAYG browser-render API with US residential proxy).
 
 bestbuy.com:
   default_alterlab_options:
@@ -144,12 +145,13 @@ bhphotovideo.com:
     min_tier: 3
     wait_condition: networkidle
     skip_alterlab: true
+    use_scrappey: true
+    proxy_country: UnitedStates
   known_failure:
-    severity: blocker
+    severity: warning
     summary: |
-      Cloudflare bot-walled for AlterLab. We bypass AlterLab with skip_alterlab: true 
-      to force a direct curl_cffi fetch, but this only works locally. Datacenter IPs
-      in production are still blocked by Cloudflare.
+      Cloudflare bot-walled for AlterLab and datacenter IPs. Bypassed via
+      Scrappey (PAYG browser-render API with US residential proxy).
 
 centralcomputer.com:
   default_alterlab_options:
@@ -157,12 +159,13 @@ centralcomputer.com:
     min_tier: 3
     wait_condition: networkidle
     skip_alterlab: true
+    use_scrappey: true
+    proxy_country: UnitedStates
   known_failure:
-    severity: blocker
+    severity: warning
     summary: |
-      Cloudflare bot-walled for AlterLab. We bypass AlterLab with skip_alterlab: true 
-      to force a direct curl_cffi fetch, but this only works locally. Datacenter IPs
-      in production are still blocked by Cloudflare.
+      Cloudflare bot-walled for AlterLab and datacenter IPs. Bypassed via
+      Scrappey (PAYG browser-render API with US residential proxy).
 
 costco.com:
   force_detail_backup: true
@@ -239,12 +242,13 @@ serversupply.com:
     min_tier: 3
     wait_condition: networkidle
     skip_alterlab: true
+    use_scrappey: true
+    proxy_country: UnitedStates
   known_failure:
-    severity: blocker
+    severity: warning
     summary: |
-      Cloudflare bot-walled for AlterLab. We bypass AlterLab with skip_alterlab: true 
-      to force a direct curl_cffi fetch, but this only works locally. Datacenter IPs
-      in production are still blocked by Cloudflare.
+      Cloudflare bot-walled for AlterLab and datacenter IPs. Bypassed via
+      Scrappey (PAYG browser-render API with US residential proxy).
 
 sweetwater.com:
   force_detail_backup: true
