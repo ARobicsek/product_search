@@ -8,6 +8,19 @@ so the live file stays small while nothing is lost. See
 
 ---
 
+## Current state — 2026-05-26 ADR-099 implemented (carry-gate + WATCHED) (SUPERSEDED by Phase 29 ADR-105/109)
+
+**Deliverables:** ADR-099 in DECISIONS.md (ACCEPTED). A deterministic carry-gate so an "aspirational" not-yet-stocking vendor costs ~$0/run instead of a full LLM extraction of guaranteed-junk, plus an honest WATCHED status that says exactly why a vendor returned 0.
+
+**What shipped:**
+- **Carry-gate** in `universal_ai.fetch()` (search path): `_model_family_token()` (display_name → `h14ssl`), `_carry_gate_terms()`, `_page_carries_product()`; gate runs after free JSON-LD, before the paid anchor/full-HTML extractors. Family-core match (recall-safe) OR normalized `match_aliases` substring. Self-disables when no confident model token.
+- **`OutcomeCategory.WATCHED`** in `source_reasons.py` (+ `WATCH_GATE_REASON_PREFIX` sentinel the gate writes into `LAST_SKIP_REASON`); `cli.py` passes a gate-skip as `skip_reason` (not `error`). JSON `status`/`status_label` derive automatically; React `result-types.ts` + `ResultView.tsx` add a calm sky pill.
+- **`match_aliases`** field on Pydantic `Profile` + `schema.ts`, with the distinctiveness guardrail (digit OR multi-word) in both.
+- **Onboarder**: `onboard_v1.txt` "Match aliases" section (auto-seed from web search + guardrail); `probe-url.ts` `distinctiveTokens` reconstructs the model token (kills the false-brand-hit bug); synced via `sync-prompt.js`.
+- **Green:** worker **401/401** (12 new; ruff+mypy clean in `.ci-venv` 3.12); web `tsc` 0; `test:guards` **17/17** (2 new); `test:parity` 4/4; lint 0 errors.
+
+**Not done (live-only follow-up):** the existing `supermicro-h14ssl-n` profile won't get `match_aliases` until the user re-onboards or edits it (the app owns `products/`); the gate's family-core token still protects it from the gotodirect/altex/bestbuy spend on the next scheduled run regardless.
+
 ## Current state — 2026-05-26 ADR-098 implemented (SUPERSEDED by ADR-100)
 - **Earlier work:** 2026-05-26 **ADR-098 implemented — five fixes for supermicro-zero-results.** (1) `probe-url.ts` now returns `relevanceHits` — how many product anchors match the target product's distinctive tokens; prompt treats "many anchors, 0 relevance" as advisory evidence of a mis-scoped URL. (2) Newegg search pattern (`/p/pl?d=<keywords>`) added to prompt; `N=<digits>` category-node trap documented. (3) `THIN_BODY_CEILING` (5 KB) added to `source_reasons.py` — a sub-5K body with 0 candidates now classifies `TRANSIENT` ("thin or blocked — check the URL"), not `EMPTY_PAGE`. (4) `cli.py` computes dominant rejection from `ai_filter.LAST_RUN_LOG` and passes it to the classifier; when ≥50% of rejections are `relevance_check`, the message says "mis-scoped" instead of "loosen your filter". (5) Prompt now explicitly forbids guessing detail-URL slugs. All five synced via `sync-prompt.js`. Worker 16/16, web tsc 0, guards 15/15, parity 4/4.
 

@@ -31,18 +31,11 @@ Full session-by-session history → [PROGRESS_ARCHIVE.md](PROGRESS_ARCHIVE.md) (
 - **Prior work:** 2026-05-26 **ADR-099 implemented — runtime carry-gate + `match_aliases` + WATCHED status.** A deterministic carry-gate in `universal_ai.fetch()` checks for the product's family-core model token or any `match_aliases` on the fetched page. If absent, it skips extraction (~$0) and reports the source as `WATCHED`. Guardrails ensure aliases are distinctive.
 - **Prior work:** 2026-05-27 **Fix run duration and add cost to cards.** Moved `run_started_at` in `worker/src/product_search/cli.py` to the start of the execution so that the CSV file's timestamp correctly captures the start time, making the UI run duration accurate. Updated `web/app/page.tsx` to read `run_cost.total_usd` from the JSON sidecar and display it on the cards next to the duration.
 
-## Current state — 2026-05-26 ADR-099 implemented (carry-gate + WATCHED)
+## Current state — 2026-05-27 Phase 29 ADR-105 + ADR-109 implemented
 
-**Deliverables:** ADR-099 in DECISIONS.md (ACCEPTED). A deterministic carry-gate so an "aspirational" not-yet-stocking vendor costs ~$0/run instead of a full LLM extraction of guaranteed-junk, plus an honest WATCHED status that says exactly why a vendor returned 0.
+See the "Most recent work" bullet above for the full per-ADR detail. One-line state: the Microcenter mis-scope class is now (a) *prevented* at onboard time — vendor search URLs come from `vendor_quirks.yaml` templates, not LLM guesses (ADR-105) — and (b) *honestly explained* at run time when a mis-scope still happens, including in the React UI (ADR-109). Remaining Phase 29 work is ADR-106/107/108 (see the queued-next bullet under Active phase). Tree green: worker 407/407, web tsc 0 / eslint 0 / parity 6/6 / guards 22/22 / `next build` ok.
 
-**What shipped:**
-- **Carry-gate** in `universal_ai.fetch()` (search path): `_model_family_token()` (display_name → `h14ssl`), `_carry_gate_terms()`, `_page_carries_product()`; gate runs after free JSON-LD, before the paid anchor/full-HTML extractors. Family-core match (recall-safe) OR normalized `match_aliases` substring. Self-disables when no confident model token.
-- **`OutcomeCategory.WATCHED`** in `source_reasons.py` (+ `WATCH_GATE_REASON_PREFIX` sentinel the gate writes into `LAST_SKIP_REASON`); `cli.py` passes a gate-skip as `skip_reason` (not `error`). JSON `status`/`status_label` derive automatically; React `result-types.ts` + `ResultView.tsx` add a calm sky pill.
-- **`match_aliases`** field on Pydantic `Profile` + `schema.ts`, with the distinctiveness guardrail (digit OR multi-word) in both.
-- **Onboarder**: `onboard_v1.txt` "Match aliases" section (auto-seed from web search + guardrail); `probe-url.ts` `distinctiveTokens` reconstructs the model token (kills the false-brand-hit bug); synced via `sync-prompt.js`.
-- **Green:** worker **401/401** (12 new; ruff+mypy clean in `.ci-venv` 3.12); web `tsc` 0; `test:guards` **17/17** (2 new); `test:parity` 4/4; lint 0 errors.
-
-**Not done (live-only follow-up):** the existing `supermicro-h14ssl-n` profile won't get `match_aliases` until the user re-onboards or edits it (the app owns `products/`); the gate's family-core token still protects it from the gotodirect/altex/bestbuy spend on the next scheduled run regardless.
+**Older-but-still-live follow-up:** the existing `supermicro-h14ssl-n` profile won't get `match_aliases` until the user re-onboards or edits it (the app owns `products/`); the ADR-099 carry-gate's family-core token still protects it from the gotodirect/altex/bestbuy spend regardless.
 
 ## Standing candidates (pick up next)
 
@@ -60,7 +53,7 @@ Full session-by-session history → [PROGRESS_ARCHIVE.md](PROGRESS_ARCHIVE.md) (
 
 ## Blockers
 
-None blocking. CI is green (ADR-062 decoupled the worker suite + `validate-profiles` from app-mutable `products/`). Worker suite 280/280 green at `e0db48b`. One non-blocking follow-up bug is queued as the next session's task #1 (probe under-tests `page_type: "detail"` URLs → false demotion).
+None blocking. CI is green (ADR-062 decoupled the worker suite + `validate-profiles` from app-mutable `products/`). Worker suite **407/407** green at `da74137` (this session's commit). The next task is the remaining Phase 29 queue (ADR-106/107/108) — see the queued-next bullet under **Active phase**.
 
 ## Noticed but deferred (live only)
 
