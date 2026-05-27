@@ -3011,3 +3011,78 @@ def test_fetch_carry_gate_self_disables_without_model_token(monkeypatch: pytest.
     )
     universal_ai.fetch(query, profile=_gate_profile(display_name="The Economist 1yr subscription"))
     assert calls, "gate must self-disable when display_name has no model token"
+
+
+# --- ADR-106: embedded-state recovery (Walmart __NEXT_DATA__) ---------------
+#
+# Walmart renders its search grid from a server-embedded Next.js __NEXT_DATA__
+# JSON blob. On the 2026-05-27 DJI Neo 2 run, Walmart returned a substantive
+# body but the JSON-LD / anchor / full-HTML tiers parsed 0 listings — the
+# "parser_gap" class. This fixture (captured 2026-05-27 via Scrappey) carries
+# the real search grid; the deterministic embedded-state tier must recover it
+# even though the JSON-LD tier finds nothing.
+WALMART_PARSER_GAP_FIXTURE = FIXTURE_DIR / "walmart_dji_neo2_parser_gap.html"
+WALMART_PARSER_GAP_URL = (
+    "https://www.walmart.com/search?q=DJI+Neo+2+Motion+Fly+More+Combo"
+)
+
+
+def test_walmart_jsonld_tier_is_empty_proving_the_gap() -> None:
+    # The structured deterministic tier (JSON-LD) misses Walmart entirely — this
+    # is what left the source at "substantive body, 0 parsed" pre-ADR-106.
+    html = WALMART_PARSER_GAP_FIXTURE.read_text(encoding="utf-8", errors="replace")
+    assert universal_ai._extract_jsonld_listings(html, WALMART_PARSER_GAP_URL) == []
+
+
+def test_walmart_embedded_state_recovers_listings() -> None:
+    html = WALMART_PARSER_GAP_FIXTURE.read_text(encoding="utf-8", errors="replace")
+    dicts = universal_ai._extract_embedded_state_listings(
+        html, base_url=WALMART_PARSER_GAP_URL
+    )
+    # The captured grid lists ~55 priced products; require a healthy floor so a
+    # future Walmart layout change that silently breaks recovery fails loudly.
+    assert len(dicts) >= 40, f"expected many recovered listings, got {len(dicts)}"
+
+    # The target product (the whole point of the run) is present.
+    assert any(
+        "neo 2 motion fly more combo" in d["title"].lower() for d in dicts
+    ), "the DJI Neo 2 Motion Fly More Combo target must be recovered"
+
+    # Every recovered listing has a verbatim Walmart product URL and a positive
+    # price — the no-fabrication boundary (ADR-001): URLs/prices are copied from
+    # the embedded blob, never invented.
+    for d in dicts:
+        assert d["url"].startswith("https://www.walmart.com/ip/"), d["url"]
+        assert isinstance(d["price_usd"], float) and d["price_usd"] > 0
+        assert d["condition"] in ("new", "used", "refurbished")
+
+
+def test_walmart_embedded_state_emits_tagged_listings() -> None:
+    from datetime import UTC, datetime
+
+    html = WALMART_PARSER_GAP_FIXTURE.read_text(encoding="utf-8", errors="replace")
+    listings = universal_ai._extract_via_embedded_state(
+        html, WALMART_PARSER_GAP_URL,
+        fetched_at=datetime.now(tz=UTC), parsed_host="www.walmart.com",
+    )
+    assert listings
+    assert all(le.attrs.get("extractor") == "embedded_state" for le in listings)
+    assert all(le.source == "universal_ai_search" for le in listings)
+
+
+def test_embedded_state_noop_without_next_data() -> None:
+    # A plain page (no __NEXT_DATA__) is the no-op case for every non-embedded
+    # vendor: the tier returns [] and never interferes with the other tiers.
+    html = _load_html()
+    assert universal_ai._extract_embedded_state_listings(html, BASE_URL) == []
+
+
+def test_embedded_money_handles_us_thousands_separator() -> None:
+    # Regression: _coerce_price's European-comma heuristic mangles "$3,299.95"
+    # to 3.299; the embedded-state parser must read it as 3299.95.
+    assert universal_ai._embedded_money("$3,299.95") == 3299.95
+    assert universal_ai._embedded_money("$799.00") == 799.0
+    assert universal_ai._embedded_money(379) == 379.0
+    assert universal_ai._embedded_money("") is None
+    assert universal_ai._embedded_money(0) is None
+    assert universal_ai._embedded_money(None) is None

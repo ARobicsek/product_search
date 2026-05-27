@@ -2169,8 +2169,14 @@ def _jsonld_to_listings(
     jsonld_listings: list[dict[str, Any]],
     fetched_at: datetime,
     parsed_host: str,
+    extractor: str = "jsonld",
 ) -> list[Listing]:
-    """Map ``_extract_jsonld_listings`` dicts to ``Listing`` rows."""
+    """Map ``{title,url,price_usd,condition}`` dicts to ``Listing`` rows.
+
+    Shared by the JSON-LD tier and the embedded-state recovery tier (ADR-106),
+    which produce the same dict shape deterministically; ``extractor`` tags the
+    provenance so the union log / debugging can tell them apart.
+    """
     results: list[Listing] = []
     for item in jsonld_listings:
         is_kit, kit_module_count, unit_price_usd, kit_price_usd = _parse_pack(
@@ -2184,7 +2190,7 @@ def _jsonld_to_listings(
                 fetched_at=fetched_at,
                 brand=None,
                 mpn=None,
-                attrs={"vendor_host": parsed_host, "extractor": "jsonld"},
+                attrs={"vendor_host": parsed_host, "extractor": extractor},
                 condition=item["condition"],
                 is_kit=is_kit,
                 kit_module_count=kit_module_count,
@@ -2200,13 +2206,164 @@ def _jsonld_to_listings(
     return results
 
 
+# --- Embedded search-state recovery tier (ADR-106) -------------------------
+#
+# Some big retailers (Walmart) render their search grid entirely from a JSON
+# blob the server embeds in a <script> (Next.js ``__NEXT_DATA__``). The visible
+# DOM the LLM tiers read is built from it client-side, so on a thin/partial
+# render the stripped text carries no products and BOTH the anchor walker and
+# the full-HTML LLM tier emit 0 — the "substantive body, 0 parsed" parser-gap
+# the 2026-05-27 DJI run hit on Walmart. The product data is sitting in the
+# embedded state the whole time; reading it deterministically (no LLM, no extra
+# fetch) recovers the grid regardless of how much of the DOM rendered. URLs and
+# prices are copied verbatim from the structured blob — the LLM never types
+# either — so the no-fabrication boundary (ADR-001) is preserved exactly as in
+# the JSON-LD tier.
+
+
+def _embedded_money(value: Any) -> float | None:
+    """Coerce an embedded-state price (numeric or ``"$1,299.00"``) to a float.
+
+    Unlike ``_coerce_price`` this keeps thousands separators correct: a US price
+    string like ``"$3,299.95"`` must parse to ``3299.95`` (``_coerce_price``'s
+    European-comma heuristic mangles it to ``3.299``).
+    """
+    if isinstance(value, (int, float)):
+        f = float(value)
+        return f if f > 0 else None
+    if isinstance(value, str):
+        m = re.search(r"\d[\d,]*(?:\.\d+)?", value)
+        if not m:
+            return None
+        try:
+            f = float(m.group(0).replace(",", ""))
+        except ValueError:
+            return None
+        return f if f > 0 else None
+    return None
+
+
+def _iter_walmart_item_stacks(node: Any) -> Any:
+    """Yield every ``itemStacks`` list (of stack dicts) reachable from ``node``.
+
+    Recurses without assuming the exact parent path
+    (``props.pageProps.initialData.searchResult.itemStacks``) so a Next.js
+    layout reshuffle doesn't silently break recovery.
+    """
+    if isinstance(node, dict):
+        stacks = node.get("itemStacks")
+        if isinstance(stacks, list) and any(
+            isinstance(s, dict) and isinstance(s.get("items"), list) for s in stacks
+        ):
+            yield stacks
+        for v in node.values():
+            yield from _iter_walmart_item_stacks(v)
+    elif isinstance(node, list):
+        for v in node:
+            yield from _iter_walmart_item_stacks(v)
+
+
+def _extract_embedded_state_listings(
+    html: str, base_url: str
+) -> list[dict[str, Any]]:
+    """Extract ``{title,url,price_usd,condition}`` dicts from embedded JSON state.
+
+    Currently handles Walmart's Next.js ``__NEXT_DATA__`` search grid
+    (``searchResult.itemStacks[].items[]``). Returns the same dict shape as
+    ``_extract_jsonld_listings`` so it flows through ``_jsonld_to_listings``.
+    Empty list when no recognised embedded grid is present (the no-op case for
+    every non-Walmart vendor).
+    """
+    m = re.search(
+        r'<script id="__NEXT_DATA__"[^>]*>(.*?)</script>', html, re.S
+    )
+    if not m:
+        return []
+    try:
+        data = json.loads(m.group(1))
+    except (json.JSONDecodeError, ValueError):
+        return []
+
+    listings: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    for stacks in _iter_walmart_item_stacks(data):
+        for stack in stacks:
+            if not isinstance(stack, dict):
+                continue
+            for item in stack.get("items", []):
+                if not isinstance(item, dict):
+                    continue
+                name = item.get("name")
+                if not isinstance(name, str) or not name.strip():
+                    continue
+                href = item.get("canonicalUrl") or item.get("productPageUrl")
+                if not isinstance(href, str) or not href.strip():
+                    continue
+                url_abs = urljoin(base_url, href.strip())
+                parsed = urlparse(url_abs)
+                if parsed.scheme not in ("http", "https"):
+                    continue
+                canonical = (
+                    f"{parsed.scheme}://{parsed.netloc.lower()}"
+                    f"{parsed.path.rstrip('/')}"
+                )
+                if canonical in seen:
+                    continue
+
+                price_info = item.get("priceInfo")
+                price = _embedded_money(item.get("price"))
+                if price is None and isinstance(price_info, dict):
+                    price = _embedded_money(price_info.get("linePrice"))
+                    if price is None:
+                        current = price_info.get("currentPrice")
+                        if isinstance(current, dict):
+                            price = _embedded_money(current.get("price"))
+                if price is None:
+                    continue
+
+                condition = "used" if item.get("isPreowned") else "new"
+                seen.add(canonical)
+                listings.append({
+                    "title": name.strip()[:300],
+                    "url": url_abs,
+                    "price_usd": price,
+                    "condition": condition,
+                })
+    return listings
+
+
+def _extract_via_embedded_state(
+    html: str,
+    url: str,
+    *,
+    fetched_at: datetime,
+    parsed_host: str,
+) -> list[Listing]:
+    """Tier 0.5 (ADR-106): recover products from embedded JSON search state.
+
+    Deterministic, free, no LLM. Runs alongside the JSON-LD / anchor / full-HTML
+    tiers and is UNIONed first (it is the most authoritative source when present
+    — the server's own product model), closing the substantive-body-but-0-parsed
+    parser gap on embedded-state retailers like Walmart.
+    """
+    embedded = _extract_embedded_state_listings(html, base_url=url)
+    if embedded:
+        logger.info(
+            f"[universal_ai] Embedded-state tier recovered {len(embedded)} "
+            f"listing(s) from {url}."
+        )
+    return _jsonld_to_listings(
+        embedded, fetched_at, parsed_host, extractor="embedded_state"
+    )
+
+
 def _union_by_canonical(*listing_groups: list[Listing]) -> list[Listing]:
     """Merge listing groups, keeping the FIRST listing seen per canonical URL.
 
-    Order matters: callers pass the most-structured tier first (JSON-LD, then
-    the anchor walker, then the full-HTML LLM) so the higher-quality extractor
-    wins a tie and the full-HTML tier only ever ADDS products the others
-    missed — the additive-recall guarantee of ADR-077.
+    Order matters: callers pass the most-structured tier first (embedded state,
+    JSON-LD, then the anchor walker, then the full-HTML LLM) so the
+    higher-quality extractor wins a tie and the looser tiers only ever ADD
+    products the others missed — the additive-recall guarantee of ADR-077/106.
     """
     seen: set[str] = set()
     merged: list[Listing] = []
@@ -2938,6 +3095,11 @@ def fetch(query: AdapterQuery, profile: Any | None = None) -> list[Listing]:
     # Dedupe by canonical URL, first-seen wins — so JSON-LD > anchor >
     # full-HTML in priority, and the full-HTML tier only ever ADDS products
     # the structured tiers missed.
+    embedded_results = _extract_via_embedded_state(
+        html, url,
+        fetched_at=fetched_at,
+        parsed_host=parsed_host,
+    )
     anchor_results = _extract_via_anchor_walker(
         html, url,
         profile=profile,
@@ -2952,7 +3114,7 @@ def fetch(query: AdapterQuery, profile: Any | None = None) -> list[Listing]:
     )
 
     merged: list[Listing] = _union_by_canonical(
-        jsonld_results, anchor_results, full_html_results,
+        embedded_results, jsonld_results, anchor_results, full_html_results,
     )
 
     # Keyword degradation fallback if merged has 0 listings
@@ -2982,6 +3144,11 @@ def fetch(query: AdapterQuery, profile: Any | None = None) -> list[Listing]:
                 )
                 d_jsonld_listings = _extract_jsonld_listings(d_html, base_url=degraded_url)
                 d_jsonld_results = _jsonld_to_listings(d_jsonld_listings, fetched_at, parsed_host)
+                d_embedded_results = _extract_via_embedded_state(
+                    d_html, degraded_url,
+                    fetched_at=fetched_at,
+                    parsed_host=parsed_host,
+                )
                 d_anchor_results = _extract_via_anchor_walker(
                     d_html, degraded_url,
                     profile=profile,
@@ -2995,7 +3162,8 @@ def fetch(query: AdapterQuery, profile: Any | None = None) -> list[Listing]:
                     parsed_host=parsed_host,
                 )
                 d_merged = _union_by_canonical(
-                    d_jsonld_results, d_anchor_results, d_full_html_results
+                    d_embedded_results, d_jsonld_results,
+                    d_anchor_results, d_full_html_results,
                 )
                 if d_merged:
                     logger.info(
@@ -3008,9 +3176,10 @@ def fetch(query: AdapterQuery, profile: Any | None = None) -> list[Listing]:
         if listing.attrs.get("extractor") == "full_html_llm"
     )
     logger.info(
-        f"[universal_ai] Search union: jsonld={len(jsonld_results)} "
-        f"anchor={len(anchor_results)} full_html={len(full_html_results)} "
-        f"merged={len(merged)} (full_html added {full_html_unique} unique)."
+        f"[universal_ai] Search union: embedded={len(embedded_results)} "
+        f"jsonld={len(jsonld_results)} anchor={len(anchor_results)} "
+        f"full_html={len(full_html_results)} merged={len(merged)} "
+        f"(full_html added {full_html_unique} unique)."
     )
     return merged
 
