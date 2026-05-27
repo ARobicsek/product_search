@@ -303,7 +303,7 @@ def _cmd_search(
     from typing import Any
 
     from product_search.models import AdapterQuery
-    from product_search.profile import QVL, load_profile, load_qvl
+    from product_search.profile import QVL, Source, load_profile, load_qvl
 
     # --- Load profile ---------------------------------------------------------
     if not no_validate:
@@ -345,7 +345,7 @@ def _cmd_search(
     _universal_ai_mod.reset_run_state()
     from concurrent.futures import ThreadPoolExecutor
 
-    def _process_source(source) -> tuple[list[Listing], dict[str, Any], list[dict[str, Any]]]:
+    def _process_source(source: Source) -> tuple[list[Listing], dict[str, Any], list[dict[str, Any]]]:
         query = AdapterQuery.from_profile_source(source.model_dump())
         listings: list[Listing] = []
         error_msg: str | None = None
