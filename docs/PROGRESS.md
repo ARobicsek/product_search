@@ -28,8 +28,9 @@ Full session-by-session history → [PROGRESS_ARCHIVE.md](PROGRESS_ARCHIVE.md) (
 
 ## Standing candidates (pick up next)
 
-1. **ADR-074 followup #3** — Target search 0 candidates (largely subsumed by ADR-077, may already be dead).
-2. **Schedule & Alerts editor prod verification** (ADR-059/060/061).
+1. **ADR-102** — Background profile validation via LLM tool (DRY extraction of save validation into a tool).
+2. **ADR-074 followup #3** — Target search 0 candidates (largely subsumed by ADR-077, may already be dead).
+3. **Schedule & Alerts editor prod verification** (ADR-059/060/061).
 3. **Mobile popover layout.**
 4. **Cloudflare-walled-vendor re-probe sweep** — the `known_failure: blocker` set has grown to {microcenter, CC, SS, B&H, Backmarket}, all on the same Cloudflare-anti-bot wall. Worth a periodic (monthly?) re-probe script that hits each known_failure host's homepage + a canonical search URL, diffs against the committed challenge fixture, and reports any that have LIFTED. Cheap, mostly automatable.
 5. **D4 — magazinesdirect $94 vs live $153/$247 investigation** (carved out of the prior ADR-094 follow-up). The 2026-05-25 extractor was `jsonld`, not detail_llm — likely `lowPrice` from a different SKU on the page, OR a stale fetch + page changed. Capture fixture and run jsonld extraction offline to diagnose.
