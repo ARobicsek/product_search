@@ -34,7 +34,10 @@ export type SourceStatus =
   | 'empty_page'
   | 'parser_gap'
   | 'transient'
-  | 'permanent';
+  | 'permanent'
+  // ADR-099: the carry-gate skipped paid extraction because the product isn't
+  // listed at this vendor yet (~$0 this run); auto-wakes when it's stocked.
+  | 'watched';
 
 export interface ResultSource {
   label: string;

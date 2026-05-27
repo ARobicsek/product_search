@@ -2863,3 +2863,148 @@ def test_amazon_search_fixture_extracts_dp_candidates_with_prices() -> None:
         "recall regression on the target product the fixture was captured for."
     )
 
+
+
+# --- ADR-099 carry-gate -----------------------------------------------------
+#
+# The gate skips the paid LLM extractors when the product's family-core model
+# token (and any match_aliases) is absent from a search page, so an
+# "aspirational" vendor that doesn't stock the item costs ~$0 per run while
+# staying active. These tests pin the token derivation, the page-carry check,
+# and the three fetch() behaviors (skip / pass / self-disable).
+
+import types as _types
+
+
+def _gate_profile(
+    display_name: str = "Supermicro H14SSL-N Motherboard",
+    match_aliases: list[str] | None = None,
+) -> Any:
+    return _types.SimpleNamespace(
+        display_name=display_name,
+        match_aliases=match_aliases or [],
+    )
+
+
+def test_model_family_token_server_board() -> None:
+    assert universal_ai._model_family_token("Supermicro H14SSL-N Motherboard") == "h14ssl"
+
+
+def test_model_family_token_consumer_variant() -> None:
+    assert universal_ai._model_family_token("Sony WH-1000XM5 Wireless Headphones") == "1000xm5"
+
+
+def test_model_family_token_none_for_subscription() -> None:
+    # Only digit-word is '1yr' → normalized core < 5 chars → gate self-disables.
+    assert universal_ai._model_family_token("The Economist 1yr subscription") is None
+
+
+def test_model_family_token_none_for_generic_ram() -> None:
+    # 'ddr5'/'64gb' normalize under 5 chars; too generic to gate on safely.
+    assert universal_ai._model_family_token("DDR5 RAM 64GB kit") is None
+
+
+def test_page_carries_product_family_core_matches_variant() -> None:
+    # Family core 'h14ssl' wakes on the -NT variant (recall-safe).
+    assert universal_ai._page_carries_product(
+        "<a>Supermicro H14SSL-NT retail box</a>", "h14ssl", []
+    )
+
+
+def test_page_carries_product_absent_on_unrelated_catalog() -> None:
+    assert not universal_ai._page_carries_product(
+        "<a>Supermicro Power Distribution Board PT1123</a>", "h14ssl", []
+    )
+
+
+def test_page_carries_product_alias_is_separator_insensitive() -> None:
+    # Normalized alias matches the SKU form despite the page's hyphens.
+    assert universal_ai._page_carries_product(
+        "<a>MBD-H14SSL-N-O retail</a>", "zzzzz", ["mbdh14sslno"]
+    )
+
+
+def test_carry_gate_terms_derives_token_and_normalizes_aliases() -> None:
+    token, aliases = universal_ai._carry_gate_terms(
+        _gate_profile(match_aliases=["MBD-H14SSL-N-O"])
+    )
+    assert token == "h14ssl"
+    assert aliases == ["mbdh14sslno"]
+
+
+def _record_llm(calls: list[int]) -> Any:
+    def _call(**_: object) -> LLMResponse:
+        calls.append(1)
+        return LLMResponse(
+            provider="anthropic", model="claude-haiku-4-5",
+            text='{"listings": []}', input_tokens=10, output_tokens=5,
+        )
+    return _call
+
+
+def test_fetch_carry_gate_skips_when_product_absent(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("ALTERLAB_API_KEY", raising=False)
+    html = (
+        '<html><body><a href="https://v.example/product/widget-12345">'
+        'Random Widget 12345</a></body></html>'
+    )
+    monkeypatch.setattr(
+        universal_ai, "_fetch_html",
+        lambda url, timeout=20.0, **_kw: (html, 200, "stub"),
+    )
+
+    def _boom(**_: object) -> LLMResponse:
+        raise AssertionError("LLM must NOT be called when the carry-gate skips")
+
+    monkeypatch.setattr(universal_ai, "call_llm", _boom)
+    query = AdapterQuery(
+        source_id="universal_ai_search",
+        extra={"url": "https://v.example/search?q=supermicro+h14ssl-n"},
+    )
+    results = universal_ai.fetch(query, profile=_gate_profile())
+    assert results == []
+    assert universal_ai.LAST_SKIP_REASON is not None
+    assert universal_ai.LAST_SKIP_REASON.startswith("watch-gate:")
+
+
+def test_fetch_carry_gate_passes_when_token_present(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("ALTERLAB_API_KEY", raising=False)
+    html = (
+        '<html><body><a href="https://v.example/product/h14ssl-n">'
+        'Supermicro H14SSL-N Motherboard</a></body></html>'
+    )
+    monkeypatch.setattr(
+        universal_ai, "_fetch_html",
+        lambda url, timeout=20.0, **_kw: (html, 200, "stub"),
+    )
+    calls: list[int] = []
+    monkeypatch.setattr(universal_ai, "call_llm", _record_llm(calls))
+    query = AdapterQuery(
+        source_id="universal_ai_search",
+        extra={"url": "https://v.example/search?q=supermicro+h14ssl-n"},
+    )
+    universal_ai.fetch(query, profile=_gate_profile())
+    assert calls, "carry-gate should allow extraction when the product token is present"
+    assert universal_ai.LAST_SKIP_REASON is None
+
+
+def test_fetch_carry_gate_self_disables_without_model_token(monkeypatch: pytest.MonkeyPatch) -> None:
+    # display_name yields no confident model token → gate disabled → extraction
+    # runs even though the page doesn't contain a (nonexistent) token.
+    monkeypatch.delenv("ALTERLAB_API_KEY", raising=False)
+    html = (
+        '<html><body><a href="https://v.example/product/sub">'
+        'The Economist annual</a></body></html>'
+    )
+    monkeypatch.setattr(
+        universal_ai, "_fetch_html",
+        lambda url, timeout=20.0, **_kw: (html, 200, "stub"),
+    )
+    calls: list[int] = []
+    monkeypatch.setattr(universal_ai, "call_llm", _record_llm(calls))
+    query = AdapterQuery(
+        source_id="universal_ai_search",
+        extra={"url": "https://v.example/search?q=economist"},
+    )
+    universal_ai.fetch(query, profile=_gate_profile(display_name="The Economist 1yr subscription"))
+    assert calls, "gate must self-disable when display_name has no model token"

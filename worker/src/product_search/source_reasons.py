@@ -32,6 +32,15 @@ SUBSTANTIVE_BODY_FLOOR = 50_000
 # EMPTY_PAGE ("genuinely has nothing"), which was actively misleading.
 THIN_BODY_CEILING = 5_000
 
+# ADR-099: the carry-gate (universal_ai.fetch) writes a skip reason starting
+# with this prefix when it deliberately skips the paid LLM extractors because
+# the product's identifier (family-core model token / match_aliases) isn't on
+# the fetched page. The classifier recognizes the prefix and returns WATCHED —
+# a calm, distinct "not stocked here yet" status that must NEVER be conflated
+# with a transient glitch or an error. ``universal_ai`` imports this constant
+# so the producer and the classifier can't drift apart.
+WATCH_GATE_REASON_PREFIX = "watch-gate:"
+
 
 class OutcomeCategory(StrEnum):
     """Why a source produced the result it did (only the non-OK ones surface)."""
@@ -42,6 +51,7 @@ class OutcomeCategory(StrEnum):
     PARSER_GAP = "parser_gap"  # full page fetched, 0 parsed — likely our gap
     TRANSIENT = "transient"    # scraping glitch; likely clears on the next run
     PERMANENT = "permanent"    # no working path today (blocked / auth / quota)
+    WATCHED = "watched"        # carry-gate skipped paid extraction; not stocked yet (ADR-099)
 
 
 # Short human label shown as the bold tag in the report callout.
@@ -51,6 +61,7 @@ CATEGORY_LABEL: dict[OutcomeCategory, str] = {
     OutcomeCategory.PARSER_GAP: "needs work",
     OutcomeCategory.TRANSIENT: "transient",
     OutcomeCategory.PERMANENT: "blocked",
+    OutcomeCategory.WATCHED: "watched",
 }
 
 
@@ -127,6 +138,21 @@ def classify_source_outcome(
             f"unless you expected matches here — if so, open **Edit Profile** "
             f"and loosen the relevant filter (price cap, condition, keywords). "
             f"The AI filter diagnostic below lists the specific rejections.",
+        )
+
+    # 2.5 ADR-099 carry-gate: we fetched the page but deliberately skipped the
+    #     paid LLM extractors because the product's identifier (family-core
+    #     model token / match_aliases) wasn't on it. This is NOT an error and
+    #     NOT a transient glitch — the vendor simply isn't listing the product
+    #     yet, and we spent ~$0 confirming that. Say exactly that.
+    if skip_reason and skip_reason.startswith(WATCH_GATE_REASON_PREFIX):
+        return SourceOutcome(
+            OutcomeCategory.WATCHED,
+            "We checked this vendor and your product isn't listed there yet, so "
+            "we skipped the paid extraction step — this source cost about $0 this "
+            "run. **What to do:** nothing — every scheduled run re-checks this "
+            "vendor and will pull listings automatically the moment it stocks the "
+            "product.",
         )
 
     # 3. Vendor flagged in the registry as a known failure — an anti-bot wall

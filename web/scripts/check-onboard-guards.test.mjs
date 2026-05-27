@@ -213,3 +213,21 @@ test('ADR-098 fix #1: prompt documents relevanceHits', () => {
     'prompt must document the relevanceHits probe field',
   );
 });
+
+test('ADR-099: prompt instructs the onboarder to seed match_aliases', () => {
+  assert.ok(
+    promptText.includes('match_aliases'),
+    'prompt must document the match_aliases field for the carry-gate',
+  );
+  assert.ok(
+    /carry-gate/i.test(promptText),
+    'prompt must explain the runtime carry-gate that match_aliases feeds',
+  );
+});
+
+test('ADR-099: prompt states the carry-gate alias distinctiveness guardrail', () => {
+  assert.ok(
+    promptText.includes('contain a digit OR be a multi-word phrase'),
+    'prompt must state the alias distinctiveness guardrail so the onboarder seeds safe aliases',
+  );
+});

@@ -126,6 +126,9 @@ sources_pending: []   # sources we want but don't yet have an adapter for
 
 qvl_file: "products/<slug>/qvl.yaml"   # OPTIONAL — RAM only. Omit for non-RAM products.
 
+match_aliases:
+  - <marketing name or SKU form>   # optional; see "Match aliases" section below
+
 brand_candidates:
   - <Brand>          # optional; see "Brand candidates" section below
 
@@ -315,6 +318,35 @@ appears in the daily report.
 - `kingston_e_suffix` — no params; RAM-specific
 - `title_mentions_other_server` — params: `values: ["Tyan", ...]`
 - `title_mentions` — params: `values: ["Engineering Sample", ...]`
+
+## Match aliases (for `match_aliases`) — feeds the runtime carry-gate
+
+At runtime, every `universal_ai_search` source is protected by a **carry-gate**
+(ADR-099): before spending money on AI extraction, the worker checks whether the
+product is actually on the fetched page, by looking for the product's model
+number (auto-derived from `display_name`, e.g. `H14SSL-N`) — and for any string
+you put in `match_aliases`. If none are present, the vendor isn't stocking the
+product yet, so the run skips the paid extraction for that source (cost ~$0) and
+the report shows it as **"watched"**. The source stays active and auto-wakes the
+moment the vendor lists the item. This lets the user keep "aspirational" vendors
+(ones that don't carry it today but might later) without paying to scrape junk
+every run — so DO keep such vendors in `sources`, not `sources_pending`, when the
+user asks to track them "in case it comes in stock later".
+
+**You SHOULD seed `match_aliases`** from your web-search results with the
+product's common **marketing name(s)** and **vendor SKU form(s)** — anything a
+vendor might title the listing with that ISN'T the bare model number already in
+`display_name`. Examples for "Supermicro H14SSL-N Motherboard":
+`["MBD-H14SSL-N-O", "H14SSL-N Motherboard"]`. For "Sony WH-1000XM5":
+`["WH-1000XM5 Wireless Headphones", "WH1000XM5/B"]`.
+
+**Guardrail (the save will REJECT otherwise):** each alias must be DISTINCTIVE —
+it must contain a digit OR be a multi-word phrase. A bare generic single word
+(`"Supermicro"`, `"Motherboard"`, `"Headphones"`) is forbidden, because it would
+match the vendor's entire catalog and defeat the gate (the exact bug that made a
+"Supermicro"-only match wrongly look relevant). When in doubt, prefer the
+model/SKU form. Omit `match_aliases` entirely if the only reliable identifier is
+the model number already in `display_name`.
 
 ## Brand candidates (for `brand_candidates`)
 

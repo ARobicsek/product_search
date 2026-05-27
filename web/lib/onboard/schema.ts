@@ -415,6 +415,32 @@ export function parseAndValidateProfileYaml(text: string): ParsedProfile {
     }
   }
 
+  // ADR-099: match_aliases — extra carry-gate identifiers (marketing names /
+  // SKU forms). Mirror of worker Profile.match_aliases + its distinctiveness
+  // guardrail: each alias must contain a digit OR be a multi-word phrase, so a
+  // bare generic word can't re-open the runtime gate on the vendor's catalog.
+  if (obj.match_aliases !== undefined && obj.match_aliases !== null) {
+    const aliases = asArray(obj.match_aliases, 'match_aliases', ctx);
+    if (aliases) {
+      aliases.forEach((a, i) => {
+        const s = asString(a, `match_aliases[${i}]`, ctx);
+        if (s === null) return;
+        const stripped = s.trim();
+        if (stripped === '') {
+          ctx.errors.push(`match_aliases[${i}]: must be a non-empty string`);
+          return;
+        }
+        const hasDigit = /\d/.test(stripped);
+        const isMultiword = stripped.split(/\s+/).length >= 2;
+        if (!hasDigit && !isMultiword) {
+          ctx.errors.push(
+            `match_aliases[${i}]: ${JSON.stringify(stripped)} is too generic — a single word with no digit would match the vendor's whole catalog and defeat the carry-gate (ADR-099). Use the model number, a SKU form, or a multi-word marketing phrase.`,
+          );
+        }
+      });
+    }
+  }
+
   if (obj.report_columns !== undefined && obj.report_columns !== null) {
     const cols = asArray(obj.report_columns, 'report_columns', ctx);
     if (cols) {

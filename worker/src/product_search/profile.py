@@ -388,6 +388,19 @@ class Profile(BaseModel):
     # columns appear in the report.
     report_columns: list[str] | None = None
 
+    # ADR-099 carry-gate: extra identifier strings (marketing names, vendor SKU
+    # forms) that ALSO open the runtime carry-gate for a search source, beyond
+    # the family-core model token auto-derived from ``display_name``. Each is
+    # matched as a normalized contiguous substring against the fetched page, so
+    # a vendor that lists the product only under a marketing name is still
+    # caught. Guardrail (the validator below): an alias must be DISTINCTIVE —
+    # contain a digit OR be a multi-word phrase — so a bare generic word
+    # ("Supermicro", "Motherboard") can't re-open the gate on the vendor's
+    # whole catalog (the exact failure mode ADR-099 exists to prevent). The
+    # onboarder auto-seeds this list from its web search. MUST stay in sync
+    # with the TS mirror in web/lib/onboard/schema.ts.
+    match_aliases: list[str] = Field(default_factory=list)
+
     # Optional list of brand names the validator pipeline should look
     # for in listing titles when an adapter leaves ``brand`` as ``None``.
     # Match is case-insensitive, word-boundary. The first candidate
@@ -407,6 +420,31 @@ class Profile(BaseModel):
     # notifications via /api/push/notify on state transitions only. Default
     # empty — most profiles have no alerts.
     alerts: list[AlertRule] = Field(default_factory=list)
+
+    @field_validator("match_aliases")
+    @classmethod
+    def match_aliases_must_be_distinctive(cls, v: list[str]) -> list[str]:
+        """Reject aliases too generic to be safe carry-gate keys (ADR-099).
+
+        A single generic word with no digit (e.g. the brand or category) would
+        match the vendor's whole catalog and re-open the gate on junk — the
+        very failure the carry-gate exists to prevent. Each alias must contain
+        a digit OR be a multi-word phrase.
+        """
+        for a in v:
+            if not isinstance(a, str) or not a.strip():
+                raise ValueError("match_aliases: each entry must be a non-empty string")
+            stripped = a.strip()
+            has_digit = any(ch.isdigit() for ch in stripped)
+            is_multiword = len(stripped.split()) >= 2
+            if not (has_digit or is_multiword):
+                raise ValueError(
+                    f"match_aliases entry {a!r} is too generic — a single word with "
+                    f"no digit would match the vendor's whole catalog and defeat the "
+                    f"carry-gate (ADR-099). Use the model number, a SKU form, or a "
+                    f"multi-word marketing phrase."
+                )
+        return v
 
     @field_validator("brand_candidates")
     @classmethod

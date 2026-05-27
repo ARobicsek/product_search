@@ -39,6 +39,10 @@ const STATUS_PILL: Record<SourceStatus, string> = {
     'bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 ring-1 ring-amber-200 dark:ring-amber-900',
   permanent:
     'bg-rose-50 dark:bg-rose-950/40 text-rose-800 dark:text-rose-300 ring-1 ring-rose-200 dark:ring-rose-900',
+  // ADR-099: calm, informational — not an error. The vendor just isn't
+  // stocking the product yet; we spent ~$0 confirming it and will auto-wake.
+  watched:
+    'bg-sky-50 dark:bg-sky-950/40 text-sky-800 dark:text-sky-300 ring-1 ring-sky-200 dark:ring-sky-900',
 };
 
 function fmtMoney(n: number | null, fx?: string | null): string {

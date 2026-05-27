@@ -391,9 +391,16 @@ def _cmd_search(
                         _lst.attrs["source_url"] = src_url_for_attrs
                 # ADR-078 (R6): surface a circuit-breaker / budget skip in the
                 # Sources panel so a short-circuited run is visible, not silent.
+                # ADR-099: a carry-gate skip is NOT an error (the vendor just
+                # isn't stocking the product) — pass it as skip_reason only so
+                # the classifier returns WATCHED, and leave error_msg unset.
                 if universal_ai_mod.LAST_SKIP_REASON:
-                    error_msg = universal_ai_mod.LAST_SKIP_REASON
+                    from product_search.source_reasons import (
+                        WATCH_GATE_REASON_PREFIX,
+                    )
                     skip_reason = universal_ai_mod.LAST_SKIP_REASON
+                    if not skip_reason.startswith(WATCH_GATE_REASON_PREFIX):
+                        error_msg = skip_reason
                 # ADR-084: capture per-fetch diagnostics for the reason classifier.
                 if universal_ai_mod.LAST_FETCH_DIAGNOSTICS:
                     diagnostics = dict(universal_ai_mod.LAST_FETCH_DIAGNOSTICS)

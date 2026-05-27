@@ -532,3 +532,31 @@ def test_cli_validate_ddr5_exits_zero() -> None:
         f"stderr: {result.stderr}"
     )
     assert "valid" in result.stdout.lower()
+
+
+# --- ADR-099: match_aliases distinctiveness guardrail ---
+
+
+def test_match_aliases_accepts_distinctive_entries() -> None:
+    p = Profile.model_validate(
+        {**VALID_PROFILE, "match_aliases": ["MBD-H14SSL-N-O", "H14SSL-N Motherboard"]}
+    )
+    assert p.match_aliases == ["MBD-H14SSL-N-O", "H14SSL-N Motherboard"]
+
+
+def test_match_aliases_defaults_empty() -> None:
+    p = Profile.model_validate(VALID_PROFILE)
+    assert p.match_aliases == []
+
+
+def test_match_aliases_rejects_bare_generic_word() -> None:
+    with pytest.raises(ValidationError) as exc:
+        Profile.model_validate({**VALID_PROFILE, "match_aliases": ["Supermicro"]})
+    assert "too generic" in str(exc.value)
+
+
+def test_match_aliases_allows_multiword_phrase_without_digit() -> None:
+    p = Profile.model_validate(
+        {**VALID_PROFILE, "match_aliases": ["Noise Cancelling Headphones"]}
+    )
+    assert p.match_aliases == ["Noise Cancelling Headphones"]

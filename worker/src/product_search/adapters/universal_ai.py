@@ -47,6 +47,7 @@ from urllib.parse import (
 
 from product_search.llm import Message, call_llm
 from product_search.models import AdapterQuery, Listing
+from product_search.source_reasons import WATCH_GATE_REASON_PREFIX
 from product_search.vendor_quirks import (
     apply_url_transforms,
     merge_alterlab_options,
@@ -2573,6 +2574,90 @@ def _degrade_search_url(url: str) -> str | None:
 # --- Main entry point ------------------------------------------------------
 
 
+# --- Carry-gate (ADR-099) --------------------------------------------------
+#
+# Before spending Haiku tokens on the anchor + full-HTML extractors for a
+# SEARCH page, check whether the product is actually present on the page. A
+# vendor the user keeps in the profile "in case it stocks the item later" but
+# that doesn't carry it today otherwise costs a full LLM extraction every run
+# to surface guaranteed-junk. The gate is purely deterministic and only ever
+# *suppresses* a paid call — it never produces data (ADR-001 intact).
+
+
+def _normalize_alnum(text: str) -> str:
+    """Lowercase and drop every non-alphanumeric char.
+
+    Lets aliases (and the page) be compared separator-insensitively, so
+    ``MBD-H14SSL-N-O``, ``H14SSL N`` and ``h14ssln`` all normalize to a common
+    contiguous form.
+    """
+    return re.sub(r"[^a-z0-9]+", "", text.lower())
+
+
+def _model_family_token(display_name: str) -> str | None:
+    """Derive a recall-safe family-core token from a product ``display_name``.
+
+    Rule: take the longest whitespace word containing BOTH a letter and a digit
+    (a model-number shape, e.g. ``H14SSL-N``); reduce it to the first
+    hyphen/slash segment that still contains a digit (``H14SSL``); normalize to
+    lowercase-alphanumeric (``h14ssl``). "Family core" (ADR-099, user's
+    recall-safe choice) means the gate wakes on ``-NT`` / ``MBD-…-O`` variants
+    too — the relevance filter then sorts them.
+
+    Returns ``None`` when no confident model token exists (normalized core < 5
+    chars, e.g. ``The Economist 1yr subscription`` → only digit-word ``1yr``),
+    so the gate self-disables and extraction runs as before.
+    """
+    words = re.split(r"\s+", display_name.strip())
+    candidates = [
+        w for w in words
+        if re.search(r"[a-zA-Z]", w) and re.search(r"\d", w)
+    ]
+    if not candidates:
+        return None
+    model_word = max(candidates, key=len)
+    segments = re.split(r"[-/]", model_word)
+    core = next((s for s in segments if re.search(r"\d", s)), model_word)
+    norm = _normalize_alnum(core)
+    return norm if len(norm) >= 5 else None
+
+
+def _carry_gate_terms(profile: Any | None) -> tuple[str | None, list[str]]:
+    """Return ``(family_core_token, normalized_aliases)`` for the carry-gate.
+
+    ``family_core_token`` is ``None`` when the gate should be disabled (no
+    confident model token in ``display_name``).
+    """
+    if profile is None:
+        return None, []
+    token = _model_family_token(getattr(profile, "display_name", "") or "")
+    aliases_raw = getattr(profile, "match_aliases", None) or []
+    aliases = [
+        norm for a in aliases_raw
+        if isinstance(a, str) and (norm := _normalize_alnum(a))
+    ]
+    return token, aliases
+
+
+def _page_carries_product(
+    html: str, family_core: str, aliases: list[str]
+) -> bool:
+    """True if the family-core token OR any normalized alias is on the page.
+
+    The family core is a separator-free alphanumeric run, so it is matched in
+    the lowercased HTML directly (``h14ssl`` is a substring of ``h14ssl-n``).
+    Aliases are matched against the alphanumeric-normalized page so spacing and
+    punctuation don't matter.
+    """
+    if family_core and family_core in html.lower():
+        return True
+    if aliases:
+        page_norm = _normalize_alnum(html)
+        if any(alias in page_norm for alias in aliases):
+            return True
+    return False
+
+
 def fetch(query: AdapterQuery, profile: Any | None = None) -> list[Listing]:
     """Fetch and extract product listings from an arbitrary vendor URL."""
     global LAST_RUN_USAGE, LAST_SKIP_REASON, LAST_FETCH_DIAGNOSTICS
@@ -2714,6 +2799,27 @@ def fetch(query: AdapterQuery, profile: Any | None = None) -> list[Listing]:
             return []
         # detail_mode == "auto" (URL-shape heuristic): fall through to the
         # search union so a real search/category page is never regressed.
+
+    # --- Carry-gate (ADR-099) ---------------------------------------------
+    # Skip the paid anchor + full-HTML LLM extractors when the product isn't on
+    # the page. JSON-LD already ran (free); keep whatever it found. Only gate
+    # when a confident family-core model token exists — otherwise extract as
+    # before (the gate self-disables for products it can't reason about).
+    gate_token, gate_aliases = _carry_gate_terms(profile)
+    if gate_token is not None and not _page_carries_product(
+        html, gate_token, gate_aliases
+    ):
+        n = len(gate_aliases)
+        LAST_SKIP_REASON = (
+            f"{WATCH_GATE_REASON_PREFIX} product identifier '{gate_token}' "
+            f"not present on page (+{n} alias{'es' if n != 1 else ''} checked)"
+        )
+        logger.info(
+            f"[universal_ai] carry-gate: '{gate_token}' absent from {url}; "
+            f"skipping paid LLM extraction (WATCHED). "
+            f"Keeping {len(jsonld_results)} JSON-LD listing(s)."
+        )
+        return jsonld_results
 
     # --- Search union (ADR-077) -------------------------------------------
     #

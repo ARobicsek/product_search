@@ -466,19 +466,31 @@ export function countProductAnchors(html: string, baseUrl: string): number {
 // --- ADR-098 fix #1: relevance-hit counting for search URLs ---------------
 
 /**
- * Tokenize a product name into "distinctive" tokens — words ≥3 chars that
- * are likely model numbers, brand names, or identifying substrings.
- * Short words ("of", "the", "for", "in", "and", "or", "to", "a", "an")
- * and generic e-commerce words are excluded so they don't inflate hits.
+ * Tokenize a product name into "distinctive" tokens used to score whether a
+ * search page's anchors actually reference the target product.
+ *
+ * ADR-099 fix #7: PREFER model-number-shaped tokens — a word containing BOTH a
+ * letter and a digit (e.g. ``H14SSL-N``), normalized to lowercase-alphanumeric
+ * (``h14ssln``). The previous version returned every ≥3-char word including the
+ * bare brand (``supermicro``) and category (``motherboard``) words, so a
+ * vendor's catalog of "Supermicro <accessory>" rows scored a relevance hit on
+ * the brand alone — the false "11 relevance hits" that greenlit a dead GoToDirect
+ * source. Only when the name has NO model token do we fall back to the old
+ * generic-word behavior (so products without a model number still get a signal).
  */
 function distinctiveTokens(name: string): string[] {
   const STOP_WORDS = new Set([
     'the', 'and', 'for', 'with', 'new', 'set', 'kit', 'pack', 'pair',
     'lot', 'box', 'qty', 'pcs', 'item', 'items', 'product', 'products',
   ]);
-  return name
-    .toLowerCase()
-    .split(/[\s\-\/,.()+]+/)
+  const words = name.toLowerCase().split(/[\s,.()+]+/).filter(Boolean);
+  const modelTokens = words
+    .filter(w => /[a-z]/.test(w) && /\d/.test(w))
+    .map(w => w.replace(/[^a-z0-9]+/g, ''))
+    .filter(w => w.length >= 4);
+  if (modelTokens.length > 0) return modelTokens;
+  return words
+    .flatMap(w => w.split(/[-/]/))
     .filter(t => t.length >= 3 && !STOP_WORDS.has(t));
 }
 
@@ -529,8 +541,11 @@ export function countRelevanceHits(
     if (isSearchOrCategoryUrl(absStr) || looksLikeNavPath(absStr)) continue;
     if (!looksLikeProductUrl(absStr)) continue;
 
-    // Check if any distinctive token appears in the anchor text
-    if (tokens.some(t => anchorText.includes(t))) {
+    // Match the distinctive tokens against the anchor text with separators
+    // stripped (ADR-099), so a normalized model token like "h14ssln" matches
+    // an anchor that renders the product as "H14SSL-N".
+    const anchorNorm = anchorText.replace(/[^a-z0-9]+/g, '');
+    if (tokens.some(t => anchorNorm.includes(t))) {
       hits++;
     }
   }

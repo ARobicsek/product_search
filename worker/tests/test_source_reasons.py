@@ -143,3 +143,44 @@ def test_no_match_without_dominant_rejection_uses_default_message() -> None:
     out = classify_source_outcome(fetched=4, passed=0)
     assert out.category is OutcomeCategory.NO_MATCH
     assert "filter" in out.message.lower()
+
+
+# --- ADR-099: carry-gate WATCHED status ---
+
+
+def test_watch_gate_skip_reason_classifies_watched() -> None:
+    from product_search.source_reasons import WATCH_GATE_REASON_PREFIX
+
+    out = classify_source_outcome(
+        fetched=0,
+        passed=0,
+        skip_reason=f"{WATCH_GATE_REASON_PREFIX} product identifier 'h14ssl' not present on page",
+    )
+    assert out.category is OutcomeCategory.WATCHED
+    assert out.label == "watched"
+    # The message must SAY the vendor isn't stocking it (the user's requirement).
+    assert "isn't listed" in out.message.lower()
+    assert "$0" in out.message
+
+
+def test_non_watch_skip_reason_still_transient() -> None:
+    # A circuit-breaker / budget skip is NOT a carry-gate skip — stays transient.
+    out = classify_source_outcome(
+        fetched=0,
+        passed=0,
+        skip_reason="skipped: AlterLab circuit open after 3 consecutive failures",
+    )
+    assert out.category is OutcomeCategory.TRANSIENT
+
+
+def test_watch_gate_does_not_override_real_no_match() -> None:
+    # If we actually fetched listings (e.g. JSON-LD), a 0-passed outcome is a
+    # real NO_MATCH, not WATCHED, even if a stale skip_reason is present.
+    from product_search.source_reasons import WATCH_GATE_REASON_PREFIX
+
+    out = classify_source_outcome(
+        fetched=3,
+        passed=0,
+        skip_reason=f"{WATCH_GATE_REASON_PREFIX} 'h14ssl' not present",
+    )
+    assert out.category is OutcomeCategory.NO_MATCH
