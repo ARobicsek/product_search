@@ -15,6 +15,7 @@ import {
   PREFER_DETAIL_HOSTS,
 } from '@/lib/onboard/vendor-quirks-data';
 import { checkMatchAliases } from '@/lib/onboard/match-aliases-check';
+import { validateProfileDraft } from '@/lib/onboard/validation';
 
 export const runtime = 'nodejs';
 export const maxDuration = 60;
@@ -95,33 +96,24 @@ export async function POST(request: NextRequest) {
       // Optimistic save: render YAML directly from the draft WITHOUT
       // running probes. Probes will run asynchronously after the response.
       draftForProbe = { ...draft };
-      // ADR-067/068: deterministic guardrail for force_detail_backup vendors.
-      // Computed before commit; surfaced as soft warnings in the response.
-      const adr067Warnings: Adr067Warning[] = checkForceDetailBackup(draft);
-      warnings.push(...adr067Warnings);
-      // ADR-074: warn if a chat-stated hard condition requirement silently
-      // disappeared from the draft (no condition_in filter). Needs the chat
-      // <state> ledger, which the client sends alongside the draft.
+      
       const state =
         body.state && typeof body.state === 'object' && !Array.isArray(body.state)
           ? (body.state as Record<string, unknown>)
           : null;
-      warnings.push(...checkConditionDrift(state, draft));
-      // ADR-080: warn if a title_excludes value is a substring of the product
-      // name (would reject the target product itself and zero recall).
-      warnings.push(...checkTitleExcludes(draft));
-      // ADR-079 (Phase 27 reinforcement): warn if a detail-preferred vendor's
-      // URL was dropped to a URL-less sources_pending placeholder (the gate
-      // has no URL to protect; the prompt + this check both catch the bypass).
-      warnings.push(
-        ...checkDetailPreferencePresence(
-          draft,
-          FORCE_DETAIL_BACKUP_HOSTS,
-          PREFER_DETAIL_HOSTS,
-        ),
-      );
-      warnings.push(...checkMatchAliases(draft));
-      yamlText = renderProfileYaml(draft);
+      const originalSlug = (body.originalSlug && SLUG_RE.test(body.originalSlug)) ? body.originalSlug : null;
+
+      const validationRes = validateProfileDraft(draft, state, originalSlug);
+      
+      warnings.push(...validationRes.warnings.map(w => ({ message: w })));
+      
+      if (!validationRes.ok || !validationRes.yamlText) {
+        return bad(validationRes.errors[0] || 'profile validation failed', 422, {
+          details: validationRes.errors.slice(1),
+        });
+      }
+      yamlText = validationRes.yamlText;
+      
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'render-yaml failed';
       return bad(`failed to render YAML from draft: ${msg}`, 422);
@@ -134,28 +126,38 @@ export async function POST(request: NextRequest) {
     return bad('either draft (object) or yaml (non-empty string) is required');
   }
 
-  if (body.originalSlug && SLUG_RE.test(body.originalSlug)) {
-    // Edit mode: aggressively pin the slug to whatever the URL said, even if
-    // the LLM hallucinated a new one in the draft.
-    yamlText = yamlText.replace(/^\s*slug\s*:\s*.*$/m, `slug: "${body.originalSlug}"`);
-  }
+  let slug: string;
 
-  let parsed;
-  try {
-    parsed = parseAndValidateProfileYaml(yamlText);
-  } catch (err) {
-    if (err instanceof ProfileValidationError) {
-      return bad('profile failed schema validation', 422, {
-        details: err.errors,
-      });
+  if (body.draft !== undefined && body.draft !== null) {
+    // Already validated via validateProfileDraft which checks slug
+    const state = body.state && typeof body.state === 'object' && !Array.isArray(body.state) ? (body.state as Record<string, unknown>) : null;
+    const originalSlug = (body.originalSlug && SLUG_RE.test(body.originalSlug)) ? body.originalSlug : null;
+    const validationRes = validateProfileDraft(draftForProbe as Record<string, unknown>, state, originalSlug);
+    slug = validationRes.slug!;
+  } else {
+    if (body.originalSlug && SLUG_RE.test(body.originalSlug)) {
+      // Edit mode: aggressively pin the slug to whatever the URL said, even if
+      // the LLM hallucinated a new one in the draft.
+      yamlText = yamlText!.replace(/^\s*slug\s*:\s*.*$/m, `slug: "${body.originalSlug}"`);
     }
-    const msg = err instanceof Error ? err.message : 'profile validation failed';
-    return bad(msg, 422);
-  }
 
-  const slug = parsed.slug;
-  if (!SLUG_RE.test(slug)) {
-    return bad(`slug ${JSON.stringify(slug)} fails ${SLUG_RE.source}`, 422);
+    let parsed;
+    try {
+      parsed = parseAndValidateProfileYaml(yamlText!);
+    } catch (err) {
+      if (err instanceof ProfileValidationError) {
+        return bad('profile failed schema validation', 422, {
+          details: err.errors,
+        });
+      }
+      const msg = err instanceof Error ? err.message : 'profile validation failed';
+      return bad(msg, 422);
+    }
+
+    slug = parsed.slug;
+    if (!SLUG_RE.test(slug)) {
+      return bad(`slug ${JSON.stringify(slug)} fails ${SLUG_RE.source}`, 422);
+    }
   }
 
   let result;

@@ -3,6 +3,7 @@ import Anthropic from '@anthropic-ai/sdk';
 import { loadOnboardPrompt } from '@/lib/onboard/prompt';
 import { findLatestStateRaw } from '@/lib/onboard/blocks';
 import { probeUrl } from '@/lib/onboard/probe-url';
+import { validateProfileDraft } from '@/lib/onboard/validation';
 
 export const runtime = 'edge';
 
@@ -193,6 +194,20 @@ export async function POST(request: NextRequest) {
                   required: ['url'],
                 },
               },
+              {
+                name: 'validate_profile',
+                description: 'Validates a profile draft against the schema and deterministic guardrails. Returns any hard errors (which will block save) and soft warnings. You MUST call this before emitting the final draft to the user and fix any issues it reports.',
+                input_schema: {
+                  type: 'object',
+                  properties: {
+                    draft: {
+                      type: 'object',
+                      description: 'The JSON draft of the profile.',
+                    },
+                  },
+                  required: ['draft'],
+                },
+              },
             ],
             messages: history,
           });
@@ -204,6 +219,8 @@ export async function POST(request: NextRequest) {
                 send({ type: 'tool_use', name: 'web_search' });
               } else if (block.type === 'tool_use' && block.name === 'probe_url') {
                 send({ type: 'tool_use', name: 'probe_url' });
+              } else if (block.type === 'tool_use' && block.name === 'validate_profile') {
+                send({ type: 'tool_use', name: 'validate_profile' });
               }
             } else if (event.type === 'content_block_delta') {
               const delta = event.delta;
@@ -233,9 +250,9 @@ export async function POST(request: NextRequest) {
             content: finalMsg.content,
           });
 
-          // Check if there are tool uses of probe_url
+          // Check if there are tool uses of probe_url or validate_profile
           const customToolUses = finalMsg.content.filter(
-            (block: { type: string; name?: string; id?: string; input?: unknown }) => block.type === 'tool_use' && block.name === 'probe_url'
+            (block: { type: string; name?: string; id?: string; input?: unknown }) => block.type === 'tool_use' && (block.name === 'probe_url' || block.name === 'validate_profile')
           );
 
           if (customToolUses.length > 0) {
@@ -245,25 +262,54 @@ export async function POST(request: NextRequest) {
                 if (toolUse.type !== 'tool_use') return null;
 
                 const toolUseId = toolUse.id;
-                const input = toolUse.input as { url: string; alterlab_options?: Record<string, unknown>; page_type?: 'search' | 'detail'; target_name?: string };
-                const url = input.url;
-                const alterlabOptions = input.alterlab_options;
-                const pageType = input.page_type;
-                const targetName = input.target_name;
-
-                // Send the detailed tool_use event so the client can display exactly what is being probed
-                send({ type: 'tool_use', name: 'probe_url', input });
-
+                
                 let resultText = '';
-                try {
-                  const probeRes = await probeUrl(url, alterlabOptions, pageType, targetName);
-                  resultText = JSON.stringify(probeRes, null, 2);
-                } catch (err) {
-                  resultText = JSON.stringify({
-                    ok: false,
-                    url,
-                    error: err instanceof Error ? err.message : String(err),
-                  }, null, 2);
+                if (toolUse.name === 'probe_url') {
+                  const input = toolUse.input as { url: string; alterlab_options?: Record<string, unknown>; page_type?: 'search' | 'detail'; target_name?: string };
+                  const url = input.url;
+                  const alterlabOptions = input.alterlab_options;
+                  const pageType = input.page_type;
+                  const targetName = input.target_name;
+
+                  // Send the detailed tool_use event so the client can display exactly what is being probed
+                  send({ type: 'tool_use', name: 'probe_url', input });
+
+                  try {
+                    const probeRes = await probeUrl(url, alterlabOptions, pageType, targetName);
+                    resultText = JSON.stringify(probeRes, null, 2);
+                  } catch (err) {
+                    resultText = JSON.stringify({
+                      ok: false,
+                      url,
+                      error: err instanceof Error ? err.message : String(err),
+                    }, null, 2);
+                  }
+                } else if (toolUse.name === 'validate_profile') {
+                  const input = toolUse.input as { draft: Record<string, unknown> };
+                  const draft = input.draft;
+                  const stateRaw = findLatestStateRaw(trimmedMessages);
+                  let state = null;
+                  try {
+                    if (stateRaw) state = JSON.parse(stateRaw);
+                  } catch {}
+                  const originalSlug = state?.slug_decisions?.original_slug ?? null;
+
+                  send({ type: 'tool_use', name: 'validate_profile' });
+
+                  try {
+                    const validationRes = validateProfileDraft(draft, state, originalSlug as string | null);
+                    resultText = JSON.stringify({
+                      ok: validationRes.ok,
+                      errors: validationRes.errors,
+                      warnings: validationRes.warnings,
+                    }, null, 2);
+                  } catch (err) {
+                    resultText = JSON.stringify({
+                      ok: false,
+                      errors: [err instanceof Error ? err.message : String(err)],
+                      warnings: [],
+                    }, null, 2);
+                  }
                 }
 
                 return {

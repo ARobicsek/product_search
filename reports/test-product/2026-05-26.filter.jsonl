@@ -1,0 +1,3 @@
+{"timestamp": "2026-05-26T23:45:19.431521+00:00", "product": "test-product", "index": 0, "pass": false, "reason": "[condition_in] condition 'used' not in ['new']", "title": "Used Item", "price": 119.99, "url": "https://www.ebay.com/itm/123", "source": "ebay_search"}
+{"timestamp": "2026-05-26T23:45:19.431521+00:00", "product": "test-product", "index": 1, "pass": false, "reason": "[condition_in] condition 'used' not in ['new']", "title": "Used Item", "price": 119.99, "url": "https://www.ebay.com/itm/123", "source": "ebay_search"}
+{"timestamp": "2026-05-26T23:45:19.431521+00:00", "product": "test-product", "index": 2, "pass": false, "reason": "[in_stock] out of stock", "title": "OOS Item", "price": 119.99, "url": "https://www.ebay.com/itm/123", "source": "ebay_search"}
