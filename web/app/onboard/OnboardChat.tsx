@@ -296,6 +296,16 @@ export function OnboardChat({ initialProfile, initialSlug }: { initialProfile?: 
         warnings?: Array<{ host: string; message: string }>;
       };
       if (!res.ok || !data.ok || !data.slug) {
+        if (res.status === 422) {
+          const errorMsg = data.error ?? 'Validation failed';
+          const detailsList = data.details && data.details.length > 0 ? `\n- ${data.details.join('\n- ')}` : '';
+          const prompt = `I clicked Save but the profile failed validation:\n${errorMsg}${detailsList}\n\nPlease fix these errors and re-validate before asking me to save again.`;
+          setSaveState({ kind: 'idle' });
+          const next: ChatMessage[] = [...messages, { role: 'user', content: prompt }];
+          await runTurn(next);
+          return;
+        }
+
         setSaveState({
           kind: 'error',
           message: data.error ?? `Save failed (${res.status})`,

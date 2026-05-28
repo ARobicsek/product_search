@@ -17,7 +17,9 @@ Full session-by-session history → [PROGRESS_ARCHIVE.md](PROGRESS_ARCHIVE.md) (
   - **DONE 2026-05-28: ADR-111 (Session A)** — hard-gated `force_detail_backup` at save (`validateProfileDraft` routes the check to `errors`, not `warnings`), fixed the Save-button-stuck-disabled bug (`OnboardChat.onSubmit` resets `saveState` on follow-up turns), updated the onboarder prompt so `validate_profile` errors are understood to BLOCK save (LLM must fix-and-revalidate, not surface to user). 6 new guard tests; web `tsc`/`eslint`/`next build` clean; worker 412/412.
   - **NEXT:** Phase 29 is fully closed! All Session A and Session B recall investigation sub-tasks have been completed successfully.
 - **Also queued:** **Schedule & Alerts editor prod verification** (ADR-059/060/061). Deferred standing candidate.
-- **Most recent work:** 2026-05-28 **Phase 29 Session B shipped: ADR-112 Scrappey CF-bypass + refined NO_MATCH diagnostic.**
+- **Most recent work:** 2026-05-28 **Phase 29 ADR-113: Auto-forward validation errors to LLM.**
+  - **ADR-113:** Modified `OnboardChat.tsx` so that when a profile save fails with a 422 validation error, the UI intercepts it and automatically prompts the LLM (`"I clicked Save but the profile failed validation: ..."`) to fix the draft, rather than showing the error wall to the user.
+- **Prior work:** 2026-05-28 **Phase 29 Session B shipped: ADR-112 Scrappey CF-bypass + refined NO_MATCH diagnostic.**
   - **ADR-112:** Tuned `universal_ai.py` to propagate the `render_js` flag down to Scrappey via `"browser": True` in its JSON payload, enabling it to successfully bypass Cloudflare on B&H and Backmarket. Refined the mis-scope diagnostic in `cli.py` to correctly attribute 0-fetched items to "vendor doesn't carry" and 0-passed-all-rejected to "mis-scoped URL".
   - **B-1 & B-3:** Added Scrappey diagnostics logging. Verified ADR-107 fallback for Amazon thin-body recovery is working.
 - **Prior work:** 2026-05-28 **Phase 29 Session A shipped: ADR-111 hard-gate `force_detail_backup` + Save-button reset.**
@@ -50,7 +52,7 @@ Full session-by-session history → [PROGRESS_ARCHIVE.md](PROGRESS_ARCHIVE.md) (
 
 ## Current state — 2026-05-28 Phase 29 Session A shipped (ADR-111 hard gate + Save reset); Session B briefed
 
-See the "Most recent work" bullet above for detail. One-line state: ADR-105 through ADR-112 all done! Phase 29 recall investigation is fully closed. Tree green at last commit (worker 412/412, web `tsc`/`eslint`/`test:guards 28/28`/`test:parity 6/6`/`next build` ok).
+See the "Most recent work" bullet above for detail. One-line state: ADR-105 through ADR-113 all done! Phase 29 recall investigation is fully closed. Tree green at last commit (worker 412/412, web `tsc`/`eslint`/`test:guards 28/28`/`test:parity 6/6`/`next build` ok).
 
 **Older-but-still-live follow-up:** the existing `supermicro-h14ssl-n` profile won't get `match_aliases` until the user re-onboards or edits it (the app owns `products/`); the ADR-099 carry-gate's family-core token still protects it from the gotodirect/altex/bestbuy spend regardless.
 
