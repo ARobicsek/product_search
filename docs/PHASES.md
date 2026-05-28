@@ -985,7 +985,7 @@ fixture, then all work + tests run against committed HTML.
 
 ## Phase 29 — Recall & reproducibility overhaul: registry-driven URLs, parser-gap recovery, auto-Scrappey, prompt diet, honest diagnostics (IN PROGRESS 2026-05-27)
 
-> **Status (2026-05-27):** ADR-105 (registry-driven search URLs) + ADR-109 (honest per-source diagnostics) + ADR-106 (parser-gap recovery via the embedded-state `__NEXT_DATA__` tier) are **DONE/ACCEPTED**. **Remaining: ADR-107, ADR-108** — see the per-ADR task breakdown below; pick one per session. ADR-107 needs a small live AlterLab+Scrappey spend.
+> **Status (2026-05-27):** ADR-105 (registry-driven search URLs) + ADR-109 (honest per-source diagnostics) + ADR-106 (parser-gap recovery via the embedded-state `__NEXT_DATA__` tier) + ADR-108 (onboard prompt diet, `onboard_v1.txt` cut 44% by words) are **DONE/ACCEPTED**. **Remaining: ADR-107 only** — generalize auto-Scrappey; needs a small live AlterLab+Scrappey spend (~$1–3). ADR-108's 3× DJI behavioural re-run via MCP is a post-deploy confidence check (it tests the deployed prompt).
 
 ### Why
 A 2026-05-27 evaluation session traced the DJI Neo 2 Motion Fly More Combo run end-to-end against `origin/main` and found the run-to-run inconsistency the user reports is **five distinct systemic defects**, not one bug. Evidence from that single run (`reports/dji-neo-2-motion-fly-more-combo/2026-05-27.json` + `.filter.jsonl`):
