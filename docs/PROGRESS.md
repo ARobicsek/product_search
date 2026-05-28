@@ -74,7 +74,7 @@ ADR-105 through ADR-115 done; **ADR-121 done (Session C, 2026-05-28)**. Tree gre
 - **Defect E (ADR-120, P2)** — `vendor_doesnt_carry` vs `mis_scoped` vs `wrong_variant` diagnostic subkinds.
 - **Defect F (ADR-121, DONE 2026-05-28)** — Probe modal bounded loop + backfill row de-dup + plan visibility. Was P3 cosmetic in the original brief; Session-C review found two real functional bugs (non-terminating loop, host-keyed render bug) and upgraded to P1. See [SESSION_C_BRIEF.md](SESSION_C_BRIEF.md) Defect F (rewritten) and ADR-121 (ACCEPTED).
 
-**Pick-up order in next session:** 116 → 118 → 119 → 120 → 121, all independently shippable in one session if the agent is disciplined; **117 is its own session that opens with an `AskUserQuestion` interview**.
+**Pick-up order in next session:** 116 → 118 → 119 → 120, all independently shippable in one session if disciplined (121 is DONE this session); **117 is its own session that opens with an `AskUserQuestion` interview**.
 
 **Older-but-still-live follow-up:** the existing `supermicro-h14ssl-n` profile won't get `match_aliases` until the user re-onboards or edits it (the app owns `products/`); the ADR-099 carry-gate's family-core token still protects it from the gotodirect/altex/bestbuy spend regardless.
 

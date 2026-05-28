@@ -10,7 +10,7 @@
    - `docs/PROGRESS.md` (state)
    - `docs/SESSION_PROTOCOL.md` (rules)
    - This file
-   - `docs/DECISIONS.md` PROPOSED entries **ADR-116 through ADR-121** (this brief's defects, one ADR each)
+   - `docs/DECISIONS.md` PROPOSED entries **ADR-116 through ADR-120** (remaining defects); ADR-121 is ACCEPTED/DONE — skip its body
    - For background: `ADR-098, ADR-099, ADR-101, ADR-105, ADR-109, ADR-111, ADR-115` — skim, don't memorize.
 2. `git fetch origin && git pull --rebase --autostash origin main`. The app rewrites `products/**` + `reports/**` between sessions.
 3. Confirm green at HEAD: `cd worker && python -m pytest -q` (expect 412+); `cd web && npm run lint && npm run test:guards && npm run test:parity && npx tsc --noEmit && npm run build`.
@@ -174,7 +174,7 @@ Each maps 1:1 to a PROPOSED ADR. Pick them up in this order. **Do not try to do 
 
 ---
 
-### Defect F — Save-time probe modal: non-terminating loop + row proliferation (ADR-121, **UPGRADED to P1 — two real functional bugs, not just cosmetic**)
+### Defect F — Save-time probe modal: non-terminating loop + row proliferation (ADR-121, **DONE 2026-05-28 Session C**)
 
 > **2026-05-28 (Session C review by the next agent):** the user re-flagged this defect and explicitly said the original brief did NOT address (1) the "very confusing apparent proliferation of target URL probes" or (2) "whether or not I was stuck in a loop that would have gone on forever." Investigation confirmed **both are real bugs**, not UI confusion. The original P3-cosmetic framing was wrong. Rewriting the section with the actual root causes found in code.
 
@@ -201,11 +201,7 @@ Each maps 1:1 to a PROPOSED ADR. Pick them up in this order. **Do not try to do 
   - Re-label "DETAIL-URL BACKFILL" → "Looking for product detail pages on hosts that only have a search URL" with a one-line `<details>` explainer.
   - **Hard cap / no-progress exit:** after a `noProgress: true` pass (or after 3 successive Continue clicks with no shrink in `unprobed`), replace the **Continue probing** button with "Stop and save what we have" (still ADR-111-gated, but the loop is now visibly bounded and can't run forever).
 
-**Done when**:
-- A Continue pass that makes zero progress is detected; the modal stops offering an unbounded "Continue" and surfaces an explicit stop-and-save path. The loop provably terminates.
-- target.com (and any backfill host) shows **one** row, not one-per-attempt.
-- The modal makes clear retries don't multiply work — the planned set is capped per host.
-- Worker untouched; web tsc/eslint/test:guards/test:parity/next build green; new guard/UI test pins the no-progress termination.
+**Shipped 2026-05-28 (Session C, commit `10a46d2`)**. Server emits `noProgress: true` + `plan_summary` event; client hides Continue on no-progress and surfaces "Stop and save what we have"; backfill rows de-duped by host via `upsertBackfill`; per-host roll-up chips; header shows done/total. 4 new guard tests (35 total). Web tsc/eslint/test:guards 35/35/test:parity 6/6/next build green.
 
 ---
 
@@ -213,16 +209,12 @@ Each maps 1:1 to a PROPOSED ADR. Pick them up in this order. **Do not try to do 
 
 If running with **claude-opus-4-7** on a normal session budget, the realistic shape is:
 
-**Revised after the 2026-05-28 Session-C review (ADR-121 upgraded P3→P1):** the user's loudest pain was the modal — the apparent infinite loop and the proliferating target.com rows. Both turned out to be real functional bugs (see Defect F, rewritten). Two equally defensible orderings:
+**ADR-121 shipped 2026-05-28 Session C** — the infinite-loop + row-proliferation bugs are fixed. Start fresh on ADR-116.
 
-- **User-pain-first (recommended given the "Help!!!"):** ADR-121 → 116 → 118 → 119 → 120. Start by killing the infinite-loop trap and the row proliferation, because that's the experience that made the user give up mid-onboard.
-- **Brief's original correctness-first:** ADR-116 → 118 → 119 → 120 → 121.
-
-1. **ADR-121 (now P1)** — bound the probe loop + de-dup backfill rows. Self-contained to the probe route + modal. ~1.5 hours including a no-progress-termination test.
-2. **ADR-116 (P0)** — narrow, fixture-backed, biggest correctness win, closes two standing candidates. ~2-3 hours including fixture capture.
-3. **ADR-118 (P1)** — simple registry change + save-time gate. ~1 hour.
-4. **ADR-119 (P1)** — equally simple; URL canonicalization + warning. ~45 min.
-5. **ADR-120 (P2)** — diagnostic refinement; touches `cli.py` only on the worker side. ~1 hour.
+1. **ADR-116 (P0)** — detail-URL relevance gate + match_aliases hallucination guard. Narrow, fixture-backed, biggest remaining correctness win; closes two standing candidates. ~2-3 hours including fixture capture.
+2. **ADR-118 (P1)** — vendor-condition compatibility gate (Backmarket refurb registry entry + save-time guard). Simple registry change. ~1 hour.
+3. **ADR-119 (P1)** — Amazon `&i=<department>` URL strip at save + runtime canonicalization. URL canonicalization + warning. ~45 min.
+4. **ADR-120 (P2)** — `vendor_doesnt_carry` vs `mis_scoped` vs `wrong_variant` diagnostic sub-kinds. Touches `cli.py` only on the worker side. ~1 hour.
 
 **ADR-117 (P0 by impact)** should be its own session because it starts with an `AskUserQuestion` interview, not coding. Open it AFTER 116/118/119/120/121 have shipped — that way the user has clean feedback signal on whether the lenient filter actually improves recall, vs other defects masking it.
 
