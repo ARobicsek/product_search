@@ -17,7 +17,9 @@ Full session-by-session history → [PROGRESS_ARCHIVE.md](PROGRESS_ARCHIVE.md) (
   - **DONE 2026-05-28: ADR-111 (Session A)** — hard-gated `force_detail_backup` at save (`validateProfileDraft` routes the check to `errors`, not `warnings`), fixed the Save-button-stuck-disabled bug (`OnboardChat.onSubmit` resets `saveState` on follow-up turns), updated the onboarder prompt so `validate_profile` errors are understood to BLOCK save (LLM must fix-and-revalidate, not surface to user). 6 new guard tests; web `tsc`/`eslint`/`next build` clean; worker 412/412.
   - **NEXT:** Phase 29 is fully closed! All Session A and Session B recall investigation sub-tasks have been completed successfully.
 - **Also queued:** **Schedule & Alerts editor prod verification** (ADR-059/060/061). Deferred standing candidate.
-- **Most recent work:** 2026-05-28 **Phase 29 ADR-113: Auto-forward validation errors to LLM.**
+- **Most recent work:** 2026-05-28 **Phase 29: Resolve mypy type check error in source_reasons.py**
+  - **Mypy type-narrowing:** Fixed a type-checking error where `dominant_rejection` was typed as `str | None` but accessed as a `str` calling `.split()`. Explicitly check that it is not `None` before checking its prefix and calling `.split()`.
+- **Prior work:** 2026-05-28 **Phase 29 ADR-113: Auto-forward validation errors to LLM.**
   - **ADR-113:** Modified `OnboardChat.tsx` so that when a profile save fails with a 422 validation error, the UI intercepts it and automatically prompts the LLM (`"I clicked Save but the profile failed validation: ..."`) to fix the draft, rather than showing the error wall to the user.
 - **Prior work:** 2026-05-28 **Phase 29 Session B shipped: ADR-112 Scrappey CF-bypass + refined NO_MATCH diagnostic.**
   - **ADR-112:** Tuned `universal_ai.py` to propagate the `render_js` flag down to Scrappey via `"browser": True` in its JSON payload, enabling it to successfully bypass Cloudflare on B&H and Backmarket. Refined the mis-scope diagnostic in `cli.py` to correctly attribute 0-fetched items to "vendor doesn't carry" and 0-passed-all-rejected to "mis-scoped URL".

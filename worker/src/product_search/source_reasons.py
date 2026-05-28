@@ -121,7 +121,7 @@ def classify_source_outcome(
     #    classify it before any degraded/transient signal.
     if fetched > 0:
         plural = "listing" if fetched == 1 else "listings"
-        if str(dominant_rejection).startswith("mis_scoped_url_"):
+        if dominant_rejection is not None and dominant_rejection.startswith("mis_scoped_url_"):
             n_rejected = dominant_rejection.split("_")[-1]
             return SourceOutcome(
                 OutcomeCategory.NO_MATCH,
