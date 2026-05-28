@@ -58,35 +58,22 @@ Full session-by-session history → [PROGRESS_ARCHIVE.md](PROGRESS_ARCHIVE.md) (
 - **Prior work:** 2026-05-26 **ADR-099 implemented — runtime carry-gate + `match_aliases` + WATCHED status.** A deterministic carry-gate in `universal_ai.fetch()` checks for the product's family-core model token or any `match_aliases` on the fetched page. If absent, it skips extraction (~$0) and reports the source as `WATCHED`. Guardrails ensure aliases are distinctive.
 - **Prior work:** 2026-05-27 **Fix run duration and add cost to cards.** Moved `run_started_at` in `worker/src/product_search/cli.py` to the start of the execution so that the CSV file's timestamp correctly captures the start time, making the UI run duration accurate. Updated `web/app/page.tsx` to read `run_cost.total_usd` from the JSON sidecar and display it on the cards next to the duration.
 
-## Current state — 2026-05-28 ADR-114 + ADR-115 shipped; user is testing live
+## Current state — 2026-05-28 ADR-114 + ADR-115 verified live; six new defects diagnosed → **SESSION_C_BRIEF.md**
 
-ADR-105 through ADR-115 all done. Tree green at HEAD (`ce55481`): worker 412/412, web `tsc`/`eslint`/`test:guards 31/31`/`test:parity 6/6`/`next build` ok. Pushed to `origin/main`.
+ADR-105 through ADR-115 all done. Tree green at HEAD (`e4c0ec9` after pulling the app's report commit): worker 412/412, web `tsc`/`eslint`/`test:guards 31/31`/`test:parity 6/6`/`next build` ok.
+
+**ADR-114 + ADR-115 verification result: PASS with follow-up.** User ran a live re-onboard + run of `dji-neo-2-motion-fly-more-combo` against prod 2026-05-28. The save-time probe modal appeared, streamed per-URL progress, offered Continue / Save-anyway, and the save committed all 8 sources. The right-pane draft preview stayed in sync (8 sources visible in the saved YAML is the proof). **The features shipped fine.** What the live test SURFACED is six new defects in the layers around them — see [SESSION_C_BRIEF.md](SESSION_C_BRIEF.md):
+
+- **Defect A (ADR-116, P0)** — Detail-URL probe has no relevance check. Live run baked the DJI Transmission Transceiver as a "detail URL" for the Neo 2 profile + put its ASIN in `match_aliases`. Closes Standing Candidates #5 + #7.
+- **Defect B (ADR-117, P0 by impact — design-interview first)** — ai_filter rejects sibling SKUs by default; user wants family-match-as-default with `variant_strict` opt-out.
+- **Defect C (ADR-118, P1)** — Vendor-condition compatibility gate: `inventory_condition: refurbished` for Backmarket etc. + save-time gate.
+- **Defect D (ADR-119, P1)** — Amazon `&i=<department>` URL guard: strip at save + runtime canonicalization.
+- **Defect E (ADR-120, P2)** — `vendor_doesnt_carry` vs `mis_scoped` vs `wrong_variant` diagnostic subkinds.
+- **Defect F (ADR-121, P3)** — Save-time probe modal UX clarity (per-host roll-up, planned-cap visible, "Stop and save" after 3 fruitless retries).
+
+**Pick-up order in next session:** 116 → 118 → 119 → 120 → 121, all independently shippable in one session if the agent is disciplined; **117 is its own session that opens with an `AskUserQuestion` interview**.
 
 **Older-but-still-live follow-up:** the existing `supermicro-h14ssl-n` profile won't get `match_aliases` until the user re-onboards or edits it (the app owns `products/`); the ADR-099 carry-gate's family-core token still protects it from the gotodirect/altex/bestbuy spend regardless.
-
-### ADR-114 + ADR-115 verification (user-driven, NEXT SESSION owns reviewing the result)
-
-The user is running a live onboard against `ari-product-search.vercel.app/onboard` at the close of this session. The shape of the verification next session should pick up:
-
-**What success looks like:**
-1. **ADR-114 (draft visibility):** during the multi-vendor probe loop, the right-pane "Draft profile" YAML pane shows a populated draft (slug, display_name, sources growing as probes return) — NOT the empty `{}` from the 2026-05-28 baseline that prompted this fix. Even on a tool-using turn that doesn't end with a closing `</draft>`, the pane should still reflect the LLM's intent (either parsed server-side from the iteration's pre-tool-use text, or pulled from the `validate_profile` tool's `draft` argument).
-2. **ADR-115 (save-time probe modal):** clicking Save opens an inline modal that streams URL probe statuses in real time (`probing → ok / failed / deadline`) with per-host detail-URL backfill chips underneath. On a clean run the modal closes silently and the existing "Saved." success state appears. On a partial run two buttons appear: *Continue probing* (re-streams only the unprobed URLs) and *Save and proceed anyway* (only enabled when the sole blocking errors are ADR-111 force_detail_backup ones).
-
-**Likely failure modes to look for in the user's transcript / screenshots:**
-- Right pane still shows `{}` → ADR-114's `extractDraftJson` is matching but seeing literal `{}`, OR the `validate_profile` tool isn't being called and no `<draft>` block is making it into any iteration's text. Look at the Network tab for `draft_update` SSE events.
-- Probe modal opens but no URL rows appear → SSE event names mismatch; check `web/app/api/onboard/probe/route.ts` event types vs `web/app/onboard/OnboardChat.tsx` handler switch.
-- "Save and proceed anyway" greyed out when it should be available → `bypassableViolations` regex too narrow; check the regex in `OnboardChat.tsx` against the actual error message from `checkForceDetailBackup` in `adr067-check.ts`.
-- Probe budget too tight (modal hits "Continue probing" on every run with reasonable vendor counts) → consider bumping `PROBE_BUDGET_MS` in `web/app/api/onboard/probe/route.ts` (currently 45_000, leaving headroom under the 60s `maxDuration`).
-- Vercel Hobby Edge/Node timeouts: the probe endpoint is `runtime: 'nodejs'` + `maxDuration: 60`, which is supported on Hobby for Node functions. If it 504s on Vercel before the 45s budget, the next session should drop the budget and document the practical ceiling.
-
-**What to commit, if anything, after verification:**
-- If both work end-to-end: a short PROGRESS.md note moving these from "verification pending" to "verified live" and pruning this section.
-- If something is off: open the precise file + line per the failure-mode list above, fix narrowly, re-verify. Don't refactor the streaming architecture — it's the right shape per the design interview.
-
-**What is OUT of scope for next-session verification:**
-- The post-save `probeAndUpdateProfile` background pass (already proven; the new save-time pass is in addition, not a replacement).
-- Bumping the chat-route turn budget (50s → larger). ADR-115 makes that less necessary; revisit only if save-time probing alone is still leaving the user with frequent partial drafts.
-- The standing candidates listed below.
 
 ## Standing candidates (pick up next)
 
@@ -94,9 +81,9 @@ The user is running a live onboard against `ari-product-search.vercel.app/onboar
 2. **Schedule & Alerts editor prod verification** (ADR-059/060/061).
 3. **Mobile popover layout.**
 4. **D4 — magazinesdirect $94 vs live $153/$247 investigation** (carved out of the prior ADR-094 follow-up). The 2026-05-25 extractor was `jsonld`, not detail_llm — likely `lowPrice` from a different SKU on the page, OR a stale fetch + page changed. Capture fixture and run jsonld extraction offline to diagnose.
-5. **Onboarder Rule Adherence: Guessed Slugs** (ADR-098 gap): LLM continues to fabricate detail URLs (e.g. appending `-ASIN` for TechAmerica) despite explicit prompt prohibitions. Needs a deterministic save-time guard to reject suspicious slugs or better prompt framing.
+5. ~~Onboarder Rule Adherence: Guessed Slugs~~ — folded into **ADR-116** (PROPOSED 2026-05-28). The new detail-URL relevance gate + match-alias hallucination guard catches both the slug-guessing class and the ASIN-pollution-of-aliases class.
 6. **Onboarder Rule Adherence: Ignored `known_failures`** (ADR-068 gap): LLM places known blockers (like Microcenter) into active sources instead of `sources_pending`. Needs a save-time gate or pipeline step to automatically enforce registry routing.
-7. **Onboarder Rule Adherence: Missing `match_aliases`** (ADR-099 gap): LLM omits `match_aliases` despite prompt instructions to auto-seed it, leaving the carry-gate underpowered. Addressed by the proposed ADR-101.
+7. ~~Onboarder Rule Adherence: Missing `match_aliases`~~ — partly covered by ADR-101 (already shipped) for the missing case, and by **ADR-116** for the polluted-aliases case.
 
 > **Phase 18 (second-product proof) was RETIRED 2026-05-25 (ADR-086)** — production already proves generality. **Phase 28 (Newegg + B&H search-page recall leaks) closed 2026-05-25 (ADR-087):** Newegg search works post-render (Defect 6 was transient); B&H search is Cloudflare-walled (recall via detail URLs — superseded today by ADR-089, see next). **Phase 24 follow-up (3 ADR-082-flagged hosts) closed 2026-05-25 (ADR-088):** eBay is dedicated-adapter-owned (no render defaults); CentralComputer + ServerSupply are Cloudflare-walled `known_failure`s; the ADR-082 lint now exempts `known_failure`/`dedicated_adapter` hosts and flags the known-good+known_failure contradiction. **Small-defect sweep (3 queued items) closed 2026-05-25 (ADR-089 + ADR-090):** B&H detail is ALSO Cloudflare-walled (promoted to `known_failure: blocker`, supersedes the "detail works" stance in ADR-087); Backmarket persistently CF-walled (also `known_failure: blocker`); the Best Buy curl_cffi HTTP/2 INTERNAL_ERROR root cause was a broken cascade — curl_cffi exceptions propagated past the httpx fallback (ADR-090 fix). **Onboarder robustness paper-cuts closed 2026-05-25 (ADR-091):** silent halt at `max_tokens` 4096 (now 8192 + user-visible "continue" hint); inferred `condition_in` (prompt now forbids inference); misleading baseline-filter line (split universal vs RAM-only); silent drop of `alterlab_known_good` hosts on bare-fetch 5xx (prompt now reads `ok` field as the verdict). **`description:` schema-vs-onboarder gap closed 2026-05-25 (ADR-092):** required `description: str` → optional `str = ""` in both schemas; ai_filter falls back to `display_name` when empty; prompt SHOULD-emit callout preserves the AI-filter context benefit. Closes PROGRESS.md standing candidate #1 (queued since ADR-075). **Run-now UX paper-cut + backend wall-budget tightening closed 2026-05-25 (ADR-093):** UI `POLL_TIMEOUT_MS` 15 → 20 min + graceful post-deadline recovery (final status check rescues just-missed completions; in-flight runs switch to 60s background poll instead of terminal "timed out"); backend `_RUN_BUDGET_SECONDS` 600 → 480 + mid-escalation budget check so an in-flight source's ladder honors the budget instead of running to completion past it. **Subscription / non-RAM price-display correctness closed 2026-05-25 (ADR-094):** `_calculate_total` generalized (RAM arm unchanged + new generic arm so `total_for_target_usd` populates for non-RAM); new `price` report column with as-sold semantics replaced `price_unit` as the default for non-RAM; `DETAIL_SYSTEM_PROMPT` learned to pick the LONGEST subscription term on multi-term pages. D3 live re-verified by user 2026-05-25; D4 (magazinesdirect $94 vs $153/$247) carved off as standing candidate #5. **Remaining onboarder paper-cuts closed 2026-05-26 (ADR-095):** `spec_attrs.required: bool` → `bool = False` default in both Pydantic + TS schemas (closes the stress26-ddr5 422 round-trip class); `build_flags_md` rewritten with a 3-tier description fallback (`profile_desc[flag] → fallback[flag] → fallback[rule_of_flag]`) + bare-bullet on no-match (closes the `- **low_feedback**: (no description)` cosmetic bug that has appeared in every report since ADR-028 — root cause was a key mismatch between rule names and flag labels). Closes PROGRESS standing candidate #4. **ADR-093 + ADR-091 live re-verified 2026-05-26 via Chrome DevTools MCP against prod:** Run-now on `the-week-1yr-subscription` completed in 9m 17s (under 20-min UI poll, 5 sources cleanly skipped under the new 480s budget), auto-refreshed at completion, no terminal "Timed out" message; onboarder multi-vendor sweep turn ("Economist 1yr subscription" throwaway) finished in 3 turns / 2,177 output tokens (well under the new 8192 cap), no freeze, condition_in only added because user explicitly stated it, failed probe routed to sources_pending — both fixes working as designed in prod.
 
@@ -104,7 +91,7 @@ The user is running a live onboard against `ari-product-search.vercel.app/onboar
 
 ## Blockers
 
-None blocking. CI is green (ADR-062 decoupled the worker suite + `validate-profiles` from app-mutable `products/`). Worker suite **412/412** green. Web `test:guards 31/31` + `test:parity 6/6` green at HEAD. **The next session's first job is the ADR-114 + ADR-115 verification checklist** in the "Current state" section above. [SESSION_B_BRIEF.md](SESSION_B_BRIEF.md) is now historical (B-1/B-2/B-3 all shipped as ADR-112).
+None blocking. CI is green (ADR-062 decoupled the worker suite + `validate-profiles` from app-mutable `products/`). Worker suite **412/412** green. Web `test:guards 31/31` + `test:parity 6/6` green at HEAD. **Next session: read [SESSION_C_BRIEF.md](SESSION_C_BRIEF.md), tackle ADR-116 first** (P0, fixture-backed, biggest correctness win). [SESSION_B_BRIEF.md](SESSION_B_BRIEF.md) remains historical (B-1/B-2/B-3 shipped as ADR-112).
 
 ## Noticed but deferred (live only)
 
