@@ -101,6 +101,7 @@ export async function gateUniversalAiUrls(
         anchorCount: 0,
         relevanceHits: 0,
         detailExtractable: null,
+        detailTitleMatch: null,
         reason: `unexpected probe error: ${msg}`,
         jsonldListings: undefined,
       } satisfies ProbeResult;

@@ -311,6 +311,7 @@ export async function POST(request: NextRequest) {
         anchorCount: 0,
         relevanceHits: 0,
         detailExtractable: null,
+        detailTitleMatch: null,
         reason: pr.reason,
       });
     }
@@ -389,6 +390,7 @@ export async function POST(request: NextRequest) {
               ok: res.ok,
               reason: res.reason,
               detailExtractable: res.detailExtractable,
+              detailTitleMatch: res.detailTitleMatch,
               jsonldCount: res.jsonldCount,
               anchorCount: res.anchorCount,
               relevanceHits: res.relevanceHits,

@@ -16,6 +16,11 @@ import {
 export type { AlterlabOptions } from '@/lib/onboard/alterlab-shared';
 export { stripToMainText, priceInText, buildAlterlabBody } from '@/lib/onboard/alterlab-shared';
 
+// ADR-116: deterministic detail-page relevance gate. titleMatchesTarget lives
+// in a pure module so the offline guard suite can test it without the Anthropic
+// SDK / server-only dependencies this file carries.
+import { titleMatchesTarget } from '@/lib/onboard/detail-title-match';
+
 // TypeScript port of the worker's universal_ai probe (Phase 15 task 5).
 //
 // Why a TS port and not a subprocess to the Python CLI: the onboarder runs
@@ -177,6 +182,12 @@ export interface ProbeResult {
   // probe never reached extraction, e.g. a hard fetch failure). For a detail
   // URL the onboarder must judge extractability by THIS, not anchorCount.
   detailExtractable: boolean | null;
+  // ADR-116: for page_type:"detail" URLs, whether the page's (verbatim)
+  // product title carries the target product's family-root tokens. true =
+  // right product, false = a DIFFERENT product (e.g. the DJI Transceiver page
+  // baked into the Neo 2 profile), null = not a detail probe / no target name /
+  // not extractable (no title to judge). When false, the probe fails (ok=false).
+  detailTitleMatch: boolean | null;
   reason: string | null; // populated when ok=false
   jsonldListings?: JsonLdListing[];
 }
@@ -574,16 +585,24 @@ function parseDetailJson(raw: string): Record<string, unknown> | null {
 }
 
 // Faithful mirror of _extract_detail_listing: one Haiku call on the stripped
-// page text, then re-verify the returned price verbatim. Returns true iff a
-// priced product was extracted and verified. Any failure (no API key, LLM
-// error, no price, price not in text) → false: the runtime would emit nothing
-// either, so the URL is genuinely not extractable as a detail page.
-async function extractDetailListing(html: string, url: string): Promise<boolean> {
+// page text, then re-verify the returned price verbatim. Returns the extracted
+// product's VERBATIM title alongside `extractable` so the caller can run the
+// ADR-116 relevance gate. Any failure (no API key, LLM error, no price, price
+// not in text) → { extractable: false }: the runtime would emit nothing either,
+// so the URL is genuinely not extractable as a detail page.
+//
+// The title is pulled verbatim from the page text by the extractor — never
+// fabricated (ADR-001). The relevance JUDGMENT is made deterministically by the
+// caller (titleMatchesTarget), not by the model.
+async function extractDetailListing(
+  html: string,
+  url: string,
+): Promise<{ extractable: boolean; title: string | null }> {
   const apiKey = process.env.ANTHROPIC_API_KEY;
-  if (!apiKey) return false;
+  if (!apiKey) return { extractable: false, title: null };
 
   const text = stripToMainText(html);
-  if (text.length < 20) return false;
+  if (text.length < 20) return { extractable: false, title: null };
 
   let responseText = '';
   try {
@@ -598,24 +617,24 @@ async function extractDetailListing(html: string, url: string): Promise<boolean>
       if (block.type === 'text') responseText += block.text;
     }
   } catch {
-    return false;
+    return { extractable: false, title: null };
   }
 
   const parsed = parseDetailJson(responseText);
-  if (!parsed || !parsed.found) return false;
+  if (!parsed || !parsed.found) return { extractable: false, title: null };
 
   const price = Number(parsed.price_usd);
-  if (!Number.isFinite(price) || price <= 0) return false;
+  if (!Number.isFinite(price) || price <= 0) return { extractable: false, title: null };
 
   // The architectural guard: the model never produces a price the
   // deterministic layer didn't fetch (ADR-001). Verify against the same text.
-  if (!priceInText(price, text)) return false;
+  if (!priceInText(price, text)) return { extractable: false, title: null };
 
   const title = typeof parsed.title === 'string' ? parsed.title.trim() : '';
-  if (!title) return false;
+  if (!title) return { extractable: false, title: null };
 
   void url; // kept for symmetry with the runtime signature / future logging
-  return true;
+  return { extractable: true, title };
 }
 
 // --- Top-level probe ------------------------------------------------------
@@ -635,6 +654,7 @@ export async function probeUrl(
     anchorCount: 0,
     relevanceHits: 0,
     detailExtractable: null,
+    detailTitleMatch: null,
     reason: null,
   };
   const host = hostOf(url);
@@ -731,12 +751,42 @@ export async function probeUrl(
     const listings = extractJsonldListings(html, url);
     const anchors = countProductAnchors(html, url);
     let detailExtractable: boolean | null = null;
+    let detailTitleMatch: boolean | null = null;
     if (pageType === 'detail') {
       // For a detail URL, anchorCount is meaningless (~0 is expected). Judge by
       // whether the Tier 1.5 path can pull a verbatim-verified price. JSON-LD
       // with a price is already proof (the runtime Tier 1 would catch it), so
       // skip the LLM call in that case to save a Haiku call.
-      detailExtractable = listings.length > 0 ? true : await extractDetailListing(html, url);
+      let detailTitle: string | null = null;
+      if (listings.length > 0) {
+        detailExtractable = true;
+        detailTitle = listings[0].title;
+      } else {
+        const extracted = await extractDetailListing(html, url);
+        detailExtractable = extracted.extractable;
+        detailTitle = extracted.title;
+      }
+      // ADR-116: relevance gate. Judge the verbatim title against the target
+      // product name. A different product (the DJI Transceiver page baked into
+      // the Neo 2 profile) shares only the brand and fails here.
+      if (detailExtractable && detailTitle) {
+        detailTitleMatch = titleMatchesTarget(detailTitle, targetName);
+      }
+      if (detailTitleMatch === false) {
+        result = {
+          ...result,
+          jsonldCount: listings.length,
+          anchorCount: anchors,
+          detailExtractable,
+          detailTitleMatch,
+          jsonldListings: listings,
+          ok: false,
+          reason:
+            `detail page is for a different product (extracted title: ` +
+            `${JSON.stringify(detailTitle)}; does not match "${targetName}")`,
+        };
+        return result;
+      }
     }
     result = {
       ...result,
@@ -744,6 +794,7 @@ export async function probeUrl(
       anchorCount: anchors,
       relevanceHits: pageType !== 'detail' ? countRelevanceHits(html, url, targetName) : 0,
       detailExtractable,
+      detailTitleMatch,
       ok: true,
       jsonldListings: listings,
     };

@@ -9,6 +9,7 @@ import {
   PREFER_DETAIL_HOSTS,
 } from '@/lib/onboard/vendor-quirks-data';
 import { checkMatchAliases } from '@/lib/onboard/match-aliases-check';
+import { checkMatchAliasesAgainstHallucinatedSkus } from '@/lib/onboard/alias-hallucination-check';
 
 export interface ValidationResult {
   ok: boolean;
@@ -60,6 +61,12 @@ export function validateProfileDraft(
   warnings.push(...checkTitleExcludes(draft).map(w => w.message));
   warnings.push(...checkDetailPreferencePresence(draft, FORCE_DETAIL_BACKUP_HOSTS, PREFER_DETAIL_HOSTS).map(w => w.message));
   warnings.push(...checkMatchAliases(draft).map(w => w.message));
+
+  // ADR-116: a SKU/ASIN copied out of a source URL into match_aliases is a
+  // hard error — at runtime it would let the carry-gate pass unrelated
+  // listings. Hard-gate (like ADR-111) so the save 422s and ADR-113
+  // auto-forwards the error to the LLM to fix.
+  errors.push(...checkMatchAliasesAgainstHallucinatedSkus(draft).map(w => w.message));
 
   // 2. Render YAML
   let yamlText: string;

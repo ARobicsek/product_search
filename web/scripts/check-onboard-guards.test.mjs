@@ -507,3 +507,119 @@ test('ADR-114: prompt tells the LLM to emit blocks BEFORE tool_use in tool-using
     'prompt must instruct emitting state/draft blocks before tool_use',
   );
 });
+
+// --- ADR-116: detail-URL relevance gate + match_aliases hallucination guard ---
+
+import { titleMatchesTarget, familyRootTokens } from '../lib/onboard/detail-title-match.ts';
+import {
+  checkMatchAliasesAgainstHallucinatedSkus,
+  extractSkuTokens,
+} from '../lib/onboard/alias-hallucination-check.ts';
+
+const NEO2 = 'DJI Neo 2 Motion Fly More Combo';
+
+test('ADR-116: a wrong-product detail title (shares only the brand) fails the relevance gate', () => {
+  // The exact DJI-run bug: amazon.com/.../dp/B0FJ1QH15P is the DJI Transmission
+  // Transceiver, not the Neo 2. Its title shares only "dji".
+  assert.equal(
+    titleMatchesTarget('DJI Transmission Transceiver for Beginners with 2 Batteries', NEO2),
+    false,
+  );
+});
+
+test('ADR-116: the correct product title passes', () => {
+  assert.equal(
+    titleMatchesTarget('DJI Neo 2 Motion Fly More Combo with Goggles N3', NEO2),
+    true,
+  );
+});
+
+test('ADR-116: a same-family sibling SKU still passes (variant strictness is ADR-117, not this gate)', () => {
+  // "DJI Neo 2 Fly More Combo" (no "Motion") is the cheaper sibling. The detail
+  // relevance gate is about IDENTITY, not VARIANT — it must not reject siblings.
+  assert.equal(titleMatchesTarget('DJI Neo 2 Fly More Combo', NEO2), true);
+});
+
+test('ADR-116: a terse but correct title (brand + family) passes', () => {
+  assert.equal(titleMatchesTarget('DJI Neo 2 Drone', NEO2), true);
+});
+
+test('ADR-116: model-number targets require the exact model token', () => {
+  assert.equal(titleMatchesTarget('Sony WH-1000XM5 Wireless Headphones', 'Sony WH-1000XM5'), true);
+  // A different model number in the same line is a different product.
+  assert.equal(titleMatchesTarget('Sony WH-1000XM4 Wireless Headphones', 'Sony WH-1000XM5'), false);
+});
+
+test('ADR-116: no target name / no distinctive tokens / empty title yields null (no gating)', () => {
+  assert.equal(titleMatchesTarget('Anything', ''), null);
+  assert.equal(titleMatchesTarget('Anything', undefined), null);
+  assert.equal(titleMatchesTarget('', NEO2), null);
+  // A target with no ≥3-char distinctive tokens cannot be judged.
+  assert.equal(titleMatchesTarget('Some title', 'a b'), null);
+});
+
+test('ADR-116: familyRootTokens prefers model-shaped tokens', () => {
+  assert.deepEqual(familyRootTokens('Sony WH-1000XM5'), ['wh1000xm5']);
+  // No model token → generic ≥3-char words, hyphen-split, stopwords dropped.
+  assert.ok(familyRootTokens(NEO2).includes('neo'));
+  assert.ok(familyRootTokens(NEO2).includes('combo'));
+});
+
+test('ADR-116: extractSkuTokens pulls Amazon ASIN and B&H product numbers', () => {
+  assert.deepEqual(
+    extractSkuTokens('https://www.amazon.com/DJI-Transmission/dp/B0FJ1QH15P?ref=x'),
+    ['B0FJ1QH15P'],
+  );
+  assert.deepEqual(
+    extractSkuTokens('https://www.bhphotovideo.com/c/product/1234567-REG/dji_neo_2.html'),
+    ['1234567'],
+  );
+  assert.deepEqual(extractSkuTokens('https://www.amazon.com/s?k=dji+neo+2'), []);
+});
+
+test('ADR-116: a SKU/ASIN copied from a source URL into match_aliases is a hard error', () => {
+  // The exact DJI-run signature: B0FJ1QH15P lives in both the detail URL and
+  // match_aliases.
+  const draft = {
+    display_name: NEO2,
+    match_aliases: ['DJI Neo 2', 'B0FJ1QH15P'],
+    sources: [
+      {
+        id: 'universal_ai_search',
+        url: 'https://www.amazon.com/DJI-Transmission/dp/B0FJ1QH15P',
+        page_type: 'detail',
+      },
+    ],
+  };
+  const errs = checkMatchAliasesAgainstHallucinatedSkus(draft);
+  assert.equal(errs.length, 1);
+  assert.match(errs[0].message, /B0FJ1QH15P/);
+  assert.match(errs[0].message, /ADR-116/);
+});
+
+test('ADR-116: clean aliases (no URL-derived SKU) produce no error', () => {
+  const draft = {
+    display_name: NEO2,
+    match_aliases: ['DJI Neo 2', 'Neo 2 Fly More Combo'],
+    sources: [
+      { id: 'universal_ai_search', url: 'https://www.amazon.com/s?k=dji+neo+2&i=electronics' },
+      {
+        id: 'universal_ai_search',
+        url: 'https://www.amazon.com/DJI-Neo-2/dp/B0FJ1QH15P',
+        page_type: 'detail',
+      },
+    ],
+  };
+  assert.deepEqual(checkMatchAliasesAgainstHallucinatedSkus(draft), []);
+});
+
+test('ADR-116: prompt forbids copying a URL SKU into match_aliases and explains detailTitleMatch', () => {
+  assert.ok(
+    /NEVER copy an ASIN\/MPN\/SKU out of a URL into `match_aliases`/.test(promptText),
+    'prompt must forbid copying a URL SKU into match_aliases',
+  );
+  assert.ok(
+    /detailTitleMatch/.test(promptText),
+    'prompt must teach the LLM about the detailTitleMatch relevance verdict',
+  );
+});

@@ -37,11 +37,11 @@ the runtime worker's job, not yours.
 
 ## `probe_url` tool
 
-You MUST probe any vendor URL before adding it as a `universal_ai_search` source. The probe returns status, body size, and extraction metrics: JSON-LD count, product-anchor count, `relevanceHits` (anchors containing a distinctive token from the target), and — for detail URLs — a `detailExtractable` flag.
+You MUST probe any vendor URL before adding it as a `universal_ai_search` source. The probe returns status, body size, and extraction metrics: JSON-LD count, product-anchor count, `relevanceHits` (anchors containing a distinctive token from the target), and — for detail URLs — a `detailExtractable` flag plus a `detailTitleMatch` relevance verdict. **Always pass `target_name`** (the product's `display_name`) so the probe can judge relevance.
 
 **Always pass `page_type`** so the probe judges the URL correctly:
 - search/category/collection page → `page_type: "search"` (default); judge by anchor count, JSON-LD, and `relevanceHits`.
-- single-product page → `page_type: "detail"`; **0 anchors + 0 JSON-LD is EXPECTED, not a failure** (a product page has no list anchors). Judge SOLELY by `detailExtractable` — keep when `true`, demote only when `false`.
+- single-product page → `page_type: "detail"`; **0 anchors + 0 JSON-LD is EXPECTED, not a failure** (a product page has no list anchors). Keep ONLY when `detailExtractable: true` AND `detailTitleMatch` is not `false`. **`detailTitleMatch: false` means the page is a DIFFERENT product** (e.g. an accessory or a sibling model the URL happened to point at) — `ok` will be `false`; DROP that URL, do not add it as a source, and never copy its SKU into `match_aliases`.
 
 **Relevance check for search URLs.** For a `page_type: "search"` URL the probe returns `relevanceHits` — product anchors containing a distinctive token from the target. When `anchorCount >= 10` but `relevanceHits == 0`, the URL is **probably mis-scoped** (wrong category, or a category-node param overriding the keyword): strip `N=<digits>`/`nodeID=<digits>` and retry a plain keyword search. If the retry still gets 0 hits (or you started with a clean keyword search like `?q=`/`?k=`/`/p/pl?d=` that just genuinely has 0 matches today), **KEEP it as an active `universal_ai_search` source** — the carry-gate checks an empty vendor for ~$0/run and surfaces the product when stock arrives. Tell the user: "Added <vendor> — not stocking it today, but the carry-gate will surface it automatically." DO NOT drop a working, correctly-scoped keyword search URL to `sources_pending` just because it shows 0 matches today.
 
@@ -250,6 +250,15 @@ it must contain a digit OR be a multi-word phrase. A bare generic single word
 (`"Supermicro"`, `"Headphones"`) is forbidden — it would match the vendor's whole
 catalog and defeat the gate. Prefer the model/SKU form; omit `match_aliases`
 entirely if the model number in `display_name` is the only reliable identifier.
+
+**NEVER copy an ASIN/MPN/SKU out of a URL into `match_aliases`** (e.g. the
+`B0…`-style ASIN from an `amazon.com/.../dp/<ASIN>` link, or a B&H `<digits>-REG`
+number). The save will REJECT it. A code lifted from a URL is unverified — at
+runtime the carry-gate passes any page that merely contains that string, which
+silently admits unrelated listings. Only add a SKU to `match_aliases` if you read
+it off the product's own listing/marketing copy for the requested product, and
+only after a `page_type: "detail"` probe confirmed the page is that product
+(`detailTitleMatch: true`, not `false`).
 
 ## Brand candidates (for `brand_candidates`)
 
