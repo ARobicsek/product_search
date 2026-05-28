@@ -1,4 +1,4 @@
-slug: dji-neo-2-motion-fly-more-combo
+slug: "dji-neo-2-motion-fly-more-combo"
 display_name: DJI Neo 2 Drone Motion Fly More Combo
 description: One unit of the DJI Neo 2 Motion Fly More Combo with RC Motion 3, Goggles N3, and Digital Transceiver—new condition, in stock only
 target:
@@ -15,11 +15,6 @@ spec_flags:
     rating_pct_below: 98
     count_below: 50
 sources:
-  - id: ebay_search
-    queries:
-      - DJI Neo 2 Motion Fly More Combo
-      - Neo 2 Motion Combo
-    max_results_per_query: 50
   - id: universal_ai_search
     url: https://www.amazon.com/s?k=DJI+Neo+2+Motion+Fly+More+Combo&i=electronics
     extra:
@@ -84,10 +79,13 @@ sources:
       alterlab_options:
         country: us
         min_tier: 3
-sources_pending:
   - id: universal_ai_search
     url: https://www.walmart.com/search?q=DJI+Neo+2+Motion+Fly+More+Combo
-    note: Transient 504 fetch error; will retry at runtime
+    extra:
+      alterlab_options:
+        country: us
+        min_tier: 3
+sources_pending: []
 report_columns:
   - rank
   - source
