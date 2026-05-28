@@ -315,7 +315,13 @@ def _fetch_html(
                 try:
                     proxy_country = (alterlab_options or {}).get("proxy_country", "UnitedStates")
                     render_js = (alterlab_options or {}).get("render_js", False)
-                    return _fetch_via_scrappey(url, scrappey_key, proxy_country, triggered_by="dynamic_weak_render_fallback", render_js=render_js)
+                    return _fetch_via_scrappey(
+                        url,
+                        scrappey_key,
+                        proxy_country,
+                        triggered_by="dynamic_weak_render_fallback",
+                        render_js=render_js,
+                    )
                 except Exception as sc_exc:
                     logger.warning(
                         "[universal_ai] Dynamic Scrappey fallback failed "
@@ -990,7 +996,13 @@ def _fetch_with_escalation(
         )
         try:
             proxy_country = (alterlab_options or {}).get("proxy_country", "UnitedStates")
-            s_html, s_status, s_fetcher = _fetch_via_scrappey(url, scrappey_key, proxy_country, triggered_by="dynamic_weak_render_fallback", render_js=True)
+            s_html, s_status, s_fetcher = _fetch_via_scrappey(
+                url,
+                scrappey_key,
+                proxy_country,
+                triggered_by="dynamic_weak_render_fallback",
+                render_js=True,
+            )
             attempts.append(f"dynamic_scrappey_fallback: status={s_status} len={len(s_html)}")
             return s_html, s_status, s_fetcher, attempts, False
         except Exception as sc_exc:
@@ -3157,7 +3169,13 @@ def fetch(query: AdapterQuery, profile: Any | None = None) -> list[Listing]:
             )
             try:
                 proxy_country = (alterlab_options or {}).get("proxy_country", "UnitedStates")
-                s_html, s_status, s_fetcher = _fetch_via_scrappey(url, scrappey_key, proxy_country, triggered_by="adr107_post_extract", render_js=True)
+                s_html, s_status, s_fetcher = _fetch_via_scrappey(
+                    url,
+                    scrappey_key,
+                    proxy_country,
+                    triggered_by="adr107_post_extract",
+                    render_js=True,
+                )
                 if s_html:
                     s_jsonld_listings = _extract_jsonld_listings(s_html, base_url=url)
                     s_jsonld_results = _jsonld_to_listings(s_jsonld_listings, fetched_at, parsed_host)
