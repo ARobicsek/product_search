@@ -15,7 +15,9 @@ Full session-by-session history → [PROGRESS_ARCHIVE.md](PROGRESS_ARCHIVE.md) (
   - **DONE 2026-05-27: ADR-108 verification** — 3× DJI onboard via Chrome DevTools MCP against prod (`ari-product-search.vercel.app/onboard`). All 3 runs finalized perfectly with no silent timeouts, confirming ADR-110 and ADR-108 stability live.
   - **DONE 2026-05-27: ADR-107** — generalized auto-Scrappey to known-good thin-body vendors. The universal_ai adapter now automatically falls back to Scrappey after AlterLab escalation if it encounters a bot-wall (sub-15KB body) on a vendor marked as `alterlab_known_good`, ensuring that recall is preserved on tough targets without wasting Scrappey credits on normal fetchers.
   - **DONE 2026-05-28: ADR-111 (Session A)** — hard-gated `force_detail_backup` at save (`validateProfileDraft` routes the check to `errors`, not `warnings`), fixed the Save-button-stuck-disabled bug (`OnboardChat.onSubmit` resets `saveState` on follow-up turns), updated the onboarder prompt so `validate_profile` errors are understood to BLOCK save (LLM must fix-and-revalidate, not surface to user). 6 new guard tests; web `tsc`/`eslint`/`next build` clean; worker 412/412.
-  - **NEXT:** Phase 29 is fully closed! All Session A and Session B recall investigation sub-tasks have been completed successfully.
+  - **DONE 2026-05-28: ADR-114** — server-streams `<draft>` JSON to the right pane so the onboard preview stays accurate during long tool-use loops (fixes the "right pane shows `{}` despite 8 vendors added" defect).
+  - **DONE 2026-05-28: ADR-115** — save-time probe modal with *Continue probing* / *Save and proceed anyway* and `bypassForceDetailBackup` flag. Final piece for the "force-finalize stranded the user" failure class.
+  - **NEXT:** the user is **TESTING ADR-114 + ADR-115 in prod RIGHT NOW** (2026-05-28 end of session). The next session opens with a verification review — see `### ADR-114 + ADR-115 verification (user-driven)` below for the checklist and what to do with each possible outcome.
 - **Also queued:** **Schedule & Alerts editor prod verification** (ADR-059/060/061). Deferred standing candidate.
 - **Most recent work:** 2026-05-28 **Phase 29 ADR-115: save-time probe modal with continue / save-anyway choices.**
   - **ADR-115:** User feedback after ADR-114 shipped: "if we force-finalize, can we add another probe step at the time of saving?" New `POST /api/onboard/probe` SSE endpoint re-runs every `universal_ai_search` URL plus the ADR-076 deterministic detail-URL backfill inside a ~45s server budget, streaming `url_start`/`url_done`/`backfill_*`/`done` events. `OnboardChat.onSave` now opens an inline probe modal that shows per-URL status icons in real time; on `done` it either auto-saves (clean + valid) or shows *Continue probing* / *Save and proceed anyway*. New `bypassForceDetailBackup` option threaded through `validateProfileDraft` and `/api/onboard/save` so the bypass button can reach the commit path; ADR-111 violations downgrade to warnings under that flag (user still sees them; post-save background backfill keeps trying). 2 new guard tests (31 total); web `tsc`/`eslint`/`test:guards 31/31`/`test:parity 6/6`/`next build` clean.
@@ -56,11 +58,35 @@ Full session-by-session history → [PROGRESS_ARCHIVE.md](PROGRESS_ARCHIVE.md) (
 - **Prior work:** 2026-05-26 **ADR-099 implemented — runtime carry-gate + `match_aliases` + WATCHED status.** A deterministic carry-gate in `universal_ai.fetch()` checks for the product's family-core model token or any `match_aliases` on the fetched page. If absent, it skips extraction (~$0) and reports the source as `WATCHED`. Guardrails ensure aliases are distinctive.
 - **Prior work:** 2026-05-27 **Fix run duration and add cost to cards.** Moved `run_started_at` in `worker/src/product_search/cli.py` to the start of the execution so that the CSV file's timestamp correctly captures the start time, making the UI run duration accurate. Updated `web/app/page.tsx` to read `run_cost.total_usd` from the JSON sidecar and display it on the cards next to the duration.
 
-## Current state — 2026-05-28 ADR-115 shipped: save-time probe modal with continue / save-anyway choices (builds on ADR-114)
+## Current state — 2026-05-28 ADR-114 + ADR-115 shipped; user is testing live
 
-See the "Most recent work" bullet above for detail. One-line state: ADR-105 through ADR-113 all done! Phase 29 recall investigation is fully closed. Tree green at last commit (worker 412/412, web `tsc`/`eslint`/`test:guards 28/28`/`test:parity 6/6`/`next build` ok).
+ADR-105 through ADR-115 all done. Tree green at HEAD (`ce55481`): worker 412/412, web `tsc`/`eslint`/`test:guards 31/31`/`test:parity 6/6`/`next build` ok. Pushed to `origin/main`.
 
 **Older-but-still-live follow-up:** the existing `supermicro-h14ssl-n` profile won't get `match_aliases` until the user re-onboards or edits it (the app owns `products/`); the ADR-099 carry-gate's family-core token still protects it from the gotodirect/altex/bestbuy spend regardless.
+
+### ADR-114 + ADR-115 verification (user-driven, NEXT SESSION owns reviewing the result)
+
+The user is running a live onboard against `ari-product-search.vercel.app/onboard` at the close of this session. The shape of the verification next session should pick up:
+
+**What success looks like:**
+1. **ADR-114 (draft visibility):** during the multi-vendor probe loop, the right-pane "Draft profile" YAML pane shows a populated draft (slug, display_name, sources growing as probes return) — NOT the empty `{}` from the 2026-05-28 baseline that prompted this fix. Even on a tool-using turn that doesn't end with a closing `</draft>`, the pane should still reflect the LLM's intent (either parsed server-side from the iteration's pre-tool-use text, or pulled from the `validate_profile` tool's `draft` argument).
+2. **ADR-115 (save-time probe modal):** clicking Save opens an inline modal that streams URL probe statuses in real time (`probing → ok / failed / deadline`) with per-host detail-URL backfill chips underneath. On a clean run the modal closes silently and the existing "Saved." success state appears. On a partial run two buttons appear: *Continue probing* (re-streams only the unprobed URLs) and *Save and proceed anyway* (only enabled when the sole blocking errors are ADR-111 force_detail_backup ones).
+
+**Likely failure modes to look for in the user's transcript / screenshots:**
+- Right pane still shows `{}` → ADR-114's `extractDraftJson` is matching but seeing literal `{}`, OR the `validate_profile` tool isn't being called and no `<draft>` block is making it into any iteration's text. Look at the Network tab for `draft_update` SSE events.
+- Probe modal opens but no URL rows appear → SSE event names mismatch; check `web/app/api/onboard/probe/route.ts` event types vs `web/app/onboard/OnboardChat.tsx` handler switch.
+- "Save and proceed anyway" greyed out when it should be available → `bypassableViolations` regex too narrow; check the regex in `OnboardChat.tsx` against the actual error message from `checkForceDetailBackup` in `adr067-check.ts`.
+- Probe budget too tight (modal hits "Continue probing" on every run with reasonable vendor counts) → consider bumping `PROBE_BUDGET_MS` in `web/app/api/onboard/probe/route.ts` (currently 45_000, leaving headroom under the 60s `maxDuration`).
+- Vercel Hobby Edge/Node timeouts: the probe endpoint is `runtime: 'nodejs'` + `maxDuration: 60`, which is supported on Hobby for Node functions. If it 504s on Vercel before the 45s budget, the next session should drop the budget and document the practical ceiling.
+
+**What to commit, if anything, after verification:**
+- If both work end-to-end: a short PROGRESS.md note moving these from "verification pending" to "verified live" and pruning this section.
+- If something is off: open the precise file + line per the failure-mode list above, fix narrowly, re-verify. Don't refactor the streaming architecture — it's the right shape per the design interview.
+
+**What is OUT of scope for next-session verification:**
+- The post-save `probeAndUpdateProfile` background pass (already proven; the new save-time pass is in addition, not a replacement).
+- Bumping the chat-route turn budget (50s → larger). ADR-115 makes that less necessary; revisit only if save-time probing alone is still leaving the user with frequent partial drafts.
+- The standing candidates listed below.
 
 ## Standing candidates (pick up next)
 
@@ -78,7 +104,7 @@ See the "Most recent work" bullet above for detail. One-line state: ADR-105 thro
 
 ## Blockers
 
-None blocking. CI is green (ADR-062 decoupled the worker suite + `validate-profiles` from app-mutable `products/`). Worker suite **412/412** green. Web `test:guards 28/28` + `test:parity 6/6` green. The next session's work is [SESSION_B_BRIEF.md](SESSION_B_BRIEF.md) — start with B-1 (Scrappey diagnostics logging), it unblocks B-2 and B-3.
+None blocking. CI is green (ADR-062 decoupled the worker suite + `validate-profiles` from app-mutable `products/`). Worker suite **412/412** green. Web `test:guards 31/31` + `test:parity 6/6` green at HEAD. **The next session's first job is the ADR-114 + ADR-115 verification checklist** in the "Current state" section above. [SESSION_B_BRIEF.md](SESSION_B_BRIEF.md) is now historical (B-1/B-2/B-3 all shipped as ADR-112).
 
 ## Noticed but deferred (live only)
 
