@@ -416,6 +416,80 @@ test('ADR-115: save route forwards bypassForceDetailBackup to the validator', ()
 
 // --- ADR-114 draft visibility under tool-use loops -------------------------
 
+// --- ADR-121 probe-loop termination + backfill row de-dup ------------------
+//
+// The 2026-05-28 live DJI Neo 2 onboard exposed two failure modes in the
+// save-time probe modal: (1) a non-terminating "Continue probing" loop when
+// every URL in the unprobed set took longer than the 45s per-attempt budget,
+// and (2) target.com backfill rows accumulating one-per-attempt because the
+// client appended each `backfill_skip` event instead of replacing the host's
+// row. Both modules use server-only / Next aliases, so we pin the policy by
+// reading source — same shape as the ADR-115 guard above.
+
+const probeRouteSrc = readFileSyncForAdr115(
+  resolveForAdr115(__dirname_adr115, '../app/api/onboard/probe/route.ts'),
+  'utf8',
+);
+const onboardChatSrc = readFileSyncForAdr115(
+  resolveForAdr115(__dirname_adr115, '../app/onboard/OnboardChat.tsx'),
+  'utf8',
+);
+
+test('ADR-121: probe route emits noProgress when a Continue pass finished zero URLs', () => {
+  // The done event must carry a noProgress flag computed from the
+  // continue-mode unprobed set; the client uses it to hide plain Continue.
+  assert.ok(
+    /noProgress\s*=\s*continueOnlyUrls\s*!=\s*null/.test(probeRouteSrc),
+    'probe route must compute noProgress from continueOnlyUrls + unprobed',
+  );
+  assert.ok(
+    /noProgress,/.test(probeRouteSrc),
+    'probe route must include noProgress in the done event payload',
+  );
+});
+
+test('ADR-121: probe route emits a plan_summary event with per-host counts', () => {
+  // The modal renders a per-host roll-up so the user can see what is pending
+  // at a glance. plan_summary is the deterministic seed for that view.
+  assert.ok(
+    /type:\s*'plan_summary'/.test(probeRouteSrc),
+    'probe route must emit a plan_summary SSE event',
+  );
+  assert.ok(
+    /byHost,/.test(probeRouteSrc),
+    'plan_summary must carry the per-host count array',
+  );
+});
+
+test('ADR-121: client hides "Continue probing" when noProgress is true', () => {
+  // The footer button is the loop-exit lever. If noProgress fires, plain
+  // Continue is hidden and the user is steered to "Stop and save what we
+  // have." Without this guard the loop is unbounded for slow vendors.
+  assert.ok(
+    /state\.unprobed\.length\s*>\s*0\s*&&\s*!state\.noProgress/.test(onboardChatSrc),
+    'OnboardChat must gate the Continue button on !state.noProgress',
+  );
+  assert.ok(
+    /Stop and save what we have/.test(onboardChatSrc),
+    'OnboardChat must offer the explicit "Stop and save what we have" CTA on noProgress',
+  );
+});
+
+test('ADR-121: client de-dups backfill rows by host across attempts', () => {
+  // The accumulation bug came from calling backfills.push on every
+  // backfill_start / backfill_skip event. The new shape uses an upsert
+  // keyed by host so a re-skipped vendor shows ONE row, not one-per-attempt.
+  assert.ok(
+    /upsertBackfill\s*\(/.test(onboardChatSrc),
+    'OnboardChat must use a host-keyed upsertBackfill helper for backfill events',
+  );
+  // The push-on-backfill-skip pattern is the bug; make sure it does not return.
+  assert.ok(
+    !/backfills\.push\(\s*\{\s*host:\s*p\.host,\s*state:\s*'skipped'/.test(onboardChatSrc),
+    'OnboardChat must not append a fresh backfill row on backfill_skip — use upsertBackfill',
+  );
+});
+
 test('ADR-114: prompt tells the LLM to emit blocks BEFORE tool_use in tool-using turns', () => {
   // Anthropic stops the assistant message at the first tool_use block, so a
   // tool-using turn that puts <state>/<draft> after the tool_use never emits

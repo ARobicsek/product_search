@@ -329,6 +329,21 @@ export async function POST(request: NextRequest) {
           ? universalSources.filter((s) => continueOnlyUrls.has(s.url))
           : universalSources;
 
+        // ADR-121: emit a plan summary so the modal can show total URLs +
+        // capped backfill plan without inferring it from streamed events.
+        const hostCounts = new Map<string, number>();
+        for (const s of universalSources) {
+          if (!s.host) continue;
+          hostCounts.set(s.host, (hostCounts.get(s.host) ?? 0) + 1);
+        }
+        const byHost = Array.from(hostCounts.entries()).map(([host, count]) => ({ host, count }));
+        send({
+          type: 'plan_summary',
+          totalUrls: universalSources.length,
+          continueUrls: sourcesToProbe.length,
+          byHost,
+        });
+
         send({
           type: 'phase',
           message: continueOnlyUrls
@@ -501,11 +516,20 @@ export async function POST(request: NextRequest) {
         // Re-validate so the client knows whether the gate will pass on save.
         const validation = validateProfileDraft(enrichedDraft, null, null);
 
+        // ADR-121: detect a zero-progress Continue pass. If we were called with
+        // `unprobed` (Continue mode) and the new `unprobed` set is the same
+        // size or larger, no URL finished this attempt — the loop is stuck
+        // and the client should stop offering plain "Continue probing."
+        const noProgress = continueOnlyUrls != null
+          && sourcesToProbe.length > 0
+          && unprobed.length >= sourcesToProbe.length;
+
         send({
           type: 'done',
           enrichedDraft,
           complete: unprobed.length === 0,
           unprobed,
+          noProgress,
           elapsedMs: Date.now() - startMs,
           validation: {
             ok: validation.ok,

@@ -51,6 +51,16 @@ interface BackfillRow {
   urls: string[];
 }
 
+// ADR-121: the modal shows a per-host roll-up at the top so the user can see
+// at a glance which vendors are pending vs done. `totalUrls` reflects the
+// whole universal_ai_search set; `continueUrls` is what THIS attempt covers
+// (= totalUrls on the first pass, only the unprobed remainder on a Continue).
+interface PlanSummary {
+  totalUrls: number;
+  continueUrls: number;
+  byHost: Array<{ host: string; count: number }>;
+}
+
 type ProbeState =
   | { kind: 'idle' }
   | {
@@ -59,12 +69,14 @@ type ProbeState =
       phase: string;
       rows: UrlProbeRow[];
       backfills: BackfillRow[];
+      plan: PlanSummary | null;
     }
   | {
       kind: 'awaiting';
       attempt: number;
       rows: UrlProbeRow[];
       backfills: BackfillRow[];
+      plan: PlanSummary | null;
       enrichedDraft: Record<string, unknown>;
       unprobed: string[];
       validationErrors: string[];
@@ -73,6 +85,11 @@ type ProbeState =
       // ones, "Save and proceed anyway" is offered as a bypass. Other errors
       // (schema, missing match_aliases, etc.) genuinely block save.
       bypassableViolations: boolean;
+      // ADR-121: true when this Continue pass made zero progress (every URL
+      // we asked for is still unprobed). The modal then hides plain Continue
+      // and steers the user to "Save and proceed anyway" so the loop can't
+      // run forever on a slow/walled vendor with a deadline that's too tight.
+      noProgress: boolean;
     }
   | { kind: 'error'; message: string };
 
@@ -429,6 +446,7 @@ export function OnboardChat({ initialProfile, initialSlug }: { initialProfile?: 
       phase: carryOver ? 'Resuming probe…' : 'Starting probe…',
       rows: carryOver?.rows ?? [],
       backfills: carryOver?.backfills ?? [],
+      plan: null,
     });
     const secret = process.env.NEXT_PUBLIC_WEB_SHARED_SECRET ?? '';
     let response: Response;
@@ -460,8 +478,13 @@ export function OnboardChat({ initialProfile, initialSlug }: { initialProfile?: 
 
     // Mutable copies we'll re-assign into state as events arrive.
     const rows: UrlProbeRow[] = [...(carryOver?.rows ?? [])];
+    // ADR-121: backfill rows are keyed by host. Carry-over from a prior
+    // attempt re-uses the same slot — we replace, never append — so a host
+    // that gets re-skipped each attempt (e.g. target.com when the budget
+    // is gone) shows ONE row instead of one-per-attempt.
     const backfills: BackfillRow[] = [...(carryOver?.backfills ?? [])];
     let phase = 'Probing…';
+    let plan: PlanSummary | null = null;
 
     const reader = response.body.getReader();
     const decoder = new TextDecoder();
@@ -473,6 +496,12 @@ export function OnboardChat({ initialProfile, initialSlug }: { initialProfile?: 
       else rows.push({ url, host: null, pageType: 'search', status: 'queued', ...patch });
     };
 
+    const upsertBackfill = (host: string, patch: Partial<BackfillRow>) => {
+      const idx = backfills.findIndex((b) => b.host === host);
+      if (idx >= 0) backfills[idx] = { ...backfills[idx], ...patch };
+      else backfills.push({ host, state: 'running', urls: [], ...patch });
+    };
+
     const flush = () => {
       setProbeState({
         kind: 'streaming',
@@ -480,6 +509,7 @@ export function OnboardChat({ initialProfile, initialSlug }: { initialProfile?: 
         phase,
         rows: [...rows],
         backfills: [...backfills],
+        plan,
       });
     };
 
@@ -499,6 +529,17 @@ export function OnboardChat({ initialProfile, initialSlug }: { initialProfile?: 
         const t = p.type as string | undefined;
         if (t === 'phase' && typeof p.message === 'string') {
           phase = p.message;
+        } else if (t === 'plan_summary') {
+          // ADR-121: seed the per-host roll-up the modal renders at the top.
+          const totalUrls = typeof p.totalUrls === 'number' ? p.totalUrls : 0;
+          const continueUrls = typeof p.continueUrls === 'number' ? p.continueUrls : 0;
+          const byHostRaw = Array.isArray(p.byHost) ? p.byHost : [];
+          const byHost = byHostRaw
+            .filter((h): h is { host: string; count: number } =>
+              !!h && typeof (h as { host?: unknown }).host === 'string'
+              && typeof (h as { count?: unknown }).count === 'number')
+            .map((h) => ({ host: h.host, count: h.count }));
+          plan = { totalUrls, continueUrls, byHost };
         } else if (t === 'url_start' && typeof p.url === 'string') {
           updateRow(p.url, {
             host: (p.host as string | null) ?? null,
@@ -517,29 +558,36 @@ export function OnboardChat({ initialProfile, initialSlug }: { initialProfile?: 
             reason: 'budget exhausted before this URL was probed',
           });
         } else if (t === 'backfill_start' && typeof p.host === 'string') {
-          backfills.push({ host: p.host, state: 'running', urls: [] });
+          // ADR-121: replace any prior pass's row for this host so the user
+          // sees the current state, not an accumulation across attempts.
+          upsertBackfill(p.host, { state: 'running', urls: [], detail: undefined });
         } else if (t === 'backfill_added' && typeof p.host === 'string' && typeof p.url === 'string') {
-          const last = backfills[backfills.length - 1];
-          if (last && last.host === p.host) last.urls.push(p.url);
+          const idx = backfills.findIndex((b) => b.host === p.host);
+          if (idx >= 0) {
+            backfills[idx] = { ...backfills[idx], urls: [...backfills[idx].urls, p.url] };
+          }
         } else if (t === 'backfill_failed' && typeof p.host === 'string') {
           // Recorded as the host's per-row event; the backfill is not marked
           // failed unless every candidate failed (see backfill_done below).
         } else if (t === 'backfill_skip' && typeof p.host === 'string') {
-          backfills.push({
-            host: p.host,
+          upsertBackfill(p.host, {
             state: 'skipped',
             detail: typeof p.reason === 'string' ? p.reason : undefined,
             urls: [],
           });
         } else if (t === 'backfill_done' && typeof p.host === 'string') {
-          const last = backfills[backfills.length - 1];
-          if (last && last.host === p.host) {
-            last.state = (p.added as number) > 0 ? 'added' : 'failed';
+          const idx = backfills.findIndex((b) => b.host === p.host);
+          if (idx >= 0) {
+            backfills[idx] = {
+              ...backfills[idx],
+              state: (p.added as number) > 0 ? 'added' : 'failed',
+            };
           }
         } else if (t === 'done') {
           const enrichedDraft = p.enrichedDraft as Record<string, unknown>;
           const complete = p.complete === true;
           const unprobed = Array.isArray(p.unprobed) ? (p.unprobed as string[]) : [];
+          const noProgress = p.noProgress === true;
           const validation = (p.validation as {
             ok: boolean;
             errors: string[];
@@ -559,11 +607,13 @@ export function OnboardChat({ initialProfile, initialSlug }: { initialProfile?: 
             attempt,
             rows,
             backfills,
+            plan,
             enrichedDraft,
             unprobed,
             validationErrors: validation.errors,
             validationWarnings: validation.warnings,
             bypassableViolations: bypassableViolations || (complete && !validation.ok && bypassableViolations),
+            noProgress,
           });
           return;
         } else if (t === 'error') {
@@ -779,6 +829,63 @@ export function OnboardChat({ initialProfile, initialSlug }: { initialProfile?: 
   );
 }
 
+// ADR-121: header text for the streaming/awaiting modal phases. Shows how
+// many URLs are done out of how many this attempt covers, so the user
+// never wonders whether the loop has bounds.
+function headerForStreaming(state: Extract<ProbeState, { kind: 'streaming' }>): string {
+  const done = state.rows.filter((r) => r.status === 'ok' || r.status === 'failed').length;
+  const total = state.plan?.continueUrls ?? state.rows.length;
+  if (total === 0) return `Probing… (attempt ${state.attempt})`;
+  return `Probing vendor URLs — ${done}/${total} done (attempt ${state.attempt})`;
+}
+
+function headerForAwaiting(state: Extract<ProbeState, { kind: 'awaiting' }>): string {
+  if (state.noProgress) {
+    return `Probe attempt ${state.attempt} — no progress; pick how to proceed`;
+  }
+  return `Probe attempt ${state.attempt} — choose how to proceed`;
+}
+
+// ADR-121: per-host roll-up. Renders one chip per host showing done/total at
+// a glance ("amazon.com 1/2 ✓, target.com 0/1 ⏳") so the user can see
+// which vendors are still pending without scanning the row list.
+function HostRollup({
+  rows,
+  plan,
+}: {
+  rows: UrlProbeRow[];
+  plan: PlanSummary | null;
+}) {
+  if (!plan || plan.byHost.length === 0) return null;
+  const finishedByHost = new Map<string, number>();
+  for (const r of rows) {
+    if (!r.host) continue;
+    if (r.status === 'ok' || r.status === 'failed') {
+      finishedByHost.set(r.host, (finishedByHost.get(r.host) ?? 0) + 1);
+    }
+  }
+  return (
+    <div className="flex flex-wrap gap-1.5 text-[11px]">
+      {plan.byHost.map((h) => {
+        const done = finishedByHost.get(h.host) ?? 0;
+        const allDone = done >= h.count;
+        return (
+          <span
+            key={h.host}
+            className={`rounded-full px-2 py-0.5 border ${
+              allDone
+                ? 'bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-900/40 text-emerald-800 dark:text-emerald-300'
+                : 'bg-gray-50 dark:bg-gray-900 border-gray-200 dark:border-gray-800 text-gray-600 dark:text-gray-400'
+            }`}
+          >
+            {h.host} {done}/{h.count} {allDone ? '✓' : '⏳'}
+          </span>
+        );
+      })}
+    </div>
+  );
+}
+
 function ProbeModal({
   state,
   onContinue,
@@ -809,8 +916,8 @@ function ProbeModal({
             {isAwaiting && <AlertCircle className="w-4 h-4 text-amber-600" />}
             {isError && <AlertCircle className="w-4 h-4 text-red-600" />}
             <h3 className="text-sm font-semibold">
-              {isStreaming && `Save-time probe (attempt ${state.attempt})`}
-              {isAwaiting && `Probe attempt ${state.attempt} — choose how to proceed`}
+              {isStreaming && headerForStreaming(state)}
+              {isAwaiting && headerForAwaiting(state)}
               {isError && 'Probe failed'}
             </h3>
           </div>
@@ -829,6 +936,10 @@ function ProbeModal({
         <div className="flex-1 overflow-y-auto p-4 space-y-3">
           {isStreaming && (
             <p className="text-xs text-gray-600 dark:text-gray-400">{state.phase}</p>
+          )}
+
+          {(isStreaming || isAwaiting) && (
+            <HostRollup rows={state.rows} plan={state.plan} />
           )}
 
           {(isStreaming || isAwaiting) && state.rows.length > 0 && (
@@ -867,7 +978,10 @@ function ProbeModal({
           {(isStreaming || isAwaiting) && state.backfills.length > 0 && (
             <div className="border-t border-gray-200 dark:border-gray-800 pt-3 space-y-1.5">
               <div className="text-[11px] uppercase tracking-wide text-gray-500 font-medium">
-                Detail-URL backfill
+                Looking for product detail pages on hosts that only have a search URL
+              </div>
+              <div className="text-[10px] text-gray-400 dark:text-gray-500">
+                Capped at 3 candidates per host. Re-trying does not add more searches.
               </div>
               {state.backfills.map((b, i) => (
                 <div
@@ -916,6 +1030,16 @@ function ProbeModal({
           {isAwaiting && state.unprobed.length > 0 && (
             <div className="text-[11px] text-gray-500 dark:text-gray-400">
               {state.unprobed.length} URL(s) didn&apos;t finish probing within the budget.
+              {state.noProgress && (
+                <>
+                  {' '}
+                  <span className="text-amber-700 dark:text-amber-400">
+                    This attempt made no progress on any of them — likely a slow or
+                    bot-walled vendor that won&apos;t finish within the per-attempt budget.
+                    Save what you have; the runtime will re-fetch on the next scheduled run.
+                  </span>
+                </>
+              )}
             </div>
           )}
 
@@ -935,7 +1059,11 @@ function ProbeModal({
             >
               Cancel
             </button>
-            {state.unprobed.length > 0 && (
+            {/* ADR-121: hide Continue when the last pass made zero progress.
+                The vendors that timed out will time out again next attempt;
+                offering an unbounded Continue created the "would it last
+                forever?" trap reported in the live test. */}
+            {state.unprobed.length > 0 && !state.noProgress && (
               <button
                 type="button"
                 onClick={onContinue}
@@ -948,11 +1076,17 @@ function ProbeModal({
               <button
                 type="button"
                 onClick={onSaveAnyway}
-                className="rounded-lg bg-amber-600 text-white px-3 py-1.5 text-xs hover:bg-amber-700"
+                className={`rounded-lg text-white px-3 py-1.5 text-xs ${
+                  state.noProgress
+                    ? 'bg-blue-600 hover:bg-blue-700'
+                    : 'bg-amber-600 hover:bg-amber-700'
+                }`}
               >
-                {state.validationErrors.length > 0
-                  ? 'Save and proceed anyway'
-                  : 'Save now'}
+                {state.noProgress
+                  ? 'Stop and save what we have'
+                  : state.validationErrors.length > 0
+                    ? 'Save and proceed anyway'
+                    : 'Save now'}
               </button>
             )}
           </footer>

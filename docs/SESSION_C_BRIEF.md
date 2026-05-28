@@ -174,24 +174,38 @@ Each maps 1:1 to a PROPOSED ADR. Pick them up in this order. **Do not try to do 
 
 ---
 
-### Defect F — Save-time probe modal UX clarity (ADR-121, **P3, cosmetic but real**)
+### Defect F — Save-time probe modal: non-terminating loop + row proliferation (ADR-121, **UPGRADED to P1 — two real functional bugs, not just cosmetic**)
 
-**Evidence**: user's verbatim feedback after the live test: *"it kept adding more searches for no reason I could see every time I asked it spend more time probing — I wondered if that cycle would just last forever."* The screenshots show the `DETAIL-URL BACKFILL` section growing from 1 → 4 target.com candidates across probe attempts 2-4, while the modal header says "Probe attempt N" with no indication of total work remaining.
+> **2026-05-28 (Session C review by the next agent):** the user re-flagged this defect and explicitly said the original brief did NOT address (1) the "very confusing apparent proliferation of target URL probes" or (2) "whether or not I was stuck in a loop that would have gone on forever." Investigation confirmed **both are real bugs**, not UI confusion. The original P3-cosmetic framing was wrong. Rewriting the section with the actual root causes found in code.
 
-**Root cause**: `web/app/api/onboard/probe/route.ts` plans backfill candidates per-host based on what its search-page probes returned; each retry re-plans (because more search probes have completed). The modal renders the list as it grows, which to the user looks like "new searches are being added every time."
+**Evidence**: user's verbatim feedback: *"it kept adding more searches for no reason I could see every time I asked it spend more time probing — I wondered if that cycle would just last forever."* Screenshots: the `DETAIL-URL BACKFILL` section grows 1 → 2 → 4 target.com rows across attempts 2-4; every attempt shows the **same** 4 URLs (amazon search, microcenter, backmarket, target) as "budget exhausted before this URL was probed." The header just says "Probe attempt N."
+
+**Root cause #1 — the loop genuinely never terminates (the real bug behind "would it last forever?").**
+- `web/app/api/onboard/probe/route.ts:29` sets `PROBE_BUDGET_MS = 45_000`. Line 365 launches every probe in parallel, raced against that deadline (`Promise.race([Promise.all(probeTasks), deadlinePromise])`, line 389).
+- The Cloudflare-walled vendors (microcenter + backmarket route through Scrappey; target + amazon are slow too) each take **longer than 45s** to fetch+render. When the deadline fires, *none* of them have resolved, so all four are pushed onto `unprobed` (line 392-398).
+- `onContinueProbe` (`OnboardChat.tsx:588`) re-probes exactly that `unprobed` set with a **fresh 45s budget** → identical timeout → identical 4 still unprobed. The set never shrinks. **There is no zero-progress detection and no attempt cap.** The only escape is "Save and proceed anyway." The user's fear was correct: for slow/walled vendors this loop is infinite.
+
+**Root cause #2 — the visual "proliferation" of target.com rows.**
+- The server runs the ADR-076 backfill phase on **every** attempt (line 419), NOT gated to unprobed URLs. For a `force_detail_backup` host with a search URL but no detail URL (target.com), it always reaches the `Date.now() >= deadlineMs` branch (line 420) — the probe phase already ate the whole budget — and emits one more `backfill_skip` "budget exhausted before backfill could run."
+- The client carries `probeState.backfills` forward into the next attempt (`onContinueProbe`, `OnboardChat.tsx:596`) and `streamProbe` seeds `backfills = [...carryOver.backfills]` (line 463), then **appends** the new attempt's skip rows (line 527-533) with no de-dup by host. So target.com accumulates one more identical row per attempt — exactly the 1→2→4 growth in the screenshots. No new searches are actually being added; it's a display accumulation bug.
 
 **Files to touch**:
+- `web/app/api/onboard/probe/route.ts` —
+  - **Bound the loop.** Track per-URL whether *any* progress was made this attempt. If a `Continue` pass resolves with `unprobed` identical to the incoming `unprobed` (zero new URLs finished), emit `done` with a new `noProgress: true` flag so the client can stop offering plain "Continue."
+  - Consider giving a single slow vendor a chance: either probe slow/walled hosts **sequentially with a per-URL soft cap** so at least one finishes per attempt, or raise the effective budget for a 1-URL continue pass. (Decide during implementation; the must-fix is that progress is possible or the loop is explicitly ended.)
+  - Optionally emit a `plan_summary` SSE event at the start of each pass with `{ totalUrls, plannedBackfill, byHost }` so the modal can show totals.
 - `web/app/onboard/OnboardChat.tsx` (probe modal section) —
-  - Replace "Probe attempt N" header with "Probing N vendors — X of Y URLs done, Z planned". Make clear the planned count is upper-bounded by host (currently `MAX_BACKFILL_PROBES_PER_HOST = 3` per ADR-076).
-  - Add a per-host roll-up at the top: "amazon.com: 1/2 ✓, microcenter.com: 0/1 ⏳" so the user can see at a glance which vendors are pending.
+  - **De-dup backfill rows by host** when carrying over (`onContinueProbe`) — replace the prior host row instead of appending, so target.com shows once, not N times.
+  - Header: replace "Probe attempt N" with progress that shows work remaining and that the planned set is capped per host (`MAX_BACKFILL_PROBES_PER_HOST = 3`, ADR-076).
+  - Per-host roll-up at top (e.g. "amazon.com 0/1 ⏳, target.com 0/1 ⏳").
   - Re-label "DETAIL-URL BACKFILL" → "Looking for product detail pages on hosts that only have a search URL" with a one-line `<details>` explainer.
-  - After 3 successive "Continue probing" clicks with no new progress, the **Continue** button should be replaced by a "Stop and save what we have" CTA (still gated by ADR-111 — but at least the user knows the loop is bounded).
-- `web/app/api/onboard/probe/route.ts` — emit a `plan_summary` SSE event at the start of each pass with `{ totalUrls, plannedBackfill, byHost }` so the modal has the data without inferring.
+  - **Hard cap / no-progress exit:** after a `noProgress: true` pass (or after 3 successive Continue clicks with no shrink in `unprobed`), replace the **Continue probing** button with "Stop and save what we have" (still ADR-111-gated, but the loop is now visibly bounded and can't run forever).
 
 **Done when**:
-- The modal makes clear that retries don't multiply work — the planned set is capped per host.
-- After 3 fruitless retries, the user sees an explicit "stop and save" option (the modal doesn't feel infinite).
-- Worker untouched; web tsc/eslint/test:guards/test:parity/next build green.
+- A Continue pass that makes zero progress is detected; the modal stops offering an unbounded "Continue" and surfaces an explicit stop-and-save path. The loop provably terminates.
+- target.com (and any backfill host) shows **one** row, not one-per-attempt.
+- The modal makes clear retries don't multiply work — the planned set is capped per host.
+- Worker untouched; web tsc/eslint/test:guards/test:parity/next build green; new guard/UI test pins the no-progress termination.
 
 ---
 
@@ -199,11 +213,16 @@ Each maps 1:1 to a PROPOSED ADR. Pick them up in this order. **Do not try to do 
 
 If running with **claude-opus-4-7** on a normal session budget, the realistic shape is:
 
-1. **ADR-116 (P0)** first — narrow, fixture-backed, biggest correctness win, closes two standing candidates. ~2-3 hours including fixture capture.
-2. **ADR-118 (P1)** second — simple registry change + save-time gate. ~1 hour.
-3. **ADR-119 (P1)** third — equally simple; URL canonicalization + warning. ~45 min.
-4. **ADR-120 (P2)** fourth — diagnostic refinement; touches `cli.py` only on the worker side. ~1 hour.
-5. **ADR-121 (P3)** fifth — UI polish; can be deferred to a follow-up if budget tight.
+**Revised after the 2026-05-28 Session-C review (ADR-121 upgraded P3→P1):** the user's loudest pain was the modal — the apparent infinite loop and the proliferating target.com rows. Both turned out to be real functional bugs (see Defect F, rewritten). Two equally defensible orderings:
+
+- **User-pain-first (recommended given the "Help!!!"):** ADR-121 → 116 → 118 → 119 → 120. Start by killing the infinite-loop trap and the row proliferation, because that's the experience that made the user give up mid-onboard.
+- **Brief's original correctness-first:** ADR-116 → 118 → 119 → 120 → 121.
+
+1. **ADR-121 (now P1)** — bound the probe loop + de-dup backfill rows. Self-contained to the probe route + modal. ~1.5 hours including a no-progress-termination test.
+2. **ADR-116 (P0)** — narrow, fixture-backed, biggest correctness win, closes two standing candidates. ~2-3 hours including fixture capture.
+3. **ADR-118 (P1)** — simple registry change + save-time gate. ~1 hour.
+4. **ADR-119 (P1)** — equally simple; URL canonicalization + warning. ~45 min.
+5. **ADR-120 (P2)** — diagnostic refinement; touches `cli.py` only on the worker side. ~1 hour.
 
 **ADR-117 (P0 by impact)** should be its own session because it starts with an `AskUserQuestion` interview, not coding. Open it AFTER 116/118/119/120/121 have shipped — that way the user has clean feedback signal on whether the lenient filter actually improves recall, vs other defects masking it.
 
