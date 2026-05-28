@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server';
 import Anthropic from '@anthropic-ai/sdk';
 import { loadOnboardPrompt } from '@/lib/onboard/prompt';
-import { findLatestStateRaw } from '@/lib/onboard/blocks';
+import { extractDraftJson, findLatestStateRaw } from '@/lib/onboard/blocks';
 import { probeUrl } from '@/lib/onboard/probe-url';
 import { validateProfileDraft } from '@/lib/onboard/validation';
 import { shouldForceFinalize } from '@/lib/onboard/turn-budget';
@@ -265,6 +265,24 @@ export async function POST(request: NextRequest) {
             content: finalMsg.content,
           });
 
+          // ADR-114: surface the latest <draft> JSON from this iteration's
+          // assistant text to the client immediately. Anthropic stops the
+          // message at the first tool_use block, so during multi-turn probe
+          // loops the client never sees a closing </draft> and falls back to
+          // the previous turn's draft (which is often the empty turn-1 stub).
+          // Streaming a draft_update event lets the right-pane preview track
+          // the LLM's intent in real time, even when the final non-tool
+          // message is force-finalized or truncated.
+          for (const block of finalMsg.content) {
+            if (block.type === 'text' && typeof block.text === 'string') {
+              const draft = extractDraftJson(block.text);
+              if (draft) {
+                send({ type: 'draft_update', draft });
+                break;
+              }
+            }
+          }
+
           // Check if there are tool uses of any kind
           const allToolUses = finalMsg.content.filter(
             (block: { type: string; name?: string; id?: string; input?: unknown }) => block.type === 'tool_use'
@@ -310,6 +328,14 @@ export async function POST(request: NextRequest) {
                   const originalSlug = state?.slug_decisions?.original_slug ?? null;
 
                   send({ type: 'tool_use', name: 'validate_profile' });
+                  // ADR-114: the validate_profile draft argument is the
+                  // authoritative current draft. Surface it to the client so
+                  // the right-pane preview reflects the LLM's working state
+                  // even when the final non-tool emission of <draft> blocks
+                  // never lands (force-finalize, truncation, etc.).
+                  if (draft && typeof draft === 'object' && !Array.isArray(draft)) {
+                    send({ type: 'draft_update', draft });
+                  }
 
                   try {
                     const validationRes = validateProfileDraft(draft, state, originalSlug as string | null);

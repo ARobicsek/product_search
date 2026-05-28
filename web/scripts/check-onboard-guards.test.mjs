@@ -363,3 +363,23 @@ test('ADR-111: prompt warns the LLM that validate_profile errors block save', ()
     'prompt must mention the hard force_detail_backup gate so the LLM knows the rule is enforced',
   );
 });
+
+// --- ADR-114 draft visibility under tool-use loops -------------------------
+
+test('ADR-114: prompt tells the LLM to emit blocks BEFORE tool_use in tool-using turns', () => {
+  // Anthropic stops the assistant message at the first tool_use block, so a
+  // tool-using turn that puts <state>/<draft> after the tool_use never emits
+  // them. The prompt must teach the LLM to put the blocks in the text content
+  // that precedes the tool_use, otherwise the right-pane preview pane stays
+  // stuck on the previous turn's stub (in practice, turn 1's empty <draft>{}).
+  assert.ok(
+    /Anthropic ends each message at the first tool_use/.test(promptText),
+    'prompt must explain Anthropic\'s tool_use message-end behavior',
+  );
+  assert.ok(
+    /emit `<state>` and `<draft>` blocks INSIDE the text content that comes BEFORE the tool_use/.test(
+      promptText,
+    ),
+    'prompt must instruct emitting state/draft blocks before tool_use',
+  );
+});

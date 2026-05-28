@@ -415,7 +415,7 @@ The same proactive-disclosure principle applies to sources, filters, and schedul
 
 # Per-turn output format (CRITICAL)
 
-Every assistant message — from turn 1 onward — MUST end with TWO machine-readable blocks, in this exact order, after your conversational reply:
+Every assistant message — from turn 1 onward — MUST contain TWO machine-readable blocks, in this exact order, AT THE END of your conversational text:
 
 ```
 <state>{...decisions ledger json...}</state>
@@ -423,6 +423,8 @@ Every assistant message — from turn 1 onward — MUST end with TWO machine-rea
 ```
 
 Both are SINGLE-LINE valid JSON. No comments, no trailing commas. The conversational text that precedes them is what the user reads; the blocks are parsed by the server.
+
+**For tool-using messages (web_search / probe_url / validate_profile)**, Anthropic ends each message at the first tool_use block — there is no way to put text after a tool_use. So in tool-using turns, emit `<state>` and `<draft>` blocks INSIDE the text content that comes BEFORE the tool_use block(s). The server's right-pane preview reads each iteration's text content, so doing this keeps the draft visible to the user while you keep probing. NEVER skip the blocks in a tool-using turn just because the message will continue with tool calls — that leaves the preview pane stuck on the previous turn's stub (often the empty turn-1 draft) until you finally emit a tools-free response, which can be many seconds away.
 
 ## `<state>` — running decisions ledger
 

@@ -80,6 +80,12 @@ export function OnboardChat({ initialProfile, initialSlug }: { initialProfile?: 
   const [statusLine, setStatusLine] = useState<string>('');
   const [error, setError] = useState<string>('');
   const [saveState, setSaveState] = useState<SaveState>({ kind: 'idle' });
+  // ADR-114: drafts streamed from the server (extracted from <draft> blocks in
+  // each iteration's assistant text, plus the input to validate_profile tool
+  // calls). The server can see drafts the client never will — Anthropic stops
+  // each message at the first tool_use, so during long probe loops the client
+  // never receives a closing </draft> and falls back to turn-1's empty stub.
+  const [latestToolDraft, setLatestToolDraft] = useState<Record<string, unknown> | null>(null);
   const [sessionUsage, setSessionUsage] = useState({
     inputTokens: 0,
     outputTokens: 0,
@@ -169,6 +175,7 @@ export function OnboardChat({ initialProfile, initialSlug }: { initialProfile?: 
           cache_read_tokens?: number;
           cache_creation_tokens?: number;
           stopReason?: string | null;
+          draft?: Record<string, unknown>;
         };
         try {
           payload = JSON.parse(json);
@@ -212,6 +219,12 @@ export function OnboardChat({ initialProfile, initialSlug }: { initialProfile?: 
           }));
         } else if (payload.type === 'status' && typeof payload.message === 'string') {
           setStatusLine(payload.message);
+        } else if (payload.type === 'draft_update' && payload.draft && typeof payload.draft === 'object') {
+          // ADR-114: server-streamed draft. Always replace — the server emits
+          // these in order (per validate_profile call and per <draft> block
+          // it parses out of an iteration's assistant text), so the latest
+          // event is the freshest known draft.
+          setLatestToolDraft(payload.draft);
         } else if (payload.type === 'error') {
           setError(payload.error ?? 'unknown error');
         } else if (payload.type === 'done') {
@@ -252,6 +265,7 @@ export function OnboardChat({ initialProfile, initialSlug }: { initialProfile?: 
     setMessages([kickoffMessage]);
     setSaveState({ kind: 'idle' });
     setError('');
+    setLatestToolDraft(null);
     setSessionUsage({
       inputTokens: 0,
       outputTokens: 0,
@@ -264,7 +278,13 @@ export function OnboardChat({ initialProfile, initialSlug }: { initialProfile?: 
     void runTurn([kickoffMessage]);
   }
 
-  let draftIntent = findLatestDraft(messages);
+  // ADR-114: prefer the server-streamed draft over the client-parsed <draft>
+  // block. The server can see drafts that never reach the client closing tag
+  // (each Anthropic message ends at the first tool_use, so multi-tool turns
+  // never emit a complete </draft>). Fall back to the message-text scanner
+  // when no server stream has arrived yet, and to the initial YAML in edit
+  // mode if neither source has populated.
+  let draftIntent: Record<string, unknown> | null = latestToolDraft ?? findLatestDraft(messages);
   if (!draftIntent && initialProfile) {
     try {
       draftIntent = yaml.load(initialProfile) as Record<string, unknown>;
