@@ -257,6 +257,7 @@ def classify_source_outcome(
         "The vendor's page loaded but had no matching products — most likely it "
         "genuinely has nothing right now, so re-running won't change anything. "
         "**What to do:** if you expected results, open **Edit Profile** and "
-        "check the search URL / keywords; otherwise nothing — scheduled runs "
-        "will catch it when the vendor lists a match.",
+        "check the search URL / keywords, or ask the onboarder to re-probe it "
+        "if you think it timed out during onboarding; otherwise nothing — "
+        "scheduled runs will catch it when the vendor lists a match.",
     )

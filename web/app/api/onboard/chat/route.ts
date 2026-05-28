@@ -4,6 +4,7 @@ import { loadOnboardPrompt } from '@/lib/onboard/prompt';
 import { findLatestStateRaw } from '@/lib/onboard/blocks';
 import { probeUrl } from '@/lib/onboard/probe-url';
 import { validateProfileDraft } from '@/lib/onboard/validation';
+import { shouldForceFinalize } from '@/lib/onboard/turn-budget';
 
 export const runtime = 'edge';
 
@@ -131,29 +132,30 @@ export async function POST(request: NextRequest) {
         let continueLoop = true;
         let loopCount = 0;
         const maxLoopCount = 15;
+        const startTimeMs = Date.now();
+        const ONBOARD_TURN_BUDGET_MS = process.env.ONBOARD_TURN_BUDGET_MS ? parseInt(process.env.ONBOARD_TURN_BUDGET_MS, 10) : 50000;
 
         while (continueLoop && loopCount < maxLoopCount) {
           loopCount++;
           continueLoop = false;
 
-          const messageStream = client.messages.stream({
-            model: MODEL,
-            max_tokens: MAX_TOKENS,
-            system: [
-              {
-                type: 'text',
-                text: systemPrompt,
-                cache_control: { type: 'ephemeral' },
-              },
-            ],
-            tools: [
-              {
-                type: 'web_search_20250305',
-                name: 'web_search',
-                max_uses: WEB_SEARCH_MAX_USES,
-              },
-              {
-                name: 'probe_url',
+          const forceFinalize = shouldForceFinalize(startTimeMs, loopCount, maxLoopCount, ONBOARD_TURN_BUDGET_MS);
+          if (forceFinalize) {
+            history.push({
+              role: 'user',
+              content: "Time's up for this turn! Emit your best draft now as-is using the probe results you already have. Note any unresolved vendor in sources_pending. End with <state> and <draft> blocks.",
+            });
+            send({ type: 'status', message: 'finalizing your draft…' });
+          }
+
+          const toolsParams: Anthropic.Tool[] | undefined = forceFinalize ? undefined : [
+            {
+              type: 'web_search_20250305',
+              name: 'web_search',
+              max_uses: WEB_SEARCH_MAX_USES,
+            },
+            {
+              name: 'probe_url',
                 description: 'Probe a vendor search or product URL to verify if listings can be extracted. Returns diagnostic details like response status, body size, JSON-LD count, and product anchor count.',
                 input_schema: {
                   type: 'object',
@@ -208,7 +210,19 @@ export async function POST(request: NextRequest) {
                   required: ['draft'],
                 },
               },
+            ];
+
+          const messageStream = client.messages.stream({
+            model: MODEL,
+            max_tokens: MAX_TOKENS,
+            system: [
+              {
+                type: 'text',
+                text: systemPrompt,
+                cache_control: { type: 'ephemeral' },
+              },
             ],
+            ...(toolsParams && { tools: toolsParams }),
             messages: history,
           });
 

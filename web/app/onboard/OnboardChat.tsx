@@ -135,10 +135,16 @@ export function OnboardChat({ initialProfile, initialSlug }: { initialProfile?: 
     const reader = response.body.getReader();
     const decoder = new TextDecoder();
     let buffer = '';
+    let hasUsage = false;
 
     while (true) {
       const { done, value } = await reader.read();
-      if (done || cancelled.current) break;
+      if (done || cancelled.current) {
+        if (!hasUsage && !cancelled.current && !error) {
+          setError("The connection was interrupted before the draft was finalized. Reply 'continue' to resume.");
+        }
+        break;
+      }
       buffer += decoder.decode(value, { stream: true });
 
       let idx;
@@ -155,6 +161,7 @@ export function OnboardChat({ initialProfile, initialSlug }: { initialProfile?: 
           input?: Record<string, unknown>;
           text?: string;
           error?: string;
+          message?: string;
           provider?: string;
           model?: string;
           input_tokens?: number;
@@ -193,6 +200,7 @@ export function OnboardChat({ initialProfile, initialSlug }: { initialProfile?: 
             setStatusLine('Searching the web…');
           }
         } else if (payload.type === 'usage') {
+          hasUsage = true;
           setSessionUsage((u) => ({
             inputTokens: u.inputTokens + (payload.input_tokens ?? 0),
             outputTokens: u.outputTokens + (payload.output_tokens ?? 0),
@@ -202,6 +210,8 @@ export function OnboardChat({ initialProfile, initialSlug }: { initialProfile?: 
             provider: payload.provider ?? u.provider,
             model: payload.model ?? u.model,
           }));
+        } else if (payload.type === 'status' && typeof payload.message === 'string') {
+          setStatusLine(payload.message);
         } else if (payload.type === 'error') {
           setError(payload.error ?? 'unknown error');
         } else if (payload.type === 'done') {
