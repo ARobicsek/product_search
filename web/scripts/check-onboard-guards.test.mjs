@@ -18,6 +18,7 @@ import { isDetailPreferred } from '../lib/onboard/detail-preference.ts';
 import { checkTitleExcludes } from '../lib/onboard/title-excludes-check.ts';
 import { checkDetailPreferencePresence } from '../lib/onboard/detail-preference-presence.ts';
 import { checkMatchAliases } from '../lib/onboard/match-aliases-check.ts';
+import { checkForceDetailBackup } from '../lib/onboard/adr067-check.ts';
 import {
   FORCE_DETAIL_BACKUP_HOSTS,
   PREFER_DETAIL_HOSTS,
@@ -268,5 +269,97 @@ test('ADR-100: prompt reserves sources_pending for genuinely unreachable vendors
   assert.ok(
     promptText.includes('Narrow `sources_pending` to genuine dead-ends'),
     'prompt must instruct to reserve sources_pending for unreachable vendors',
+  );
+});
+
+// --- ADR-111 hard-gate enforcement (force_detail_backup) -------------------
+
+const forceDetailBackup = (draft) =>
+  checkForceDetailBackup(draft, FORCE_DETAIL_BACKUP_HOSTS);
+
+test('ADR-111: force_detail_backup host with search-only returns a violation', () => {
+  // DJI-Neo-2 live shape (2026-05-28): amazon.com had only a search URL.
+  // The check returns one entry per offending host so validation.ts can
+  // route it to `errors` and 422 the save.
+  const draft = {
+    sources: [
+      { id: 'universal_ai_search', url: 'https://www.amazon.com/s?k=DJI+Neo+2' },
+    ],
+  };
+  const violations = forceDetailBackup(draft);
+  assert.equal(violations.length, 1);
+  assert.equal(violations[0].host, 'amazon.com');
+  assert.match(violations[0].message, /save is BLOCKED/);
+  assert.match(violations[0].message, /page_type: "detail"/);
+});
+
+test('ADR-111: force_detail_backup host with both search AND detail is clean', () => {
+  const draft = {
+    sources: [
+      { id: 'universal_ai_search', url: 'https://www.amazon.com/s?k=DJI+Neo+2' },
+      {
+        id: 'universal_ai_search',
+        url: 'https://www.amazon.com/dp/B0XXXXX',
+        page_type: 'detail',
+      },
+    ],
+  };
+  assert.equal(forceDetailBackup(draft).length, 0);
+});
+
+test('ADR-111: force_detail_backup host with detail-only returns a violation', () => {
+  const draft = {
+    sources: [
+      {
+        id: 'universal_ai_search',
+        url: 'https://www.amazon.com/dp/B0XXXXX',
+        page_type: 'detail',
+      },
+    ],
+  };
+  const violations = forceDetailBackup(draft);
+  assert.equal(violations.length, 1);
+  assert.equal(violations[0].host, 'amazon.com');
+  assert.match(violations[0].message, /Save is BLOCKED/);
+  assert.match(violations[0].message, /search-style URL/);
+});
+
+test('ADR-111: a non-force_detail_backup host is unaffected', () => {
+  // ebay.com is NOT in FORCE_DETAIL_BACKUP_HOSTS (marketplace with ephemeral
+  // URLs — search-only is the right shape).
+  const draft = {
+    sources: [
+      { id: 'universal_ai_search', url: 'https://www.example-vendor.com/search?q=x' },
+    ],
+  };
+  assert.equal(forceDetailBackup(draft).length, 0);
+});
+
+test('ADR-111: multiple offending hosts each get their own violation', () => {
+  // The DJI-Neo-2 live shape had amazon + target + walmart all violating.
+  const draft = {
+    sources: [
+      { id: 'universal_ai_search', url: 'https://www.amazon.com/s?k=DJI' },
+      { id: 'universal_ai_search', url: 'https://www.target.com/s?searchTerm=DJI' },
+      { id: 'universal_ai_search', url: 'https://www.walmart.com/search?q=DJI' },
+    ],
+  };
+  const violations = forceDetailBackup(draft);
+  assert.equal(violations.length, 3);
+  const hosts = new Set(violations.map((v) => v.host));
+  assert.ok(hosts.has('amazon.com'));
+  assert.ok(hosts.has('target.com'));
+  assert.ok(hosts.has('walmart.com'));
+});
+
+test('ADR-111: prompt warns the LLM that validate_profile errors block save', () => {
+  assert.ok(
+    promptText.includes('errors` BLOCK save') ||
+      promptText.includes('errors BLOCK save'),
+    'prompt must teach the LLM that validate_profile errors block save',
+  );
+  assert.ok(
+    promptText.includes('ADR-111') || promptText.includes('force_detail_backup'),
+    'prompt must mention the hard force_detail_backup gate so the LLM knows the rule is enforced',
   );
 });

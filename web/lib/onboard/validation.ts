@@ -26,8 +26,15 @@ export function validateProfileDraft(
   const errors: string[] = [];
   const warnings: string[] = [];
 
-  // 1. Guardrail checks
-  warnings.push(...checkForceDetailBackup(draft).map(w => w.message));
+  // 1. Guardrail checks.
+  //
+  // ADR-111 (2026-05-28): `checkForceDetailBackup` was demoted to `warnings`
+  // historically (ADR-067 was advisory). It is now a HARD error: live DJI-Neo-2
+  // onboard saved with amazon/target/walmart missing detail URLs, and the soft
+  // warning required a manual re-prompt + re-save round-trip. Routing to
+  // `errors` forces the `validate_profile` tool to return ok:false and the
+  // save endpoint to 422 until the LLM/user fixes it.
+  errors.push(...checkForceDetailBackup(draft, FORCE_DETAIL_BACKUP_HOSTS).map(w => w.message));
   warnings.push(...checkConditionDrift(state, draft).map(w => w.message));
   warnings.push(...checkTitleExcludes(draft).map(w => w.message));
   warnings.push(...checkDetailPreferencePresence(draft, FORCE_DETAIL_BACKUP_HOSTS, PREFER_DETAIL_HOSTS).map(w => w.message));

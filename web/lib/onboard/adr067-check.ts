@@ -1,20 +1,29 @@
-import 'server-only';
+// Pure (no `import 'server-only'`, no `@/...` alias) so the offline
+// `check-onboard-guards.test.mjs` suite can import it directly under raw node.
+// Mirrors the convention of the other pure check modules
+// (title-excludes-check, match-aliases-check, detail-preference-presence):
+// the registry host set is passed in by the caller, NOT imported here. That
+// keeps this file import-free and side-effect-free under raw node so tests
+// don't need extension-resolution or path-alias shimming.
 
-import { FORCE_DETAIL_BACKUP_HOSTS } from '@/lib/onboard/vendor-quirks-data';
-
-// ADR-067 / ADR-068: save-time guardrail. For vendors flagged
+// ADR-067 / ADR-068 / ADR-111: save-time guardrail. For vendors flagged
 // `force_detail_backup: true` in the vendor quirks registry, a single-SKU
-// product should carry BOTH a search-style URL and a `page_type: "detail"`
+// product MUST carry BOTH a search-style URL and a `page_type: "detail"`
 // URL (search results on these big retailers are non-deterministic; the
 // detail URL is the deterministic fallback). The onboarder prompt already
 // instructs this, but the LLM has been observed to add only one — so this
 // deterministic check catches the drift the prompt can't guarantee.
 //
-// This is a SOFT warning, not a hard block: legitimate edge cases exist
-// (multi-variant detail pages that surface the wrong variant, slug-rotating
-// stores). The save proceeds; the warnings are returned to the chat surface
-// so the user can fix-and-resave or knowingly accept.
+// ADR-111 (2026-05-28): this is now a HARD save-time error, not a soft
+// warning. Live DJI-Neo-2 onboard left amazon/target/walmart with only
+// search URLs despite the prompt saying "just do it"; the soft warning was
+// surfaced post-save and the user then had to re-prompt the LLM and
+// re-save. Making this a 422 error forces the LLM (via the validate_profile
+// tool) and the user (via the save UI) to address it before save can
+// complete, eliminating the manual round-trip.
 
+// Kept as `Adr067Warning` (not renamed) for callers; semantically these are
+// now hard errors (see ADR-111). validation.ts routes them to `errors`.
 export interface Adr067Warning {
   host: string;
   message: string;
@@ -33,7 +42,10 @@ function hostOf(url: string): string | null {
   }
 }
 
-export function checkForceDetailBackup(draft: Record<string, unknown>): Adr067Warning[] {
+export function checkForceDetailBackup(
+  draft: Record<string, unknown>,
+  forceDetailBackupHosts: ReadonlySet<string>,
+): Adr067Warning[] {
   const sources = Array.isArray(draft.sources) ? (draft.sources as unknown[]) : [];
 
   // Per host: did we see a search-style URL? a detail URL?
@@ -44,7 +56,7 @@ export function checkForceDetailBackup(draft: Record<string, unknown>): Adr067Wa
     const url = typeof s.url === 'string' ? s.url.trim() : '';
     if (!url) continue;
     const host = hostOf(url);
-    if (!host || !FORCE_DETAIL_BACKUP_HOSTS.has(host)) continue;
+    if (!host || !forceDetailBackupHosts.has(host)) continue;
 
     const isDetail = s.page_type === 'detail';
     const entry = seen.get(host) ?? { search: false, detail: false };
@@ -61,18 +73,24 @@ export function checkForceDetailBackup(draft: Record<string, unknown>): Adr067Wa
         host,
         message:
           `${host}: only a search URL is configured. ${host} search results are ` +
-          `non-deterministic — add a direct product-detail URL (a second ` +
-          `universal_ai_search source with page_type: "detail") so the product ` +
-          `isn't missed on runs where the search hiccups (ADR-067). Skip only if ` +
-          `the product is multi-variant or this vendor rotates URLs.`,
+          `non-deterministic, so save is BLOCKED until a direct product-detail URL ` +
+          `is added (a second universal_ai_search source for this host with ` +
+          `page_type: "detail"). Use web_search or a real search result to find the ` +
+          `detail URL — do NOT guess a slug pattern — then probe it with ` +
+          `page_type: "detail" and add it if detailExtractable is true. ` +
+          `(ADR-067 / ADR-111.) ` +
+          `If this product is genuinely multi-variant or this vendor rotates URLs, ` +
+          `tell the user explicitly and drop this vendor from sources instead of ` +
+          `saving with only the search URL.`,
       });
     } else if (detail && !search) {
       warnings.push({
         host,
         message:
-          `${host}: only a detail URL is configured. Add a search-style URL too ` +
-          `(a second universal_ai_search source) so newly-listed competing offers ` +
-          `are still discovered, not just the one product page (ADR-067).`,
+          `${host}: only a detail URL is configured. Save is BLOCKED until a ` +
+          `search-style URL is added (a second universal_ai_search source for ` +
+          `this host) so newly-listed competing offers are still discovered, not ` +
+          `just the one product page. (ADR-067 / ADR-111.)`,
       });
     }
   }

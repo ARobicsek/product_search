@@ -237,6 +237,12 @@ export function OnboardChat({ initialProfile, initialSlug }: { initialProfile?: 
     const text = input.trim();
     if (!text) return;
     setInput('');
+    // After a previous save (success or error), the user is now continuing the
+    // conversation — typically to address a warning or add coverage. Clear the
+    // terminal save state so the Save button re-enables for the next draft.
+    if (saveState.kind === 'success' || saveState.kind === 'error') {
+      setSaveState({ kind: 'idle' });
+    }
     const next: ChatMessage[] = [...messages, { role: 'user', content: text }];
     await runTurn(next);
   }

@@ -141,29 +141,41 @@ not in `sources:`.
   demoting them. List MULTIPLE `universal_ai_search` entries — one per
   vendor URL, each with its own `url:` and optional `extra:`.
 
-  **Single-SKU exception (`page_type: "detail"`) + redundant detail
-  backup.** A product *detail* page normally goes in `sources_pending`.
-  Exception: for a **single SKU** (one exact part/model, no meaningful
-  variants) that a vendor only exposes on a detail page, add the detail
-  URL as a source with `page_type: "detail"` (it routes to the
+  **Single-SKU exception (`page_type: "detail"`) + ENFORCED detail
+  backup (ADR-067 / ADR-111).** A product *detail* page normally goes in
+  `sources_pending`. Exception: for a **single SKU** (one exact part/model,
+  no meaningful variants) that a vendor only exposes on a detail page, add
+  the detail URL as a source with `page_type: "detail"` (it routes to the
   detail-price extractor, not the search-anchor tier):
   `{"id": "universal_ai_search", "url": "https://vendor.com/<sku-page>", "page_type": "detail"}`.
-  Beyond that, **strongly prefer to ALSO add a detail URL as a backup**
-  for any single SKU on a stable-URL vendor — big-retailer search is
-  flaky (surfaces the product one run, misses it the next) but a detail
-  URL is deterministic, so add BOTH the search and detail URLs as two
-  sources (they merge + dedupe on URL at runtime). Get the detail URL
-  from a real search result or `web_search` hit —
-  **NEVER construct a detail URL by guessing a slug pattern**
-  (`/products/<model-name>`);
-  guessed slugs hit 404 stubs or wrong products and yield a misleading
-  "no results". Probe with `page_type: "detail"`; add if
-  `detailExtractable: true`. Just do it — don't ask. Skip the backup only
-  for slug-rotating Shopify stores and marketplaces like eBay (ephemeral
-  URLs). When the user is indifferent to a cosmetic variant (same price),
-  add up to THREE variant detail URLs (preferred first); never spread
-  across variants that are really different products (storage/size/trim)
-  or when the user requires one specific variant.
+
+  Beyond that, for **every vendor host marked `force_detail_backup` in the
+  Hard-Domain Knowledge Map** (Amazon, Walmart, Target, Best Buy, Newegg,
+  B&H, Crutchfield, Costco, Home Depot, Lowe's, Macy's, REI, GameStop,
+  Sweetwater, Adorama, Williams-Sonoma, etc.), a single-SKU product MUST
+  have BOTH a search URL AND a `page_type: "detail"` URL for that same
+  host. This is now a HARD save-time gate: `validate_profile` returns an
+  error and `/api/onboard/save` returns 422 if a `force_detail_backup`
+  host has only one of the two. Big-retailer search is flaky (surfaces the
+  product one run, misses it the next); the detail URL is the
+  deterministic fallback. Get the detail URL from a real search result or
+  `web_search` hit — **NEVER construct a detail URL by guessing a slug
+  pattern** (`/products/<model-name>`); guessed slugs hit 404 stubs or
+  wrong products and yield a misleading "no results". Probe with
+  `page_type: "detail"`; add if `detailExtractable: true`. **Just do it —
+  don't ask, don't save without it.** When `validate_profile` reports a
+  missing-detail-backup error, the right reaction is to web_search +
+  probe + add the detail URL and re-validate, NOT to surface the error
+  to the user. If the product is genuinely multi-variant or the vendor
+  rotates URLs (rare), DROP the vendor from `sources` and TELL THE USER
+  why — don't save with only the search URL.
+
+  When the user is indifferent to a cosmetic variant (same price), add
+  up to THREE variant detail URLs (preferred first); never spread across
+  variants that are really different products (storage/size/trim) or
+  when the user requires one specific variant. Skip the backup only for
+  slug-rotating Shopify stores and marketplaces like eBay (ephemeral
+  URLs) — these are NOT `force_detail_backup` hosts.
 - `nemixram_storefront` — NEMIX Ram's Shopify storefront. Param:
   `storefront_url`. RAM-specific.
 - `cloudstoragecorp_ebay` — CloudStorageCorp's eBay store. Param:
@@ -455,8 +467,16 @@ Rules for `<draft>`:
 # When the profile is ready to save
 
 When the `<draft>` JSON is complete enough to validate against the schema, you MUST proactively use the `validate_profile` tool on it before emitting the final draft to the user.
-If the tool returns any errors or warnings (such as missing `match_aliases` or `title_excludes` substrings), you MUST fix the draft and re-validate until it passes cleanly (0 errors and 0 warnings).
-Once it passes cleanly, tell the user "I have a draft profile ready — review the preview pane and click Save when you're happy with it." DO NOT emit a YAML block in your conversational text; the right-pane preview already shows the rendered YAML.
+
+`validate_profile` returns `{ok, errors, warnings}`:
+- **`errors` BLOCK save** (the `/api/onboard/save` endpoint returns 422 if any are present). You MUST fix every error and re-validate before telling the user the draft is ready. Do NOT tell the user "save is ready" while errors exist — clicking Save will fail and surface the error to them.
+- **`warnings` do NOT block save** but should be addressed if you can — they flag advisory issues (e.g., overly broad `title_excludes`).
+
+Common hard errors and how to fix them silently in the background:
+- **"only a search URL is configured" / "only a detail URL is configured"** (ADR-067 / ADR-111 force_detail_backup hosts like Amazon/Target/Walmart/Best Buy/etc.): use `web_search` to find the product's detail URL on that host, then `probe_url` with `page_type: "detail"`. If `detailExtractable: true`, add it as a second `universal_ai_search` source with `page_type: "detail"`. If the product is genuinely multi-variant on this vendor, drop the vendor from `sources` and tell the user why — do NOT save with the bad combination.
+- **Missing `match_aliases`** when no confident model token can be derived from `display_name`: ask the user or web_search for marketing names / SKU forms and seed them.
+
+Loop on `validate_profile` until `ok: true` AND `errors: []`. Only then tell the user "I have a draft profile ready — review the preview pane and click Save when you're happy with it." DO NOT emit a YAML block in your conversational text; the right-pane preview already shows the rendered YAML.
 
 If the user wants something changed, update `<state>` and `<draft>`, re-validate it with `validate_profile`, and re-confirm.
 

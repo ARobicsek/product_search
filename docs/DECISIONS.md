@@ -124,6 +124,32 @@ One line per ADR (newest first). Skim this; open only the bodies you need. (No A
 
 ---
 
+## ADR-111 — Hard-gate `force_detail_backup` at save time + UI Save-button reset across follow-up turns
+
+**Status**: ACCEPTED — implemented 2026-05-28 (Phase 29 Session A).
+
+**Date**: 2026-05-28
+
+**Context**: The 2026-05-28 DJI-Neo-2 production run shipped a profile with `force_detail_backup` hosts (amazon.com / target.com / walmart.com) covered by *only* a search URL — the very condition ADR-067 was designed to prevent. The onboarder prompt explicitly says "Just do it — don't ask" for adding the detail-URL backup (`onboard_v1.txt:144-166`), and `checkForceDetailBackup` (`web/lib/onboard/adr067-check.ts`) detected the violation correctly — but the check was routed to `warnings`, so the save succeeded with the warning surfaced post-hoc to the user. The user then had to re-prompt the LLM to add detail URLs and re-save.
+
+Two separate defects compounded the friction:
+1. **Prompt rule was not enforced** — ADR-067 was advisory (warning), so a non-compliant draft saved cleanly. The "Just do it" instruction is one of many rules competing for the LLM's attention; it gets dropped under pressure.
+2. **The Save button stayed disabled after the first save** (`web/app/onboard/OnboardChat.tsx:459`: `disabled={... || saveState.kind === 'success' || streaming}`). When the user added the missing detail URLs in a follow-up turn, the new draft was valid but the button stayed dimmed — the user could no longer save the corrected version without reloading the page.
+
+Combined effect: even when the user noticed the warning and asked the LLM to fix it, they couldn't actually save the fix.
+
+Both items are symptoms of the same broader principle the user has stated repeatedly: when the LLM drifts from a rule, deterministic guardrails should self-correct, not punt to the user. ([feedback_prefers_systemic_over_oneoff].)
+
+**Decision**:
+1. **Promote `checkForceDetailBackup` from `warnings` to `errors` in `validateProfileDraft`** (`web/lib/onboard/validation.ts`). The save endpoint already returns 422 when `!validationRes.ok`, and the `validate_profile` LLM tool already surfaces `errors` separately from `warnings` to the model — so promotion is mechanical. The LLM, when calling `validate_profile`, now sees `ok: false` and an actionable error, and is instructed to fix-and-revalidate before telling the user "draft ready." The user, if they ever hit the error in the UI, sees the same actionable message in the save error panel.
+2. **Refactor `checkForceDetailBackup` to take the host set as a parameter** (mirroring `checkDetailPreferencePresence` and `checkTitleExcludes`). Drops `import 'server-only'` + the `@/...` alias so the offline `check-onboard-guards.test.mjs` suite can exercise it under raw node — making the new hard-error behavior unit-testable without test-infra shimming.
+3. **Strengthen the onboarder prompt** (`onboard_v1.txt`): expand the single-SKU-exception section to call out the hard gate by name (ADR-111 / 422 from `validate_profile`), and rewrite the "When the profile is ready to save" section so the LLM understands `errors` BLOCK save while `warnings` do not. The "Just do it — don't ask, don't save without it" wording stays as the spirit; the new prose tells the LLM exactly which error message to expect and how to fix it (web_search → probe_url(page_type:"detail") → add as second source) without bothering the user.
+4. **Reset `saveState` to `idle` at the top of `onSubmit`** (`OnboardChat.tsx`) when the prior save was terminal (success or error). A new chat message from the user means they are iterating; the Save button should re-enable for the next draft. (Idle/saving states are left alone.)
+
+**Consequence**: A profile with a `force_detail_backup` host missing a paired URL can no longer reach the repo via either path: the LLM is forced to fix-and-revalidate before claiming the draft is ready, and a user clicking Save in the UI gets a 422 with the same actionable message instead of a silent success + dangling warning. The Save-button reset means the user can iterate (add coverage, fix a typo, re-prompt the LLM) without reloading. Trade-off: a multi-variant product on a `force_detail_backup` vendor (rare) genuinely can't have one detail URL — the prompt's escape hatch is to drop the vendor from `sources` (and tell the user why), which the LLM must now do explicitly rather than silently saving with the wrong shape. Tests: 6 new unit tests in `check-onboard-guards.test.mjs` cover search-only / detail-only / both / non-force-detail-backup / multi-host / prompt-wording. All 28 guard tests + 6 parity tests pass; `tsc --noEmit` + `eslint` + `next build` clean; worker 412/412.
+
+---
+
 ## ADR-110 — Onboarder turn must never strand the user: per-turn budget + force-finalize + graceful recovery + post-run re-probe guidance
 
 **Status**: PROPOSED — 2026-05-27 (Phase 29). NOT yet implemented; this is the next session's first task.
