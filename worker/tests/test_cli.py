@@ -63,7 +63,7 @@ def test_dominant_rejection_attributed_per_universal_source() -> None:
         },
     ]
     annotate_dominant_rejections(stats, log)
-    assert stats[0]["dominant_rejection"] == "relevance_check"
+    assert stats[0]["dominant_rejection"] == "mis_scoped_url_24"
     assert "dominant_rejection" not in stats[1]
 
 
@@ -100,11 +100,11 @@ def test_dominant_rejection_no_cross_contamination() -> None:
             "match_host": "example.com",
             "match_url": other_url,
             "fetched": 5,
-            "passed": 0,
+            "passed": 2,
         },
     ]
     annotate_dominant_rejections(stats, log)
-    assert stats[0]["dominant_rejection"] == "relevance_check"
+    assert stats[0]["dominant_rejection"] == "mis_scoped_url_24"
     assert "dominant_rejection" not in stats[1]
 
 

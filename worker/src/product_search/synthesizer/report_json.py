@@ -104,6 +104,7 @@ def _source_payload(s: dict[str, Any]) -> dict[str, Any]:
         "status": outcome.category.value,
         "status_label": outcome.label,
         "reason": outcome.message,
+        "scrappey_attempts": s.get("scrappey_attempts", []),
     }
 
 

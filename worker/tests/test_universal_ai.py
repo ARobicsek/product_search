@@ -1785,6 +1785,74 @@ def test_fetch_tier15_wiredzone_fixture_end_to_end(
     assert results[0].quantity_available == 0  # in_stock false
 
 
+def test_amazon_adr107_fallback_recovers(monkeypatch: pytest.MonkeyPatch) -> None:
+    """B-3: Verify ADR-107 fires for Amazon thin-body bot wall and recovers."""
+    import os
+    from product_search.adapters import universal_ai
+    
+    # Enable Scrappey
+    monkeypatch.setenv("SCRAPPEY_API_KEY", "test-key")
+    
+    # 1. Mock _fetch_html to return a 2,317-byte body (simulate AlterLab bot wall).
+    def mock_fetch_html(url: str, *args, **kwargs) -> tuple[str, int, str]:
+        return ("x" * 2317, 200, "alterlab")
+    monkeypatch.setattr(universal_ai, "_fetch_html_with_retry", mock_fetch_html)
+    
+    # 2. Mock _fetch_via_scrappey to return a 50KB body with a product anchor.
+    scrappey_called = False
+    def mock_scrappey(u, key, country, triggered_by="tier1_configured", render_js=False):
+        nonlocal scrappey_called
+        scrappey_called = True
+        assert triggered_by == "adr107_post_extract"
+        html = ("x" * 50000) + '<a href="/dp/B000000001" title="Product X">$10.00</a>'
+        return html, 200, "scrappey"
+    monkeypatch.setattr(universal_ai, "_fetch_via_scrappey", mock_scrappey)
+
+    from product_search.models import Listing
+    import datetime
+    def mock_extract(*args, **kwargs):
+        if scrappey_called:
+            base = dict(
+                source="universal_ai_search",
+                fetched_at=datetime.datetime.now(tz=datetime.UTC), brand=None, mpn=None,
+                condition="new", is_kit=False, kit_module_count=1,
+                quantity_available=None, seller_name="host",
+                seller_rating_pct=None, seller_feedback_count=None,
+                ship_from_country=None,
+            )
+            return [Listing(
+                url="https://www.amazon.com/dp/B000000001",
+                title="Product X",
+                unit_price_usd=10.00,
+                kit_price_usd=None,
+                attrs={"extractor": "anchor_llm"},
+                **base
+            )]
+        return []
+    monkeypatch.setattr(universal_ai, "_extract_via_anchor_walker", mock_extract)
+    
+    # 3. Call fetch for Amazon
+    # Amazon has alterlab_known_good: true and use_scrappey: false by default.
+    query = universal_ai.AdapterQuery(
+        source_id="universal_ai_search",
+        extra={
+            "url": "https://www.amazon.com/s?k=test",
+            "keywords": "test",
+        },
+    )
+    results = universal_ai.fetch(query)
+    
+    # 4. Assertions
+    assert scrappey_called, "ADR-107 fallback did not fire"
+    assert len(results) >= 1, "Should recover 1 listing"
+    
+    # 5. Check diagnostics
+    diagnostics = universal_ai.tls.last_fetch_diagnostics
+    assert diagnostics is not None
+    assert diagnostics["final_fetcher"] == "scrappey"
+    assert diagnostics["body_len"] == 50000 + len('<a href="/dp/B000000001" title="Product X">$10.00</a>')
+
+
 def test_parse_pack_extracts_multi_packs() -> None:
     """_parse_pack decodes module counts and unit prices for multi-pack items."""
     is_kit, count, unit_p, kit_p = universal_ai._parse_pack("Aufschnitt Jerky 2-pack", 14.00)

@@ -39,6 +39,18 @@ export type SourceStatus =
   // listed at this vendor yet (~$0 this run); auto-wakes when it's stocked.
   | 'watched';
 
+export interface ScrappeyAttempt {
+  url: string;
+  body_len: number;
+  origin_status: number;
+  exit_ip: string | null;
+  exit_country: string | null;
+  exit_hosting: boolean | null;
+  cf_challenge: boolean;
+  triggered_by: 'tier1_configured' | 'dynamic_weak_render_fallback' | 'adr107_post_extract';
+  elapsed_ms: number;
+}
+
 export interface ResultSource {
   label: string;
   host: string | null;
@@ -47,6 +59,7 @@ export interface ResultSource {
   status: SourceStatus;
   status_label: string;
   reason: string;
+  scrappey_attempts: ScrappeyAttempt[];
 }
 
 export interface PendingSource {

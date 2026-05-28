@@ -216,6 +216,26 @@ function SourcesPanel({
                 {stripMd(s.reason)}
               </p>
             )}
+            {s.scrappey_attempts && s.scrappey_attempts.length > 0 && (
+              <div className="mt-2 space-y-1.5">
+                {s.scrappey_attempts.map((attempt, i) => (
+                  <div key={i} className="text-[11px] bg-gray-50 dark:bg-gray-900/50 rounded px-2 py-1.5 text-gray-600 dark:text-gray-400 border border-gray-100 dark:border-gray-800">
+                    <div className="flex flex-wrap gap-x-3 gap-y-1">
+                      <span className="font-medium text-gray-700 dark:text-gray-300">Scrappey Attempt {i + 1}</span>
+                      <span>{attempt.elapsed_ms}ms</span>
+                      <span>Status: {attempt.origin_status}</span>
+                      <span>Len: {attempt.body_len}</span>
+                      {attempt.cf_challenge && <span className="text-amber-600 dark:text-amber-500 font-medium">CF Challenge</span>}
+                    </div>
+                    <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-0.5 text-gray-500 dark:text-gray-500">
+                      <span>Trigger: {attempt.triggered_by}</span>
+                      <span className="truncate max-w-[200px] sm:max-w-xs">IP: {attempt.exit_ip} ({attempt.exit_country})</span>
+                      {attempt.exit_hosting && <span>Hosting IP</span>}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </li>
         ))}
       </ul>

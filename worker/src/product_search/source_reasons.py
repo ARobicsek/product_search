@@ -69,9 +69,12 @@ CATEGORY_LABEL: dict[OutcomeCategory, str] = {
 class SourceOutcome:
     category: OutcomeCategory
     message: str
+    custom_label: str | None = None
 
     @property
     def label(self) -> str:
+        if self.custom_label:
+            return self.custom_label
         return CATEGORY_LABEL.get(self.category, self.category.value)
 
     @property
@@ -118,6 +121,18 @@ def classify_source_outcome(
     #    classify it before any degraded/transient signal.
     if fetched > 0:
         plural = "listing" if fetched == 1 else "listings"
+        if str(dominant_rejection).startswith("mis_scoped_url_"):
+            n_rejected = dominant_rejection.split("_")[-1]
+            return SourceOutcome(
+                OutcomeCategory.NO_MATCH,
+                f"Found {fetched} {plural} but none matched what you're "
+                f"tracking — this source's search URL may be mis-scoped "
+                f"(returning unrelated products). **What to do:** open "
+                f"**Edit Profile** and check or replace the search URL for "
+                f"this vendor. The AI filter diagnostic below lists the "
+                f"specific rejections.",
+                custom_label=f"NO_MATCH (Mis-scoped URL; {n_rejected} listings rejected by filter)",
+            )
         # ADR-098 fix #4: when the dominant rejection reason is relevance_check,
         # the URL is probably mis-scoped (returning unrelated products), not a
         # filter that needs loosening.
@@ -138,6 +153,16 @@ def classify_source_outcome(
             f"unless you expected matches here — if so, open **Edit Profile** "
             f"and loosen the relevant filter (price cap, condition, keywords). "
             f"The AI filter diagnostic below lists the specific rejections.",
+        )
+
+    if dominant_rejection == "vendor_does_not_carry":
+        return SourceOutcome(
+            OutcomeCategory.NO_MATCH,
+            "The vendor's page loaded but the extractor found no products — most likely it "
+            "genuinely has nothing right now, so re-running won't change anything. "
+            "**What to do:** if you expected results, open **Edit Profile** and "
+            "check the search URL / keywords.",
+            custom_label="NO_MATCH (Vendor doesn't carry)"
         )
 
     # 2.5 ADR-099 carry-gate: we fetched the page but deliberately skipped the

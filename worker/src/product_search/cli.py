@@ -78,17 +78,30 @@ def annotate_dominant_rejections(
     dedicated single-source adapters (ebay_search, etc.).
     """
     rejected = [e for e in rejection_log if not e.get("pass")]
-    if not rejected:
-        return
     for s in source_stats:
+        fetched = int(s.get("fetched", 0) or 0)
+        passed = int(s.get("passed", 0) or 0)
+
+        # 1. 0 results pre-filter
+        if fetched == 0:
+            s["dominant_rejection"] = "vendor_does_not_carry"
+            continue
+
         match_url = s.get("match_url")
         if isinstance(match_url, str) and match_url:
             src_rejected = [e for e in rejected if e.get("source_url") == match_url]
         else:
             src_id = s.get("source")
             src_rejected = [e for e in rejected if e.get("source") == src_id]
+        
         if not src_rejected:
             continue
+            
+        # 2. ALL results were rejected by the AI filter
+        if fetched > 0 and passed == 0 and len(src_rejected) >= fetched:
+            s["dominant_rejection"] = f"mis_scoped_url_{len(src_rejected)}"
+            continue
+
         relevance_count = sum(
             1
             for e in src_rejected
@@ -438,6 +451,12 @@ def _cmd_search(
                 if tls_diagnostics:
                     diagnostics = dict(tls_diagnostics)
                 
+                tls_scrappey = getattr(universal_ai_mod.tls, "scrappey_diagnostics", None)
+                if tls_scrappey:
+                    scrappey_attempts = list(tls_scrappey)
+                else:
+                    scrappey_attempts = []
+                
                 tls_usage = getattr(universal_ai_mod.tls, "last_run_usage", None)
                 if tls_usage:
                     usage = dict(tls_usage)
@@ -478,6 +497,7 @@ def _cmd_search(
             "error": error_msg,
             "skip_reason": skip_reason,
             "diagnostics": diagnostics,
+            "scrappey_attempts": scrappey_attempts if 'scrappey_attempts' in locals() else [],
         }
         return listings, stat, usages
 
