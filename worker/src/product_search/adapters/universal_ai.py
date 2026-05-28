@@ -48,9 +48,10 @@ from urllib.parse import (
 
 from product_search.llm import Message, call_llm
 from product_search.models import AdapterQuery, Listing
-from product_search.source_reasons import WATCH_GATE_REASON_PREFIX
+from product_search.source_reasons import THIN_BODY_CEILING, WATCH_GATE_REASON_PREFIX
 from product_search.vendor_quirks import (
     apply_url_transforms,
+    get_quirks_for_url,
     merge_alterlab_options,
     normalize_alterlab_options,
 )
@@ -3116,6 +3117,58 @@ def fetch(query: AdapterQuery, profile: Any | None = None) -> list[Listing]:
     merged: list[Listing] = _union_by_canonical(
         embedded_results, jsonld_results, anchor_results, full_html_results,
     )
+
+    # ADR-107: Generalize automatic Scrappey fallback to known-good thin-body vendors.
+    scrappey_key = os.environ.get("SCRAPPEY_API_KEY", "").strip()
+    if not merged and scrappey_key and len(html) < THIN_BODY_CEILING:
+        quirks = get_quirks_for_url(url)
+        # If it's alterlab_known_good but didn't already use Scrappey (to guard against double-fetch)
+        if quirks.get("alterlab_known_good") and not (alterlab_options and alterlab_options.get("use_scrappey")):
+            logger.warning(
+                f"[universal_ai] Primary search yielded 0 listings and body is thin "
+                f"({len(html)} bytes) for known-good vendor {url}. "
+                f"Dynamically falling back to Scrappey (ADR-107)."
+            )
+            try:
+                proxy_country = (alterlab_options or {}).get("proxy_country", "UnitedStates")
+                s_html, s_status, s_fetcher = _fetch_via_scrappey(url, scrappey_key, proxy_country)
+                if s_html:
+                    s_jsonld_listings = _extract_jsonld_listings(s_html, base_url=url)
+                    s_jsonld_results = _jsonld_to_listings(s_jsonld_listings, fetched_at, parsed_host)
+                    s_embedded_results = _extract_via_embedded_state(
+                        s_html, url,
+                        fetched_at=fetched_at,
+                        parsed_host=parsed_host,
+                    )
+                    s_anchor_results = _extract_via_anchor_walker(
+                        s_html, url,
+                        profile=profile,
+                        fetched_at=fetched_at,
+                        parsed_host=parsed_host,
+                    )
+                    s_full_html_results = _extract_via_full_html(
+                        s_html, url,
+                        profile=profile,
+                        fetched_at=fetched_at,
+                        parsed_host=parsed_host,
+                    )
+                    
+                    s_merged = _union_by_canonical(
+                        s_embedded_results, s_jsonld_results,
+                        s_anchor_results, s_full_html_results,
+                    )
+                    if s_merged:
+                        logger.info(
+                            f"[universal_ai] Scrappey fallback successfully recovered {len(s_merged)} listing(s)!"
+                        )
+                        merged = s_merged
+                        tls.last_fetch_diagnostics["final_fetcher"] = s_fetcher
+                        tls.last_fetch_diagnostics["body_len"] = len(s_html)
+                        tls.last_fetch_diagnostics["alterlab_degraded"] = True
+            except Exception as exc:
+                logger.warning(
+                    f"[universal_ai] Scrappey fallback failed: {type(exc).__name__}: {exc}"
+                )
 
     # Keyword degradation fallback if merged has 0 listings
     if not merged:
