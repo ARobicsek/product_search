@@ -148,7 +148,7 @@ export async function POST(request: NextRequest) {
             send({ type: 'status', message: 'finalizing your draft…' });
           }
 
-          const toolsParams: Anthropic.Tool[] | undefined = forceFinalize ? undefined : [
+          const toolsParams: any = forceFinalize ? undefined : [
             {
               type: 'web_search_20250305',
               name: 'web_search',
