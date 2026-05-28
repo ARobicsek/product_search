@@ -364,6 +364,56 @@ test('ADR-111: prompt warns the LLM that validate_profile errors block save', ()
   );
 });
 
+// --- ADR-115 force_detail_backup bypass ------------------------------------
+//
+// validation.ts imports the `@/...` path alias, so node --test can't load it
+// here without a resolver shim. Instead we pin the bypass policy by reading
+// the source: the bypass branch must route ADR-111 violations to warnings
+// instead of errors when bypassForceDetailBackup is set.
+
+import { readFileSync as readFileSyncForAdr115 } from 'node:fs';
+import { fileURLToPath as fileURLToPathForAdr115 } from 'node:url';
+import { dirname as dirnameForAdr115, resolve as resolveForAdr115 } from 'node:path';
+
+const __dirname_adr115 = dirnameForAdr115(fileURLToPathForAdr115(import.meta.url));
+const validationSrc = readFileSyncForAdr115(
+  resolveForAdr115(__dirname_adr115, '../lib/onboard/validation.ts'),
+  'utf8',
+);
+
+test('ADR-115: validation.ts has a bypassForceDetailBackup option', () => {
+  assert.ok(
+    /bypassForceDetailBackup\??:\s*boolean/.test(validationSrc),
+    'validation.ts must declare bypassForceDetailBackup on its options type',
+  );
+  assert.ok(
+    /options\.bypassForceDetailBackup/.test(validationSrc),
+    'validation.ts must branch on options.bypassForceDetailBackup',
+  );
+  // The bypass branch must put the violations into warnings rather than errors.
+  const bypassBlock = validationSrc.match(/if\s*\(\s*options\.bypassForceDetailBackup\s*\)\s*\{[^}]*\}/);
+  assert.ok(bypassBlock, 'validation.ts must have an "if (options.bypassForceDetailBackup) { ... }" block');
+  assert.ok(
+    /warnings\.push/.test(bypassBlock[0]),
+    'the bypass branch must push the ADR-111 violations to warnings',
+  );
+});
+
+test('ADR-115: save route forwards bypassForceDetailBackup to the validator', () => {
+  const saveRoute = readFileSyncForAdr115(
+    resolveForAdr115(__dirname_adr115, '../app/api/onboard/save/route.ts'),
+    'utf8',
+  );
+  assert.ok(
+    /body\.bypassForceDetailBackup/.test(saveRoute),
+    'save route must read bypassForceDetailBackup from the request body',
+  );
+  assert.ok(
+    /bypassForceDetailBackup\s*\}/.test(saveRoute) || /bypassForceDetailBackup,/.test(saveRoute),
+    'save route must forward bypassForceDetailBackup to validateProfileDraft options',
+  );
+});
+
 // --- ADR-114 draft visibility under tool-use loops -------------------------
 
 test('ADR-114: prompt tells the LLM to emit blocks BEFORE tool_use in tool-using turns', () => {

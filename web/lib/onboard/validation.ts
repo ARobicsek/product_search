@@ -18,10 +18,21 @@ export interface ValidationResult {
   slug?: string;
 }
 
+export interface ValidationOptions {
+  /**
+   * ADR-115: when the user clicks "Save and proceed anyway" after the
+   * save-time probe pass couldn't find a detail URL, bypass the ADR-111
+   * force_detail_backup gate. The violation is downgraded to a warning so
+   * the save can commit; the post-save background backfill will keep trying.
+   */
+  bypassForceDetailBackup?: boolean;
+}
+
 export function validateProfileDraft(
   draft: Record<string, unknown>,
   state: Record<string, unknown> | null = null,
-  originalSlug: string | null = null
+  originalSlug: string | null = null,
+  options: ValidationOptions = {}
 ): ValidationResult {
   const errors: string[] = [];
   const warnings: string[] = [];
@@ -34,7 +45,17 @@ export function validateProfileDraft(
   // warning required a manual re-prompt + re-save round-trip. Routing to
   // `errors` forces the `validate_profile` tool to return ok:false and the
   // save endpoint to 422 until the LLM/user fixes it.
-  errors.push(...checkForceDetailBackup(draft, FORCE_DETAIL_BACKUP_HOSTS).map(w => w.message));
+  //
+  // ADR-115 (2026-05-28): when the save-time probe + backfill couldn't land a
+  // detail URL despite trying, the user can explicitly bypass this gate.
+  // The violations become warnings so the user sees them in the save success
+  // panel, but the save commits.
+  const forceDetailViolations = checkForceDetailBackup(draft, FORCE_DETAIL_BACKUP_HOSTS).map((w) => w.message);
+  if (options.bypassForceDetailBackup) {
+    warnings.push(...forceDetailViolations);
+  } else {
+    errors.push(...forceDetailViolations);
+  }
   warnings.push(...checkConditionDrift(state, draft).map(w => w.message));
   warnings.push(...checkTitleExcludes(draft).map(w => w.message));
   warnings.push(...checkDetailPreferencePresence(draft, FORCE_DETAIL_BACKUP_HOSTS, PREFER_DETAIL_HOSTS).map(w => w.message));

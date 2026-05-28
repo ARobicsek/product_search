@@ -6,6 +6,7 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import yaml from 'js-yaml';
 import {
+  AlertCircle,
   Bot,
   CheckCircle2,
   DollarSign,
@@ -15,6 +16,7 @@ import {
   Send,
   Trash2,
   User,
+  X,
 } from 'lucide-react';
 import { estimateCostUsd, formatCostUsd } from '@/lib/llm-prices';
 import { extractDraftJson, extractStateJson, stripBlocks } from '@/lib/onboard/blocks';
@@ -30,6 +32,49 @@ type SaveState =
   | { kind: 'saving' }
   | { kind: 'success'; slug: string; commitUrl: string | null; probeStatus: string; warnings: string[] }
   | { kind: 'error'; message: string; details?: string[] };
+
+// ADR-115: save-time probe modal state.
+type UrlProbeStatus = 'queued' | 'probing' | 'ok' | 'failed' | 'deadline';
+
+interface UrlProbeRow {
+  url: string;
+  host: string | null;
+  pageType: 'search' | 'detail';
+  status: UrlProbeStatus;
+  reason?: string;
+}
+
+interface BackfillRow {
+  host: string;
+  state: 'running' | 'added' | 'failed' | 'skipped';
+  detail?: string;
+  urls: string[];
+}
+
+type ProbeState =
+  | { kind: 'idle' }
+  | {
+      kind: 'streaming';
+      attempt: number;
+      phase: string;
+      rows: UrlProbeRow[];
+      backfills: BackfillRow[];
+    }
+  | {
+      kind: 'awaiting';
+      attempt: number;
+      rows: UrlProbeRow[];
+      backfills: BackfillRow[];
+      enrichedDraft: Record<string, unknown>;
+      unprobed: string[];
+      validationErrors: string[];
+      validationWarnings: string[];
+      // If the only validation errors are the ADR-111 force_detail_backup
+      // ones, "Save and proceed anyway" is offered as a bypass. Other errors
+      // (schema, missing match_aliases, etc.) genuinely block save.
+      bypassableViolations: boolean;
+    }
+  | { kind: 'error'; message: string };
 
 function getKickoff(initialProfile?: string | null): ChatMessage {
   if (!initialProfile) {
@@ -86,6 +131,8 @@ export function OnboardChat({ initialProfile, initialSlug }: { initialProfile?: 
   // each message at the first tool_use, so during long probe loops the client
   // never receives a closing </draft> and falls back to turn-1's empty stub.
   const [latestToolDraft, setLatestToolDraft] = useState<Record<string, unknown> | null>(null);
+  // ADR-115: save-time probe modal state.
+  const [probeState, setProbeState] = useState<ProbeState>({ kind: 'idle' });
   const [sessionUsage, setSessionUsage] = useState({
     inputTokens: 0,
     outputTokens: 0,
@@ -295,16 +342,25 @@ export function OnboardChat({ initialProfile, initialSlug }: { initialProfile?: 
   const draftYaml = safeRender(draftIntent);
   const draftSlug = (draftIntent?.slug as string | undefined) ?? null;
 
-  async function onSave() {
-    if (!draftIntent || saveState.kind === 'saving') return;
+  // ADR-115: actually POST to /api/onboard/save with whatever draft + flags
+  // the caller hands us. Used by both the auto-save-after-clean-probe path
+  // and the "Save and proceed anyway" bypass path.
+  async function commitSave(
+    draft: Record<string, unknown>,
+    bypassForceDetailBackup: boolean,
+  ): Promise<void> {
     setSaveState({ kind: 'saving' });
-
     const secret = process.env.NEXT_PUBLIC_WEB_SHARED_SECRET ?? '';
     try {
       const res = await fetch('/api/onboard/save', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'x-web-secret': secret },
-        body: JSON.stringify({ draft: draftIntent, originalSlug: initialSlug, state: findLatestState(messages) }),
+        body: JSON.stringify({
+          draft,
+          originalSlug: initialSlug,
+          state: findLatestState(messages),
+          bypassForceDetailBackup,
+        }),
       });
       const data = (await res.json()) as {
         ok: boolean;
@@ -321,11 +377,11 @@ export function OnboardChat({ initialProfile, initialSlug }: { initialProfile?: 
           const detailsList = data.details && data.details.length > 0 ? `\n- ${data.details.join('\n- ')}` : '';
           const prompt = `I clicked Save but the profile failed validation:\n${errorMsg}${detailsList}\n\nPlease fix these errors and re-validate before asking me to save again.`;
           setSaveState({ kind: 'idle' });
+          setProbeState({ kind: 'idle' });
           const next: ChatMessage[] = [...messages, { role: 'user', content: prompt }];
           await runTurn(next);
           return;
         }
-
         setSaveState({
           kind: 'error',
           message: data.error ?? `Save failed (${res.status})`,
@@ -341,9 +397,7 @@ export function OnboardChat({ initialProfile, initialSlug }: { initialProfile?: 
         probeStatus: data.probeStatus ?? 'skipped',
         warnings,
       });
-      // When there are advisory warnings (ADR-067), don't whisk the user away
-      // before they can read them — let them choose to navigate. Otherwise
-      // auto-open the saved product page as before.
+      setProbeState({ kind: 'idle' });
       if (warnings.length === 0) {
         setTimeout(() => router.push(`/${data.slug}`), 800);
       }
@@ -353,6 +407,204 @@ export function OnboardChat({ initialProfile, initialSlug }: { initialProfile?: 
         message: err instanceof Error ? err.message : 'save failed',
       });
     }
+  }
+
+  // ADR-115: stream a probe pass against /api/onboard/probe. Reuses the same
+  // SSE shape pattern as /api/onboard/chat. Caller supplies the draft to
+  // probe; carryOver lets "Continue probing" resume from a prior partial pass
+  // without re-probing already-finished URLs.
+  async function streamProbe(
+    draft: Record<string, unknown>,
+    attempt: number,
+    carryOver?: {
+      unprobed: string[];
+      priorResults: Array<{ url: string; ok: boolean; reason: string | null }>;
+      rows: UrlProbeRow[];
+      backfills: BackfillRow[];
+    },
+  ): Promise<void> {
+    setProbeState({
+      kind: 'streaming',
+      attempt,
+      phase: carryOver ? 'Resuming probe…' : 'Starting probe…',
+      rows: carryOver?.rows ?? [],
+      backfills: carryOver?.backfills ?? [],
+    });
+    const secret = process.env.NEXT_PUBLIC_WEB_SHARED_SECRET ?? '';
+    let response: Response;
+    try {
+      response = await fetch('/api/onboard/probe', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-web-secret': secret },
+        body: JSON.stringify({
+          draft,
+          unprobed: carryOver?.unprobed,
+          priorResults: carryOver?.priorResults,
+        }),
+      });
+    } catch (err) {
+      setProbeState({
+        kind: 'error',
+        message: err instanceof Error ? err.message : 'probe request failed',
+      });
+      return;
+    }
+    if (!response.ok || !response.body) {
+      const txt = await response.text().catch(() => '');
+      setProbeState({
+        kind: 'error',
+        message: `probe request failed: ${response.status} ${txt.slice(0, 200)}`,
+      });
+      return;
+    }
+
+    // Mutable copies we'll re-assign into state as events arrive.
+    const rows: UrlProbeRow[] = [...(carryOver?.rows ?? [])];
+    const backfills: BackfillRow[] = [...(carryOver?.backfills ?? [])];
+    let phase = 'Probing…';
+
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+
+    const updateRow = (url: string, patch: Partial<UrlProbeRow>) => {
+      const idx = rows.findIndex((r) => r.url === url);
+      if (idx >= 0) rows[idx] = { ...rows[idx], ...patch };
+      else rows.push({ url, host: null, pageType: 'search', status: 'queued', ...patch });
+    };
+
+    const flush = () => {
+      setProbeState({
+        kind: 'streaming',
+        attempt,
+        phase,
+        rows: [...rows],
+        backfills: [...backfills],
+      });
+    };
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      let idx;
+      while ((idx = buffer.indexOf('\n\n')) !== -1) {
+        const raw = buffer.slice(0, idx).trim();
+        buffer = buffer.slice(idx + 2);
+        if (!raw.startsWith('data:')) continue;
+        const json = raw.slice(5).trim();
+        if (!json) continue;
+        let p: Record<string, unknown>;
+        try { p = JSON.parse(json) as Record<string, unknown>; } catch { continue; }
+        const t = p.type as string | undefined;
+        if (t === 'phase' && typeof p.message === 'string') {
+          phase = p.message;
+        } else if (t === 'url_start' && typeof p.url === 'string') {
+          updateRow(p.url, {
+            host: (p.host as string | null) ?? null,
+            pageType: (p.pageType as 'search' | 'detail') ?? 'search',
+            status: 'probing',
+          });
+        } else if (t === 'url_done' && typeof p.url === 'string') {
+          updateRow(p.url, {
+            host: (p.host as string | null) ?? null,
+            status: p.ok ? 'ok' : 'failed',
+            reason: typeof p.reason === 'string' ? p.reason : undefined,
+          });
+        } else if (t === 'url_deadline' && typeof p.url === 'string') {
+          updateRow(p.url, {
+            status: 'deadline',
+            reason: 'budget exhausted before this URL was probed',
+          });
+        } else if (t === 'backfill_start' && typeof p.host === 'string') {
+          backfills.push({ host: p.host, state: 'running', urls: [] });
+        } else if (t === 'backfill_added' && typeof p.host === 'string' && typeof p.url === 'string') {
+          const last = backfills[backfills.length - 1];
+          if (last && last.host === p.host) last.urls.push(p.url);
+        } else if (t === 'backfill_failed' && typeof p.host === 'string') {
+          // Recorded as the host's per-row event; the backfill is not marked
+          // failed unless every candidate failed (see backfill_done below).
+        } else if (t === 'backfill_skip' && typeof p.host === 'string') {
+          backfills.push({
+            host: p.host,
+            state: 'skipped',
+            detail: typeof p.reason === 'string' ? p.reason : undefined,
+            urls: [],
+          });
+        } else if (t === 'backfill_done' && typeof p.host === 'string') {
+          const last = backfills[backfills.length - 1];
+          if (last && last.host === p.host) {
+            last.state = (p.added as number) > 0 ? 'added' : 'failed';
+          }
+        } else if (t === 'done') {
+          const enrichedDraft = p.enrichedDraft as Record<string, unknown>;
+          const complete = p.complete === true;
+          const unprobed = Array.isArray(p.unprobed) ? (p.unprobed as string[]) : [];
+          const validation = (p.validation as {
+            ok: boolean;
+            errors: string[];
+            warnings: string[];
+          } | undefined) ?? { ok: true, errors: [], warnings: [] };
+
+          if (complete && validation.ok) {
+            // All clean. Drop the modal and commit silently.
+            await commitSave(enrichedDraft, false);
+            return;
+          }
+          const bypassableViolations = validation.errors.length > 0 && validation.errors.every((e) =>
+            /save is BLOCKED|Save is BLOCKED|ADR-067|ADR-111|force_detail_backup/.test(e)
+          );
+          setProbeState({
+            kind: 'awaiting',
+            attempt,
+            rows,
+            backfills,
+            enrichedDraft,
+            unprobed,
+            validationErrors: validation.errors,
+            validationWarnings: validation.warnings,
+            bypassableViolations: bypassableViolations || (complete && !validation.ok && bypassableViolations),
+          });
+          return;
+        } else if (t === 'error') {
+          setProbeState({
+            kind: 'error',
+            message: typeof p.error === 'string' ? p.error : 'probe stream error',
+          });
+          return;
+        }
+        flush();
+      }
+    }
+    // If we exited without a `done` event, surface that as an error.
+    setProbeState({ kind: 'error', message: 'probe stream ended without a done event' });
+  }
+
+  function onSave() {
+    if (!draftIntent || saveState.kind === 'saving' || probeState.kind === 'streaming') return;
+    void streamProbe(draftIntent, 1);
+  }
+
+  function onContinueProbe() {
+    if (probeState.kind !== 'awaiting') return;
+    const carryOver = {
+      unprobed: probeState.unprobed,
+      priorResults: probeState.rows
+        .filter((r) => r.status === 'ok' || r.status === 'failed')
+        .map((r) => ({ url: r.url, ok: r.status === 'ok', reason: r.reason ?? null })),
+      rows: probeState.rows,
+      backfills: probeState.backfills,
+    };
+    void streamProbe(probeState.enrichedDraft, probeState.attempt + 1, carryOver);
+  }
+
+  function onSaveAnyway() {
+    if (probeState.kind !== 'awaiting') return;
+    void commitSave(probeState.enrichedDraft, probeState.bypassableViolations);
+  }
+
+  function onCancelProbe() {
+    setProbeState({ kind: 'idle' });
   }
 
   return (
@@ -492,18 +744,232 @@ export function OnboardChat({ initialProfile, initialSlug }: { initialProfile?: 
           <button
             type="button"
             onClick={onSave}
-            disabled={!draftYaml || saveState.kind === 'saving' || saveState.kind === 'success' || streaming}
+            disabled={
+              !draftYaml ||
+              saveState.kind === 'saving' ||
+              saveState.kind === 'success' ||
+              streaming ||
+              probeState.kind === 'streaming'
+            }
             className="w-full flex items-center justify-center gap-2 rounded-lg bg-blue-600 text-white text-sm font-medium px-4 py-2 disabled:bg-gray-300 disabled:dark:bg-gray-700 disabled:cursor-not-allowed hover:bg-blue-700 transition focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
-            {saveState.kind === 'saving' ? (
+            {saveState.kind === 'saving' || probeState.kind === 'streaming' ? (
               <Loader2 className="w-4 h-4 animate-spin" />
             ) : (
               <Save className="w-4 h-4" />
             )}
-            {saveState.kind === 'saving' ? 'Validating + committing…' : 'Save profile to repo'}
+            {saveState.kind === 'saving'
+              ? 'Committing…'
+              : probeState.kind === 'streaming'
+                ? 'Probing vendor URLs…'
+                : 'Save profile to repo'}
           </button>
         </div>
       </aside>
+
+      {probeState.kind !== 'idle' && (
+        <ProbeModal
+          state={probeState}
+          onContinue={onContinueProbe}
+          onSaveAnyway={onSaveAnyway}
+          onCancel={onCancelProbe}
+        />
+      )}
+    </div>
+  );
+}
+
+function ProbeModal({
+  state,
+  onContinue,
+  onSaveAnyway,
+  onCancel,
+}: {
+  state: ProbeState;
+  onContinue: () => void;
+  onSaveAnyway: () => void;
+  onCancel: () => void;
+}) {
+  if (state.kind === 'idle') return null;
+
+  const isStreaming = state.kind === 'streaming';
+  const isAwaiting = state.kind === 'awaiting';
+  const isError = state.kind === 'error';
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-3"
+      role="dialog"
+      aria-modal="true"
+    >
+      <div className="bg-white dark:bg-gray-950 rounded-xl border border-gray-200 dark:border-gray-800 w-full max-w-2xl max-h-[85vh] flex flex-col overflow-hidden shadow-2xl">
+        <header className="px-4 py-3 border-b border-gray-200 dark:border-gray-800 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            {isStreaming && <Loader2 className="w-4 h-4 animate-spin text-blue-600" />}
+            {isAwaiting && <AlertCircle className="w-4 h-4 text-amber-600" />}
+            {isError && <AlertCircle className="w-4 h-4 text-red-600" />}
+            <h3 className="text-sm font-semibold">
+              {isStreaming && `Save-time probe (attempt ${state.attempt})`}
+              {isAwaiting && `Probe attempt ${state.attempt} — choose how to proceed`}
+              {isError && 'Probe failed'}
+            </h3>
+          </div>
+          {!isStreaming && (
+            <button
+              type="button"
+              onClick={onCancel}
+              className="rounded-full p-1 hover:bg-gray-100 dark:hover:bg-gray-800"
+              aria-label="Close"
+            >
+              <X className="w-4 h-4 text-gray-500" />
+            </button>
+          )}
+        </header>
+
+        <div className="flex-1 overflow-y-auto p-4 space-y-3">
+          {isStreaming && (
+            <p className="text-xs text-gray-600 dark:text-gray-400">{state.phase}</p>
+          )}
+
+          {(isStreaming || isAwaiting) && state.rows.length > 0 && (
+            <ul className="space-y-1.5">
+              {state.rows.map((row) => (
+                <li
+                  key={row.url}
+                  className="flex items-start gap-2 text-xs border border-gray-200 dark:border-gray-800 rounded-lg px-2.5 py-1.5"
+                >
+                  <span className="mt-0.5 w-3 h-3 shrink-0 flex items-center justify-center">
+                    {row.status === 'probing' && <Loader2 className="w-3 h-3 animate-spin text-blue-600" />}
+                    {row.status === 'ok' && <CheckCircle2 className="w-3 h-3 text-emerald-600" />}
+                    {row.status === 'failed' && <AlertCircle className="w-3 h-3 text-red-600" />}
+                    {row.status === 'deadline' && <AlertCircle className="w-3 h-3 text-amber-600" />}
+                    {row.status === 'queued' && <span className="w-2 h-2 rounded-full bg-gray-300 dark:bg-gray-700" />}
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-1.5">
+                      <span className="font-medium truncate">{row.host ?? row.url}</span>
+                      {row.pageType === 'detail' && (
+                        <span className="text-[10px] px-1 py-0.5 rounded bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400">
+                          detail
+                        </span>
+                      )}
+                    </div>
+                    <div className="text-[11px] text-gray-500 dark:text-gray-400 truncate">{row.url}</div>
+                    {row.reason && (
+                      <div className="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5">{row.reason}</div>
+                    )}
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+
+          {(isStreaming || isAwaiting) && state.backfills.length > 0 && (
+            <div className="border-t border-gray-200 dark:border-gray-800 pt-3 space-y-1.5">
+              <div className="text-[11px] uppercase tracking-wide text-gray-500 font-medium">
+                Detail-URL backfill
+              </div>
+              {state.backfills.map((b, i) => (
+                <div
+                  key={`${b.host}-${i}`}
+                  className="flex items-start gap-2 text-xs border border-gray-200 dark:border-gray-800 rounded-lg px-2.5 py-1.5"
+                >
+                  <span className="mt-0.5 w-3 h-3 shrink-0 flex items-center justify-center">
+                    {b.state === 'running' && <Loader2 className="w-3 h-3 animate-spin text-blue-600" />}
+                    {b.state === 'added' && <CheckCircle2 className="w-3 h-3 text-emerald-600" />}
+                    {b.state === 'failed' && <AlertCircle className="w-3 h-3 text-red-600" />}
+                    {b.state === 'skipped' && <AlertCircle className="w-3 h-3 text-gray-400" />}
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <div className="font-medium">{b.host}</div>
+                    {b.detail && (
+                      <div className="text-[11px] text-gray-500 dark:text-gray-400">{b.detail}</div>
+                    )}
+                    {b.urls.length > 0 && (
+                      <ul className="text-[11px] text-gray-500 dark:text-gray-400 truncate">
+                        {b.urls.map((u) => (
+                          <li key={u} className="truncate">+ {u}</li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {isAwaiting && state.validationErrors.length > 0 && (
+            <div className="border border-amber-200 dark:border-amber-900/40 bg-amber-50 dark:bg-amber-900/20 rounded-lg px-3 py-2 text-[11px] text-amber-800 dark:text-amber-300 space-y-1">
+              <div className="font-medium">
+                {state.bypassableViolations
+                  ? 'These would block save under the ADR-111 detail-URL gate:'
+                  : 'These errors will block save:'}
+              </div>
+              <ul className="list-disc ml-4 space-y-0.5">
+                {state.validationErrors.slice(0, 6).map((e, i) => (
+                  <li key={i} className="break-words">{e}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {isAwaiting && state.unprobed.length > 0 && (
+            <div className="text-[11px] text-gray-500 dark:text-gray-400">
+              {state.unprobed.length} URL(s) didn&apos;t finish probing within the budget.
+            </div>
+          )}
+
+          {isError && (
+            <div className="text-xs text-red-700 dark:text-red-400 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-900/40 rounded-lg px-3 py-2">
+              {state.message}
+            </div>
+          )}
+        </div>
+
+        {isAwaiting && (
+          <footer className="border-t border-gray-200 dark:border-gray-800 p-3 flex flex-wrap gap-2 justify-end">
+            <button
+              type="button"
+              onClick={onCancel}
+              className="rounded-lg border border-gray-300 dark:border-gray-700 px-3 py-1.5 text-xs hover:bg-gray-50 dark:hover:bg-gray-900"
+            >
+              Cancel
+            </button>
+            {state.unprobed.length > 0 && (
+              <button
+                type="button"
+                onClick={onContinue}
+                className="rounded-lg bg-blue-600 text-white px-3 py-1.5 text-xs hover:bg-blue-700"
+              >
+                Continue probing
+              </button>
+            )}
+            {(state.bypassableViolations || state.validationErrors.length === 0) && (
+              <button
+                type="button"
+                onClick={onSaveAnyway}
+                className="rounded-lg bg-amber-600 text-white px-3 py-1.5 text-xs hover:bg-amber-700"
+              >
+                {state.validationErrors.length > 0
+                  ? 'Save and proceed anyway'
+                  : 'Save now'}
+              </button>
+            )}
+          </footer>
+        )}
+
+        {isError && (
+          <footer className="border-t border-gray-200 dark:border-gray-800 p-3 flex justify-end">
+            <button
+              type="button"
+              onClick={onCancel}
+              className="rounded-lg border border-gray-300 dark:border-gray-700 px-3 py-1.5 text-xs hover:bg-gray-50 dark:hover:bg-gray-900"
+            >
+              Close
+            </button>
+          </footer>
+        )}
+      </div>
     </div>
   );
 }

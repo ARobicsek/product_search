@@ -41,7 +41,18 @@ export async function POST(request: NextRequest) {
     return bad('invalid or missing x-web-secret header', 401);
   }
 
-  let body: { yaml?: unknown; draft?: unknown; originalSlug?: string | null; state?: unknown };
+  let body: {
+    yaml?: unknown;
+    draft?: unknown;
+    originalSlug?: string | null;
+    state?: unknown;
+    /**
+     * ADR-115: set by the OnboardChat "Save and proceed anyway" path after
+     * the save-time probe modal couldn't complete (no detail URLs found in
+     * the budget). Downgrades the ADR-111 gate to a warning.
+     */
+    bypassForceDetailBackup?: unknown;
+  };
   try {
     body = await request.json();
   } catch {
@@ -93,8 +104,11 @@ export async function POST(request: NextRequest) {
           ? (body.state as Record<string, unknown>)
           : null;
       const originalSlug = (body.originalSlug && SLUG_RE.test(body.originalSlug)) ? body.originalSlug : null;
+      const bypassForceDetailBackup = body.bypassForceDetailBackup === true;
 
-      const validationRes = validateProfileDraft(draft, state, originalSlug);
+      const validationRes = validateProfileDraft(draft, state, originalSlug, {
+        bypassForceDetailBackup,
+      });
       
       warnings.push(...validationRes.warnings.map(w => ({ message: w })));
       
@@ -123,7 +137,13 @@ export async function POST(request: NextRequest) {
     // Already validated via validateProfileDraft which checks slug
     const state = body.state && typeof body.state === 'object' && !Array.isArray(body.state) ? (body.state as Record<string, unknown>) : null;
     const originalSlug = (body.originalSlug && SLUG_RE.test(body.originalSlug)) ? body.originalSlug : null;
-    const validationRes = validateProfileDraft(draftForProbe as Record<string, unknown>, state, originalSlug);
+    const bypassForceDetailBackup = body.bypassForceDetailBackup === true;
+    const validationRes = validateProfileDraft(
+      draftForProbe as Record<string, unknown>,
+      state,
+      originalSlug,
+      { bypassForceDetailBackup },
+    );
     slug = validationRes.slug!;
   } else {
     if (body.originalSlug && SLUG_RE.test(body.originalSlug)) {
