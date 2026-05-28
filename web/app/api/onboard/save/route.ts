@@ -2,19 +2,10 @@ import { NextRequest } from 'next/server';
 import { revalidatePath } from 'next/cache';
 import { commitNewProfile } from '@/lib/onboard/commit';
 import { parseAndValidateProfileYaml, ProfileValidationError } from '@/lib/onboard/schema';
-import { renderProfileYaml } from '@/lib/onboard/render-yaml';
 import { getProductProfileContent } from '@/lib/github';
 import { readAlertsFromYaml } from '@/lib/alerts';
 import { probeAndUpdateProfile } from '@/lib/onboard/probe-and-update';
-import { checkForceDetailBackup, type Adr067Warning } from '@/lib/onboard/adr067-check';
-import { checkConditionDrift } from '@/lib/onboard/condition-drift-check';
-import { checkTitleExcludes } from '@/lib/onboard/title-excludes-check';
-import { checkDetailPreferencePresence } from '@/lib/onboard/detail-preference-presence';
-import {
-  FORCE_DETAIL_BACKUP_HOSTS,
-  PREFER_DETAIL_HOSTS,
-} from '@/lib/onboard/vendor-quirks-data';
-import { checkMatchAliases } from '@/lib/onboard/match-aliases-check';
+
 import { validateProfileDraft } from '@/lib/onboard/validation';
 
 export const runtime = 'nodejs';

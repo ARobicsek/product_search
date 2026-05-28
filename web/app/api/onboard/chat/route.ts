@@ -148,6 +148,7 @@ export async function POST(request: NextRequest) {
             send({ type: 'status', message: 'finalizing your draft…' });
           }
 
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           const toolsParams: any = forceFinalize ? undefined : [
             {
               type: 'web_search_20250305',

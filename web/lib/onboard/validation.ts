@@ -1,6 +1,6 @@
 import { parseAndValidateProfileYaml, ProfileValidationError } from '@/lib/onboard/schema';
 import { renderProfileYaml } from '@/lib/onboard/render-yaml';
-import { checkForceDetailBackup, type Adr067Warning } from '@/lib/onboard/adr067-check';
+import { checkForceDetailBackup } from '@/lib/onboard/adr067-check';
 import { checkConditionDrift } from '@/lib/onboard/condition-drift-check';
 import { checkTitleExcludes } from '@/lib/onboard/title-excludes-check';
 import { checkDetailPreferencePresence } from '@/lib/onboard/detail-preference-presence';
