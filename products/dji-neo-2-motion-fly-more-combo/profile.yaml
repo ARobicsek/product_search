@@ -1,0 +1,103 @@
+slug: dji-neo-2-motion-fly-more-combo
+display_name: DJI Neo 2 Drone Motion Fly More Combo
+description: One unit of the DJI Neo 2 Motion Fly More Combo with RC Motion 3, Goggles N3, and Digital Transceiver—new condition, in stock only
+target:
+  unit: count
+  amount: 1
+spec_filters:
+  - rule: in_stock
+  - rule: condition_in
+    values:
+      - new
+spec_flags:
+  - rule: low_seller_feedback
+    flag: low_feedback
+    rating_pct_below: 98
+    count_below: 50
+sources:
+  - id: ebay_search
+    queries:
+      - DJI Neo 2 Motion Fly More Combo
+      - Neo 2 Motion Combo
+    max_results_per_query: 50
+  - id: universal_ai_search
+    url: https://www.amazon.com/s?k=DJI+Neo+2+Motion+Fly+More+Combo&i=electronics
+    extra:
+      alterlab_options:
+        country: us
+        min_tier: 3
+        wait_condition: networkidle
+  - id: universal_ai_search
+    url: https://www.microcenter.com/search/search_results.aspx?Ntt=DJI+Neo+2+Motion+Fly+More+Combo
+    extra:
+      alterlab_options:
+        country: us
+        min_tier: 3
+        wait_condition: networkidle
+        skip_alterlab: true
+        use_scrappey: true
+        proxy_country: UnitedStates
+  - id: universal_ai_search
+    url: https://www.bhphotovideo.com/c/product/1940935-REG/dji_cp_fp_00000273_01_dji_neo_2_motion.html
+    page_type: detail
+    extra:
+      alterlab_options:
+        country: us
+        min_tier: 3
+        wait_condition: networkidle
+        skip_alterlab: true
+        use_scrappey: true
+        proxy_country: UnitedStates
+  - id: universal_ai_search
+    url: https://www.backmarket.com/en-us/search?q=DJI+Neo+2+Motion+Fly+More+Combo
+    extra:
+      alterlab_options:
+        country: us
+        min_tier: 3
+        wait_condition: networkidle
+        skip_alterlab: true
+        use_scrappey: true
+        proxy_country: UnitedStates
+  - id: universal_ai_search
+    url: https://www.centralcomputer.com/search?q=DJI+Neo+2+Motion+Fly+More+Combo
+    extra:
+      alterlab_options:
+        country: us
+        min_tier: 3
+        wait_condition: networkidle
+        skip_alterlab: true
+        use_scrappey: true
+        proxy_country: UnitedStates
+  - id: universal_ai_search
+    url: https://www.serversupply.com/search?q=DJI+Neo+2+Motion+Fly+More+Combo
+    extra:
+      alterlab_options:
+        country: us
+        min_tier: 3
+        wait_condition: networkidle
+        skip_alterlab: true
+        use_scrappey: true
+        proxy_country: UnitedStates
+  - id: universal_ai_search
+    url: https://www.target.com/s?searchTerm=DJI+Neo+2+Motion+Fly+More+Combo
+    extra:
+      alterlab_options:
+        country: us
+        min_tier: 3
+sources_pending:
+  - id: universal_ai_search
+    url: https://www.walmart.com/search?q=DJI+Neo+2+Motion+Fly+More+Combo
+    note: Transient 504 fetch error; will retry at runtime
+report_columns:
+  - rank
+  - source
+  - title
+  - price
+  - condition
+  - seller
+  - seller_rating
+  - flags
+match_aliases:
+  - CP.FP.00000273.01
+  - Neo 2 Motion Combo
+  - DJI Neo 2 Motion
