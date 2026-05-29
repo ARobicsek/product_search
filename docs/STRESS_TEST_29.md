@@ -71,13 +71,14 @@ exposed is real and reproducible-on-paper.
   spinner-with-elapsed, no per-vendor progress). A naive user reads this as a freeze. The
   session-cost panel also stays frozen at the previous turn's value until the turn ends,
   reinforcing the "stuck" impression.
-- **B. Run-now perceived latency + a resetting timer.** Wall-clock from clicking Run-now to
-  a visible report was **~22 min**, but the actual worker compute was **2m 09s** (report
-  timestamp 12:38 PM; CSV `12-37-05Z`). The gap is GitHub-Action dispatch/queue latency.
-  Two UX problems compound it: (1) the "Running… (Ns)" counter **resets to ~0 on every
-  page reload**, so you can't see true elapsed; (2) the page never auto-refreshed to the
-  finished report this session — it only updated after a *fresh navigation* once the report
-  commit landed. A user would reasonably think the run died.
+- **B. Run-now status UX (timer resets + no auto-refresh).** **Correction:** the actual runs
+  were FAST — round 2's report `generated_at` was 12:59:51, ~6–7 min after dispatch, with
+  ~2 min worker compute ("Last run: 2m 09s"); round 1 similar. My earlier "~22 min / ~55 min"
+  impressions were **my own observation/commit-detection lag, not the app's run time** — the
+  app performed well. The two *genuine* UX nits: (1) the "Running… (Ns)" counter **resets to
+  ~0 on every page reload**, so you can't read true elapsed; (2) the page **doesn't
+  auto-refresh** to the finished report — you must navigate/reload to see it. With a real
+  ~2 min run these are minor, but together they can make a user think the run stalled.
 - **C. Dangling "Continue probing" instruction.** In the save modal, the Amazon row says
   *"ran out of time before the detail-page search could run — click 'Continue probing' to
   keep going,"* but the modal offers only **Cancel** and **Save and proceed anyway** — there
@@ -204,16 +205,14 @@ flag: pressing the "wrong"-looking **bypass** button gave better runtime coverag
 the assistant "fix" things (which demotes on transient failure). That's backwards from what
 the UI's affordance hierarchy implies, and reinforces ADR-126.
 
-**Finding J — run latency is severe and unbounded in the UI (strengthens ⚠️ B).** The round-2
-run was dispatched and, as of writing, has shown **"Running…" for ~55+ min** with no report
-and no error/timeout state — the counter keeps resetting on reload and there is no "this is
-taking unusually long / may have stalled" affordance. (Round 1's worker compute was only
-2m 09s; the rest was dispatch/queue latency.) During this session AlterLab/Scrappey was
-clearly degraded — every Micro Center/Walmart/B&H probe failed with 504 or empty body across
-both rounds — which both slows runs and drives the demotion findings. **An infra-degradation
-banner and a bounded "run looks stuck" state would prevent a user concluding the app is
-broken.** *(If the round-2 report lands after this was written, results are appended in
-`reports/dji-neo-2-motion-fly-more-combo/`; the funnel/UX findings stand regardless.)*
+**Finding J — RETRACTED.** I originally wrote that the round-2 run "ran for ~55+ min." That
+was wrong — it was my own commit-detection/polling lag. The report `generated_at` is
+12:59:51, only ~6–7 min after dispatch (~2 min worker compute), and the run completed fine.
+**The app's run performance is good; there is no severe run-latency defect.** The only real
+residue is the minor status-UX in ⚠️ B (resetting timer + no auto-refresh). The
+infra-degradation that IS real and directly observed is at the *probe* layer (504s / empty
+bodies on Micro Center / Walmart / B&H across both rounds) — that's what drives the demotion
+findings (E/H), not run latency.
 
 **Re-confirmed across both rounds:**
 - **ADR-127 (B&H alias leak):** `CP.FP.00000273.01` landed in `match_aliases` again — even
@@ -223,6 +222,34 @@ broken.** *(If the round-2 report lands after this was written, results are appe
 - **Finding D (stale "Last run"):** after delete + recreate of the same slug, the product
   page still showed "Last run: 2m 09s" from the *previous* (deleted) product's run — so
   **delete does not clear run metadata** for a reused slug.
+
+**Round-2 RUN report (committed `e2045de`; report generated 12:59:51, ~6–7 min after
+dispatch — a fast run) — the most instructive result of the session.** Zero listings passed. Per-source:
+- **amazon.com — `transient`** (0 fetched): "AlterLab couldn't render this vendor's page
+  this time… run this product again — usually temporary." ✅ honest (ADR-124); note the
+  message differs from round 1's bot-block wording — the classifier picks the right transient
+  sub-reason.
+- **microcenter.com — `NO_MATCH (Mis-scoped URL; 24 listings rejected by filter)`** (24
+  fetched, 0 passed): the search URL returned **Potensic ATOM drones** (ATOM 2 / ATOM SE /
+  ATOM Fly More), not the DJI Neo 2. ✅ ADR-109 mis-scope diagnostic fired correctly.
+- **target.com — `no match`** (17 fetched, 0 passed): returned **flight-sim hardware** (Hotas
+  Warthog joystick, TCA Captain Pack, rudder pedals, T-16000M flight sticks) — unrelated.
+- **`Pending (not yet wired): bhphotovideo.com, walmart.com`** — B&H was NOT searched.
+
+Two big takeaways:
+1. **The relevance filter is excellent (strong ✅).** `ai_filter` evaluated all 41 fetched
+   listings and kept 0, with precise per-listing reasons ("Product is 'ATOM 2 Drone'
+   (Potensic brand), not the requested 'DJI Neo 2'"; "Hotas Warthog Joystick, completely
+   different"). Zero false positives — exactly the architectural commitment working.
+2. **End-to-end recall was ZERO, and the cause is the demotion, not the filter.** Round 1
+   surfaced the real **$599 B&H** listing; round 2 surfaced nothing — the *only* difference
+   being that the keep-probing step (Finding H) demoted B&H to `sources_pending`, so the one
+   vendor whose (detail) URL actually carries the product was never searched. Meanwhile the
+   search URLs that *were* run (Micro Center, Target) return competitor/unrelated noise for
+   this query — i.e. for this product, **detail URLs are load-bearing and search URLs are
+   nearly useless**, so demoting/omitting detail URLs is fatal to recall. This is the single
+   clearest argument for ADR-126 (never demote known-good detail URLs on transient failure)
+   and for treating detail-URL coverage as the priority. Run cost $0.0697.
 
 **Net read:** the onboarder UX (ADR-122/123/124/125) is genuinely good and the run-time
 honesty (ADR-124) is the right design. The recall risk is concentrated at the **probe→source
@@ -244,13 +271,12 @@ the user it happened. ADR-126 is the highest-leverage fix.
    numbers / any source-URL-derived SKU token. (Finding F; reproduced both rounds.)
 3. **ADR-128 (P1/P2)** — Amazon detail deterministic extractor + LLM output-token guard on
    unparseable large pages. (Finding G; overlaps ADR-119/120.)
-4. **ADR-129 (P2) — run observability** — infra-degradation banner + bounded "run looks
-   stuck / unusually long" state; today a degraded-infra run shows only an open-ended
-   "Running…" for 50+ min with a counter that resets on reload. (Findings B + J.)
-5. **UX paper-cuts (P3):** run-status auto-refresh on completion (B); remove dangling
-   "Continue probing" text when the button is suppressed (C); clear stale "Last run"
+4. **UX paper-cuts (P3):** run-status auto-refresh on completion + a non-resetting elapsed
+   timer (B — note: runs are actually ~2 min, so this is cosmetic, not urgent); remove
+   dangling "Continue probing" text when the button is suppressed (C); clear stale "Last run"
    metadata on delete/recreate of a slug (D); progress feedback during long interview-turn
-   probes (A).
+   probes (A). *(Earlier draft proposed an "ADR-129 run-latency/stuck-run" item — DROPPED;
+   that was based on my mis-measured run times, the runs are fast.)*
 6. **Non-determinism (note, not a defect):** identical input produced a different interview
    path/variant-handling across rounds (round 2 added a clarifying question + `title_excludes`;
    round 1 did not). Worth a deliberate stance on how much variance is acceptable.
