@@ -1,0 +1,2 @@
+# Phase 30 spike throwaway venv (regenerable via `uv venv .venv-spike && uv pip install -e .`)
+.venv-spike/

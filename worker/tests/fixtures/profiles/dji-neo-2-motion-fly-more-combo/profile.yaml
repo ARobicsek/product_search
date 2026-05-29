@@ -1,0 +1,27 @@
+# COMMITTED TEST FIXTURE — Phase 30 spike (Step 3). Do NOT move under products/.
+# A realistic onboarded profile for a single-SKU consumer good, used to run real
+# Serper shopping results through the real ai_filter offline (ADR-130). Variant
+# disambiguation leans on relevance_check + match_aliases (the ADR-116/117
+# approach), not blunt title_excludes substrings.
+slug: "dji-neo-2-motion-fly-more-combo"
+display_name: "DJI Neo 2 Motion Fly More Combo"
+description: >
+  DJI Neo 2 Motion Fly More Combo — the palm-sized 4K drone bundle that ships
+  with the RC Motion 3 controller and FPV goggles. New, US sellers preferred.
+
+target:
+  unit: "unit"
+  amount: 1
+
+spec_filters:
+  - { rule: "title_excludes", values: ["Refurbished", "Used", "Open Box", "Renewed"] }
+
+match_aliases:
+  - "DJI Neo 2"
+  - "Neo 2 Motion Fly More"
+
+sources:
+  - id: "ebay_search"
+    queries:
+      - "DJI Neo 2 Motion Fly More Combo"
+    max_results_per_query: 50
