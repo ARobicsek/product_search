@@ -81,14 +81,30 @@ def _filter_log_path() -> Path:
     return log_dir / f"{datetime.now(tz=UTC).date().isoformat()}.jsonl"
 
 
-def _repo_reports_dir() -> Path | None:
-    """Return ``<repo>/reports`` if discoverable from this file's location.
+# Env override mirroring ``PRODUCT_SEARCH_PRODUCTS_DIR`` (see profile.py): when
+# set, the per-product filter log is written under
+# ``$PRODUCT_SEARCH_REPORTS_DIR/<slug>/<date>.filter.jsonl`` instead of the
+# repo's ``reports/`` tree. The test suite sets this to a tmp dir (autouse
+# fixture in conftest.py) so running ai_filter with throwaway slugs
+# (``test-product``, ``test-subscription``, the ``ddr5-rdimm-256gb`` fixture)
+# no longer leaks ``reports/<slug>/`` dirs into the working tree. Unset in
+# production, so scheduled runs are unchanged.
+_REPORTS_DIR_ENV = "PRODUCT_SEARCH_REPORTS_DIR"
 
-    Used to drop a per-run filter log alongside the committed daily report so
-    the diagnostic survives even when GH Actions artifact downloads require
-    auth that the operator may not have. Returns None when the repo layout
-    can't be located (tests / unusual CWDs).
+
+def _repo_reports_dir() -> Path | None:
+    """Return the reports dir if discoverable, else None.
+
+    Honors ``$PRODUCT_SEARCH_REPORTS_DIR`` first (tests / overrides); otherwise
+    walks up from this file looking for the repo's ``reports/`` (next to
+    ``products/``). Used to drop a per-run filter log alongside the committed
+    daily report so the diagnostic survives even when GH Actions artifact
+    downloads require auth the operator may not have. Returns None when no
+    reports dir can be located (unusual CWDs).
     """
+    override = os.environ.get(_REPORTS_DIR_ENV, "").strip()
+    if override:
+        return Path(override)
     # worker/src/product_search/validators/ai_filter.py -> repo root
     here = Path(__file__).resolve()
     for parent in [here.parent.parent.parent.parent.parent, *here.parents]:

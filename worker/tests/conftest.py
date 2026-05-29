@@ -9,6 +9,7 @@ somewhere the app never touches. See ADR-062.
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
 import pytest
@@ -19,6 +20,31 @@ from product_search.profile import (
     load_profile_from_path,
     load_qvl_from_path,
 )
+
+
+@pytest.fixture(autouse=True, scope="session")
+def _isolate_reports_dir(tmp_path_factory: pytest.TempPathFactory):
+    """Keep ai_filter's per-product filter log OUT of the repo's ``reports/``.
+
+    ``ai_filter._write_filter_log`` mirrors each run's verdicts to
+    ``reports/<slug>/<date>.filter.jsonl`` so the diagnostic is captured in the
+    committed repo. In tests that means throwaway slugs (``test-product``,
+    ``test-subscription``, the ``ddr5-rdimm-256gb`` fixture) leak
+    ``reports/<slug>/`` dirs into the working tree on every run. Point the
+    ``PRODUCT_SEARCH_REPORTS_DIR`` override at a tmp dir for the whole session
+    so the real tree stays clean. (Same decoupling rationale as
+    ``PRODUCT_SEARCH_PRODUCTS_DIR``; see ADR-062.)
+    """
+    reports_dir = tmp_path_factory.mktemp("reports")
+    prev = os.environ.get("PRODUCT_SEARCH_REPORTS_DIR")
+    os.environ["PRODUCT_SEARCH_REPORTS_DIR"] = str(reports_dir)
+    try:
+        yield
+    finally:
+        if prev is None:
+            os.environ.pop("PRODUCT_SEARCH_REPORTS_DIR", None)
+        else:
+            os.environ["PRODUCT_SEARCH_REPORTS_DIR"] = prev
 
 # worker/tests/fixtures/profiles  — pass as $PRODUCT_SEARCH_PRODUCTS_DIR to
 # point the CLI loader (subprocess integration tests + the CI validate step)
