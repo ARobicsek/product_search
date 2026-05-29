@@ -1,5 +1,52 @@
 # Next session: live, naive-user verification of the onboarder + a run
 
+## ✅ Browser MCP is now set up and validated (2026-05-29)
+
+The blocker that prevented the previous attempt is solved. A web session now boots
+ready to drive a real browser against prod:
+
+- **`.mcp.json`** registers the `chrome-devtools` MCP (headless, isolated). Tools
+  (`navigate_page`, `take_snapshot`, `take_screenshot`, `click`, `fill`,
+  `fill_form`, `wait_for`, `list_network_requests`, …) appear at session start.
+- **`.claude/hooks/setup-browser.sh`** (wired via `.claude/settings.json`
+  SessionStart) installs headless Chromium via Playwright and publishes a stable
+  symlink `/usr/local/bin/chrome-for-cdmcp` that `.mcp.json` points at.
+- Validated end-to-end this session: MCP initialize OK, 29 tools listed,
+  `navigate_page` → `take_snapshot` on `https://ari-product-search.vercel.app/onboard`
+  returns the real onboarder UI.
+
+**Two gotchas baked into the config — don't remove them:**
+1. The container does **TLS interception**, so Chrome throws
+   `ERR_CERT_AUTHORITY_INVALID` on every https site. `--acceptInsecureCerts` is in
+   `.mcp.json` to get past it. (curl works without it; Chrome does not.)
+2. Running as root needs `--chrome-arg=--no-sandbox` (also in `.mcp.json`).
+
+**First action next session:** confirm the `chrome-devtools__*` tools are present
+(they load at startup). If the hook hasn't finished installing Chrome yet, re-run
+`bash .claude/hooks/setup-browser.sh` then retry a `navigate_page`.
+
+## The specific product the owner asked to test (2026-05-29)
+
+Run the full funnel for this exact request as a naive user:
+
+> **"DJI Neo 2 Drone Motion Fly More Combo; only 1; only new; only in stock.
+> vendors: amazon, microcenter, b&H photo Video, Target, Walmart. please use them
+> ALL. don't use ebay."**
+
+Owner's ground truth: this product **IS available right now at all of these EXCEPT
+Target.** Known-good detail URLs the owner supplied (use to sanity-check recall —
+the onboarder should find these itself):
+- Micro Center: https://www.microcenter.com/product/706337/dji-neo-2-drone-with-fly-more-combo
+- Walmart: https://www.walmart.com/ip/DJI-Neo-2-4K-Drone-Fly-More-Combo-with-RC-Motion-3-Remote-Controller/19382219784
+- Amazon: https://www.amazon.com/DJI-Transmission-Transceiver-Beginners-Batteries/dp/B0FJ1QH15P
+
+So a correct run reports real in-stock listings for Amazon, Micro Center, B&H, and
+Walmart, and an honest "not carried / no match" for Target — **not** a bogus
+"vendor doesn't carry" for the four that do (that's exactly the ADR-124/125 fix
+under test). Note: `B0FJ1QH15P` must NOT leak into `match_aliases` (ADR-116 guard).
+
+---
+
 **Owner ask (2026-05-29):** Do live verification yourself — drive the onboarder
 and run a product end-to-end against prod — **with a critical eye, pretending you
 are a naive (non-technical) user.** Report: what works? what makes sense? what

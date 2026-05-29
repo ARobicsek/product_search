@@ -41,4 +41,11 @@ scratch/
 
 # Logs
 *.log
-.claude/
+
+# Local Claude config is ignored, but the shared browser-testing setup is tracked
+# (chrome-devtools MCP + SessionStart Chrome install) so it persists across the
+# ephemeral web containers. Personal/local overrides stay ignored.
+.claude/*
+!.claude/settings.json
+!.claude/hooks/
+.claude/settings.local.json

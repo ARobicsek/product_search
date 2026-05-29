@@ -1,0 +1,19 @@
+{
+  "mcpServers": {
+    "chrome-devtools": {
+      "type": "stdio",
+      "command": "npx",
+      "args": [
+        "-y",
+        "chrome-devtools-mcp@latest",
+        "--headless",
+        "--isolated",
+        "--acceptInsecureCerts",
+        "--executablePath=/usr/local/bin/chrome-for-cdmcp",
+        "--chrome-arg=--no-sandbox",
+        "--chrome-arg=--disable-setuid-sandbox",
+        "--chrome-arg=--disable-dev-shm-usage"
+      ]
+    }
+  }
+}
