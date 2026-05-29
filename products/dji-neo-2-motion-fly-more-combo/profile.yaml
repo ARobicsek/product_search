@@ -1,0 +1,85 @@
+slug: dji-neo-2-motion-fly-more-combo
+display_name: DJI Neo 2 Motion Fly More Combo
+description: Track the cheapest new, in-stock DJI Neo 2 Motion Fly More Combo drone with RC Motion 3 controller, Goggles N3, 3 batteries, and digital transceiver
+target:
+  unit: count
+  amount: 1
+spec_filters:
+  - rule: in_stock
+  - rule: condition_in
+    values:
+      - new
+spec_flags:
+  - rule: low_seller_feedback
+    flag: low_feedback
+    rating_pct_below: 98
+    count_below: 50
+sources:
+  - id: universal_ai_search
+    url: https://www.amazon.com/s?k=dji+neo+2+motion+fly+more+combo
+    extra:
+      alterlab_options:
+        country: us
+        min_tier: 3
+        wait_condition: networkidle
+        use_scrappey: true
+        render_js: true
+        proxy_country: UnitedStates
+  - id: universal_ai_search
+    url: https://www.amazon.com/DJI-Transmission-Transceiver-Beginners-Batteries/dp/B0FJ1QH15P
+    page_type: detail
+    extra:
+      alterlab_options:
+        country: us
+        min_tier: 3
+        wait_condition: networkidle
+        use_scrappey: true
+        render_js: true
+        proxy_country: UnitedStates
+  - id: universal_ai_search
+    url: https://www.bhphotovideo.com/c/product/1940935-REG/dji_cp_fp_00000273_01_dji_neo_2_motion.html
+    page_type: detail
+    extra:
+      alterlab_options:
+        country: us
+        min_tier: 3
+        wait_condition: networkidle
+        skip_alterlab: true
+        use_scrappey: true
+        proxy_country: UnitedStates
+      probe_note: B&H detail page; detailExtractable returned false on bare fetch but page structure is sound; Scrappey render will extract pricing
+sources_pending:
+  - id: universal_ai_search
+    url: https://www.walmart.com/search?q=DJI+Neo+2+Motion+Fly+More+Combo
+    note: Walmart search — hit 504 on probe (transient); known-good host; will retry and auto-surface when connectivity improves
+  - id: universal_ai_search
+    note: Target — not currently visible in search results or catalog; will auto-surface if stock arrives (carry-gate watches for DJI Neo 2 Motion Fly More Combo tokens)
+  - id: universal_ai_search
+    url: https://www.microcenter.com/search/search_results.aspx?Ntt=DJI+Neo+2+Motion+Fly+More+Combo
+    extra:
+      alterlab_options:
+        country: us
+        min_tier: 3
+        wait_condition: networkidle
+        skip_alterlab: true
+        use_scrappey: true
+        proxy_country: UnitedStates
+      probe_note: Microcenter search; bare fetch hit 504 gateway timeout (transient); Scrappey render with residential proxy will bypass Cloudflare
+    note: "probe returned 0 candidates: fetch failed: Unexpected token 'e', \"error code: 504\" is not valid JSON"
+brand_candidates:
+  - DJI
+synthesis_hints:
+  - This is a single specific SKU (the Motion variant with Goggles N3 + RC Motion 3). Prices vary by retailer; B&H and Microcenter are premium channels but stock reliably. Walmart discounts aggressively but stock is unpredictable.
+  - "New-only filter is strict: no refurbished, renewed, or open-box variants will be shown."
+report_columns:
+  - rank
+  - source
+  - title
+  - price
+  - condition
+  - seller
+  - seller_rating
+  - flags
+match_aliases:
+  - DJI Neo 2 Motion Fly More Combo
+  - CP.FP.00000273.01
