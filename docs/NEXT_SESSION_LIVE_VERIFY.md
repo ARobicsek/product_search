@@ -21,6 +21,13 @@ ready to drive a real browser against prod:
    `.mcp.json` to get past it. (curl works without it; Chrome does not.)
 2. Running as root needs `--chrome-arg=--no-sandbox` (also in `.mcp.json`).
 
+Project `.mcp.json` servers don't auto-start in a web session without approval,
+so `.claude/settings.json` sets `"enableAllProjectMcpServers": true` +
+`"enabledMcpjsonServers": ["chrome-devtools"]`. **The session must be checked out
+on a branch that contains these files** (`.mcp.json` + `.claude/`) — a session on
+a branch without them loads no MCP. (This is why the first attempt failed: it ran
+on `main`, which lacked the files.)
+
 **First action next session:** confirm the `chrome-devtools__*` tools are present
 (they load at startup). If the hook hasn't finished installing Chrome yet, re-run
 `bash .claude/hooks/setup-browser.sh` then retry a `navigate_page`.
