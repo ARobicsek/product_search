@@ -410,7 +410,7 @@ export function OnboardChat({ initialProfile, initialSlug }: { initialProfile?: 
         error?: string;
         details?: string[];
         probeStatus?: string;
-        warnings?: Array<{ host: string; message: string }>;
+        warnings?: Array<{ host?: string; message: string; userMessage?: string }>;
       };
       if (!res.ok || !data.ok || !data.slug) {
         if (res.status === 422) {
@@ -430,7 +430,9 @@ export function OnboardChat({ initialProfile, initialSlug }: { initialProfile?: 
         });
         return;
       }
-      const warnings = (data.warnings ?? []).map((w) => w.message);
+      // ADR-123: prefer the plain-English text; fall back to the technical
+      // message for any in-flight server that hasn't been redeployed.
+      const warnings = (data.warnings ?? []).map((w) => w.userMessage ?? w.message);
       setSaveState({
         kind: 'success',
         slug: data.slug,
@@ -619,6 +621,8 @@ export function OnboardChat({ initialProfile, initialSlug }: { initialProfile?: 
             ok: boolean;
             errors: string[];
             warnings: string[];
+            userErrors?: string[];
+            userWarnings?: string[];
           } | undefined) ?? { ok: true, errors: [], warnings: [] };
 
           if (complete && validation.ok) {
@@ -626,6 +630,8 @@ export function OnboardChat({ initialProfile, initialSlug }: { initialProfile?: 
             await commitSave(enrichedDraft, false);
             return;
           }
+          // Bypassability is decided from the TECHNICAL errors (they carry the
+          // ADR markers); the modal renders the plain-English userErrors (ADR-123).
           const bypassableViolations = validation.errors.length > 0 && validation.errors.every((e) =>
             /save is BLOCKED|Save is BLOCKED|ADR-067|ADR-111|force_detail_backup/.test(e)
           );
@@ -637,8 +643,8 @@ export function OnboardChat({ initialProfile, initialSlug }: { initialProfile?: 
             plan,
             enrichedDraft,
             unprobed,
-            validationErrors: validation.errors,
-            validationWarnings: validation.warnings,
+            validationErrors: validation.userErrors ?? validation.errors,
+            validationWarnings: validation.userWarnings ?? validation.warnings,
             bypassableViolations: bypassableViolations || (complete && !validation.ok && bypassableViolations),
             noProgress,
           });
@@ -843,18 +849,22 @@ export function OnboardChat({ initialProfile, initialSlug }: { initialProfile?: 
                 </span>
               </div>
               {saveState.warnings.length > 0 && (
-                <div className="text-[11px] text-amber-800 dark:text-amber-300 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-900/40 rounded-lg px-3 py-2 space-y-1">
+                <div className="text-[11px] text-amber-800 dark:text-amber-300 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-900/40 rounded-lg px-3 py-2 space-y-2">
                   <div className="font-medium">Heads up — coverage could be better:</div>
                   <ul className="list-disc ml-4 space-y-0.5">
                     {saveState.warnings.map((w, i) => (
                       <li key={i}>{w}</li>
                     ))}
                   </ul>
+                  <p className="text-amber-700 dark:text-amber-400">
+                    Your profile is saved. You can open it now and fix these later from
+                    Edit Profile, or ask the assistant to fix them first.
+                  </p>
                   <a
                     href={`/${saveState.slug}`}
-                    className="inline-block mt-1 underline hover:no-underline"
+                    className="w-full flex items-center justify-center gap-1.5 rounded-lg bg-amber-600 text-white text-xs font-medium px-3 py-2 hover:bg-amber-700 transition no-underline"
                   >
-                    Open {saveState.slug} anyway →
+                    Open my product page →
                   </a>
                 </div>
               )}
@@ -1085,8 +1095,8 @@ function ProbeModal({
             <div className="border border-amber-200 dark:border-amber-900/40 bg-amber-50 dark:bg-amber-900/20 rounded-lg px-3 py-2 text-[11px] text-amber-800 dark:text-amber-300 space-y-1">
               <div className="font-medium">
                 {state.bypassableViolations
-                  ? 'These would block save under the ADR-111 detail-URL gate:'
-                  : 'These errors will block save:'}
+                  ? 'A couple of vendors need a direct product link before saving:'
+                  : 'These need to be fixed before saving:'}
               </div>
               <ul className="list-disc ml-4 space-y-0.5">
                 {state.validationErrors.slice(0, 6).map((e, i) => (

@@ -18,6 +18,7 @@ import 'server-only';
 
 export interface ConditionDriftWarning {
   message: string;
+  userMessage: string;
 }
 
 function isObject(v: unknown): v is Record<string, unknown> {
@@ -77,6 +78,12 @@ export function checkConditionDrift(
         `will NOT be rejected and may dominate the report. Add a spec_filter ` +
         `{rule: "condition_in", values: ["new"]} (ADR-074), or re-confirm that ` +
         `any condition is acceptable.`,
+      userMessage:
+        `You asked for a specific condition (${quoted}) but the saved profile ` +
+        `doesn't filter by condition — used or refurbished listings won't be ` +
+        `rejected and could show up as the "cheapest" price. ` +
+        `What to do: ask the assistant to add a "new only" condition filter, or ` +
+        `confirm you're OK with any condition.`,
     },
   ];
 }

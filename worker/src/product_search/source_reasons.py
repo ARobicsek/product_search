@@ -155,15 +155,15 @@ def classify_source_outcome(
             f"The AI filter diagnostic below lists the specific rejections.",
         )
 
-    if dominant_rejection == "vendor_does_not_carry":
-        return SourceOutcome(
-            OutcomeCategory.NO_MATCH,
-            "The vendor's page loaded but the extractor found no products — most likely it "
-            "genuinely has nothing right now, so re-running won't change anything. "
-            "**What to do:** if you expected results, open **Edit Profile** and "
-            "check the search URL / keywords.",
-            custom_label="NO_MATCH (Vendor doesn't carry)"
-        )
+    # ADR-124: ``vendor_does_not_carry`` is set by cli.annotate_dominant_rejections
+    # for EVERY source with fetched == 0 — so it must be the LAST-RESORT verdict,
+    # evaluated only after the carry-gate (WATCHED), transient/bot-wall, and
+    # parser-gap branches below have been ruled out. It used to be checked HERE
+    # (ADR-112), which made all of those more-specific diagnoses unreachable for
+    # any zero-fetch universal source: a bot-walled Amazon page, an AlterLab
+    # render failure, or a carry-gate skip all wrongly reported "Vendor doesn't
+    # carry — re-running won't change anything." The check now lives next to the
+    # EMPTY_PAGE fallback at the bottom of this function.
 
     # 2.5 ADR-099 carry-gate: we fetched the page but deliberately skipped the
     #     paid LLM extractors because the product's identifier (family-core
@@ -275,6 +275,23 @@ def classify_source_outcome(
             f"bot-block, or wrong URL, not proof the product isn't sold there. "
             f"**What to do:** open **Edit Profile** and check the search URL; "
             f"re-running may also help if this was a transient block.",
+        )
+
+    # ADR-124: we reached the bottom — a real, substantively-sized page (or a
+    # source with no diagnostics at all) that fetched 0 listings, with no
+    # carry-gate skip, no transient/degraded signal, and no error. THIS is the
+    # only place "the vendor genuinely has nothing" is a fair conclusion. When
+    # cli stamped vendor_does_not_carry (fetched == 0), use the NO_MATCH label;
+    # otherwise the generic EMPTY_PAGE fallback (e.g. tests / non-universal
+    # sources that never get a dominant_rejection).
+    if dominant_rejection == "vendor_does_not_carry":
+        return SourceOutcome(
+            OutcomeCategory.NO_MATCH,
+            "The vendor's page loaded but the extractor found no products — most "
+            "likely it genuinely has nothing right now, so re-running won't change "
+            "anything. **What to do:** if you expected results, open **Edit "
+            "Profile** and check the search URL / keywords.",
+            custom_label="NO_MATCH (Vendor doesn't carry)",
         )
 
     return SourceOutcome(

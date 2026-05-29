@@ -184,3 +184,74 @@ def test_watch_gate_does_not_override_real_no_match() -> None:
         skip_reason=f"{WATCH_GATE_REASON_PREFIX} 'h14ssl' not present",
     )
     assert out.category is OutcomeCategory.NO_MATCH
+
+
+# --- ADR-124: vendor_does_not_carry must be the LAST-RESORT verdict ---------
+#
+# In production, cli.annotate_dominant_rejections stamps
+# dominant_rejection="vendor_does_not_carry" on EVERY source with fetched == 0.
+# Before ADR-124 that label was checked first, so a zero-fetch source could
+# never reach the carry-gate (WATCHED), transient/bot-wall, or parser-gap
+# diagnoses — they were dead code in the real pipeline. These tests reproduce
+# the real combination (the earlier carry-gate/transient tests don't, because
+# they leave dominant_rejection unset) and pin the correct precedence.
+
+VDNC = "vendor_does_not_carry"
+
+
+def test_carry_gate_skip_beats_vendor_does_not_carry() -> None:
+    from product_search.source_reasons import WATCH_GATE_REASON_PREFIX
+
+    out = classify_source_outcome(
+        fetched=0,
+        passed=0,
+        dominant_rejection=VDNC,
+        skip_reason=f"{WATCH_GATE_REASON_PREFIX} 'neo 2' not present on page",
+    )
+    assert out.category is OutcomeCategory.WATCHED
+
+
+def test_thin_body_botwall_beats_vendor_does_not_carry() -> None:
+    # The DJI Amazon case: a bot-walled / thin Amazon detail page fetched 0.
+    # That is TRANSIENT (re-running can help), NOT "vendor doesn't carry".
+    out = classify_source_outcome(
+        fetched=0,
+        passed=0,
+        dominant_rejection=VDNC,
+        diagnostics={"body_len": 1_200},
+    )
+    assert out.category is OutcomeCategory.TRANSIENT
+
+
+def test_alterlab_degraded_beats_vendor_does_not_carry() -> None:
+    out = classify_source_outcome(
+        fetched=0,
+        passed=0,
+        dominant_rejection=VDNC,
+        diagnostics={"alterlab_degraded": True},
+    )
+    assert out.category is OutcomeCategory.TRANSIENT
+
+
+def test_substantive_body_parser_gap_beats_vendor_does_not_carry() -> None:
+    out = classify_source_outcome(
+        fetched=0,
+        passed=0,
+        dominant_rejection=VDNC,
+        diagnostics={"body_len": 80_000},
+    )
+    assert out.category is OutcomeCategory.PARSER_GAP
+
+
+def test_vendor_does_not_carry_still_fires_as_last_resort() -> None:
+    # A genuinely-empty medium page (no skip, no error, no thin/substantive
+    # signal) with the production label still reports NO_MATCH (Vendor doesn't
+    # carry) — the intended ADR-112 behavior, now correctly last.
+    out = classify_source_outcome(
+        fetched=0,
+        passed=0,
+        dominant_rejection=VDNC,
+        diagnostics={"body_len": 20_000},
+    )
+    assert out.category is OutcomeCategory.NO_MATCH
+    assert out.custom_label == "NO_MATCH (Vendor doesn't carry)"

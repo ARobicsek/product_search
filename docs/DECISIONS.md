@@ -11,6 +11,8 @@ Status values:
 
 ## Index
 
+- **ADR-124** — `vendor_does_not_carry` must be the last-resort source-outcome verdict, not the first (ACCEPTED, 2026-05-29, Phase 29). Live DJI Neo 2 run: Amazon's `page_type: detail` source fetched 0 (almost certainly an Amazon bot-wall on the datacenter/proxy fetch — B&H + Microcenter detail URLs went via Scrappey and both fetched 1/passed 1) and the report said "**NO_MATCH (Vendor doesn't carry)** — genuinely has nothing right now, so re-running won't change anything." Wrong on both facts and advice. Root cause: ADR-112 made `cli.annotate_dominant_rejections` stamp `dominant_rejection="vendor_does_not_carry"` on EVERY `fetched == 0` source, and put that branch FIRST in `classify_source_outcome` — ahead of the carry-gate (WATCHED), the thin-body/bot-wall TRANSIENT, `alterlab_degraded` TRANSIENT, and the substantive-body PARSER_GAP branches. Since all of those only apply when `fetched == 0`, they became **dead code for every universal source** (the unit tests never caught it because they classify WATCHED/TRANSIENT/PARSER_GAP without ever passing `dominant_rejection`, which production always sets). Decision: move the `vendor_does_not_carry` verdict to the LAST-RESORT position (next to the EMPTY_PAGE fallback) so the more-specific, more-accurate diagnoses win and a bot-walled/transient/carry-gated zero-fetch source no longer tells the user "re-running won't help." +5 regression tests reproducing the real production combination. Worker 418/418, ruff+mypy clean. Brief: this conversation (user's Amazon NO_MATCH screenshot).
+- **ADR-123** — Plain-English user-facing validator messages, separate from the LLM-facing text (ACCEPTED, 2026-05-29, Phase 29). The onboarder's save-time warnings/errors (force_detail_backup, URL-less placeholder, condition-drift, title-excludes, match-aliases, alias-hallucination) were written for the LLM — full of ADR refs, `page_type`, `universal_ai_search`, "the runtime escalation ladder (ADR-078)" — and the SAME strings were shown to the user in the save panel + probe modal. The user (re-onboarding the DJI Neo 2) found them "very technical jargon-y." Decision: each check now returns `message` (technical, LLM-facing, unchanged — the `validate_profile` tool still feeds it back so the model can self-correct) PLUS `userMessage` (plain English + a concrete "What to do:"). `validateProfileDraft` threads lockstep `userErrors`/`userWarnings`; the save route returns `userMessage`, the probe route forwards `userErrors`/`userWarnings` (the client still computes bypassability from the technical `errors` regex), and the UI renders the friendly text. De-jargoned the probe-modal header ("These would block save under the ADR-111 detail-URL gate" → "A couple of vendors need a direct product link before saving"). Also (user request #3) the tiny "Open <slug> anyway →" underline link in the save-success panel became a proper amber button ("Open my product page →") with a one-line "your profile is saved; fix later or ask the assistant" explainer. +8 guard tests (60 total); web `tsc`/`eslint`/`test:guards 60/60`/`test:parity 6/6`/`next build` clean. Brief: this conversation (user screenshots of the save-success + probe-attempt panels).
 - **ADR-121** — Save-time probe modal: bounded loop + de-duped backfill rows + plan visibility (ACCEPTED, 2026-05-28, Phase 29). Session-C review of the user's "would it last forever?" + "growing target.com rows" complaints found two **real functional bugs**, not just UX confusion: a non-terminating probe loop when every URL in the unprobed set exceeded the 45s per-attempt budget, and `backfill_skip` events appending one new target.com row per attempt because the client never keyed by host. Decision: server emits `noProgress` in `done` when a Continue pass finished zero URLs (client then hides Continue + offers "Stop and save what we have"); client de-dups backfill rows via host-keyed upsert; new `plan_summary` event feeds a per-host chip roll-up so the planned ceiling is visible. Web-only; +4 guard tests (now 35/35). Brief receipts: [SESSION_C_BRIEF.md](SESSION_C_BRIEF.md) Defect F.
 - **ADR-120** — "Vendor doesn't carry" vs "mis-scoped" diagnostic refinement (PROPOSED, 2026-05-28, Phase 29). ADR-109's mis-scope diagnostic fires whenever `dominant_rejection == relevance_check`, but doesn't distinguish "wrong variant on a correctly-scoped page" from "vendor truly doesn't carry the brand at all" from "URL is locked to a wrong category." Live DJI run mislabeled Microcenter's Thrustmaster-joysticks-on-DJI-search as "mis-scoped URL" when the URL was fine and Microcenter just doesn't carry the product. Decision: compute a `dominant_rejection_subkind` (`wrong_variant` | `vendor_doesnt_carry` | `mis_scoped`) from per-rejection title-overlap with family-root tokens + presence of category-node params; render three honest messages. Brief: [SESSION_C_BRIEF.md](SESSION_C_BRIEF.md) Defect E.
 - **ADR-122** — Onboard probing: reuse interview probes at save, deterministic progress, keep-probing affordance, clearer wording (ACCEPTED, implemented 2026-05-29, Phase 29). User re-onboarding the DJI Neo 2 hit three rough edges around the ADR-115 save-time probe: (1) it re-probed every vendor from scratch even though the interview already probed them; (2) it raced all 6 URLs in parallel against one 45s budget, so the Scrappey/render-heavy vendor set left 5/6 "budget exhausted" with zero progress and an unbounded-feeling loop; (3) the wording was opaque and the chat turn's own time-out stranded vendors in `sources_pending` with no deterministic way to keep probing. Decision/impl: chat route streams `probe_result` verdicts + a `turn_truncated` signal; probe route REUSES confirmed interview verdicts (`canReuse`, except force_detail_backup hosts still needing a detail URL so backfill keeps its listings), probes SEQUENTIALLY fastest-first (`probeCost`) with a `PER_URL_SOFT_CAP_MS` so progress is deterministic per pass, budget 45→50s; client `onSave` passes the interview verdicts as `priorResults`, renders reused vendors as ✓, and offers a deterministic "Keep probing the unfinished vendors" button on `turn_truncated`; reworded the budget/skip messages. 6 new guard tests (52 total). Brief: this conversation (user screenshots of the save-probe modal).
@@ -130,6 +132,87 @@ Status values:
 - **ADR-003** — eBay Browse API (not HTML scraping) for the eBay adapter — ACCEPTED
 - **ADR-002** — Repo-as-database; SQLite as workflow-local cache only — ACCEPTED
 - **ADR-001** — LLM is downstream of verified data only (architectural commitment) — ACCEPTED
+
+---
+
+## ADR-124 — `vendor_does_not_carry` is a last-resort verdict, not the first check
+
+**Status**: ACCEPTED — shipped 2026-05-29 (Phase 29).
+
+**Context.** A live DJI Neo 2 run reported Amazon as "**NO_MATCH (Vendor doesn't
+carry)** — the vendor's page loaded but the extractor found no products; most
+likely it genuinely has nothing right now, so re-running won't change anything."
+But Amazon does carry the product (the saved source is a valid `page_type:
+detail` ASIN), and the two OTHER detail sources in the same profile (B&H,
+Microcenter) both fetched 1/passed 1 via Scrappey. Amazon almost certainly
+bot-walled the datacenter/proxy fetch, so the detail extractor saw no price and
+emitted 0 listings — a transient/render failure, not "doesn't carry."
+
+**Root cause.** ADR-112 added, to `cli.annotate_dominant_rejections`, an
+unconditional `if fetched == 0: dominant_rejection = "vendor_does_not_carry"`,
+and put the matching branch FIRST in `source_reasons.classify_source_outcome`
+(right after the `fetched > 0` cases). Every branch below it — the ADR-099
+carry-gate WATCHED, the ADR-098 thin-body/bot-wall TRANSIENT, the
+`alterlab_degraded` TRANSIENT, and the substantive-body PARSER_GAP — only
+applies when `fetched == 0`. So once production always stamped
+`vendor_does_not_carry` for `fetched == 0`, those four diagnoses became
+**unreachable for every universal source**. The unit tests didn't catch it
+because they exercise WATCHED/TRANSIENT/PARSER_GAP by calling the classifier
+WITHOUT a `dominant_rejection`, a combination production never produces.
+
+**Decision.** Move the `vendor_does_not_carry` verdict from the early position to
+the LAST-RESORT position, immediately before the generic EMPTY_PAGE fallback.
+It now fires only after the carry-gate, quota/auth, skip, pool-exhausted,
+degraded, error, substantive-body (PARSER_GAP), and thin-body (TRANSIENT) checks
+have all been ruled out — i.e. only when we genuinely fetched a real, non-thin
+page that had nothing on it. The label/message are unchanged; only the
+precedence moved. Added 5 regression tests that reproduce the production
+combination (`fetched==0` + `dominant_rejection=="vendor_does_not_carry"` paired
+with each previously-preempted signal) and assert the specific diagnosis wins.
+
+**Consequence.** A bot-walled / transient / carry-gated zero-fetch source now
+gets honest, actionable guidance (WATCHED "checked, not stocked yet, ~$0" or
+TRANSIENT "re-running may help") instead of the misleading "re-running won't
+change anything." Worker 418/418, ruff+mypy clean. Does not touch the
+`fetched > 0` NO_MATCH (mis-scoped / filter-rejected) paths.
+
+---
+
+## ADR-123 — Plain-English user-facing validator messages
+
+**Status**: ACCEPTED — shipped 2026-05-29 (Phase 29).
+
+**Context.** The onboarder save-time guardrails (force_detail_backup / ADR-111,
+URL-less placeholder / ADR-079, condition-drift / ADR-074, title-excludes /
+ADR-080, match-aliases / ADR-101, alias-hallucination / ADR-116) each return a
+single `message` string. That string was written for the LLM — it cites ADR
+numbers and uses `page_type`, `universal_ai_search`, "the runtime escalation
+ladder (ADR-078)", "extra.probe_note" — because the `validate_profile` tool
+feeds it back to the model so it can self-correct. The problem: the SAME string
+is also shown to the human in the save-success panel and the probe modal, where
+it reads as opaque jargon. A user re-onboarding the DJI Neo 2 reported exactly
+that, plus that the post-save "open your product" affordance was a tiny
+underlined link.
+
+**Decision.** Keep the technical `message` (LLM-facing, unchanged) and add a
+sibling `userMessage` on every check: plain English, no jargon, ending in a
+concrete "What to do:". `validateProfileDraft` builds lockstep
+`userErrors`/`userWarnings` via `pushError`/`pushWarning` helpers (technical text
+falls back as the user text for schema/slug/render errors that have no
+dedicated copy). The save route returns `userMessage` to the panel; the probe
+route forwards `userErrors`/`userWarnings` to the modal (the client still derives
+bypassability from the technical `errors` regex, so that logic is unchanged);
+the chat route's `validate_profile` result keeps returning the technical
+`errors`/`warnings` to the LLM. De-jargoned the modal header. Per the same user
+request, the save-success "Open <slug> anyway →" link became a full amber button
+("Open my product page →") with a one-line "your profile is saved; fix later or
+ask the assistant" explainer.
+
+**Consequence.** Two audiences, two registers, one source of truth per check.
++8 guard tests assert every `userMessage` is non-empty, jargon-free, and carries
+"What to do:"; the button + header changes are pinned by source-text guards.
+Web `tsc`/`eslint`/`test:guards 60/60`/`test:parity 6/6`/`next build` clean;
+worker untouched by this ADR (ADR-124 is the worker half of the same session).
 
 ---
 

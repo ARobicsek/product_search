@@ -607,8 +607,13 @@ export async function POST(request: NextRequest) {
           elapsedMs: Date.now() - startMs,
           validation: {
             ok: validation.ok,
+            // Technical text drives the client's bypassable-violation detection
+            // (it regex-matches ADR markers); userErrors/userWarnings (ADR-123)
+            // are what the modal renders to the user.
             errors: validation.errors,
             warnings: validation.warnings,
+            userErrors: validation.userErrors,
+            userWarnings: validation.userWarnings,
           },
         });
       } catch (err) {

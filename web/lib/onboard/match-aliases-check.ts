@@ -44,7 +44,9 @@ export function modelFamilyToken(displayName: string): string | null {
  * - If missing/empty and NO confident model token exists, throws an Error to hard-reject the save.
  * - If missing/empty but a confident model token DOES exist, returns a soft warning.
  */
-export function checkMatchAliases(draft: Record<string, unknown>): { message: string }[] {
+export function checkMatchAliases(
+  draft: Record<string, unknown>,
+): { message: string; userMessage: string }[] {
   let hasAlias = false;
   const aliasesRaw = draft.match_aliases;
   
@@ -68,7 +70,12 @@ export function checkMatchAliases(draft: Record<string, unknown>): { message: st
       );
     } else {
       return [{
-        message: `match_aliases is empty. The runtime will rely solely on the derived model token '${token}' for the carry-gate. Please seed match_aliases to ensure reliable vendor matching.`
+        message: `match_aliases is empty. The runtime will rely solely on the derived model token '${token}' for the carry-gate. Please seed match_aliases to ensure reliable vendor matching.`,
+        userMessage:
+          `No alternate names were set for this product, so matching falls back to ` +
+          `just the model code '${token}'. That usually works, but adding a couple ` +
+          `of alternate names or marketing titles makes vendor matching more ` +
+          `reliable. What to do: ask the assistant to add a few alternate names.`,
       }];
     }
   }
