@@ -146,6 +146,11 @@ export async function POST(request: NextRequest) {
               content: "Time's up for this turn! Emit your best draft now as-is using the probe results you already have. Note any unresolved vendor in sources_pending. End with <state> and <draft> blocks.",
             });
             send({ type: 'status', message: 'finalizing your draft…' });
+            // ADR-122: deterministic signal that this turn ran out of its
+            // wall-clock budget mid-probe. The client uses it to offer an
+            // explicit "keep probing the unfinished vendors" affordance instead
+            // of relying on the LLM to mention the time-out in prose.
+            send({ type: 'turn_truncated' });
           }
 
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -310,6 +315,17 @@ export async function POST(request: NextRequest) {
                   try {
                     const probeRes = await probeUrl(url, alterlabOptions, pageType, targetName);
                     resultText = JSON.stringify(probeRes, null, 2);
+                    // ADR-122: stream the verdict to the client so the save-time
+                    // probe can REUSE interview probes instead of re-running every
+                    // URL from scratch. Only the verdict (url/ok/reason/pageType) is
+                    // sent — the save endpoint still re-validates anything it must.
+                    send({
+                      type: 'probe_result',
+                      url,
+                      ok: probeRes.ok,
+                      reason: probeRes.reason,
+                      pageType: pageType ?? 'search',
+                    });
                   } catch (err) {
                     resultText = JSON.stringify({
                       ok: false,

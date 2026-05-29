@@ -623,3 +623,78 @@ test('ADR-116: prompt forbids copying a URL SKU into match_aliases and explains 
     'prompt must teach the LLM about the detailTitleMatch relevance verdict',
   );
 });
+
+// --- ADR-122: probe reuse + deterministic progress + keep-probing affordance ---
+
+const chatRouteSrc = readFileSyncForAdr115(
+  resolveForAdr115(__dirname_adr115, '../app/api/onboard/chat/route.ts'),
+  'utf8',
+);
+
+test('ADR-122: chat route streams probe verdicts + a turn_truncated signal', () => {
+  assert.ok(
+    /type:\s*'probe_result'/.test(chatRouteSrc),
+    'chat route must stream probe_result so the save probe can reuse interview verdicts',
+  );
+  assert.ok(
+    /type:\s*'turn_truncated'/.test(chatRouteSrc),
+    'chat route must emit turn_truncated when a turn force-finalizes mid-probe',
+  );
+});
+
+test('ADR-122: probe route reuses confirmed interview probes (except detail-needing hosts)', () => {
+  assert.ok(/const canReuse\s*=/.test(probeRouteSrc), 'probe route must define canReuse');
+  // The reuse exception keeps backfill correct for force_detail_backup hosts.
+  assert.ok(
+    /needsDetailHosts\.has\(s\.host\)/.test(probeRouteSrc),
+    'canReuse must re-probe force_detail_backup hosts that still lack a detail URL',
+  );
+  assert.ok(
+    /reusedSources\s*=\s*universalSources\.filter\(canReuse\)/.test(probeRouteSrc),
+    'probe route must compute reusedSources from canReuse',
+  );
+});
+
+test('ADR-122: probe route probes sequentially fastest-first with a per-URL soft cap', () => {
+  assert.ok(/PER_URL_SOFT_CAP_MS/.test(probeRouteSrc), 'probe route must define a per-URL soft cap');
+  assert.ok(/probeCost\(/.test(probeRouteSrc), 'probe route must order probes by probeCost');
+  // The old all-parallel race against one deadline is the bug; it must be gone.
+  assert.ok(
+    !/Promise\.race\(\[Promise\.all\(probeTasks\)/.test(probeRouteSrc),
+    'probe route must not race all probes against a single deadline (0-progress bug)',
+  );
+});
+
+test('ADR-122: budget-exhausted wording explains the slowness and points to Continue', () => {
+  assert.ok(
+    !/budget exhausted before this URL was probed/.test(onboardChatSrc),
+    'the opaque "budget exhausted before this URL was probed" string must be replaced',
+  );
+  assert.ok(
+    /Continue probing/.test(probeRouteSrc),
+    'backfill-skip wording must point the user at "Continue probing"',
+  );
+});
+
+test('ADR-122: onSave reuses interview probes via chatProbesRef', () => {
+  assert.ok(
+    /chatProbesRef/.test(onboardChatSrc),
+    'OnboardChat must track interview probe verdicts in chatProbesRef',
+  );
+  assert.ok(
+    /chatProbesRef\.current\.entries\(\)/.test(onboardChatSrc)
+      && /priorResults\.length\s*\?\s*\{\s*priorResults\s*\}/.test(onboardChatSrc),
+    'onSave must pass chatProbesRef verdicts as priorResults',
+  );
+});
+
+test('ADR-122: client offers a deterministic keep-probing affordance on turn_truncated', () => {
+  assert.ok(
+    /type === 'turn_truncated'|=== 'turn_truncated'/.test(onboardChatSrc),
+    'OnboardChat must handle the turn_truncated event',
+  );
+  assert.ok(
+    /onKeepProbing/.test(onboardChatSrc) && /Keep probing the unfinished vendors/.test(onboardChatSrc),
+    'OnboardChat must render a deterministic "keep probing" affordance',
+  );
+});

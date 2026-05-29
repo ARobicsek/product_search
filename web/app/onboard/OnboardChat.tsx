@@ -150,6 +150,14 @@ export function OnboardChat({ initialProfile, initialSlug }: { initialProfile?: 
   const [latestToolDraft, setLatestToolDraft] = useState<Record<string, unknown> | null>(null);
   // ADR-115: save-time probe modal state.
   const [probeState, setProbeState] = useState<ProbeState>({ kind: 'idle' });
+  // ADR-122: verdicts of the probes the LLM ran DURING the interview, streamed
+  // back as `probe_result` events. onSave() passes these to the save-time probe
+  // so it reuses them instead of re-running every URL from scratch.
+  const chatProbesRef = useRef<Map<string, { ok: boolean; reason: string | null }>>(new Map());
+  // ADR-122: set when a chat turn force-finalized mid-probe (budget ran out).
+  // Drives a deterministic "keep probing the unfinished vendors" affordance
+  // instead of relying on the LLM to mention the time-out in prose.
+  const [turnTruncated, setTurnTruncated] = useState(false);
   const [sessionUsage, setSessionUsage] = useState({
     inputTokens: 0,
     outputTokens: 0,
@@ -179,6 +187,9 @@ export function OnboardChat({ initialProfile, initialSlug }: { initialProfile?: 
     setStreaming(true);
     setError('');
     setStatusLine('');
+    // ADR-122: reset the truncation flag for the new turn; it'll be re-set if
+    // this turn also force-finalizes mid-probe.
+    setTurnTruncated(false);
     setMessages([...history, { role: 'assistant', content: '' }]);
 
     const secret = process.env.NEXT_PUBLIC_WEB_SHARED_SECRET ?? '';
@@ -240,6 +251,10 @@ export function OnboardChat({ initialProfile, initialSlug }: { initialProfile?: 
           cache_creation_tokens?: number;
           stopReason?: string | null;
           draft?: Record<string, unknown>;
+          // ADR-122: interview probe verdict streamed for save-time reuse.
+          url?: string;
+          ok?: boolean;
+          reason?: string | null;
         };
         try {
           payload = JSON.parse(json);
@@ -281,6 +296,15 @@ export function OnboardChat({ initialProfile, initialSlug }: { initialProfile?: 
             provider: payload.provider ?? u.provider,
             model: payload.model ?? u.model,
           }));
+        } else if (payload.type === 'probe_result' && typeof payload.url === 'string') {
+          // ADR-122: remember the interview probe verdict so onSave can reuse it.
+          chatProbesRef.current.set(payload.url, {
+            ok: payload.ok === true,
+            reason: typeof payload.reason === 'string' ? payload.reason : null,
+          });
+        } else if (payload.type === 'turn_truncated') {
+          // ADR-122: this turn ran out of budget mid-probe.
+          setTurnTruncated(true);
         } else if (payload.type === 'status' && typeof payload.message === 'string') {
           setStatusLine(payload.message);
         } else if (payload.type === 'draft_update' && payload.draft && typeof payload.draft === 'object') {
@@ -434,16 +458,19 @@ export function OnboardChat({ initialProfile, initialSlug }: { initialProfile?: 
     draft: Record<string, unknown>,
     attempt: number,
     carryOver?: {
-      unprobed: string[];
+      // Set only for "Continue probing" (re-probe just these); absent on the
+      // first save pass, where priorResults may still carry reused interview
+      // verdicts (ADR-122).
+      unprobed?: string[];
       priorResults: Array<{ url: string; ok: boolean; reason: string | null }>;
-      rows: UrlProbeRow[];
-      backfills: BackfillRow[];
+      rows?: UrlProbeRow[];
+      backfills?: BackfillRow[];
     },
   ): Promise<void> {
     setProbeState({
       kind: 'streaming',
       attempt,
-      phase: carryOver ? 'Resuming probe…' : 'Starting probe…',
+      phase: carryOver?.unprobed ? 'Resuming probe…' : 'Starting probe…',
       rows: carryOver?.rows ?? [],
       backfills: carryOver?.backfills ?? [],
       plan: null,
@@ -555,7 +582,7 @@ export function OnboardChat({ initialProfile, initialSlug }: { initialProfile?: 
         } else if (t === 'url_deadline' && typeof p.url === 'string') {
           updateRow(p.url, {
             status: 'deadline',
-            reason: 'budget exhausted before this URL was probed',
+            reason: 'didn’t finish within the time limit (slow vendor — goes through a bot-wall bypass). Click “Continue probing” to keep going.',
           });
         } else if (t === 'backfill_start' && typeof p.host === 'string') {
           // ADR-121: replace any prior pass's row for this host so the user
@@ -632,7 +659,31 @@ export function OnboardChat({ initialProfile, initialSlug }: { initialProfile?: 
 
   function onSave() {
     if (!draftIntent || saveState.kind === 'saving' || probeState.kind === 'streaming') return;
-    void streamProbe(draftIntent, 1);
+    // ADR-122: reuse the verdicts of the probes the LLM already ran during the
+    // interview, so the save-time pass skips re-probing what was confirmed
+    // (force_detail_backup hosts still needing a detail URL are re-probed
+    // server-side regardless). This is the "why is it probing AGAIN?" fix.
+    const priorResults = Array.from(chatProbesRef.current.entries()).map(
+      ([url, v]) => ({ url, ok: v.ok, reason: v.reason }),
+    );
+    void streamProbe(draftIntent, 1, priorResults.length ? { priorResults } : undefined);
+  }
+
+  // ADR-122: deterministic "keep probing" affordance after a chat turn ran out
+  // of its budget mid-probe. Sends a canned follow-up so the user doesn't have
+  // to notice the time-out in the LLM's prose and hand-type the request.
+  function onKeepProbing() {
+    if (streaming) return;
+    setTurnTruncated(false);
+    if (saveState.kind === 'success' || saveState.kind === 'error') {
+      setSaveState({ kind: 'idle' });
+    }
+    const msg =
+      'That turn ran out of time before probing every vendor. Please keep probing the ' +
+      'vendors that did not finish (the ones you left in sources_pending or noted as ' +
+      'needing a probe), confirm which ones work, and update the draft.';
+    const next: ChatMessage[] = [...messages, { role: 'user', content: msg }];
+    void runTurn(next);
   }
 
   function onContinueProbe() {
@@ -677,6 +728,24 @@ export function OnboardChat({ initialProfile, initialSlug }: { initialProfile?: 
           {error && (
             <div className="text-xs text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-900/40 rounded-lg px-3 py-2">
               {error}
+            </div>
+          )}
+          {turnTruncated && !streaming && (
+            <div className="text-xs bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-900/40 rounded-lg px-3 py-2 flex items-start gap-2">
+              <Loader2 className="w-3.5 h-3.5 mt-0.5 shrink-0 text-amber-600" />
+              <div className="flex-1">
+                <span className="text-amber-800 dark:text-amber-200">
+                  This turn ran out of time before every vendor was probed — any unfinished
+                  ones are parked in <code>sources_pending</code>.
+                </span>
+                <button
+                  type="button"
+                  onClick={onKeepProbing}
+                  className="ml-2 underline font-medium text-amber-900 dark:text-amber-100 hover:no-underline"
+                >
+                  Keep probing the unfinished vendors
+                </button>
+              </div>
             </div>
           )}
         </div>

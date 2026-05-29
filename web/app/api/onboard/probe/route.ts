@@ -24,9 +24,28 @@ import { validateProfileDraft } from '@/lib/onboard/validation';
 export const runtime = 'nodejs';
 export const maxDuration = 60;
 
-// Leave headroom for the response to flush and the ADR-076 backfill probes
-// (which happen AFTER the parallel probe phase).
-const PROBE_BUDGET_MS = 45_000;
+// Leave headroom (maxDuration is 60s) for the response to flush and the
+// ADR-076 backfill probes (which happen AFTER the probe phase).
+const PROBE_BUDGET_MS = 50_000;
+
+// ADR-122: per-URL soft cap. We probe sequentially, fastest-first, so the
+// budget reliably lands the quick wins before the slow bot-wall-bypass vendors
+// (Scrappey / rendered fetches), and a single stuck AlterLab poll (its own
+// internal poll can run ~60s) can't swallow the whole budget and leave EVERY
+// vendor "unfinished". A vendor that exceeds this cap is left unprobed and the
+// user can "Continue probing" to give it a fresh budget.
+const PER_URL_SOFT_CAP_MS = 38_000;
+const TIMED_OUT = Symbol('probe_timed_out');
+
+// Lower = probe earlier. A plain fetch (no AlterLab options) is fast; an
+// AlterLab render is slower; a Scrappey / skip_alterlab bot-wall bypass is
+// slowest. Ordering fastest-first guarantees deterministic progress per pass.
+function probeCost(opts: AlterlabOptions | undefined): number {
+  if (!opts || Object.keys(opts).length === 0) return 0;
+  const o = opts as Record<string, unknown>;
+  if (o.use_scrappey || o.skip_alterlab) return 2;
+  return 1;
+}
 
 interface IncomingBody {
   draft?: unknown;
@@ -224,7 +243,7 @@ async function runBackfillForHost(
   const added: Array<Record<string, unknown>> = [];
   for (const candidate of keptCandidates) {
     if (Date.now() >= deadlineMs) {
-      send({ type: 'backfill_skip', host, reason: 'budget exhausted before all candidates probed' });
+      send({ type: 'backfill_skip', host, reason: 'ran out of time before every detail-page candidate was checked — click “Continue probing” to keep going' });
       break;
     }
     send({ type: 'backfill_probe', host, url: candidate.url, title: candidate.title });
@@ -326,9 +345,41 @@ export async function POST(request: NextRequest) {
       const startMs = Date.now();
       const deadlineMs = startMs + PROBE_BUDGET_MS;
       try {
+        // ADR-122: which hosts are force_detail_backup but still lack a detail
+        // URL — those search URLs must always be (re)probed so the backfill
+        // phase below has fresh JSON-LD listings to mine a detail URL from.
+        const hostSourcesMap = new Map<string, UniversalSource[]>();
+        for (const s of universalSources) {
+          if (!s.host) continue;
+          if (!hostSourcesMap.has(s.host)) hostSourcesMap.set(s.host, []);
+          hostSourcesMap.get(s.host)!.push(s);
+        }
+        const needsDetailHosts = new Set<string>();
+        for (const host of FORCE_DETAIL_BACKUP_HOSTS) {
+          const hs = hostSourcesMap.get(host) ?? [];
+          if (hs.length === 0) continue;
+          const hasSearch = hs.some((x) => x.pageType !== 'detail');
+          const hasDetail = hs.some((x) => x.pageType === 'detail');
+          if (hasSearch && !hasDetail) needsDetailHosts.add(host);
+        }
+
+        // ADR-122: REUSE interview probes. A URL the LLM already confirmed ok
+        // during the interview (streamed back as `priorResults`) is not
+        // re-probed — that's the "why is it probing AGAIN?" fix. Exception:
+        // force_detail_backup hosts still missing a detail URL are re-probed so
+        // the backfill can find one. (Continue passes keep the existing
+        // `unprobed`-driven behavior.)
+        const canReuse = (s: UniversalSource): boolean => {
+          if (continueOnlyUrls) return false;
+          const prior = priorResultsByUrl.get(s.url);
+          if (!prior || !prior.ok) return false;
+          if (s.host && needsDetailHosts.has(s.host) && s.pageType !== 'detail') return false;
+          return true;
+        };
+        const reusedSources = universalSources.filter(canReuse);
         const sourcesToProbe = continueOnlyUrls
           ? universalSources.filter((s) => continueOnlyUrls.has(s.url))
-          : universalSources;
+          : universalSources.filter((s) => !canReuse(s));
 
         // ADR-121: emit a plan summary so the modal can show total URLs +
         // capped backfill plan without inferring it from streamed events.
@@ -367,20 +418,54 @@ export async function POST(request: NextRequest) {
           });
         }
 
+        // ADR-122: mark reused interview probes as done immediately (no
+        // network), so the modal shows them ✓ and the user sees we are NOT
+        // redundantly re-probing what was already confirmed.
+        for (const s of reusedSources) {
+          send({
+            type: 'url_done',
+            url: s.url,
+            host: s.host,
+            ok: true,
+            reason: 'reused — already confirmed while probing during the interview (not re-probed)',
+          });
+        }
+
         for (const s of sourcesToProbe) {
           send({ type: 'url_start', url: s.url, host: s.host, pageType: s.pageType ?? 'search' });
         }
 
-        // Probe in parallel, raced against the budget. Resolve when EITHER all
-        // probes finish OR the budget hits — the rest stay marked unprobed.
-        let timer: ReturnType<typeof setTimeout> | null = null;
-        const deadlinePromise = new Promise<'deadline'>((resolve) => {
-          timer = setTimeout(() => resolve('deadline'), Math.max(0, deadlineMs - Date.now()));
-        });
-
-        const probeTasks = sourcesToProbe.map(async (s) => {
+        // ADR-122: probe SEQUENTIALLY, fastest-first, each with a per-URL soft
+        // cap. The old code raced ALL probes in parallel against one deadline,
+        // so a Scrappey-heavy vendor set (each 15-40s) reliably left every
+        // vendor "unfinished" — 0 progress, and the loop could only end via
+        // "Save anyway". Sequential + fastest-first guarantees the quick wins
+        // land first and at least one slow vendor finishes per pass, so
+        // "Continue probing" converges instead of spinning.
+        const ordered = [...sourcesToProbe].sort(
+          (a, b) => probeCost(a.alterlabOptions) - probeCost(b.alterlabOptions),
+        );
+        for (const s of ordered) {
+          const remaining = deadlineMs - Date.now();
+          // Not enough time left to meaningfully attempt another vendor — leave
+          // the rest unprobed (reported below) rather than starting a probe we
+          // can't finish.
+          if (remaining <= 2_000) break;
+          const cap = Math.min(PER_URL_SOFT_CAP_MS, remaining);
+          let capTimer: ReturnType<typeof setTimeout> | null = null;
+          const capPromise = new Promise<typeof TIMED_OUT>((resolve) => {
+            capTimer = setTimeout(() => resolve(TIMED_OUT), cap);
+          });
           try {
-            const res = await probeUrl(s.url, s.alterlabOptions, s.pageType, displayName);
+            const res = await Promise.race([
+              probeUrl(s.url, s.alterlabOptions, s.pageType, displayName),
+              capPromise,
+            ]);
+            if (res === TIMED_OUT) {
+              // Left unprobed; surfaced as a deadline row below. Continue to the
+              // next vendor (don't break) in case a faster one remains.
+              continue;
+            }
             const status = perUrl.get(s.url)!;
             status.result = res;
             send({
@@ -400,11 +485,10 @@ export async function POST(request: NextRequest) {
             const msg = err instanceof Error ? err.message : String(err);
             status.probeError = msg;
             send({ type: 'url_done', url: s.url, host: s.host, ok: false, reason: msg });
+          } finally {
+            if (capTimer) clearTimeout(capTimer);
           }
-        });
-
-        await Promise.race([Promise.all(probeTasks), deadlinePromise]);
-        if (timer) clearTimeout(timer);
+        }
 
         const unprobed: string[] = [];
         for (const s of sourcesToProbe) {
@@ -417,25 +501,13 @@ export async function POST(request: NextRequest) {
         // ADR-076 backfill: for each force_detail_backup host that has a
         // search source but no detail source, mine JSON-LD candidates from
         // its successful search probes and probe up to 3 detail URLs.
-        const hostsForBackfill: string[] = [];
-        const hostSourcesMap = new Map<string, UniversalSource[]>();
-        for (const s of universalSources) {
-          if (!s.host) continue;
-          if (!hostSourcesMap.has(s.host)) hostSourcesMap.set(s.host, []);
-          hostSourcesMap.get(s.host)!.push(s);
-        }
-        for (const host of FORCE_DETAIL_BACKUP_HOSTS) {
-          const hostSources = hostSourcesMap.get(host) ?? [];
-          if (hostSources.length === 0) continue;
-          const hasSearch = hostSources.some((s) => s.pageType !== 'detail');
-          const hasDetail = hostSources.some((s) => s.pageType === 'detail');
-          if (hasSearch && !hasDetail) hostsForBackfill.push(host);
-        }
+        // (`needsDetailHosts`, computed above, is exactly this set.)
+        const hostsForBackfill: string[] = Array.from(needsDetailHosts);
 
         const newDetailSources: Array<Record<string, unknown>> = [];
         for (const host of hostsForBackfill) {
           if (Date.now() >= deadlineMs) {
-            send({ type: 'backfill_skip', host, reason: 'budget exhausted before backfill could run' });
+            send({ type: 'backfill_skip', host, reason: 'ran out of time before the detail-page search could run — click “Continue probing” to keep going' });
             continue;
           }
           const hostSources = hostSourcesMap.get(host) ?? [];
