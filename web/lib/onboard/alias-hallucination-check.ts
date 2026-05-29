@@ -16,6 +16,7 @@
 
 interface AliasHallucinationWarning {
   message: string;
+  userMessage: string;
 }
 
 function isObject(v: unknown): v is Record<string, unknown> {
@@ -86,6 +87,12 @@ export function checkMatchAliasesAgainstHallucinatedSkus(
               `marketing name / model number instead. If you genuinely need this vendor as a ` +
               `detail source, keep the URL only after confirming the probed page's title is the ` +
               `requested product.`,
+            userMessage:
+              `One of the alternate names ("${token}") is actually a product code copied ` +
+              `from a vendor link, not a real product name. Using it could make the ` +
+              `tracker accept unrelated listings. ` +
+              `What to do: ask the assistant to remove that code from the alternate ` +
+              `names and use the product's real model name instead.`,
           });
         }
       }

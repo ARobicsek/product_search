@@ -390,12 +390,15 @@ test('ADR-115: validation.ts has a bypassForceDetailBackup option', () => {
     /options\.bypassForceDetailBackup/.test(validationSrc),
     'validation.ts must branch on options.bypassForceDetailBackup',
   );
-  // The bypass branch must put the violations into warnings rather than errors.
-  const bypassBlock = validationSrc.match(/if\s*\(\s*options\.bypassForceDetailBackup\s*\)\s*\{[^}]*\}/);
-  assert.ok(bypassBlock, 'validation.ts must have an "if (options.bypassForceDetailBackup) { ... }" block');
+  // The bypass branch must route the violations into warnings rather than
+  // errors. ADR-123 refactored this to the lockstep push helpers, so the bypass
+  // arm calls pushWarning and the non-bypass arm calls pushError.
+  const bypassBlock = validationSrc.match(
+    /if\s*\(\s*options\.bypassForceDetailBackup\s*\)\s*pushWarning[\s\S]{0,80}?else\s+pushError/,
+  );
   assert.ok(
-    /warnings\.push/.test(bypassBlock[0]),
-    'the bypass branch must push the ADR-111 violations to warnings',
+    bypassBlock,
+    'validation.ts must route force-detail violations to pushWarning when bypassing, pushError otherwise',
   );
 });
 
@@ -696,5 +699,116 @@ test('ADR-122: client offers a deterministic keep-probing affordance on turn_tru
   assert.ok(
     /onKeepProbing/.test(onboardChatSrc) && /Keep probing the unfinished vendors/.test(onboardChatSrc),
     'OnboardChat must render a deterministic "keep probing" affordance',
+  );
+});
+
+// --- ADR-123: plain-English user-facing validator messages -----------------
+//
+// The same validator strings were shown to BOTH the LLM (validate_profile, where
+// ADR refs + the fix recipe help it self-correct) and the user (save UI / probe
+// modal, where they are noise). Each check now carries `message` (technical,
+// unchanged) plus `userMessage` (plain English + a "what to do"). These guards
+// pin that the user-facing copy exists and is jargon-free.
+
+const JARGON_RE = /ADR-\d|page_type|universal_ai_search|spec_filter|sources_pending|carry-gate|extra\.probe_note/;
+
+test('ADR-123: force_detail_backup violations carry a jargon-free userMessage', () => {
+  const searchOnly = forceDetailBackup({
+    sources: [{ id: 'universal_ai_search', url: 'https://www.amazon.com/s?k=DJI+Neo+2' }],
+  });
+  assert.equal(searchOnly.length, 1);
+  assert.ok(searchOnly[0].userMessage && searchOnly[0].userMessage.length > 0);
+  assert.doesNotMatch(searchOnly[0].userMessage, JARGON_RE);
+  assert.match(searchOnly[0].userMessage, /What to do:/);
+
+  const detailOnly = forceDetailBackup({
+    sources: [{ id: 'universal_ai_search', url: 'https://www.amazon.com/dp/B0XXXXX', page_type: 'detail' }],
+  });
+  assert.equal(detailOnly.length, 1);
+  assert.doesNotMatch(detailOnly[0].userMessage, JARGON_RE);
+  assert.match(detailOnly[0].userMessage, /What to do:/);
+});
+
+test('ADR-123: URL-less placeholder warning carries a jargon-free userMessage', () => {
+  const warnings = checkDetailPreferencePresence(
+    {
+      sources: [],
+      sources_pending: [
+        { id: 'universal_ai_search', note: 'Walmart search got 504 timeout; retry next turn' },
+      ],
+    },
+    FORCE_DETAIL_BACKUP_HOSTS,
+    PREFER_DETAIL_HOSTS,
+  );
+  assert.equal(warnings.length, 1);
+  assert.ok(warnings[0].userMessage && warnings[0].userMessage.length > 0);
+  assert.doesNotMatch(warnings[0].userMessage, JARGON_RE);
+  assert.match(warnings[0].userMessage, /walmart\.com/);
+  assert.match(warnings[0].userMessage, /What to do:/);
+});
+
+test('ADR-123: title_excludes warning carries a jargon-free userMessage', () => {
+  const warnings = checkTitleExcludes({
+    display_name: 'MX Master 3S',
+    slug: 'mx-master-3s',
+    spec_filters: [{ rule: 'title_excludes', values: ['MX Master 3'] }],
+  });
+  assert.equal(warnings.length, 1);
+  assert.doesNotMatch(warnings[0].userMessage, JARGON_RE);
+  assert.match(warnings[0].userMessage, /What to do:/);
+});
+
+test('ADR-123: match_aliases soft warning carries a jargon-free userMessage', () => {
+  const warnings = checkMatchAliases({ display_name: 'Supermicro H14SSL-N motherboard' });
+  assert.equal(warnings.length, 1);
+  assert.doesNotMatch(warnings[0].userMessage, JARGON_RE);
+  assert.match(warnings[0].userMessage, /What to do:/);
+});
+
+test('ADR-123: alias-hallucination error carries a jargon-free userMessage', () => {
+  const errs = checkMatchAliasesAgainstHallucinatedSkus({
+    match_aliases: ['B0FJ1QH15P'],
+    sources: [{ id: 'universal_ai_search', url: 'https://www.amazon.com/dp/B0FJ1QH15P' }],
+  });
+  assert.equal(errs.length, 1);
+  assert.doesNotMatch(errs[0].userMessage, JARGON_RE);
+  assert.match(errs[0].userMessage, /What to do:/);
+});
+
+test('ADR-123: validation.ts threads userErrors/userWarnings in lockstep', () => {
+  assert.ok(
+    /userErrors:\s*string\[\]/.test(validationSrc) && /userWarnings:\s*string\[\]/.test(validationSrc),
+    'ValidationResult must expose userErrors/userWarnings',
+  );
+  assert.ok(
+    /pushError\s*\(/.test(validationSrc) && /pushWarning\s*\(/.test(validationSrc),
+    'validation.ts must use the lockstep push helpers',
+  );
+});
+
+test('ADR-123: probe route forwards userErrors/userWarnings to the client', () => {
+  assert.ok(
+    /userErrors:\s*validation\.userErrors/.test(probeRouteSrc)
+      && /userWarnings:\s*validation\.userWarnings/.test(probeRouteSrc),
+    'probe route done event must include userErrors/userWarnings',
+  );
+});
+
+test('ADR-123: client renders userErrors and uses a button to open the saved product', () => {
+  assert.ok(
+    /validation\.userErrors\s*\?\?\s*validation\.errors/.test(onboardChatSrc),
+    'modal must display userErrors (falling back to errors)',
+  );
+  assert.ok(
+    /w\.userMessage\s*\?\?\s*w\.message/.test(onboardChatSrc),
+    'save success panel must display warning userMessage',
+  );
+  assert.ok(
+    /Open my product page/.test(onboardChatSrc),
+    'save success panel must offer a button-styled link to the product page',
+  );
+  assert.ok(
+    !/These would block save under the ADR-111 detail-URL gate/.test(onboardChatSrc),
+    'the ADR-111 jargon header must be gone',
   );
 });

@@ -1785,14 +1785,19 @@ def test_fetch_tier15_wiredzone_fixture_end_to_end(
     assert results[0].quantity_available == 0  # in_stock false
 
 
-def test_amazon_adr107_fallback_recovers(monkeypatch: pytest.MonkeyPatch) -> None:
-    """B-3: Verify ADR-107 fires for Amazon thin-body bot wall and recovers."""
-    import os
+def test_known_good_adr107_search_fallback_recovers(monkeypatch: pytest.MonkeyPatch) -> None:
+    """ADR-107: the search-path Scrappey fallback fires for a known-good vendor
+    that bot-walls AlterLab with a thin body, and recovers listings.
+
+    Uses bestbuy.com — an ``alterlab_known_good`` vendor WITHOUT ``use_scrappey``.
+    (Amazon gained ``use_scrappey`` in ADR-125, so it now Scrappeys upstream and
+    no longer exercises this post-extract path; bestbuy keeps the mechanism
+    covered.)"""
     from product_search.adapters import universal_ai
-    
+
     # Enable Scrappey
     monkeypatch.setenv("SCRAPPEY_API_KEY", "test-key")
-    
+
     # 1. Mock _fetch_html to return a 2,317-byte body (simulate AlterLab bot wall).
     def mock_fetch_html(url: str, *args, **kwargs) -> tuple[str, int, str]:
         return ("x" * 2317, 200, "alterlab")
@@ -1808,8 +1813,9 @@ def test_amazon_adr107_fallback_recovers(monkeypatch: pytest.MonkeyPatch) -> Non
         return html, 200, "scrappey"
     monkeypatch.setattr(universal_ai, "_fetch_via_scrappey", mock_scrappey)
 
-    from product_search.models import Listing
     import datetime
+
+    from product_search.models import Listing
     def mock_extract(*args, **kwargs):
         if scrappey_called:
             base = dict(
@@ -1831,17 +1837,17 @@ def test_amazon_adr107_fallback_recovers(monkeypatch: pytest.MonkeyPatch) -> Non
         return []
     monkeypatch.setattr(universal_ai, "_extract_via_anchor_walker", mock_extract)
     
-    # 3. Call fetch for Amazon
-    # Amazon has alterlab_known_good: true and use_scrappey: false by default.
+    # 3. Call fetch for Best Buy (alterlab_known_good, no use_scrappey).
     query = universal_ai.AdapterQuery(
         source_id="universal_ai_search",
         extra={
-            "url": "https://www.amazon.com/s?k=test",
+            "url": "https://www.bestbuy.com/site/searchpage.jsp?st=test",
             "keywords": "test",
+            "page_type": "search",
         },
     )
     results = universal_ai.fetch(query)
-    
+
     # 4. Assertions
     assert scrappey_called, "ADR-107 fallback did not fire"
     assert len(results) >= 1, "Should recover 1 listing"
@@ -1851,6 +1857,95 @@ def test_amazon_adr107_fallback_recovers(monkeypatch: pytest.MonkeyPatch) -> Non
     assert diagnostics is not None
     assert diagnostics["final_fetcher"] == "scrappey"
     assert diagnostics["body_len"] == 50000 + len('<a href="/dp/B000000001" title="Product X">$10.00</a>')
+
+
+def test_detail_adr125_scrappey_recovery(monkeypatch: pytest.MonkeyPatch) -> None:
+    """ADR-125: an explicit page_type:detail source on an alterlab_known_good
+    vendor that bot-walls AlterLab with a thin body retries via Scrappey and
+    recovers — the path the detail branch's early `return []` used to bypass."""
+    import datetime
+
+    from product_search.adapters import universal_ai
+    from product_search.models import Listing
+
+    monkeypatch.setenv("SCRAPPEY_API_KEY", "test-key")
+
+    thin = "x" * 2317          # AlterLab bot-wall: thin (<15 KB), no JSON-LD
+    rich = "y" * 3000          # Scrappey body the detail extractor can read
+
+    monkeypatch.setattr(
+        universal_ai, "_fetch_html_with_retry",
+        lambda url, *a, **k: (thin, 200, "alterlab"),
+    )
+
+    scrappey_called = {"v": False}
+    def mock_scrappey(u, key, country, triggered_by="tier1_configured", render_js=False):
+        scrappey_called["v"] = True
+        assert triggered_by == "adr125_detail_recovery"
+        assert render_js is True
+        return rich, 200, "scrappey"
+    monkeypatch.setattr(universal_ai, "_fetch_via_scrappey", mock_scrappey)
+
+    # Detail extractor: nothing on the thin AlterLab body, a listing on Scrappey's.
+    def mock_detail(html, url, *, profile=None, fetched_at=None, parsed_host=None):
+        if html != rich:
+            return []
+        return [Listing(
+            source="universal_ai_search", url=url, title="Recovered",
+            unit_price_usd=19.99, kit_price_usd=None,
+            fetched_at=fetched_at or datetime.datetime.now(tz=datetime.UTC),
+            brand=None, mpn=None, condition="new", is_kit=False, kit_module_count=1,
+            quantity_available=None, seller_name="bestbuy.com", seller_rating_pct=None,
+            seller_feedback_count=None, ship_from_country=None,
+            attrs={"extractor": "detail_llm"},
+        )]
+    monkeypatch.setattr(universal_ai, "_extract_detail_listing", mock_detail)
+
+    query = universal_ai.AdapterQuery(
+        source_id="universal_ai_search",
+        extra={"url": "https://www.bestbuy.com/site/x/123.p", "page_type": "detail"},
+    )
+    results = universal_ai.fetch(query)
+
+    assert scrappey_called["v"], "ADR-125 detail Scrappey recovery did not fire"
+    assert len(results) == 1
+    assert results[0].title == "Recovered"
+    assert universal_ai.tls.last_fetch_diagnostics["final_fetcher"] == "scrappey"
+
+
+def test_detail_adr125_recovery_skipped_when_already_scrappey(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """ADR-125 guard: a vendor whose options already set use_scrappey (e.g.
+    Amazon post-ADR-125, or B&H) must NOT trigger a second Scrappey fetch from
+    the detail-recovery block — the primary fetch already used Scrappey."""
+    from product_search.adapters import universal_ai
+
+    monkeypatch.setenv("SCRAPPEY_API_KEY", "test-key")
+    monkeypatch.setattr(
+        universal_ai, "_fetch_html_with_retry",
+        lambda url, *a, **k: ("x" * 2317, 200, "scrappey"),
+    )
+    monkeypatch.setattr(
+        universal_ai, "_extract_detail_listing",
+        lambda *a, **k: [],
+    )
+    scrappey_calls = {"n": 0}
+    def mock_scrappey(*a, **k):
+        scrappey_calls["n"] += 1
+        return "z" * 3000, 200, "scrappey"
+    monkeypatch.setattr(universal_ai, "_fetch_via_scrappey", mock_scrappey)
+
+    query = universal_ai.AdapterQuery(
+        source_id="universal_ai_search",
+        extra={
+            "url": "https://www.amazon.com/dp/B000000001",
+            "page_type": "detail",
+            "alterlab_options": {"use_scrappey": True, "render_js": True},
+        },
+    )
+    assert universal_ai.fetch(query) == []
+    assert scrappey_calls["n"] == 0, "recovery must not double-fetch when use_scrappey is already set"
 
 
 def test_parse_pack_extracts_multi_packs() -> None:

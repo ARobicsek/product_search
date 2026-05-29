@@ -3096,6 +3096,63 @@ def fetch(query: AdapterQuery, profile: Any | None = None) -> list[Listing]:
         if detail_listings:
             return detail_listings
         if detail_mode == "detail":
+            # ADR-125: before giving up on an explicit detail source, mirror the
+            # ADR-107 known-good thin-body Scrappey fallback that the search path
+            # gets at the bottom of this function. The detail branch returns
+            # early (below), so without this an alterlab_known_good vendor that
+            # bot-walls AlterLab with a thin body — e.g. an Amazon detail URL —
+            # never gets the Scrappey retry and silently reports 0/"doesn't
+            # carry." Only fires on a thin body (a real full render that just has
+            # no price is left alone) for a known-good vendor that didn't already
+            # fetch via Scrappey.
+            scrappey_key = os.environ.get("SCRAPPEY_API_KEY", "").strip()
+            if (
+                scrappey_key
+                and len(html) < THIN_BODY_CEILING
+                and not (alterlab_options and alterlab_options.get("use_scrappey"))
+                and get_quirks_for_url(url).get("alterlab_known_good")
+            ):
+                logger.warning(
+                    f"[universal_ai] Detail extraction found nothing and body is "
+                    f"thin ({len(html)} bytes) for known-good vendor {url}. "
+                    f"Falling back to Scrappey (ADR-125)."
+                )
+                try:
+                    proxy_country = (alterlab_options or {}).get(
+                        "proxy_country", "UnitedStates"
+                    )
+                    s_html, _s_status, s_fetcher = _fetch_via_scrappey(
+                        url,
+                        scrappey_key,
+                        proxy_country,
+                        triggered_by="adr125_detail_recovery",
+                        render_js=True,
+                    )
+                    if s_html:
+                        s_recovered = _jsonld_to_listings(
+                            _extract_jsonld_listings(s_html, base_url=url),
+                            fetched_at,
+                            parsed_host,
+                        ) or _extract_detail_listing(
+                            s_html, url,
+                            profile=profile,
+                            fetched_at=fetched_at,
+                            parsed_host=parsed_host,
+                        )
+                        if s_recovered:
+                            logger.info(
+                                f"[universal_ai] Scrappey detail recovery found "
+                                f"{len(s_recovered)} listing(s) for {url}."
+                            )
+                            tls.last_fetch_diagnostics["final_fetcher"] = s_fetcher
+                            tls.last_fetch_diagnostics["body_len"] = len(s_html)
+                            tls.last_fetch_diagnostics["alterlab_degraded"] = True
+                            return s_recovered
+                except Exception as exc:
+                    logger.warning(
+                        f"[universal_ai] Scrappey detail recovery failed "
+                        f"({type(exc).__name__}: {exc})"
+                    )
             # Explicit opt-in: the page IS one product; the anchor tier
             # would only emit nav junk. Don't burn a second LLM call.
             logger.info(

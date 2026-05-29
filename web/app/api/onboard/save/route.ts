@@ -66,7 +66,9 @@ export async function POST(request: NextRequest) {
   // Keep a reference to the raw draft so we can pass it to the background
   // probe step (only relevant for the `draft` path).
   let draftForProbe: Record<string, unknown> | null = null;
-  const warnings: Array<{ host?: string; message: string }> = [];
+  // ADR-123: `message` stays for back-compat; `userMessage` is the plain-English
+  // text the save UI actually renders.
+  const warnings: Array<{ host?: string; message: string; userMessage: string }> = [];
 
   if (body.draft !== undefined && body.draft !== null) {
     if (typeof body.draft !== 'object' || Array.isArray(body.draft)) {
@@ -110,7 +112,12 @@ export async function POST(request: NextRequest) {
         bypassForceDetailBackup,
       });
       
-      warnings.push(...validationRes.warnings.map(w => ({ message: w })));
+      warnings.push(
+        ...validationRes.warnings.map((message, i) => ({
+          message,
+          userMessage: validationRes.userWarnings[i] ?? message,
+        })),
+      );
       
       if (!validationRes.ok || !validationRes.yamlText) {
         return bad(validationRes.errors[0] || 'profile validation failed', 422, {

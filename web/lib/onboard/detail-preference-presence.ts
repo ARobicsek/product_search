@@ -32,7 +32,10 @@
 // (`scripts/check-onboard-guards.test.mjs`), without the Next `@/` alias.
 
 export interface DetailPresenceWarning {
+  // Technical, LLM-facing (ADR refs + the exact fix). userMessage is the
+  // plain-English version shown in the save UI (ADR-123).
   message: string;
+  userMessage: string;
 }
 
 function isObject(v: unknown): v is Record<string, unknown> {
@@ -130,6 +133,13 @@ export function checkDetailPreferencePresence(
           `extra.probe_note; the runtime escalation ladder (ADR-078) handles ` +
           `retry better than a single probe. Open Edit Profile and restore ` +
           `the ${inferredHost} detail URL${noteExcerpt}.`,
+        userMessage:
+          `${inferredHost} was set aside without a working link — its test fetch ` +
+          `timed out, so the assistant parked it. That timeout isn't proof ` +
+          `${inferredHost} lacks the product; the real scheduled runs retry much ` +
+          `harder than this one-shot check. ` +
+          `What to do: open Edit Profile and add ${inferredHost}'s product-page ` +
+          `link (the assistant can find it) so ${inferredHost} gets tracked.`,
       });
     } else {
       warnings.push({
@@ -140,6 +150,11 @@ export function checkDetailPreferencePresence(
           `(B&H, Best Buy, Target, Amazon, …), open Edit Profile and restore ` +
           `its URL under 'sources' with extra.probe_note. The runtime owns ` +
           `retry; a single weak probe is not evidence the source is dead${noteExcerpt}.`,
+        userMessage:
+          `A vendor was set aside without a working link. A single failed test ` +
+          `fetch isn't proof the vendor is dead — the scheduled runs retry harder. ` +
+          `What to do: open Edit Profile and add that vendor's product-page link ` +
+          `so it gets tracked.`,
       });
     }
   }

@@ -13,8 +13,17 @@ import { checkMatchAliasesAgainstHallucinatedSkus } from '@/lib/onboard/alias-ha
 
 export interface ValidationResult {
   ok: boolean;
+  // Technical, LLM-facing text (ADR refs + the exact fix recipe). Consumed by
+  // the `validate_profile` tool so the model can self-correct. Unchanged.
   errors: string[];
   warnings: string[];
+  // ADR-123: plain-English, user-facing versions kept in lockstep with
+  // errors/warnings. The save UI + probe modal render THESE so the user never
+  // sees internal jargon. Every errors[i]/warnings[i] has a matching
+  // userErrors[i]/userWarnings[i] (falls back to the technical text when a
+  // particular check predates this split).
+  userErrors: string[];
+  userWarnings: string[];
   yamlText?: string;
   slug?: string;
 }
@@ -37,6 +46,22 @@ export function validateProfileDraft(
 ): ValidationResult {
   const errors: string[] = [];
   const warnings: string[] = [];
+  // ADR-123: user-facing copies, kept positionally in lockstep with the two
+  // arrays above via the push helpers below.
+  const userErrors: string[] = [];
+  const userWarnings: string[] = [];
+
+  // Push a technical message + its plain-English twin together so the two
+  // arrays never drift. When a source has no dedicated user message (schema /
+  // slug / render errors), the technical text is reused as the fallback.
+  const pushError = (message: string, userMessage?: string) => {
+    errors.push(message);
+    userErrors.push(userMessage ?? message);
+  };
+  const pushWarning = (message: string, userMessage?: string) => {
+    warnings.push(message);
+    userWarnings.push(userMessage ?? message);
+  };
 
   // 1. Guardrail checks.
   //
@@ -51,22 +76,23 @@ export function validateProfileDraft(
   // detail URL despite trying, the user can explicitly bypass this gate.
   // The violations become warnings so the user sees them in the save success
   // panel, but the save commits.
-  const forceDetailViolations = checkForceDetailBackup(draft, FORCE_DETAIL_BACKUP_HOSTS).map((w) => w.message);
-  if (options.bypassForceDetailBackup) {
-    warnings.push(...forceDetailViolations);
-  } else {
-    errors.push(...forceDetailViolations);
+  const forceDetailViolations = checkForceDetailBackup(draft, FORCE_DETAIL_BACKUP_HOSTS);
+  for (const w of forceDetailViolations) {
+    if (options.bypassForceDetailBackup) pushWarning(w.message, w.userMessage);
+    else pushError(w.message, w.userMessage);
   }
-  warnings.push(...checkConditionDrift(state, draft).map(w => w.message));
-  warnings.push(...checkTitleExcludes(draft).map(w => w.message));
-  warnings.push(...checkDetailPreferencePresence(draft, FORCE_DETAIL_BACKUP_HOSTS, PREFER_DETAIL_HOSTS).map(w => w.message));
-  warnings.push(...checkMatchAliases(draft).map(w => w.message));
+  for (const w of checkConditionDrift(state, draft)) pushWarning(w.message, w.userMessage);
+  for (const w of checkTitleExcludes(draft)) pushWarning(w.message, w.userMessage);
+  for (const w of checkDetailPreferencePresence(draft, FORCE_DETAIL_BACKUP_HOSTS, PREFER_DETAIL_HOSTS)) {
+    pushWarning(w.message, w.userMessage);
+  }
+  for (const w of checkMatchAliases(draft)) pushWarning(w.message, w.userMessage);
 
   // ADR-116: a SKU/ASIN copied out of a source URL into match_aliases is a
   // hard error — at runtime it would let the carry-gate pass unrelated
   // listings. Hard-gate (like ADR-111) so the save 422s and ADR-113
   // auto-forwards the error to the LLM to fix.
-  errors.push(...checkMatchAliasesAgainstHallucinatedSkus(draft).map(w => w.message));
+  for (const w of checkMatchAliasesAgainstHallucinatedSkus(draft)) pushError(w.message, w.userMessage);
 
   // 2. Render YAML
   let yamlText: string;
@@ -74,8 +100,12 @@ export function validateProfileDraft(
     yamlText = renderProfileYaml(draft);
   } catch (err) {
     const msg = err instanceof Error ? err.message : 'render-yaml failed';
-    errors.push(`failed to render YAML from draft: ${msg}`);
-    return { ok: false, errors, warnings };
+    pushError(
+      `failed to render YAML from draft: ${msg}`,
+      `Something went wrong turning your answers into a profile. This is usually a ` +
+        `temporary glitch — ask the assistant to try saving again.`,
+    );
+    return { ok: false, errors, warnings, userErrors, userWarnings };
   }
 
   const SLUG_RE = /^[a-z0-9][a-z0-9-]{0,63}$/;
@@ -89,19 +119,31 @@ export function validateProfileDraft(
     parsed = parseAndValidateProfileYaml(yamlText);
   } catch (err) {
     if (err instanceof ProfileValidationError) {
-      errors.push(`profile failed schema validation`, ...err.errors);
+      const friendly =
+        `The profile didn't match the required format. Ask the assistant to ` +
+        `review and fix it, then save again.`;
+      pushError(`profile failed schema validation`, friendly);
+      for (const e of err.errors) pushError(e, friendly);
     } else {
       const msg = err instanceof Error ? err.message : 'profile validation failed';
-      errors.push(msg);
+      pushError(
+        msg,
+        `The profile couldn't be validated. Ask the assistant to review and fix ` +
+          `it, then save again.`,
+      );
     }
-    return { ok: false, errors, warnings, yamlText };
+    return { ok: false, errors, warnings, userErrors, userWarnings, yamlText };
   }
 
   const slug = parsed.slug;
   if (!SLUG_RE.test(slug)) {
-    errors.push(`slug ${JSON.stringify(slug)} fails ${SLUG_RE.source}`);
-    return { ok: false, errors, warnings, yamlText };
+    pushError(
+      `slug ${JSON.stringify(slug)} fails ${SLUG_RE.source}`,
+      `The product's short name (slug) has invalid characters. Ask the assistant ` +
+        `to pick a simple lowercase-and-hyphens name.`,
+    );
+    return { ok: false, errors, warnings, userErrors, userWarnings, yamlText };
   }
 
-  return { ok: errors.length === 0, errors, warnings, yamlText, slug };
+  return { ok: errors.length === 0, errors, warnings, userErrors, userWarnings, yamlText, slug };
 }

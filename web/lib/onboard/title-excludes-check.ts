@@ -12,6 +12,7 @@
 
 export interface TitleExcludesWarning {
   message: string;
+  userMessage: string;
 }
 
 function isObject(v: unknown): v is Record<string, unknown> {
@@ -67,6 +68,11 @@ export function checkTitleExcludes(
         `it will reject the target product itself and silently zero recall. ` +
         `Remove it (let the relevance filter handle near-models/accessories), or ` +
         `narrow it to a token that does NOT appear in the product name (ADR-080).`,
+      userMessage:
+        `One of the words set to be excluded (${quoted}) also appears in this ` +
+        `product's own name, so it would accidentally hide the product you want. ` +
+        `What to do: ask the assistant to remove that exclusion or narrow it to a ` +
+        `word that isn't part of the product name.`,
     },
   ];
 }

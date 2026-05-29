@@ -24,9 +24,15 @@
 
 // Kept as `Adr067Warning` (not renamed) for callers; semantically these are
 // now hard errors (see ADR-111). validation.ts routes them to `errors`.
+//
+// `message` is the technical, LLM-facing text (ADR refs + the exact fix recipe
+// the validate_profile tool feeds back to the model). `userMessage` is the
+// plain-English version shown in the save UI / probe modal — no jargon, with a
+// concrete "what to do next" (ADR-123).
 export interface Adr067Warning {
   host: string;
   message: string;
+  userMessage: string;
 }
 
 function isObject(v: unknown): v is Record<string, unknown> {
@@ -82,6 +88,13 @@ export function checkForceDetailBackup(
           `If this product is genuinely multi-variant or this vendor rotates URLs, ` +
           `tell the user explicitly and drop this vendor from sources instead of ` +
           `saving with only the search URL.`,
+        userMessage:
+          `${host}: we have a search page but not a link to this exact product. ` +
+          `Search results on big retailers shuffle around constantly, so we need ` +
+          `the product's own page to track its price reliably. ` +
+          `What to do: ask the assistant to find ${host}'s product page for this ` +
+          `item (or paste the link yourself). If ${host} doesn't actually sell ` +
+          `this exact product, ask the assistant to drop it.`,
       });
     } else if (detail && !search) {
       warnings.push({
@@ -91,6 +104,11 @@ export function checkForceDetailBackup(
           `search-style URL is added (a second universal_ai_search source for ` +
           `this host) so newly-listed competing offers are still discovered, not ` +
           `just the one product page. (ADR-067 / ADR-111.)`,
+        userMessage:
+          `${host}: we have the direct product page but no search page. Adding a ` +
+          `search page lets us also spot newly-listed offers for this item, not ` +
+          `just this one listing. ` +
+          `What to do: ask the assistant to add an ${host} search link for this product.`,
       });
     }
   }
