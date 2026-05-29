@@ -162,15 +162,95 @@ Amazon-detail recall gap is real and matches the queued ADR-119/120 territory.
   inflated input tokens). Run cost: **$0.074**. Both reasonable, though G's token blow-up and
   A/B's perceived stalls are the things a real user would feel.
 
+---
+
+## Round 2 — fresh delete + re-onboard (owner-requested re-run, "extend probing if offered")
+
+Per owner ask: deleted the slug (app delete → commit `0b25bac`) and re-onboarded the
+identical request, this time **exercising the extend-probing affordances** and choosing
+the **bypass** path at save (different choices than round 1). Re-onboard committed as
+`1b60ad0`. Results differed meaningfully — confirming the run is **non-deterministic and
+infra-sensitive**, and surfacing new findings.
+
+**What differed (round 2 vs round 1):**
+- **The assistant asked a clarifying variant question** this time — "the version with RC
+  Motion 3 & Goggles N3, not the standard Fly More Combo with RC-N3?" — and added a
+  `title_excludes: [Drone Only, standard, RC-N3]` filter to discriminate the variant. This
+  is *better* behavior than round 1 (which silently picked the variant). ✅ Good, but
+  *non-deterministic* — same input, different interview path.
+- **Amazon probed cleanly this time** ("48 relevance hits, Motion Fly More found") instead
+  of being bot-walled — so Amazon's reachability swings run-to-run (infra/anti-bot
+  variance). Micro Center and Target were kept **active** (carry-gate watched) at draft
+  time rather than demoted.
+- **B&H and Walmart 504'd / returned empty bodies again** and were parked in
+  `sources_pending` from the start.
+
+**Finding H — "Keep probing" can REDUCE coverage → strengthens ADR-126 (P0/P1).** I clicked
+**"Keep probing the unfinished vendors"** (the extend affordance) as the owner suggested. It
+worked mechanically (injected a continuation prompt; the assistant re-probed B&H + Walmart),
+**but both re-probes failed again on the same transient infra** (B&H "response body too short
+(0 chars)", Walmart 504), and the assistant responded by **demoting B&H from active `sources`
+to `sources_pending`.** So extending the probe *lost* the one vendor that had returned a real
+listing in round 1. Net-negative for recall, and exactly the transient-demotion anti-pattern
+ADR-126 targets — now shown to also live in the keep-probing path, not just the save-probe.
+A user who extends probing reasonably expects it to *add* coverage, never remove it.
+
+**Finding I — the bypass path PRESERVES coverage better than the "correct" fix path.** At
+save, validation blocked on Amazon + Target (search-only, need detail URLs). I chose **"Save
+and proceed anyway"** (ADR-115 bypass). This **kept Amazon, Micro Center, and Target active**
+and the post-save banner **did disclose both** Amazon and Target coverage gaps (good — unlike
+round 1, where the silent demotion of Micro Center/Walmart was *not* disclosed). The irony to
+flag: pressing the "wrong"-looking **bypass** button gave better runtime coverage than letting
+the assistant "fix" things (which demotes on transient failure). That's backwards from what
+the UI's affordance hierarchy implies, and reinforces ADR-126.
+
+**Finding J — run latency is severe and unbounded in the UI (strengthens ⚠️ B).** The round-2
+run was dispatched and, as of writing, has shown **"Running…" for ~55+ min** with no report
+and no error/timeout state — the counter keeps resetting on reload and there is no "this is
+taking unusually long / may have stalled" affordance. (Round 1's worker compute was only
+2m 09s; the rest was dispatch/queue latency.) During this session AlterLab/Scrappey was
+clearly degraded — every Micro Center/Walmart/B&H probe failed with 504 or empty body across
+both rounds — which both slows runs and drives the demotion findings. **An infra-degradation
+banner and a bounded "run looks stuck" state would prevent a user concluding the app is
+broken.** *(If the round-2 report lands after this was written, results are appended in
+`reports/dji-neo-2-motion-fly-more-combo/`; the funnel/UX findings stand regardless.)*
+
+**Re-confirmed across both rounds:**
+- **ADR-127 (B&H alias leak):** `CP.FP.00000273.01` landed in `match_aliases` again — even
+  though in round 2 B&H is only in `sources_pending`. The guard never fires for this token.
+- **Finding C (dangling "Continue probing"):** save modal again told the user to "click
+  'Continue probing'" with no such button present.
+- **Finding D (stale "Last run"):** after delete + recreate of the same slug, the product
+  page still showed "Last run: 2m 09s" from the *previous* (deleted) product's run — so
+  **delete does not clear run metadata** for a reused slug.
+
+**Net read:** the onboarder UX (ADR-122/123/124/125) is genuinely good and the run-time
+honesty (ADR-124) is the right design. The recall risk is concentrated at the **probe→source
+routing** layer: transient probe failures (rampant under today's degraded infra) repeatedly
+push owner-confirmed vendors into `sources_pending`, where they're never searched — and
+neither the chat prose, the right-pane YAML, nor (in round 1) the save banner reliably tells
+the user it happened. ADR-126 is the highest-leverage fix.
+
 ## Prioritized queue (capture-only; owner prioritizes)
 
-1. **ADR-126 (P0/P1)** — don't demote known-good vendors to `sources_pending` on transient
-   save-probe failures; disclose any save-time source changes in the banner. (Finding E.)
+1. **ADR-126 (P0, raised from P0/P1 after round 2)** — transient probe failures (504 /
+   empty body / bot-wall) on `alterlab_known_good` hosts must **keep the vendor in active
+   `sources`** with an advisory note and let the runtime ladder decide — never demote to
+   `sources_pending`. Applies to **both** the save-time probe (Finding E) **and** the
+   keep-probing path (Finding H). Any save-time source change must be disclosed in the
+   banner (round 1 hid the Micro Center/Walmart demotion). This is the highest-leverage fix
+   and the root cause of the poor end-to-end recall in both rounds.
 2. **ADR-127 (P1)** — extend ADR-116 alias-hallucination guard to B&H `CP.FP.…` product
-   numbers / any source-URL-derived SKU token. (Finding F.)
+   numbers / any source-URL-derived SKU token. (Finding F; reproduced both rounds.)
 3. **ADR-128 (P1/P2)** — Amazon detail deterministic extractor + LLM output-token guard on
    unparseable large pages. (Finding G; overlaps ADR-119/120.)
-4. **UX paper-cuts (P2/P3):** run-status auto-refresh + non-resetting elapsed timer (B);
-   remove dangling "Continue probing" text when the button is suppressed (C); clear stale
-   "Last run" metadata for a slug with no report (D); progress feedback during long
-   interview-turn probes (A).
+4. **ADR-129 (P2) — run observability** — infra-degradation banner + bounded "run looks
+   stuck / unusually long" state; today a degraded-infra run shows only an open-ended
+   "Running…" for 50+ min with a counter that resets on reload. (Findings B + J.)
+5. **UX paper-cuts (P3):** run-status auto-refresh on completion (B); remove dangling
+   "Continue probing" text when the button is suppressed (C); clear stale "Last run"
+   metadata on delete/recreate of a slug (D); progress feedback during long interview-turn
+   probes (A).
+6. **Non-determinism (note, not a defect):** identical input produced a different interview
+   path/variant-handling across rounds (round 2 added a clarifying question + `title_excludes`;
+   round 1 did not). Worth a deliberate stance on how much variance is acceptable.
