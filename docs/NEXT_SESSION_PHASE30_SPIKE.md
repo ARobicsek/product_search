@@ -90,13 +90,26 @@ Create `worker/scripts/serper_spike.py` (a scratch script, NOT wired into the pi
 - Print a table + a per-vendor rollup.
 
 ### Step 2 — Coverage matrix across products
-Run the script for a deliberately mixed basket (pick ~5):
-- `DJI Neo 2 Motion Fly More Combo` (hard: ambiguous variant, Amazon-dependent)
-- `DDR5 RDIMM 256GB ECC server memory` (the original RAM domain)
-- 2–3 products the owner has actually struggled with (ask, or pull recent slugs from
-  `products/` on `origin/main` after `git fetch`).
-For each, record: total results, distinct vendors, how many are plausible matches by eye,
-and **which owner-relevant vendors appeared**. Write it to `docs/STRESS_TEST_30.md`.
+Run the script for the owner's real basket (deliberately diverse — exercises food multipack,
+specific-model tech, brand consumer good, server hardware, used-book market, and a
+subscription). **`git fetch origin && git show origin/main:products/<slug>/profile.yaml`**
+for each to get the exact `display_name` / `match_aliases` / `condition_in` / `title_excludes`
+(do NOT trust the local working tree — the app rewrites `products/` on origin/main):
+
+| Product (as shown in the app) | Likely slug | Why it stresses recall |
+|---|---|---|
+| Aufschnitt Essiccata Jerky BBQ | `aufschnitt-essiccata-jerky-bbq` | food, multipack pricing, niche DTC brand — may be thin in Shopping |
+| KingSpec XG7000 2TB NVMe SSD | `kingspec-xg7000-2tb-nvme-ssd` | specific model+capacity; tests exact-variant precision |
+| Lululemon Never Lost Keychain | `lululemon-never-lost-keychain` | single-brand accessory; brand-store vs marketplace coverage |
+| Supermicro H14SSL-N Motherboard | `supermicro-h14ssl-n` | server hardware; the original "aspirational vendor" case (ADR-099/100) |
+| The Netanyahus by Joshua Cohen | `the-netanyahus` | book — does Shopping surface the used/eBay market it currently relies on? |
+| The Week — 1 Year Subscription | `the-week-1yr-subscription` | **subscription — likely the hardest**; Shopping is product-oriented, may return ~nothing. A clean NO-result here is itself a finding (subscriptions may need a different recall path). |
+| (reference) DJI Neo 2 Motion Fly More Combo | n/a (test artifact) | already validated this session — keep as the known-good comparison |
+
+For each, record: total results, distinct vendors, plausible-matches-by-eye, **which
+owner-relevant vendors appeared**, and any product where Shopping returns ~nothing (a real
+signal about which product *types* this approach does/doesn't serve). Write it to
+`docs/STRESS_TEST_30.md`.
 
 ### Step 3 — Feed ONE product through the REAL filter (the key test)
 The decisive test isn't "did vendors show up" — it's "does our proven filter turn this
