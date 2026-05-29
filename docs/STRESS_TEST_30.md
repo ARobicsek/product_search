@@ -199,3 +199,125 @@ python worker/scripts/serper_filter_runtest.py --fixture worker/tests/fixtures/s
 ```
 (With an `ANTHROPIC_API_KEY` in the container, delete the `data/serper_spike/*.response.json`
 files first and the harness will call real Haiku-4.5 instead of replaying.)
+
+---
+
+# Step 3b — REAL-model runs + filter-model bake-off (2026-05-29, keys now present)
+
+The owner provided `ANTHROPIC_API_KEY` + `GLM_API_KEY`, so Step 3 was re-run against the
+**real** filter models (no more stand-in). Harnesses: `worker/scripts/serper_multi_eval.py`
+(N live trials, real ai_filter) and `worker/scripts/serper_filter_bakeoff.py` (replays the
+captured production prompt against any candidate model, scores determinism + precision/recall
+vs a hand-labeled gold set + cost). Gold for DDR5 = reject ONLY {11,20,25} (the three titles
+that self-identify as UDIMM/Unbuffered); the prompt's own doctrine is "unknown → pass" and the
+profile description explicitly accepts 5600/6400 (downclock), so every ≥4800 RDIMM/ECC title is
+a correct PASS.
+
+## Headline: the non-determinism was a TEMPERATURE bug, not Serper and not the model
+
+`ai_filter` calls the LLM **without setting `temperature`**, so it runs at the provider default
+(~1.0). Live DDR5 (40 listings), 3 identical trials:
+
+| Model | temperature | Determinism (Jaccard of reject-sets) | DDR5 pass-counts |
+|---|---|---|---|
+| Haiku-4.5 | default (~1.0) | **broken** | **35 / 28 / 19** |
+| Haiku-4.5 | **0** | **1.00** | 21 / 21 / 21 |
+| GLM-4.6 | **0** | **1.00** | 28 / 28 / 28 |
+
+At `temperature=0` both models are perfectly deterministic. **This is a one-line production fix
+to `ai_filter` worth making independent of the migration** (the worker's `_anthropic.py` /
+`_openai.py` `call()` don't expose `temperature` today — they'd need the param threaded through).
+
+## Bake-off (DDR5, temperature=0, 3 trials, gold reject = {11,20,25})
+
+| Model | det | Precision | Recall | F1 | ~$/run | notes |
+|---|---|---|---|---|---|---|
+| **Haiku-4.5** | 1.00 | 1.00 | 0.57 | 0.72 | ~$0.018 | deterministic but over-rejects valid 5600/6400 RDIMM ECC |
+| **GLM-4.6** | 1.00 | 1.00 | **0.76** | **0.86** | **$0.0086** | best of the two: higher recall, perfect precision, AND cheaper |
+
+- **Precision is perfect for both** — no wrong-product/junk leaks through on title-only data.
+  The STRESS_TEST_29 "0 false positives" property holds with real models.
+- **Recall is the real differentiator.** Both still drop *some* valid higher-speed modules
+  (gold expects 37 PASS; GLM 28, Haiku 21) — the `speed_mts_min`/`form_factor` inference is
+  genuinely harder with no detail-page `attrs`. GLM-4.6 is markedly better at it.
+- **Cost surprise:** GLM-4.6's "5× tokens / cost-prohibitive" reputation is a *default-temperature*
+  artifact. At temp=0 its chain-of-thought collapses and it is **cheaper than Haiku** (~$0.0086
+  vs ~$0.018) while more accurate. (At default temp it emitted ~10–14k output tokens → ~$0.05–0.075.)
+- **GLM transient:** 1 of the early default-temp GLM calls hit a `403 ... private/reserved IP`
+  DNS flake on `open.bigmodel.cn` → 0 results that run (ai_filter returns `[]` on an LLM
+  exception, no retry). An infra/reliability note for the migration, not a quality issue.
+
+## DJI (variant disambiguation), live, both models
+
+Haiku and GLM-4.6 **agree exactly: 9/31**, deterministically (Haiku 9/9 across trials). Both
+reject all DJI Neo **v1** + **Mini 2/SE** (correct) AND the non-"Motion" "Fly More Combo"
+siblings + base Neo 2 units — i.e. the real models do **variant-STRICT** matching, passing only
+the exact "Motion Fly More Combo". (The earlier stand-in did family-match → 25/31.) This makes
+the ADR-117 `variant_strict`-vs-family decision concrete: the production filter already leans
+strict, so if the owner wants siblings surfaced, the prompt must say so.
+
+## What this means for the migration (refines ADR-131, does not change the GO)
+
+- **GO stands.** Recall is solved by Serper; precision stays perfect with real models. The open
+  question was never "does the filter leak junk" (it doesn't) but "which cheap model maximizes
+  *recall* on title-only data, deterministically." That is a finite benchmarking task.
+- **Add `temperature=0` to the filter call** — removes the run-to-run lottery (P0, trivial, helps
+  the current system too).
+- **Filter-model choice is now a live decision.** On this evidence **GLM-4.6 @ temp=0 > Haiku-4.5**
+  (better recall, perfect precision, cheaper). But the owner surfaced five more candidates worth a
+  head-to-head before locking in — see below.
+
+## Candidate models still to test (need keys — harness is ready)
+
+`serper_filter_bakeoff.py` auto-runs any registered model whose key env var is present, so each
+just needs a key in `worker/.env`. Owner-proposed shortlist (their accuracy/cost research in the
+session): **DeepSeek-V4/chat** (`DEEPSEEK_API_KEY`), **GPT-4o-mini** (`OPENAI_API_KEY`),
+**Gemini 2.5 Flash-Lite** (Google AI Studio key), **Llama-3.3-70B** + **Qwen2.5-72B**
+(`DEEPINFRA_API_KEY`). All are OpenAI-compatible (base_url already wired in the harness registry)
+except Gemini (needs the google SDK branch). Scoring axes are fixed: determinism (Jaccard),
+precision/recall/F1 vs gold, $/run. **No production code changes until a model is chosen.**
+
+# Step 3c — owner picked GLM-4.6; validated it across 4 products (2026-05-29)
+
+Owner elected GLM-4.6 (no need to test the other five). To not lock a filter model on 2
+products, GLM-4.6 @ temp=0 was run through the real ai_filter on two MORE, deliberately
+different, real products (Serper-sourced; fixture profiles mirror origin/main). NB: the
+`P/R/F1` columns are only meaningful for DDR5 (the one slug with a gold set); for the book and
+subscription, `gold_reject=[]` makes those columns penalize *correct* rejects, so judge those by
+the reject lists, not the F1.
+
+| Product | Model | det | passed | reject quality (eyeballed) | ~$/run |
+|---|---|---|---|---|---|
+| DDR5 (40) | Haiku-4.5 | 1.00 | 21 | perfect precision; over-rejects valid 5600/6400 (recall 0.57) | ~$0.018 |
+| DDR5 (40) | **GLM-4.6** | 1.00 | 28 | perfect precision; recall 0.76 (best) | **$0.0086** |
+| Book (33) | Haiku-4.5 | 1.00 | 18 | **flawless** — drops all "[Used]" + every wrong-title book | n/a |
+| Book (33) | **GLM-4.6** | 1.00 | 18 | **identical to Haiku, flawless** | $0.0124 |
+| Subscription (30) | Haiku-4.5 | 1.00 | 8 | strong — drops The Week *Junior*, Newsweek, *India*, single-issue, PDF-archive, digital-only/quarterly (profile scope = print/print+digital 1yr) | ~$0.017 |
+| Subscription (30) | **GLM-4.6** | 0.96 | 3–4 | **over-rejects** — also drops legit "Print and Digital Subscription" / generic "The Week Magazine" rows | **$0.0905** |
+
+**What generalizes:**
+- **Precision is perfect (1.00) for both models on all four products.** The no-false-positive
+  property is robust on title-only Serper data — the core architectural promise survives the
+  migration. The book run is the cleanest possible demonstration: both models, deterministically,
+  dropped every `[Used]` copy (via `title_excludes`) and every wrong-title book (*The Netanyahu
+  Years*, *The Dissident*, *Bibi*, the Mike Evans novel) via `relevance_check`, keeping exactly
+  the 18 genuine new "The Netanyahus by Joshua Cohen" listings.
+- **`temperature=0` gives determinism** for both — except GLM dipped to 0.96 on the genuinely
+  ambiguous subscription.
+
+**What does NOT generalize (the honest caveats on the GLM choice):**
+- **Neither model is uniformly best on recall.** GLM-4.6 wins on DDR5 (0.76 vs 0.57), ties on the
+  book, but **loses on the subscription**, where it over-rejects to 3–4 passes (Haiku keeps a
+  sensible 8). Recall is product- and model-dependent; precision is not.
+- **GLM-4.6's cost is highly variable: $0.0086 → $0.0124 → $0.0905 per run.** On ambiguous
+  products it "reasons" more → more output tokens → ~10× cost swing and *worse* recall. Haiku's
+  cost is flat (~$0.017). So "GLM is cheaper" is true on clean catalogs (DDR5/book) and false on
+  ambiguous ones (subscription).
+
+**Verdict on the model choice:** GLM-4.6 @ **temp=0** is a defensible default — perfect precision
+everywhere, best-or-tied recall on 2 of 3 measurable products, and cheap on clean catalogs. Ship
+it with two guardrails: (1) **set `temperature=0`** in the filter call (P0, helps any model);
+(2) **watch GLM's recall + cost on ambiguous/subscription-type products** — if either bites,
+Haiku-4.5 @ temp=0 is the flatter-cost fallback, and the bigger lever for recall is *enriching the
+filter input* (pass Serper's snippet/extra fields, or a cheap 2-pass) rather than swapping models.
+The recall gap is the migration's real downstream work item — finite and testable, not a treadmill.

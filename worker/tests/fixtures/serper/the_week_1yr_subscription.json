@@ -1,0 +1,267 @@
+{
+  "searchParameters": {
+    "q": "The Week magazine 1 year subscription",
+    "gl": "us",
+    "type": "shopping",
+    "num": 40,
+    "page": 1,
+    "engine": "google"
+  },
+  "shopping": [
+    {
+      "title": "The Week Magazine (13 Issues)",
+      "source": "DiscountMags.com",
+      "link": "https://www.google.com/search?ibp=oshop&q=The+Week+magazine+1+year+subscription&prds=localAnnotatedOfferId:1,catalogid:13069981890419541930,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
+      "price": "$159.15",
+      "rating": 1,
+      "ratingCount": 1,
+      "productId": "13069981890419541930",
+      "position": 1
+    },
+    {
+      "title": "The Week Magazine Subscription",
+      "source": "DiscountMags.com",
+      "link": "https://www.google.com/search?ibp=oshop&q=The+Week+magazine+1+year+subscription&prds=localAnnotatedOfferId:1,catalogid:1312303059064571294,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
+      "price": "$89.99",
+      "rating": 4.7,
+      "ratingCount": 1100,
+      "productId": "1312303059064571294",
+      "position": 2
+    },
+    {
+      "title": "Week - One Year Subscription",
+      "source": "Barnes & Noble",
+      "link": "https://www.google.com/search?ibp=oshop&q=The+Week+magazine+1+year+subscription&prds=localAnnotatedOfferId:1,productid:10239945474081031285,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
+      "price": "$179.00",
+      "productId": "10239945474081031285",
+      "position": 3
+    },
+    {
+      "title": "The Week Magazine, Annual Digital Subscription",
+      "source": "Magazine Cafe",
+      "link": "https://www.google.com/search?ibp=oshop&q=The+Week+magazine+1+year+subscription&prds=localAnnotatedOfferId:1,productid:15327352624882745625,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
+      "price": "$89.99",
+      "productId": "15327352624882745625",
+      "position": 4
+    },
+    {
+      "title": "The Week - 1 year subscription - Bundle",
+      "source": "MagazinesDirect.com",
+      "link": "https://www.google.com/search?ibp=oshop&q=The+Week+magazine+1+year+subscription&prds=localAnnotatedOfferId:1,productid:3475087336801345807,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
+      "price": "$414.00",
+      "rating": 4.7,
+      "ratingCount": 1100,
+      "productId": "3475087336801345807",
+      "position": 5
+    },
+    {
+      "title": "The Week - Print and Digital Subscription",
+      "source": "TrueMagazines.com",
+      "link": "https://www.google.com/search?ibp=oshop&q=The+Week+magazine+1+year+subscription&prds=localAnnotatedOfferId:1,productid:17449587322849318588,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
+      "price": "$116.00",
+      "productId": "17449587322849318588",
+      "position": 6
+    },
+    {
+      "title": "The Week, Annual Digital Subscription",
+      "source": "Magazine Cafe",
+      "link": "https://www.google.com/search?ibp=oshop&q=The+Week+magazine+1+year+subscription&prds=localAnnotatedOfferId:1,productid:12346482807685259664,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
+      "price": "$159.15",
+      "productId": "12346482807685259664",
+      "position": 7
+    },
+    {
+      "title": "The Week Print & Digital Magazine Subscription 1 Year Digital Only",
+      "source": "Total Magazines",
+      "link": "https://www.google.com/search?ibp=oshop&q=The+Week+magazine+1+year+subscription&prds=localAnnotatedOfferId:1,productid:3827242830156812599,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
+      "price": "$99.00",
+      "productId": "3827242830156812599",
+      "position": 8
+    },
+    {
+      "title": "The Week Junior Print & Digital 1 Year Subscription | 52 Issues [Magazine]",
+      "source": "DiscountMags.com",
+      "link": "https://www.google.com/search?ibp=oshop&q=The+Week+magazine+1+year+subscription&prds=localAnnotatedOfferId:1,productid:4362523198548232604,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
+      "price": "$83.00",
+      "rating": 4.6,
+      "ratingCount": 10,
+      "productId": "4362523198548232604",
+      "position": 9
+    },
+    {
+      "title": "The Week Magazine Subscription, 52 Issues, Political News Magazines | magazines.com",
+      "source": "Magazines.com",
+      "link": "https://www.google.com/search?ibp=oshop&q=The+Week+magazine+1+year+subscription&prds=localAnnotatedOfferId:1,productid:13011062436648961844,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
+      "price": "$199.00",
+      "rating": 4.7,
+      "ratingCount": 1100,
+      "productId": "13011062436648961844",
+      "position": 10
+    },
+    {
+      "title": "The Week Junior - 1 year subscription - Bundle",
+      "source": "MagazinesDirect.com",
+      "link": "https://www.google.com/search?ibp=oshop&q=The+Week+magazine+1+year+subscription&prds=localAnnotatedOfferId:1,productid:7299702127325369391,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
+      "price": "$227.99",
+      "productId": "7299702127325369391",
+      "position": 11
+    },
+    {
+      "title": "The Week - Single Issue",
+      "source": "Pocketmags",
+      "link": "https://www.google.com/search?ibp=oshop&q=The+Week+magazine+1+year+subscription&prds=localAnnotatedOfferId:1,productid:13735690402574487950,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
+      "price": "$3.99",
+      "rating": 4.7,
+      "ratingCount": 1100,
+      "productId": "13735690402574487950",
+      "position": 12
+    },
+    {
+      "title": "The Week",
+      "source": "professional subscription service",
+      "link": "https://www.google.com/search?ibp=oshop&q=The+Week+magazine+1+year+subscription&prds=localAnnotatedOfferId:1,productid:5503389545204197805,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
+      "price": "$149.97",
+      "productId": "5503389545204197805",
+      "position": 13
+    },
+    {
+      "title": "The Week Magazine Subscription(52 Issues/1 Year)",
+      "source": "Magazine-Agent.com",
+      "link": "https://www.google.com/search?ibp=oshop&q=The+Week+magazine+1+year+subscription&prds=localAnnotatedOfferId:1,productid:17005334541897220277,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
+      "price": "$199.00",
+      "productId": "17005334541897220277",
+      "position": 14
+    },
+    {
+      "title": "The Week Junior Science+Nature Magazine 1 Year Print Subscription",
+      "source": "Total Magazines",
+      "link": "https://www.google.com/search?ibp=oshop&q=The+Week+magazine+1+year+subscription&prds=localAnnotatedOfferId:1,productid:407914546760556121,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
+      "price": "$139.97",
+      "productId": "407914546760556121",
+      "position": 15
+    },
+    {
+      "title": "The Week Quarterly Digital",
+      "source": "MagazinesDirect.com",
+      "link": "https://www.google.com/search?ibp=oshop&q=The+Week+magazine+1+year+subscription&prds=localAnnotatedOfferId:1,catalogid:10263571818041280405,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
+      "price": "$94.00",
+      "productId": "10263571818041280405",
+      "position": 16
+    },
+    {
+      "title": "The Week Magazine",
+      "source": "Books N Things Warehouse",
+      "link": "https://www.google.com/search?ibp=oshop&q=The+Week+magazine+1+year+subscription&prds=localAnnotatedOfferId:1,productid:17965291394945766136,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
+      "price": "$199.00",
+      "rating": 4.7,
+      "ratingCount": 1100,
+      "productId": "17965291394945766136",
+      "position": 17
+    },
+    {
+      "title": "Newsweek Weekly, Subscription: USA One Year",
+      "source": "Magazine Cafe",
+      "link": "https://www.google.com/search?ibp=oshop&q=The+Week+magazine+1+year+subscription&prds=localAnnotatedOfferId:1,productid:11589494119256423908,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
+      "price": "$100.00",
+      "productId": "11589494119256423908",
+      "position": 18
+    },
+    {
+      "title": "The Week Junior Magazine - 1 Year / 52 Issue Subscription Deal",
+      "source": "MagazineBargains.com",
+      "link": "https://www.google.com/search?ibp=oshop&q=The+Week+magazine+1+year+subscription&prds=localAnnotatedOfferId:1,productid:6279227989010038699,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
+      "price": "$119.00",
+      "productId": "6279227989010038699",
+      "position": 19
+    },
+    {
+      "title": "Newsweek - Digital Edition Magazine Subscription ( 1 Year / 47 Issues )",
+      "source": "Magazineline.com",
+      "link": "https://www.google.com/search?ibp=oshop&q=The+Week+magazine+1+year+subscription&prds=localAnnotatedOfferId:1,productid:6099458724875457020,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
+      "price": "$49.00",
+      "productId": "6099458724875457020",
+      "position": 20
+    },
+    {
+      "title": "Newsweek (US) International Edition 1 Year All Access ( Print + Digital )",
+      "source": "magtimehk.com",
+      "link": "https://www.google.com/search?ibp=oshop&q=The+Week+magazine+1+year+subscription&prds=localAnnotatedOfferId:1,productid:6638853810163442555,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
+      "price": "$481.09",
+      "productId": "6638853810163442555",
+      "position": 21
+    },
+    {
+      "title": "Newsweek Magazine Subscription - 1 Year (50 Issues) Subscription Deal",
+      "source": "SubscriptionAddiction.com",
+      "link": "https://www.google.com/search?ibp=oshop&q=The+Week+magazine+1+year+subscription&prds=localAnnotatedOfferId:1,productid:7293558979551526942,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
+      "price": "$149.99",
+      "productId": "7293558979551526942",
+      "position": 22
+    },
+    {
+      "title": "Newsweek Magazine Subscription 1 Year Print",
+      "source": "Total Magazines",
+      "link": "https://www.google.com/search?ibp=oshop&q=The+Week+magazine+1+year+subscription&prds=localAnnotatedOfferId:1,productid:17787775910693319742,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
+      "price": "$99.00",
+      "productId": "17787775910693319742",
+      "position": 23
+    },
+    {
+      "title": "Newsweek International, Annual Digital Subscription",
+      "source": "Magazine Cafe",
+      "link": "https://www.google.com/search?ibp=oshop&q=The+Week+magazine+1+year+subscription&prds=localAnnotatedOfferId:1,productid:15115573304772303210,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
+      "price": "$44.87",
+      "productId": "15115573304772303210",
+      "position": 24
+    },
+    {
+      "title": "Newsweek (US) International Edition 1 Year Print Only",
+      "source": "magtimehk.com",
+      "link": "https://www.google.com/search?ibp=oshop&q=The+Week+magazine+1+year+subscription&prds=localAnnotatedOfferId:1,productid:745172604916175886,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
+      "price": "$431.32",
+      "productId": "745172604916175886",
+      "position": 25
+    },
+    {
+      "title": "The Week Magazine: Mega Archive PDF Collection, Digital Download, News & Culture History, Weekly Digest Bundle",
+      "source": "Etsy - Seller",
+      "link": "https://www.google.com/search?ibp=oshop&q=The+Week+magazine+1+year+subscription&prds=localAnnotatedOfferId:1,productid:3806027060004066820,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
+      "price": "$6.99",
+      "productId": "3806027060004066820",
+      "position": 26
+    },
+    {
+      "title": "THE WEEK India",
+      "source": "Magzter",
+      "link": "https://www.google.com/search?ibp=oshop&q=The+Week+magazine+1+year+subscription&prds=localAnnotatedOfferId:1,productid:18024550952492522590,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
+      "price": "$0.99",
+      "productId": "18024550952492522590",
+      "position": 27
+    },
+    {
+      "title": "Buy Home Care Week Magazine Subscription|Entertainment Mag| magazinecafestore.com Subscription: USA One Year",
+      "source": "Magazine Cafe",
+      "link": "https://www.google.com/search?ibp=oshop&q=The+Week+magazine+1+year+subscription&prds=localAnnotatedOfferId:1,productid:10852399647154734189,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
+      "price": "$397.00",
+      "productId": "10852399647154734189",
+      "position": 28
+    },
+    {
+      "title": "Woman's Weekly - 1 year subscription - Print",
+      "source": "MagazinesDirect.com",
+      "link": "https://www.google.com/search?ibp=oshop&q=The+Week+magazine+1+year+subscription&prds=localAnnotatedOfferId:1,productid:16156422559503274024,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
+      "price": "$192.49",
+      "productId": "16156422559503274024",
+      "position": 29
+    },
+    {
+      "title": "The Week India January 12, 2025 [Magazine]",
+      "source": "DiscountMags.com",
+      "link": "https://www.google.com/search?ibp=oshop&q=The+Week+magazine+1+year+subscription&prds=localAnnotatedOfferId:1,productid:5055739006740398748,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
+      "price": "$0.99",
+      "productId": "5055739006740398748",
+      "position": 30
+    }
+  ],
+  "credits": 2
+}

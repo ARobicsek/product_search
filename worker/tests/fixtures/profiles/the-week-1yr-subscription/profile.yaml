@@ -1,0 +1,16 @@
+# COMMITTED TEST FIXTURE — Phase 30 spike (Step 3b). Do NOT move under products/.
+# Mirrors the real origin/main profile's ai_filter-relevant fields (display_name,
+# description, target, spec_filters). Sources simplified to a single valid entry
+# (ai_filter only reads spec_filters/target/display_name/description).
+slug: "the-week-1yr-subscription"
+display_name: "The Week – 1 Year Subscription"
+description: "Track the cheapest 1-year subscription to The Week magazine (print or print+digital)."
+target:
+  unit: "count"
+  amount: 1
+spec_filters:
+  - { rule: "in_stock" }
+sources:
+  - id: "ebay_search"
+    queries: ["The Week magazine 1 year subscription"]
+    max_results_per_query: 50

@@ -31,6 +31,7 @@ from pathlib import Path
 from typing import Any
 
 from product_search.llm import LLMResponse
+from product_search.llm import call_llm as real_call_llm
 from product_search.models import Listing
 from product_search.profile import load_profile
 
@@ -97,6 +98,10 @@ def main() -> None:
     ap.add_argument("--rewrite-urls", action="store_true",
                     help="Normalize Serper google-redirect links to product-detail URLs.")
     ap.add_argument("--tag", default="", help="Suffix for request/response filenames (run A vs B).")
+    ap.add_argument("--live", action="store_true",
+                    help="Call the real LLM instead of replaying dumped verdicts.")
+    ap.add_argument("--provider", default=None, help="Override ai_filter's provider (e.g. glm).")
+    ap.add_argument("--model", default=None, help="Override ai_filter's model (e.g. glm-4.6).")
     args = ap.parse_args()
 
     os.environ["PRODUCT_SEARCH_PRODUCTS_DIR"] = str(Path(args.products_dir).resolve())
@@ -137,9 +142,28 @@ def main() -> None:
             f"       then re-run this exact command.\n"
         )
 
-    af.call_llm = fake_call_llm  # type: ignore[assignment]
+    def live_call_llm(*, provider: str, model: str, system: str,
+                      messages: list[Any], response_format: str = "text",
+                      max_tokens: int = 2048) -> LLMResponse:
+        prov = args.provider or provider
+        mdl = args.model or model
+        resp = real_call_llm(provider=prov, model=mdl, system=system, messages=messages,
+                             response_format=response_format, max_tokens=max_tokens)  # type: ignore[arg-type]
+        sfx = f".{args.tag}" if args.tag else ""
+        out = WORK / f"{args.slug}{sfx}.live.{prov}.batch{batch_no['n']+1:02d}.response.json"
+        out.write_text(resp.text or "")
+        batch_no["n"] += 1
+        print(f"[live] {prov}/{mdl}: in={resp.input_tokens} out={resp.output_tokens} -> {out.name}")
+        return resp
+
+    af.call_llm = live_call_llm if args.live else fake_call_llm  # type: ignore[assignment]
 
     passed = af.ai_filter(listings, profile)
+    if args.live and af.LAST_RUN_USAGE:
+        from product_search.llm.pricing import estimate_cost_usd, format_cost_usd
+        u = af.LAST_RUN_USAGE
+        cost = format_cost_usd(estimate_cost_usd(u["provider"], u["model"], u["input_tokens"], u["output_tokens"]))
+        print(f"\n[cost] {u['provider']}/{u['model']}  in={u['input_tokens']} out={u['output_tokens']}  ~{cost}")
 
     # --- report -------------------------------------------------------------
     print(f"\n=== RESULT: {len(passed)}/{len(listings)} listings passed the filter ===\n")

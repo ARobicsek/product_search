@@ -1,0 +1,16 @@
+# COMMITTED TEST FIXTURE — Phase 30 spike (Step 3b). Do NOT move under products/.
+# Mirrors the real origin/main profile's ai_filter-relevant fields. Tests the
+# title_excludes:[used] condition gate on title-only Serper data.
+slug: "the-netanyahus-joshua-cohen"
+display_name: "The Netanyahus by Joshua Cohen"
+description: "Track cheapest new listings for The Netanyahus by Joshua Cohen, any edition."
+target:
+  unit: "count"
+  amount: 1
+spec_filters:
+  - { rule: "in_stock" }
+  - { rule: "title_excludes", values: ["used"] }
+sources:
+  - id: "ebay_search"
+    queries: ["the netanyahus joshua cohen"]
+    max_results_per_query: 50
