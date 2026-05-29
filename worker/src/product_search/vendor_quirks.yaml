@@ -116,6 +116,16 @@ amazon.com:
     country: us
     min_tier: 3
     wait_condition: networkidle
+    # ADR-125: route Amazon through Scrappey's residential-proxy browser render
+    # FIRST. Amazon intermittently bot-walls AlterLab's datacenter fetch with a
+    # 200 + multi-KB "are you a robot" body that doesn't trip the weak-render
+    # heuristic, so the dynamic fallback never fired and Amazon silently reported
+    # 0/"doesn't carry." Amazon stays alterlab_known_good (NO skip_alterlab), so
+    # AlterLab remains the automatic backup if a Scrappey fetch errors. render_js
+    # is required because Amazon's price/tiles are JS-rendered (see notes).
+    use_scrappey: true
+    render_js: true
+    proxy_country: UnitedStates
   alterlab_known_good: true
   force_detail_backup: true
   search_url_template: "https://www.amazon.com/s?k={q}"

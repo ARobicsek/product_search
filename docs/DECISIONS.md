@@ -11,6 +11,7 @@ Status values:
 
 ## Index
 
+- **ADR-125** — Scrappey recovery for known-good *detail* pages + Amazon routed through Scrappey (ACCEPTED, 2026-05-29, Phase 29). Follow-up to ADR-124's diagnosis: *why* didn't the bot-walled Amazon detail page fall back to Scrappey? Two gaps. (1) **Structural:** the ADR-107 "known-good + thin body → Scrappey" recall fallback lives in the search-union path (`universal_ai.fetch`, ~L3161), but an explicit `page_type: detail` source `return []`s at ~L3105 *before* reaching it — so detail URLs never got that safety net. (2) **Registry:** Amazon was `alterlab_known_good` WITHOUT `use_scrappey`, and its bot-wall is often a 200 + multi-KB body that doesn't trip `_weak_render_reason`, so the dynamic weak-render fallback never fired either; meanwhile B&H + Microcenter worked precisely because they carry `use_scrappey: true`. Decision: (a) add a Scrappey recovery to the explicit-detail branch — when Tier 1.5 finds nothing on a thin (`< THIN_BODY_CEILING`) body from an `alterlab_known_good` vendor that didn't already use Scrappey, re-fetch via Scrappey (`render_js: true`) and re-extract JSON-LD → detail before giving up (`triggered_by="adr125_detail_recovery"`); (b) flag `amazon.com` `use_scrappey: true` + `render_js: true` + `proxy_country: UnitedStates` in `vendor_quirks.yaml` (NO `skip_alterlab`, so AlterLab stays the automatic backup) — this propagates to existing profiles via the registry merge, no re-onboard needed. The pre-existing `test_amazon_adr107_fallback_recovers` was repointed to `bestbuy.com` (a known-good non-Scrappey vendor) since Amazon now Scrappeys upstream; +2 new tests (detail recovery fires; recovery skipped when `use_scrappey` already set). `sync-prompt.cjs` re-run (promptText.ts). Worker 420/420, ruff(src)+mypy clean; web tsc/eslint/guards 60/60/parity 6/6/build green. Brief: this conversation (user: "did we fall back to Scrappey? if not, why not?").
 - **ADR-124** — `vendor_does_not_carry` must be the last-resort source-outcome verdict, not the first (ACCEPTED, 2026-05-29, Phase 29). Live DJI Neo 2 run: Amazon's `page_type: detail` source fetched 0 (almost certainly an Amazon bot-wall on the datacenter/proxy fetch — B&H + Microcenter detail URLs went via Scrappey and both fetched 1/passed 1) and the report said "**NO_MATCH (Vendor doesn't carry)** — genuinely has nothing right now, so re-running won't change anything." Wrong on both facts and advice. Root cause: ADR-112 made `cli.annotate_dominant_rejections` stamp `dominant_rejection="vendor_does_not_carry"` on EVERY `fetched == 0` source, and put that branch FIRST in `classify_source_outcome` — ahead of the carry-gate (WATCHED), the thin-body/bot-wall TRANSIENT, `alterlab_degraded` TRANSIENT, and the substantive-body PARSER_GAP branches. Since all of those only apply when `fetched == 0`, they became **dead code for every universal source** (the unit tests never caught it because they classify WATCHED/TRANSIENT/PARSER_GAP without ever passing `dominant_rejection`, which production always sets). Decision: move the `vendor_does_not_carry` verdict to the LAST-RESORT position (next to the EMPTY_PAGE fallback) so the more-specific, more-accurate diagnoses win and a bot-walled/transient/carry-gated zero-fetch source no longer tells the user "re-running won't help." +5 regression tests reproducing the real production combination. Worker 418/418, ruff+mypy clean. Brief: this conversation (user's Amazon NO_MATCH screenshot).
 - **ADR-123** — Plain-English user-facing validator messages, separate from the LLM-facing text (ACCEPTED, 2026-05-29, Phase 29). The onboarder's save-time warnings/errors (force_detail_backup, URL-less placeholder, condition-drift, title-excludes, match-aliases, alias-hallucination) were written for the LLM — full of ADR refs, `page_type`, `universal_ai_search`, "the runtime escalation ladder (ADR-078)" — and the SAME strings were shown to the user in the save panel + probe modal. The user (re-onboarding the DJI Neo 2) found them "very technical jargon-y." Decision: each check now returns `message` (technical, LLM-facing, unchanged — the `validate_profile` tool still feeds it back so the model can self-correct) PLUS `userMessage` (plain English + a concrete "What to do:"). `validateProfileDraft` threads lockstep `userErrors`/`userWarnings`; the save route returns `userMessage`, the probe route forwards `userErrors`/`userWarnings` (the client still computes bypassability from the technical `errors` regex), and the UI renders the friendly text. De-jargoned the probe-modal header ("These would block save under the ADR-111 detail-URL gate" → "A couple of vendors need a direct product link before saving"). Also (user request #3) the tiny "Open <slug> anyway →" underline link in the save-success panel became a proper amber button ("Open my product page →") with a one-line "your profile is saved; fix later or ask the assistant" explainer. +8 guard tests (60 total); web `tsc`/`eslint`/`test:guards 60/60`/`test:parity 6/6`/`next build` clean. Brief: this conversation (user screenshots of the save-success + probe-attempt panels).
 - **ADR-121** — Save-time probe modal: bounded loop + de-duped backfill rows + plan visibility (ACCEPTED, 2026-05-28, Phase 29). Session-C review of the user's "would it last forever?" + "growing target.com rows" complaints found two **real functional bugs**, not just UX confusion: a non-terminating probe loop when every URL in the unprobed set exceeded the 45s per-attempt budget, and `backfill_skip` events appending one new target.com row per attempt because the client never keyed by host. Decision: server emits `noProgress` in `done` when a Continue pass finished zero URLs (client then hides Continue + offers "Stop and save what we have"); client de-dups backfill rows via host-keyed upsert; new `plan_summary` event feeds a per-host chip roll-up so the planned ceiling is visible. Web-only; +4 guard tests (now 35/35). Brief receipts: [SESSION_C_BRIEF.md](SESSION_C_BRIEF.md) Defect F.
@@ -132,6 +133,51 @@ Status values:
 - **ADR-003** — eBay Browse API (not HTML scraping) for the eBay adapter — ACCEPTED
 - **ADR-002** — Repo-as-database; SQLite as workflow-local cache only — ACCEPTED
 - **ADR-001** — LLM is downstream of verified data only (architectural commitment) — ACCEPTED
+
+---
+
+## ADR-125 — Scrappey recovery for known-good detail pages + Amazon via Scrappey
+
+**Status**: ACCEPTED — shipped 2026-05-29 (Phase 29).
+
+**Context.** ADR-124 fixed the misleading *message* for the bot-walled Amazon
+detail source; this ADR answers the follow-up: *did we fall back to Scrappey,
+and if not, why not?* The answer was no, for two independent reasons.
+
+1. **Structural gap.** `universal_ai.fetch()` has an ADR-107 recall fallback —
+   "0 listings + thin body on an `alterlab_known_good` vendor → retry via
+   Scrappey" — but it sits in the **search-union** path near the bottom of the
+   function. An explicit `page_type: detail` source runs Tier 1.5, and on a miss
+   `return []`s ~60 lines *earlier*, so it never reaches that fallback. The
+   recall net only ever protected search pages.
+2. **Registry gap.** Amazon was `alterlab_known_good` but had no `use_scrappey`,
+   so it fetched via AlterLab. Amazon's bot-wall is frequently a 200 with a
+   multi-KB body that doesn't trip `_weak_render_reason` (not empty, not <2 KB,
+   no known anti-bot signature), so the *dynamic* weak-render Scrappey fallback
+   in `_fetch_with_escalation` didn't fire either. B&H + Microcenter worked in
+   the same run precisely because they carry `use_scrappey: true`.
+
+**Decision.**
+- **Detail-path recovery (general):** before the explicit-detail branch returns
+  `[]`, if the body is thin (`< THIN_BODY_CEILING`), the vendor is
+  `alterlab_known_good`, and the options didn't already use Scrappey, re-fetch
+  via Scrappey (`render_js: true`) and re-extract JSON-LD → detail. Only spends a
+  Scrappey credit when AlterLab actually returned a thin/bot-walled body, never
+  on a healthy render. `triggered_by="adr125_detail_recovery"`.
+- **Amazon via Scrappey (targeted):** add `use_scrappey: true` + `render_js:
+  true` + `proxy_country: UnitedStates` to `amazon.com.default_alterlab_options`.
+  No `skip_alterlab` — Amazon stays `alterlab_known_good`, so AlterLab remains
+  the automatic backup if a Scrappey fetch errors. Propagates to existing
+  profiles through the registry merge (no re-onboard needed).
+
+**Consequence.** A bot-walled Amazon (or any known-good) *detail* URL now
+recovers via Scrappey's residential-proxy browser render instead of silently
+reporting 0. Cost: every Amazon fetch now goes through Scrappey first (accepted
+trade-off for the toughest vendor). `test_amazon_adr107_fallback_recovers` was
+repointed to `bestbuy.com` (still exercises the search-path ADR-107 net with a
+known-good non-Scrappey vendor); +2 tests pin the detail recovery firing and the
+double-fetch guard. Worker 420/420, ruff(src)+mypy clean; `sync-prompt.cjs`
+re-run; web tsc/eslint/guards 60/60/parity 6/6/build green.
 
 ---
 

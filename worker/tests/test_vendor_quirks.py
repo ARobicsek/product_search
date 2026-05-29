@@ -191,10 +191,15 @@ def test_amazon_default_options_merge_through_committed_registry():
     merged = vendor_quirks.merge_alterlab_options(
         "https://www.amazon.com/s?k=logitech+mx+master+3s", None
     )
+    # ADR-125: Amazon now routes through Scrappey first (residential proxy +
+    # browser render) to beat its intermittent datacenter bot-wall.
     assert merged == {
         "country": "us",
         "min_tier": 3,
         "wait_condition": "networkidle",
+        "use_scrappey": True,
+        "render_js": True,
+        "proxy_country": "UnitedStates",
     }
 
 
@@ -210,6 +215,9 @@ def test_amazon_source_options_override_defaults():
         "country": "us",
         "min_tier": 4,
         "wait_condition": "networkidle",
+        "use_scrappey": True,
+        "render_js": True,
+        "proxy_country": "UnitedStates",
     }
 
 
