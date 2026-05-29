@@ -19,6 +19,18 @@ probe of microcenter.com and walmart.com returned `error code: 504`, repeatedly.
 findings below are colored by that (esp. the demotion finding), but the *behavior* it
 exposed is real and reproducible-on-paper.
 
+**Framing — this is a whole-system stress test, not a DJI/4-vendor task.** The owner's
+point: these specific vendors (Amazon / Micro Center / B&H / Walmart) and this specific
+product are a *probe* for systemic behavior. Every finding below should be read as "what
+this implies for *any* product × *any* vendor set," not "how to make these four work."
+The DJI run is valuable precisely because it exercises the common hard cases at once:
+a bot-walled marketplace (Amazon), a Cloudflare vendor reachable only via Scrappey (B&H),
+a vendor whose *search* page returns competitor noise so only a *detail* URL works
+(Micro Center), an anti-bot vendor that times out on one-shot probes (Walmart), and a
+non-carrier (Target). Whatever it takes to make this reliable is roughly what it takes to
+make the product reliable in general. See **"What consistent recall actually requires"**
+near the end for the systemic synthesis.
+
 ---
 
 ## ✅ Works (verified live)
@@ -121,11 +133,28 @@ Why this is a real bug, not just bad luck:
   504) was *kept* in sources with an advisory note while microcenter (search, 504) was
   *demoted*. Same 504, different fate, based on search-vs-detail — undocumented and surprising.
 
-Suggested fix direction: a transient probe failure (504 / timeout / bot-wall) on a
-`alterlab_known_good` host should **keep the vendor in active `sources` with an advisory
-note** (let the runtime ladder decide), never demote to `sources_pending`. Demotion to
-pending should be reserved for genuinely unreachable/never-carried vendors. And whatever
-the save does to a vendor, the post-save banner must disclose it.
+Suggested fix direction (expanded — ADR-126 is bigger than "don't demote"): the underlying
+defect is that **the one-shot probe is treated as an oracle for vendor inclusion**, when it
+is in fact far weaker than the runtime escalation ladder (ADR-078) that will actually fetch
+the page later. Probes 504 / return empty bodies / hit bot-walls constantly (every Micro
+Center / Walmart / B&H probe failed this session) — yet the run path succeeded for B&H on the
+exact same URL. So the principle should be **decouple probe outcome from inclusion**:
+1. A transient probe failure (504 / timeout / empty body / bot-wall) on an
+   `alterlab_known_good` host **keeps the vendor in active `sources` with an advisory note** —
+   never demote to `sources_pending`. (Applies to the save-probe *and* the keep-probing path,
+   Finding H.)
+2. **Detail-URL acquisition must also be decoupled from probe success.** A *failed* probe of a
+   known/supplied detail URL must not cause the onboarder to fall back to a search URL — it
+   should keep the detail URL with a note. (This is the Micro Center failure: the probe 504'd,
+   so the onboarder never locked in the `product/706337/...` detail URL and shipped only the
+   `Ntt=...` search URL, which returns competitor drones.)
+3. `sources_pending` is reserved for genuinely unreachable / never-carried vendors, decided by
+   the *runtime* ladder over time — not by one probe.
+4. Whatever the save does to a vendor (demote, downgrade, drop a URL), the post-save banner
+   **must disclose it** (round 1 hid the Micro Center/Walmart demotion entirely).
+
+Generalizes to: *for any product, a known-good vendor's reachability/recall must never hinge
+on a single pre-flight probe succeeding.*
 
 ### F. ADR-116 alias-hallucination guard misses B&H product numbers → **propose ADR-127 (P1)**
 
@@ -258,25 +287,102 @@ push owner-confirmed vendors into `sources_pending`, where they're never searche
 neither the chat prose, the right-pane YAML, nor (in round 1) the save banner reliably tells
 the user it happened. ADR-126 is the highest-leverage fix.
 
+---
+
+## What consistent recall actually requires (systemic view)
+
+**Tally across both runs.** Of the four vendors that genuinely stock the product, the pipeline
+surfaced a real passing listing **once** (B&H, round 1). When we actually *searched* a carrying
+vendor we hit **1 for 4**; the rest were either never searched (demoted to pending) or searched
+on the wrong URL.
+
+| Vendor | What blocked detection | Layer | Does "don't demote" (ADR-126 §1) alone fix it? |
+|---|---|---|---|
+| **B&H** | demoted on transient re-probe (R2) | onboard routing | ✅ yes |
+| **Walmart** | always demoted; runtime fetch/extract **never verified** | onboard routing **+ unverified runtime** | partial — gets it *searched*; extraction unproven |
+| **Amazon** | detail page fetched 494KB but extractor parsed **0**; search bot-walled both runs | extraction (+ fetch reliability) | ❌ no — needs ADR-128 |
+| **Micro Center** | only ever had a *search* URL (→ Potensic noise); detail URL never acquired because the probe 504'd | detail-URL acquisition | ❌ no — needs ADR-126 §2 (decoupled acquisition) + ADR-129 |
+
+So **ADR-126 §1 alone gets ~2/4.** The other two fail for reasons demotion doesn't touch. To get
+*consistently* 4/4 (and, generalized, reliable recall for arbitrary products/vendors) the full
+chain is:
+
+1. **ADR-126 §1 — don't demote known-good vendors on transient probe failure** (both probe paths).
+   *Fixes: B&H; gets Walmart searched.*
+2. **ADR-126 §2 — decouple detail-URL acquisition from probe success**: a failed probe of a
+   known/supplied detail URL must keep that detail URL (with a note), not fall back to a search
+   URL. *Fixes: Micro Center's mis-scoped-search root cause.*
+3. **ADR-128 — Amazon detail extractor** (the page fetches; it just doesn't parse) + an
+   output-token guard so a 494KB unparseable page doesn't burn the max token budget. *Fixes:
+   Amazon, given its search is unreliable so the detail URL must carry it.*
+4. **ADR-129 (new) — runtime mis-scope → detail-URL backfill/re-query**: when a search source
+   returns all-rejected competitor noise (Micro Center's 24 Potensic hits), the run should fall
+   back to the vendor's detail URL / a tighter query rather than reporting NO_MATCH and stopping.
+   *Catches the case where a search URL is structurally wrong at runtime, not just at onboard.*
+5. **Verify Walmart + Micro Center detail fetch/extract end-to-end under healthy infra** — these
+   two have **never once** been observed fetching+parsing successfully in this session, so any
+   "4/4" claim is unproven until they're seen working (Walmart relies on the ADR-106
+   `__NEXT_DATA__` embedded-state path; that wasn't exercised here).
+6. **Probe / infra robustness** — the upstream driver. The one-shot probe is far weaker than the
+   runtime ladder; under degraded AlterLab/Scrappey it fails on vendors that the run path can
+   handle. Either strengthen the probe to parity, or (cheaper) lean fully on items 1–2 so probe
+   weakness stops costing recall.
+
+**What this says about the *whole system* (not just these vendors):**
+- **Recall is gated upstream, not by the filter.** The relevance filter is excellent (0 false
+  positives across 41 noise listings). Every miss here was a vendor that never got fetched, or
+  got fetched on the wrong URL — i.e. the **source-selection / routing layer is the weak link**
+  for *any* product, not a DJI quirk.
+- **Search URLs are an unreliable primitive in general.** For an even slightly ambiguous query,
+  big-retailer search returns competitor or unrelated SKUs (Potensic drones, flight-sim gear).
+  The system should treat a confirmed **detail URL as the primary recall mechanism** and a search
+  URL as best-effort breadth — which inverts how the onboarder currently falls back (search when
+  the detail probe fails).
+- **One-shot pre-flight checks shouldn't gate a pipeline whose runtime is more capable.** This is
+  the general lesson behind ADR-126: don't let a weaker, earlier check veto a stronger, later one.
+- **Silent state changes erode trust at scale.** Any product where save quietly demotes vendors
+  will under-deliver against the user's explicit "use them ALL" — the disclosure requirement
+  (ADR-126 §4) is a general correctness property, not cosmetic.
+
+**Verification plan to *claim* consistency (not done this session):** re-run the same profile
+3–5× under healthy infra after items 1–4 land; expect Amazon (detail), B&H, Walmart, Micro Center
+(detail) each to fetch+extract at least once; confirm none are sitting in `sources_pending` due
+to a transient; confirm the report's "Sources searched" lists all four as actually searched. Only
+then is "consistently 4/4" a supportable claim. Two degraded-infra runs are not enough.
+
 ## Prioritized queue (capture-only; owner prioritizes)
 
-1. **ADR-126 (P0, raised from P0/P1 after round 2)** — transient probe failures (504 /
-   empty body / bot-wall) on `alterlab_known_good` hosts must **keep the vendor in active
-   `sources`** with an advisory note and let the runtime ladder decide — never demote to
-   `sources_pending`. Applies to **both** the save-time probe (Finding E) **and** the
-   keep-probing path (Finding H). Any save-time source change must be disclosed in the
-   banner (round 1 hid the Micro Center/Walmart demotion). This is the highest-leverage fix
-   and the root cause of the poor end-to-end recall in both rounds.
+1. **ADR-126 (P0) — decouple probe outcome from vendor inclusion AND detail-URL acquisition.**
+   (§1) Transient probe failures (504 / empty body / bot-wall) on `alterlab_known_good` hosts
+   keep the vendor in active `sources` with an advisory note — never demote to
+   `sources_pending`; applies to the save-probe (Finding E) **and** the keep-probing path
+   (Finding H). (§2) A failed probe of a known/supplied **detail URL** must keep that detail URL,
+   not fall back to a search URL (Micro Center root cause). (§4) Any save-time source change must
+   be disclosed in the banner (round 1 hid the demotion). Highest-leverage fix; root cause of the
+   poor end-to-end recall in both rounds.
 2. **ADR-127 (P1)** — extend ADR-116 alias-hallucination guard to B&H `CP.FP.…` product
    numbers / any source-URL-derived SKU token. (Finding F; reproduced both rounds.)
-3. **ADR-128 (P1/P2)** — Amazon detail deterministic extractor + LLM output-token guard on
-   unparseable large pages. (Finding G; overlaps ADR-119/120.)
-4. **UX paper-cuts (P3):** run-status auto-refresh on completion + a non-resetting elapsed
-   timer (B — note: runs are actually ~2 min, so this is cosmetic, not urgent); remove
-   dangling "Continue probing" text when the button is suppressed (C); clear stale "Last run"
-   metadata on delete/recreate of a slug (D); progress feedback during long interview-turn
-   probes (A). *(Earlier draft proposed an "ADR-129 run-latency/stuck-run" item — DROPPED;
-   that was based on my mis-measured run times, the runs are fast.)*
-6. **Non-determinism (note, not a defect):** identical input produced a different interview
+3. **ADR-128 (P1)** — Amazon detail deterministic extractor (page fetches via Scrappey but
+   parses 0) + LLM output-token guard on unparseable large pages. (Finding G; overlaps
+   ADR-119/120.) Needed because Amazon *search* is unreliable, so the detail URL must carry it.
+4. **ADR-129 (P1, new) — runtime mis-scope → detail-URL backfill/re-query.** When a search
+   source returns all-rejected competitor noise (Micro Center's 24 Potensic hits → NO_MATCH),
+   the run should fall back to the vendor's detail URL or a tighter query instead of stopping at
+   NO_MATCH. Complements ADR-126 §2 at runtime.
+5. **Verification gate (not a code change) — prove it before claiming 4/4.** Re-run 3–5× under
+   healthy infra after 1–4; confirm Amazon-detail / B&H / Walmart / Micro Center-detail each
+   fetch+extract and none sit in `sources_pending` from a transient. Walmart + Micro Center
+   detail extraction are currently **unverified**.
+6. **UX paper-cuts (P3):** run-status auto-refresh on completion + a non-resetting elapsed
+   timer (B — runs are actually ~2 min, so cosmetic); remove dangling "Continue probing" text
+   when the button is suppressed (C); clear stale "Last run" metadata on delete/recreate of a
+   slug (D); progress feedback during long interview-turn probes (A). *(An earlier draft's
+   "run-latency/stuck-run" item was DROPPED — based on my mis-measured run times; runs are fast.)*
+7. **Non-determinism (note, not a defect):** identical input produced a different interview
    path/variant-handling across rounds (round 2 added a clarifying question + `title_excludes`;
    round 1 did not). Worth a deliberate stance on how much variance is acceptable.
+
+> **Reminder (per owner):** these four vendors are a stress-test lens. The actionable output is
+> the systemic fixes (routing decoupled from probes, detail-URL primacy, runtime mis-scope
+> recovery, disclosure of state changes) and the verification discipline — all of which apply to
+> any product × vendor set, not just DJI Neo 2.
