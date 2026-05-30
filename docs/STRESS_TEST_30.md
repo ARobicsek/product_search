@@ -340,3 +340,79 @@ it with two guardrails: (1) **set `temperature=0`** in the filter call (P0, help
 Haiku-4.5 @ temp=0 is the flatter-cost fallback, and the bigger lever for recall is *enriching the
 filter input* (pass Serper's snippet/extra fields, or a cheap 2-pass) rather than swapping models.
 The recall gap is the migration's real downstream work item — finite and testable, not a treadmill.
+
+---
+
+# Step 3e — the full 4-model × 4-product bake-off (2026-05-29; the model decision)
+
+Ran `serper_filter_bakeoff.py --all --trials 3 --temperature 0` with **real** calls to all four
+candidate models (keys present): Haiku-4.5, GLM-4.6, GPT-4o-mini, Gemini-2.5-flash-lite. The
+harness rebuilds each product's exact production `ai_filter` prompt from the committed Serper
+fixtures and scores determinism (Jaccard of reject-sets across 3 identical trials),
+precision/recall/F1 vs the gold set, and $/run. **No production code changed — run-and-read.**
+
+## Full results (temperature=0, 3 trials)
+
+| Product (n, gold_pass) | Model | det | P | R | F1 | ~$/run | pass-counts |
+|---|---|---|---|---|---|---|---|
+| **DDR5** (40, 37) | haiku-4.5 | 0.90 | 1.00 | 0.62 | 0.77 | $0.0183 | [21,20,23] |
+| | **glm-4.6** | 1.00 | 1.00 | **0.76** | **0.86** | $0.0086 | [28,28,28] |
+| | gpt-4o-mini | 1.00 | **0.00** | 0.00 | 0.00 | $0.0018 | **[0,0,0]** |
+| | gemini-2.5-fl | 1.00 | 1.00 | 0.51 | 0.68 | $0.0014 | [19,19,19] |
+| **DJI** (31, 9) | haiku-4.5 | 1.00 | 1.00 | 1.00 | 1.00 | $0.0164 | [9,9,9] |
+| | glm-4.6 | 1.00 | 1.00 | 1.00 | 1.00 | $0.0150 | [9,9,9] |
+| | gpt-4o-mini | 1.00 | 1.00 | 0.33 | 0.50 | $0.0014 | [3,3,3] |
+| | gemini-2.5-fl | 1.00 | 1.00 | 1.00 | 1.00 | $0.0013 | [9,9,9] |
+| **The Week** (30, 8) | **haiku-4.5** | **1.00** | **1.00** | **1.00** | **1.00** | $0.0119 | **[8,8,8]** |
+| *(subscription —* | glm-4.6 | **0.79** | **0.73** | 1.00 | 0.84 | **$0.0502** | **[9,4,11]** |
+| *the weak case)* | gpt-4o-mini | 1.00 | 0.00 | 0.00 | 0.00 | $0.0013 | [0,0,0] |
+| | gemini-2.5-fl | 1.00 | 1.00 | 0.38 | 0.55 | $0.0012 | [3,3,3] |
+| **Netanyahus** (33, 18) | haiku-4.5 | 1.00 | 1.00 | 1.00 | 1.00 | $0.0145 | [18,18,18] |
+| *(book)* | glm-4.6 | 1.00 | 1.00 | 1.00 | 1.00 | $0.0152 | [18,18,18] |
+| | gpt-4o-mini | 1.00 | 1.00 | 0.44 | 0.62 | $0.0013 | [8,8,8] |
+| | gemini-2.5-fl | 1.00 | 1.00 | 1.00 | 1.00 | $0.0010 | [18,18,18] |
+
+### F1 matrix (model × product)
+| model | ddr5 | dji | the-week | netanyahus |
+|---|---|---|---|---|
+| haiku-4.5 | 0.77 | 1.00 | **1.00** | 1.00 |
+| glm-4.6 | **0.86** | 1.00 | 0.84 | 1.00 |
+| gpt-4o-mini | 0.00 | 0.50 | 0.00 | 0.62 |
+| gemini-2.5-fl | 0.68 | 1.00 | 0.55 | 1.00 |
+
+## Recommendation: **Haiku-4.5 @ temperature=0** (logged as ADR-132)
+
+The decision turns on the **subscription** — the deliberately-ambiguous case the rubric flagged as
+the one that matters — plus the no-false-positive promise being non-negotiable:
+
+- **Haiku-4.5 is the only model with precision = 1.00 on all four products that also wins the
+  hardest case.** On the subscription it is perfectly precise, full-recall, and deterministic
+  (P=R=det=1.00), at flat cost (~$0.012). It never has a cost spike; its only blemishes are a slight
+  determinism wobble on DDR5 (det 0.90 — still far better than GLM's 0.79 collapse) and lower DDR5
+  recall (0.62 vs GLM's 0.76, the known title-only limitation per ADR-131, addressed by enriching
+  filter input rather than swapping models).
+- **GLM-4.6 — the prior lean (Step 3c) — is disqualified as the default.** On the subscription it
+  goes **non-deterministic** (det 0.79, pass-counts [9,4,11] across 3 *identical* trials),
+  **leaks false positives** (P 0.73 — directly violating the ADR-001 architectural promise), and
+  **costs ~6× more** ($0.0502 vs $0.0086 on clean catalogs). It is the best model on clean catalogs
+  (DDR5 recall 0.76) and unsafe on ambiguous ones. This is exactly the risk Step 3c flagged, now
+  confirmed with 3 trials — and worse than feared (it loses *precision + determinism*, not just cost).
+- **GPT-4o-mini is unusable as-wired** — it rejected 100% of listings on both DDR5 and the
+  subscription (P=R=0). A catastrophic over-rejection under `json_object` mode; out.
+- **Gemini-2.5-flash-lite is the documented cost fallback** — flawless precision, fully
+  deterministic, cheapest (~$0.001 flat), but its recall is too low on ambiguous catalogs
+  (0.38 subscription, 0.51 DDR5): it silently drops genuine matches. Reach for it only if the
+  filter input is later enriched to recover that recall.
+
+**Ship Haiku-4.5 with `temperature=0` set explicitly** (the one-line prod fix this exercise
+surfaced — `ai_filter` currently calls the model at provider-default ~1.0, which is the entire
+source of the run-to-run lottery). Keep Gemini as the cost-optimized fallback.
+
+## Reproduce
+```
+cd worker && . .venv/Scripts/activate  # (or: uv venv .venv-spike --python 3.12 && install -e . pytest)
+set -a; . ./.env; set +a               # ANTHROPIC/GLM/OPENAI/GEMINI keys
+PYTHONPATH=. python -u scripts/serper_filter_bakeoff.py --all --trials 3 --temperature 0
+```
+(Run with `python -u`: the harness block-buffers stdout to a pipe, so without it nothing appears
+until the whole ~20-min run — GLM is the slow leg — exits.)
