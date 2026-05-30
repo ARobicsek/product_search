@@ -272,10 +272,29 @@ strict, so if the owner wants siblings surfaced, the prompt must say so.
 `serper_filter_bakeoff.py` auto-runs any registered model whose key env var is present, so each
 just needs a key in `worker/.env`. Owner-proposed shortlist (their accuracy/cost research in the
 session): **DeepSeek-V4/chat** (`DEEPSEEK_API_KEY`), **GPT-4o-mini** (`OPENAI_API_KEY`),
-**Gemini 2.5 Flash-Lite** (Google AI Studio key), **Llama-3.3-70B** + **Qwen2.5-72B**
-(`DEEPINFRA_API_KEY`). All are OpenAI-compatible (base_url already wired in the harness registry)
-except Gemini (needs the google SDK branch). Scoring axes are fixed: determinism (Jaccard),
-precision/recall/F1 vs gold, $/run. **No production code changes until a model is chosen.**
+**Gemini 2.5 Flash-Lite** (`GEMINI_API_KEY`), **Llama-3.3-70B** + **Qwen2.5-72B**
+(`DEEPINFRA_API_KEY`). All registered as OpenAI-compatible (base_url wired). Scoring axes:
+determinism (Jaccard), precision/recall/F1 vs gold, $/run. **No production code changes until a
+model is chosen.**
+
+# Step 3d (prep, 2026-05-30) — GPT-4o-mini + Gemini-2.5-flash-lite wired & smoke-tested
+
+Owner picked the next two to test: **GPT-4o-mini** and **Gemini 2.5 Flash-Lite**. Prep so next
+session is run-and-read:
+- The bake-off harness is now **self-sufficient** — it rebuilds each product's exact ai_filter
+  prompt from the **committed** Serper fixtures (the `data/serper_spike` dump dir is gitignored),
+  has **gold sets for all 4 products** (DDR5 + book unambiguous; DJI + subscription = strict
+  target-SKU reading, documented), a **local price table**, and a final **F1 matrix** across
+  `--all` slugs × keyed models.
+- **All 4 models smoke-tested live and parse cleanly.** Gotcha found + fixed: **Gemini's
+  `google-generativeai` gRPC transport dies in this container** (TLS interception →
+  `CERTIFICATE_VERIFY_FAILED` handshake storm → timeout). **Fix: route Gemini through its
+  OpenAI-compatible REST endpoint** (`generativelanguage.googleapis.com/v1beta/openai/`), already
+  set in the registry. OpenAI/GLM/Anthropic use plain HTTPS and were unaffected.
+- Preliminary single-product reads (book, temp=0): **Gemini 18/18 (P=R=1.00, flawless)**, Haiku &
+  GLM 18/18, **GPT-4o-mini 8/33 (P=1.00 but R=0.44 — over-rejected the book; watch its recall)**.
+  These are teasers, not the verdict — the full 4×4 (3 trials, temp=0) + the model recommendation
+  is the next session's job. Brief: [NEXT_SESSION_PHASE30_MODEL_BAKEOFF.md](NEXT_SESSION_PHASE30_MODEL_BAKEOFF.md).
 
 # Step 3c — owner picked GLM-4.6; validated it across 4 products (2026-05-29)
 
