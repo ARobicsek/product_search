@@ -4,9 +4,7 @@ import { commitNewProfile } from '@/lib/onboard/commit';
 import { parseAndValidateProfileYaml, ProfileValidationError } from '@/lib/onboard/schema';
 import { getProductProfileContent } from '@/lib/github';
 import { readAlertsFromYaml } from '@/lib/alerts';
-import { probeAndUpdateProfile } from '@/lib/onboard/probe-and-update';
 
-import { validateProfileDraft } from '@/lib/onboard/validation';
 import { validateProfileDraftV2 } from '@/lib/onboard/validation-v2';
 
 export const runtime = 'nodejs';
@@ -16,21 +14,6 @@ const SLUG_RE = /^[a-z0-9][a-z0-9-]{0,63}$/;
 
 function bad(reason: string, status = 400, extra?: Record<string, unknown>) {
   return Response.json({ ok: false, error: reason, ...extra }, { status });
-}
-
-// Attempt to get the waitUntil helper from Next.js (available on Vercel
-// since Next 15). Falls back to a fire-and-forget promise on local dev.
-async function getWaitUntil(): Promise<((p: Promise<unknown>) => void) | null> {
-  try {
-    // Dynamic import — the module may not exist in older Next.js versions.
-    const mod = await import('next/server');
-    if ('waitUntil' in mod && typeof mod.waitUntil === 'function') {
-      return mod.waitUntil as (p: Promise<unknown>) => void;
-    }
-  } catch {
-    // Not available — fall through.
-  }
-  return null;
 }
 
 export async function POST(request: NextRequest) {
@@ -47,12 +30,6 @@ export async function POST(request: NextRequest) {
     draft?: unknown;
     originalSlug?: string | null;
     state?: unknown;
-    /**
-     * ADR-115: set by the OnboardChat "Save and proceed anyway" path after
-     * the save-time probe modal couldn't complete (no detail URLs found in
-     * the budget). Downgrades the ADR-111 gate to a warning.
-     */
-    bypassForceDetailBackup?: unknown;
   };
   try {
     body = await request.json();
@@ -64,10 +41,6 @@ export async function POST(request: NextRequest) {
   // path stays for any in-flight client that hasn't reloaded since the
   // chat route was updated.
   let yamlText: string | null = null;
-  // Set only for the legacy v1 draft path, which schedules a background probe
-  // pass. v2 drafts NEVER probe (the probe apparatus retired in Phase 34), so
-  // this stays null for them and probeStatus comes back 'skipped'.
-  let draftForProbe: Record<string, unknown> | null = null;
   let slug: string | null = null;
   // ADR-123: `message` stays for back-compat; `userMessage` is the plain-English
   // text the save UI actually renders.
@@ -117,36 +90,12 @@ export async function POST(request: NextRequest) {
       yamlText = r.yamlText;
       slug = r.slug;
     } else {
-      // Legacy v1 draft path — kept for one release while clients reload.
-      const state =
-        body.state && typeof body.state === 'object' && !Array.isArray(body.state)
-          ? (body.state as Record<string, unknown>)
-          : null;
-      const bypassForceDetailBackup = body.bypassForceDetailBackup === true;
-      let validationRes;
-      try {
-        validationRes = validateProfileDraft(draft, state, originalSlug, {
-          bypassForceDetailBackup,
-        });
-      } catch (err) {
-        const msg = err instanceof Error ? err.message : 'render-yaml failed';
-        return bad(`failed to render YAML from draft: ${msg}`, 422);
-      }
-      warnings.push(
-        ...validationRes.warnings.map((message, i) => ({
-          message,
-          userMessage: validationRes.userWarnings[i] ?? message,
-        })),
+      // The v1 onboarder (and its per-vendor probe apparatus) was retired in
+      // Phase 36 (REBUILD_PLAN §10). Only schema_version: 2 drafts are saved.
+      return bad(
+        'schema_version: 2 is required — the v1 onboarder was retired (Phase 36)',
+        422,
       );
-      if (!validationRes.ok || !validationRes.yamlText || !validationRes.slug) {
-        return bad(validationRes.errors[0] || 'profile validation failed', 422, {
-          details: validationRes.errors.slice(1),
-        });
-      }
-      yamlText = validationRes.yamlText;
-      slug = validationRes.slug;
-      // Optimistic save: probes run asynchronously after the response.
-      draftForProbe = { ...draft };
     }
   } else if (typeof body.yaml === 'string' && body.yaml.trim().length > 0) {
     // Legacy path: older clients send pre-rendered YAML; accept it as-is.
@@ -186,32 +135,13 @@ export async function POST(request: NextRequest) {
     return bad(msg, 502);
   }
 
-  // Schedule background URL probes (draft path only — the legacy yaml
-  // path never ran probes). Uses waitUntil() on Vercel to keep the
-  // function alive past the response; falls back to fire-and-forget
-  // on local dev.
-  if (draftForProbe) {
-    const probePromise = probeAndUpdateProfile(slug, draftForProbe);
-    if (process.env.NODE_ENV === 'development') {
-      console.log(`[save] Dev mode: awaiting probeAndUpdateProfile synchronously...`);
-      await probePromise;
-    } else {
-      const waitUntil = await getWaitUntil();
-      if (waitUntil) {
-        waitUntil(probePromise);
-      } else {
-        probePromise.catch((err) => {
-          console.error('[probe-and-update] fire-and-forget failed:', err);
-        });
-      }
-    }
-  }
-
   revalidatePath('/');
 
   return Response.json({
     ok: true,
-    probeStatus: draftForProbe ? 'pending' : 'skipped',
+    // The per-vendor probe apparatus was retired in Phase 36; v2 saves never
+    // probe. Field kept for response back-compat with older clients.
+    probeStatus: 'skipped',
     warnings,
     ...result,
   });

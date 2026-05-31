@@ -31,7 +31,6 @@ from product_search.profile import (
     PriceBelowAlert,
     VendorSeenAlert,
 )
-
 from product_search.storage.csv_dump import write_snapshot_csv
 
 # ---------------------------------------------------------------------------

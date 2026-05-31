@@ -4,9 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "predev": "node scripts/sync-prompt.cjs",
     "dev": "next dev",
-    "prebuild": "node scripts/sync-prompt.cjs",
     "build": "next build",
     "start": "next start",
     "lint": "eslint",

@@ -81,19 +81,14 @@ def _source_payload(s: dict[str, Any]) -> dict[str, Any]:
     same classifier the legacy callout uses — so a source where
     ``fetched=0`` no longer reports ``ok``.
     """
-    from product_search.vendor_quirks import get_quirks_for_host
-
     host = s.get("match_host")
-    known_failure = None
-    if isinstance(host, str) and host:
-        known_failure = get_quirks_for_host(host).get("known_failure")
     outcome = classify_source_outcome(
         fetched=int(s.get("fetched", 0) or 0),
         passed=int(s.get("passed", 0) or 0),
         error=s.get("error"),
         skip_reason=s.get("skip_reason"),
         diagnostics=s.get("diagnostics"),
-        known_failure=known_failure,
+        known_failure=None,
         dominant_rejection=s.get("dominant_rejection"),
     )
     return {

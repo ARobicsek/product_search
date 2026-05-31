@@ -15,7 +15,6 @@ import pytest
 
 from product_search.models import Listing
 from product_search.profile import NewVendorCarriesAlert, PriceBelowAlert
-from product_search.storage.csv_dump import write_snapshot_csv
 
 
 def _mk_listing(

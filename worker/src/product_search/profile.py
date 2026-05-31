@@ -33,7 +33,6 @@ from pydantic import BaseModel, Field, field_validator, model_validator
 KNOWN_SOURCE_IDS: frozenset[str] = frozenset(
     [
         "ebay_search",
-        "universal_ai_search",
         "nemixram_storefront",
         "cloudstoragecorp_ebay",
         "memstore_ebay",
@@ -174,13 +173,11 @@ class FlagRule(BaseModel):
 
 class Source(BaseModel):
     id: str
-    # Optional opt-in for the universal_ai_search adapter's Tier 1.5
-    # detail-page extractor (ADR-049). ``"detail"`` means the URL is a
-    # single-product detail page (one exact SKU, no JSON-LD, only nav-junk
-    # anchors) — route it to the bounded detail-LLM tier instead of the
-    # anchor tier. ``"search"`` forces the anchor/search tier. When absent
-    # the adapter falls back to a URL-shape heuristic. MUST stay in sync
-    # with the TS mirror in web/lib/onboard/schema.ts.
+    # Legacy v1 field: marked a source URL as a single-product detail page
+    # vs a search/category page. The scraping adapter that consumed it was
+    # retired in Phase 36; kept here as an optional no-op so existing v1
+    # profiles still validate. MUST stay in sync with the TS mirror in
+    # web/lib/onboard/schema.ts.
     page_type: Literal["detail", "search"] | None = None
     model_config = {"extra": "allow"}
 
@@ -193,21 +190,6 @@ class Source(BaseModel):
                 f"Known source IDs: {sorted(KNOWN_SOURCE_IDS)}"
             )
         return v
-
-    @model_validator(mode="after")
-    def validate_universal_ai_url(self) -> Source:
-        if self.id == "universal_ai_search":
-            url = getattr(self, "url", None)
-            if not url or not isinstance(url, str):
-                raise ValueError("universal_ai_search source must have a 'url' string field.")
-            from urllib.parse import urlparse
-            parsed = urlparse(url)
-            path = parsed.path.rstrip("/")
-            if not path:
-                raise ValueError(
-                    f"URL {url!r} is a bare domain. A search URL with parameters or a valid path is required."
-                )
-        return self
 
 
 class PendingSource(BaseModel):

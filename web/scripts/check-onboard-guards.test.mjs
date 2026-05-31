@@ -402,74 +402,17 @@ test('ADR-115: validation.ts has a bypassForceDetailBackup option', () => {
   );
 });
 
-test('ADR-115: save route forwards bypassForceDetailBackup to the validator', () => {
-  const saveRoute = readFileSyncForAdr115(
-    resolveForAdr115(__dirname_adr115, '../app/api/onboard/save/route.ts'),
-    'utf8',
-  );
-  assert.ok(
-    /body\.bypassForceDetailBackup/.test(saveRoute),
-    'save route must read bypassForceDetailBackup from the request body',
-  );
-  assert.ok(
-    /bypassForceDetailBackup\s*\}/.test(saveRoute) || /bypassForceDetailBackup,/.test(saveRoute),
-    'save route must forward bypassForceDetailBackup to validateProfileDraft options',
-  );
-});
-
 // --- ADR-114 draft visibility under tool-use loops -------------------------
-
-// --- ADR-121 probe-loop termination + backfill row de-dup ------------------
 //
-// The 2026-05-28 live DJI Neo 2 onboard exposed two failure modes in the
-// save-time probe modal: (1) a non-terminating "Continue probing" loop when
-// every URL in the unprobed set took longer than the 45s per-attempt budget,
-// and (2) target.com backfill rows accumulating one-per-attempt because the
-// client appended each `backfill_skip` event instead of replacing the host's
-// row. Both modules use server-only / Next aliases, so we pin the policy by
-// reading source — same shape as the ADR-115 guard above.
+// The probe route + save-time probe modal were retired (Phase 34/36), so the
+// ADR-115 save-route-forwarding and ADR-121 probe-route guards are gone. The
+// OnboardChat source is still read below for the surviving turn_truncated
+// client-affordance guard (ADR-122/Phase-34).
 
-const probeRouteSrc = readFileSyncForAdr115(
-  resolveForAdr115(__dirname_adr115, '../app/api/onboard/probe/route.ts'),
-  'utf8',
-);
 const onboardChatSrc = readFileSyncForAdr115(
   resolveForAdr115(__dirname_adr115, '../app/onboard/OnboardChat.tsx'),
   'utf8',
 );
-
-test('ADR-121: probe route emits noProgress when a Continue pass finished zero URLs', () => {
-  // The done event must carry a noProgress flag computed from the
-  // continue-mode unprobed set; the client uses it to hide plain Continue.
-  assert.ok(
-    /noProgress\s*=\s*continueOnlyUrls\s*!=\s*null/.test(probeRouteSrc),
-    'probe route must compute noProgress from continueOnlyUrls + unprobed',
-  );
-  assert.ok(
-    /noProgress,/.test(probeRouteSrc),
-    'probe route must include noProgress in the done event payload',
-  );
-});
-
-test('ADR-121: probe route emits a plan_summary event with per-host counts', () => {
-  // The modal renders a per-host roll-up so the user can see what is pending
-  // at a glance. plan_summary is the deterministic seed for that view.
-  assert.ok(
-    /type:\s*'plan_summary'/.test(probeRouteSrc),
-    'probe route must emit a plan_summary SSE event',
-  );
-  assert.ok(
-    /byHost,/.test(probeRouteSrc),
-    'plan_summary must carry the per-host count array',
-  );
-});
-
-// ADR-121's two client-side guards (Continue-probing gating + host-keyed
-// backfill de-dup) were RETIRED in Phase 34 (ADR-137): the save-time probe
-// modal they protected was removed from OnboardChat.tsx when the v2 onboarder
-// replaced the whole probe/backfill apparatus with the single live Serper
-// preview (REBUILD_PLAN §6). The probe route itself is unchanged and its
-// server-side ADR-121 guards (plan_summary / noProgress) still run above.
 
 test('ADR-114: prompt tells the LLM to emit blocks BEFORE tool_use in tool-using turns', () => {
   // Anthropic stops the assistant message at the first tool_use block, so a
@@ -627,39 +570,9 @@ test('ADR-122/Phase-34: chat route emits a turn_truncated signal on force-finali
   );
 });
 
-test('ADR-122: probe route reuses confirmed interview probes (except detail-needing hosts)', () => {
-  assert.ok(/const canReuse\s*=/.test(probeRouteSrc), 'probe route must define canReuse');
-  // The reuse exception keeps backfill correct for force_detail_backup hosts.
-  assert.ok(
-    /needsDetailHosts\.has\(s\.host\)/.test(probeRouteSrc),
-    'canReuse must re-probe force_detail_backup hosts that still lack a detail URL',
-  );
-  assert.ok(
-    /reusedSources\s*=\s*universalSources\.filter\(canReuse\)/.test(probeRouteSrc),
-    'probe route must compute reusedSources from canReuse',
-  );
-});
-
-test('ADR-122: probe route probes sequentially fastest-first with a per-URL soft cap', () => {
-  assert.ok(/PER_URL_SOFT_CAP_MS/.test(probeRouteSrc), 'probe route must define a per-URL soft cap');
-  assert.ok(/probeCost\(/.test(probeRouteSrc), 'probe route must order probes by probeCost');
-  // The old all-parallel race against one deadline is the bug; it must be gone.
-  assert.ok(
-    !/Promise\.race\(\[Promise\.all\(probeTasks\)/.test(probeRouteSrc),
-    'probe route must not race all probes against a single deadline (0-progress bug)',
-  );
-});
-
-test('ADR-122: budget-exhausted wording explains the slowness and points to Continue', () => {
-  assert.ok(
-    !/budget exhausted before this URL was probed/.test(onboardChatSrc),
-    'the opaque "budget exhausted before this URL was probed" string must be replaced',
-  );
-  assert.ok(
-    /Continue probing/.test(probeRouteSrc),
-    'backfill-skip wording must point the user at "Continue probing"',
-  );
-});
+// ADR-122's probe-route guards (probe reuse / sequential fastest-first /
+// budget-exhausted wording) were retired with the probe route itself in
+// Phase 36 — there is no save-time probe pass in the v2 onboarder.
 
 // ADR-122's "onSave reuses interview probes via chatProbesRef" guard was
 // RETIRED in Phase 34 (ADR-137): the v2 onboarder saves directly (no save-time
@@ -763,13 +676,9 @@ test('ADR-123: validation.ts threads userErrors/userWarnings in lockstep', () =>
   );
 });
 
-test('ADR-123: probe route forwards userErrors/userWarnings to the client', () => {
-  assert.ok(
-    /userErrors:\s*validation\.userErrors/.test(probeRouteSrc)
-      && /userWarnings:\s*validation\.userWarnings/.test(probeRouteSrc),
-    'probe route done event must include userErrors/userWarnings',
-  );
-});
+// ADR-123's "probe route forwards userErrors/userWarnings" guard was retired
+// with the probe route in Phase 36. The validation.ts lockstep guard above and
+// the save-success-panel guard below still cover the user-facing messaging.
 
 test('ADR-123: save-success panel uses plain-English warnings + a button to open the product', () => {
   // The probe-modal userErrors rendering was retired in Phase 34 (ADR-137)

@@ -174,48 +174,6 @@ def main() -> None:
         help="Run search for all profiles whose cron matches the current UTC hour",
     )
 
-    # Phase 15: probe-url
-    probe_parser = subparsers.add_parser(
-        "probe-url",
-        help="Diagnose a vendor URL through the universal_ai fetch + extraction tiers",
-    )
-    probe_parser.add_argument("url", help="Vendor URL to probe (search/category/collection page)")
-    probe_parser.add_argument(
-        "--render",
-        action="store_true",
-        help="Require AlterLab rendered fetch (errors out if ALTERLAB_API_KEY is unset)",
-    )
-    probe_parser.add_argument(
-        "--save-body",
-        metavar="PATH",
-        default=None,
-        help="Write the fetched HTML body to PATH (useful for capturing fixtures)",
-    )
-    probe_parser.add_argument(
-        "--detail",
-        action="store_true",
-        help="Run the Tier 1.5 single-product detail extractor (ADR-049) on "
-             "the fetched body and report the extracted listing",
-    )
-    probe_parser.add_argument(
-        "--country",
-        default=None,
-        help="Country exit node code for AlterLab (e.g. us, gb)",
-    )
-    probe_parser.add_argument(
-        "--min-tier",
-        type=int,
-        default=None,
-        help="Minimum tier of proxies to use for AlterLab (1..4; 4 = browser)",
-    )
-    probe_parser.add_argument(
-        "--wait-condition",
-        default=None,
-        choices=["domcontentloaded", "networkidle", "load"],
-        help="AlterLab advanced.wait_condition: wait for JS/network to settle "
-             "before capturing HTML (ADR-071; replaces the broken --wait-for)",
-    )
-
     args = parser.parse_args()
 
     if args.command is None:
@@ -257,17 +215,6 @@ def main() -> None:
 
     elif args.command == "scheduler-tick":
         _cmd_scheduler_tick()
-
-    elif args.command == "probe-url":
-        _cmd_probe_url(
-            args.url,
-            render=args.render,
-            save_body=args.save_body,
-            detail=args.detail,
-            country=args.country,
-            min_tier=args.min_tier,
-            wait_condition=args.wait_condition,
-        )
 
 
 # ---------------------------------------------------------------------------
@@ -401,23 +348,15 @@ def _cmd_search(
 
     all_listings: list[Listing] = []
     source_stats: list[dict[str, Any]] = []
-    # Accumulate per-call universal_ai LLM usage so the run-cost panel
-    # reflects every vendor-page extraction (one call per source entry).
-    universal_ai_usage: list[dict[str, Any]] = []
-    # ADR-078 (R6): reset the per-run AlterLab circuit breaker + fetch budget
-    # before iterating sources so state never leaks between runs.
-    from product_search.adapters import universal_ai as _universal_ai_mod
-    _universal_ai_mod.reset_run_state()
     from concurrent.futures import ThreadPoolExecutor
 
-    def _process_source(source: Source) -> tuple[list[Listing], dict[str, Any], list[dict[str, Any]]]:
+    def _process_source(source: Source) -> tuple[list[Listing], dict[str, Any]]:
         query = AdapterQuery.from_profile_source(source.model_dump())
         listings: list[Listing] = []
         error_msg: str | None = None
         # ADR-084: extra per-source signal for the source-reason classifier.
         skip_reason: str | None = None
         diagnostics: dict[str, Any] | None = None
-        usages: list[dict[str, Any]] = []
 
         try:
             if source.id == "ebay_search":
@@ -442,86 +381,31 @@ def _cmd_search(
             elif source.id == "memstore_ebay":
                 from product_search.adapters.memstore import fetch as fetch_memstore
                 listings = fetch_memstore(query)
-            elif source.id == "universal_ai_search":
-                from product_search.adapters import universal_ai as universal_ai_mod
-                listings = universal_ai_mod.fetch(query, profile=profile)
-                src_url_for_attrs = query.extra.get("url") or query.storefront_url
-                if src_url_for_attrs:
-                    for _lst in listings:
-                        if _lst.attrs is None:
-                            _lst.attrs = {}
-                        _lst.attrs["source_url"] = src_url_for_attrs
-                
-                # Fetch thread-local variables safely
-                tls_skip_reason = getattr(universal_ai_mod.tls, "last_skip_reason", None)
-                if tls_skip_reason:
-                    from product_search.source_reasons import WATCH_GATE_REASON_PREFIX
-                    skip_reason = tls_skip_reason
-                    if not skip_reason.startswith(WATCH_GATE_REASON_PREFIX):
-                        error_msg = skip_reason
-                
-                tls_diagnostics = getattr(universal_ai_mod.tls, "last_fetch_diagnostics", None)
-                if tls_diagnostics:
-                    diagnostics = dict(tls_diagnostics)
-                
-                tls_scrappey = getattr(universal_ai_mod.tls, "scrappey_diagnostics", None)
-                if tls_scrappey:
-                    scrappey_attempts = list(tls_scrappey)
-                else:
-                    scrappey_attempts = []
-                
-                tls_usage = getattr(universal_ai_mod.tls, "last_run_usage", None)
-                if tls_usage:
-                    usage = dict(tls_usage)
-                    src_url = (query.extra.get("url") or query.storefront_url or "?")
-                    from urllib.parse import urlparse as _urlparse
-                    host_for_step = _urlparse(src_url).netloc.lower()
-                    if host_for_step.startswith("www."):
-                        host_for_step = host_for_step[4:]
-                    usage["step"] = host_for_step or src_url
-                    usages.append(usage)
             else:
                 error_msg = "no adapter wired"
         except Exception as exc:
             error_msg = f"{type(exc).__name__}: {exc}"
             print(f"ERROR ({source.id} fetch): {exc}", file=sys.stderr)
-            
-        display_source = source.id
-        match_host: str | None = None
-        match_url: str | None = None
-        if source.id == "universal_ai_search":
-            src_url = query.extra.get("url") or query.storefront_url
-            if src_url:
-                from urllib.parse import urlparse
-                host = urlparse(src_url).netloc.lower()
-                if host.startswith("www."):
-                    host = host[4:]
-                if host:
-                    match_host = host
-                    display_source = host
-                match_url = src_url
 
         stat = {
             "source": source.id,
-            "match_host": match_host,
-            "match_url": match_url,
-            "display_source": display_source,
+            "match_host": None,
+            "match_url": None,
+            "display_source": source.id,
             "fetched": len(listings),
             "error": error_msg,
             "skip_reason": skip_reason,
             "diagnostics": diagnostics,
-            "scrappey_attempts": scrappey_attempts if 'scrappey_attempts' in locals() else [],
         }
-        return listings, stat, usages
+        return listings, stat
 
     with ThreadPoolExecutor(max_workers=10) as executor:
         futures = [executor.submit(_process_source, source) for source in profile.sources]
         for future in futures:
             try:
-                listings, stat, usages = future.result()
+                listings, stat = future.result()
                 all_listings.extend(listings)
                 source_stats.append(stat)
-                universal_ai_usage.extend(usages)
             except Exception as exc:
                 print(f"ERROR (worker thread): {exc}", file=sys.stderr)
 
@@ -643,10 +527,11 @@ def _cmd_search(
                 f"persisted to a per-run CSV under `reports/<slug>/data/`._"
             )
 
-        # Build deterministic Run cost panel from each universal_ai
-        # source (if any) + ai_filter (if any). Per ADR-096, the synth
-        # LLM call is retired, so there's no `synth` row.
-        run_calls: list[dict[str, Any]] = list(universal_ai_usage)
+        # Build deterministic Run cost panel from ai_filter (if any). Per
+        # ADR-096, the synth LLM call is retired, so there's no `synth` row;
+        # with the universal_ai scraper retired (Phase 36) there are no
+        # per-vendor extraction calls either, leaving only the filter.
+        run_calls: list[dict[str, Any]] = []
         if ai_filter_mod.LAST_RUN_USAGE:
             run_calls.append(ai_filter_mod.LAST_RUN_USAGE)
         run_cost_md = _build_run_cost_md(run_calls)
@@ -722,7 +607,7 @@ def _cmd_search(
         from product_search.synthesizer import default_report_path, write_report
 
         diagnostic_md = _build_filter_diagnostic_md(len(all_listings))
-        zero_pass_calls: list[dict[str, Any]] = list(universal_ai_usage)
+        zero_pass_calls: list[dict[str, Any]] = []
         if ai_filter_mod.LAST_RUN_USAGE:
             zero_pass_calls.append(ai_filter_mod.LAST_RUN_USAGE)
         zero_pass_cost_md = _build_run_cost_md(zero_pass_calls)
@@ -897,22 +782,17 @@ def _build_zero_reason_callout(source_stats: list[dict[str, Any]]) -> str:
         OutcomeCategory,
         classify_source_outcome,
     )
-    from product_search.vendor_quirks import get_quirks_for_host
 
     bullets: list[str] = []
     has_permanent = False
     for s in source_stats:
-        host = s.get("match_host")
-        known_failure = None
-        if isinstance(host, str) and host:
-            known_failure = get_quirks_for_host(host).get("known_failure")
         outcome = classify_source_outcome(
             fetched=int(s.get("fetched", 0) or 0),
             passed=int(s.get("passed", 0) or 0),
             error=s.get("error"),
             skip_reason=s.get("skip_reason"),
             diagnostics=s.get("diagnostics"),
-            known_failure=known_failure,
+            known_failure=None,
             dominant_rejection=s.get("dominant_rejection"),
         )
         if outcome.is_clean:
@@ -948,24 +828,19 @@ def _build_sources_searched_md(
     # sidecar's `status_label` field — the legacy renderer and the
     # React renderer tell the same story.
     from product_search.source_reasons import classify_source_outcome
-    from product_search.vendor_quirks import get_quirks_for_host
 
     lines = ["**Sources searched.**", ""]
 
     lines.append("| Source | Status | Fetched | Passed |")
     lines.append("|--------|--------|---------|--------|")
     for s in source_stats:
-        host = s.get("match_host")
-        known_failure = None
-        if isinstance(host, str) and host:
-            known_failure = get_quirks_for_host(host).get("known_failure")
         outcome = classify_source_outcome(
             fetched=int(s.get("fetched", 0) or 0),
             passed=int(s.get("passed", 0) or 0),
             error=s.get("error"),
             skip_reason=s.get("skip_reason"),
             diagnostics=s.get("diagnostics"),
-            known_failure=known_failure,
+            known_failure=None,
             dominant_rejection=s.get("dominant_rejection"),
         )
         status = outcome.label
@@ -1304,186 +1179,6 @@ def _cmd_scheduler_tick() -> None:
         f"[{now.isoformat()}] scheduler-tick completed successfully.",
         file=sys.stderr,
     )
-    sys.exit(0)
-
-
-# ---------------------------------------------------------------------------
-# probe-url (Phase 15)
-# ---------------------------------------------------------------------------
-
-
-def _cmd_probe_url(
-    url: str,
-    *,
-    render: bool,
-    save_body: str | None = None,
-    detail: bool = False,
-    country: str | None = None,
-    min_tier: int | None = None,
-    wait_condition: str | None = None,
-) -> None:
-    """Diagnose a single vendor URL through the universal_ai pipeline.
-
-    Prints fetcher used, status, body length, JSON-LD count, anchor candidate
-    count, and 3 sample candidates. Exits 0 if at least one product candidate
-    surfaced (anchor OR JSON-LD), nonzero otherwise — so this command is
-    usable as both a manual diagnostic and a programmatic gate (the onboarder
-    integration in Phase 15 task 5 can shell out to it).
-
-    With ``--render`` we require AlterLab so callers can distinguish "rendered
-    fetch returned 0 candidates" (extraction problem) from "raw fetch returned
-    0 candidates" (probably needs rendering). Without ``--render`` the
-    standard fetch tier chain runs (AlterLab if env key set, else curl_cffi).
-
-    With ``--detail`` the Tier 1.5 single-product detail extractor (ADR-049)
-    is run against the fetched body and its extracted listing reported; exit
-    is 0 iff Tier 1.5 produced a priced listing. Use this to gate whether a
-    single-SKU vendor detail URL belongs in ``sources`` with
-    ``page_type: detail``.
-    """
-    import os
-
-    from product_search.adapters import universal_ai
-
-    has_alterlab_opts = (country is not None) or (min_tier is not None) or (wait_condition is not None)
-    if (render or has_alterlab_opts) and not os.environ.get("ALTERLAB_API_KEY", "").strip():
-        print(
-            "ERROR: --render requires ALTERLAB_API_KEY in the environment. "
-            "AlterLab options (--country, --min-tier, --wait-condition) also require it.",
-            file=sys.stderr,
-        )
-        sys.exit(2)
-
-    alterlab_options: dict[str, Any] = {}
-    if country is not None:
-        alterlab_options["country"] = country
-    if min_tier is not None:
-        alterlab_options["min_tier"] = min_tier
-    if wait_condition is not None:
-        alterlab_options["wait_condition"] = wait_condition
-    if render or alterlab_options:
-        alterlab_options["render_js"] = True
-
-    # ADR-068/082: mirror the adapter's vendor_quirks merge so `probe-url` is
-    # a faithful diagnostic of the runtime path. Without this, `probe-url
-    # https://amazon.com/...` skips the registry defaults and fetches at the
-    # bare datacenter tier, which is precisely what blanks Amazon recall.
-    from product_search.vendor_quirks import merge_alterlab_options
-
-    cli_supplied_opts = dict(alterlab_options) if alterlab_options else None
-    merged = merge_alterlab_options(url, cli_supplied_opts)
-    if merged is not None:
-        if cli_supplied_opts is None:
-            # No CLI flags but registry contributed defaults — surface that
-            # the runtime path would render this URL, so the diagnostic
-            # matches the adapter.
-            merged.setdefault("render_js", True)
-        alterlab_options = merged
-    elif alterlab_options:
-        # Merge returned None (e.g. unknown host with no source-supplied
-        # opts) — keep what the CLI supplied.
-        pass
-    else:
-        alterlab_options = {}
-
-    print(f"Probing: {url}", file=sys.stderr)
-    if alterlab_options:
-        applied_default = cli_supplied_opts is None and merged is not None
-        label = (
-            "applying vendor_quirks defaults"
-            if applied_default
-            else "forcing AlterLab rendered fetch with options"
-        )
-        print(f"  {label}: {alterlab_options}", file=sys.stderr)
-
-    try:
-        if alterlab_options:
-            html, status, fetcher = universal_ai._fetch_html(url, alterlab_options=alterlab_options)
-        else:
-            html, status, fetcher = universal_ai._fetch_html(url)
-    except Exception as exc:
-        print(f"ERROR: fetch failed: {type(exc).__name__}: {exc}", file=sys.stderr)
-        sys.exit(1)
-
-    if render and fetcher != "alterlab":
-        # ALTERLAB_API_KEY was set but the fetch fell back — that means
-        # AlterLab itself errored. Surface that, since --render is meant
-        # to test the rendered path specifically.
-        print(
-            f"ERROR: --render asked for AlterLab but fetch fell through to "
-            f"{fetcher!r} (AlterLab failed; see worker log).",
-            file=sys.stderr,
-        )
-        sys.exit(1)
-
-    jsonld_listings = universal_ai._extract_jsonld_listings(html, base_url=url)
-    candidates = universal_ai._extract_candidates(html, base_url=url)
-
-    if save_body:
-        from pathlib import Path
-
-        Path(save_body).parent.mkdir(parents=True, exist_ok=True)
-        Path(save_body).write_text(html, encoding="utf-8")
-        print(f"Wrote body to:     {save_body}", file=sys.stderr)
-
-    print(f"\nFetcher:           {fetcher}")
-    print(f"Origin status:     {status}")
-    print(f"Body length:       {len(html):,} chars")
-    print(f"JSON-LD listings:  {len(jsonld_listings)}")
-    print(f"Anchor candidates: {len(candidates)}")
-
-    if jsonld_listings:
-        print("\nFirst 3 JSON-LD listings:")
-        for item in jsonld_listings[:3]:
-            title = item["title"][:70]
-            print(f"  - {title}  ${item['price_usd']:.2f}  ({item['condition']})")
-
-    if candidates:
-        print("\nFirst 3 anchor candidates:")
-        for c in candidates[:3]:
-            title = (c["anchor_text"] or "")[:70]
-            prices = ", ".join(c["price_hints"][:3]) or "(no price hints)"
-            print(f"  - {title}  [{prices}]")
-
-    if detail:
-        from datetime import UTC, datetime
-        from urllib.parse import urlparse
-
-        detail_listings = universal_ai._extract_detail_listing(
-            html,
-            url,
-            profile=None,
-            fetched_at=datetime.now(tz=UTC),
-            parsed_host=urlparse(url).netloc.lower(),
-        )
-        print(f"\nTier 1.5 detail listing: {len(detail_listings)}")
-        if detail_listings:
-            d = detail_listings[0]
-            stock = (
-                "unknown"
-                if d.quantity_available is None
-                else ("in stock" if d.quantity_available != 0 else "out of stock")
-            )
-            print(
-                f"  - {d.title[:70]}  ${d.unit_price_usd:.2f}  "
-                f"({d.condition}, {stock})"
-            )
-            sys.exit(0)
-        print(
-            "\nTier 1.5 extracted no priced product from this detail page.",
-            file=sys.stderr,
-        )
-        sys.exit(1)
-
-    total = len(jsonld_listings) + len(candidates)
-    if total == 0:
-        print(
-            "\nNo product candidates extracted. This URL won't yield listings "
-            "with the current tier chain.",
-            file=sys.stderr,
-        )
-        sys.exit(1)
-
     sys.exit(0)
 
 

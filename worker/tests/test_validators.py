@@ -176,7 +176,7 @@ def _make_subscription_profile(amount: int = 1) -> Profile:
     sub["spec_filters"] = [{"rule": "in_stock"}]
     sub["spec_flags"] = []
     sub["sources"] = [
-        {"id": "universal_ai_search", "url": "https://example.com/sub", "page_type": "detail"}
+        {"id": "ebay_search", "queries": ["test subscription"]}
     ]
     sub.pop("qvl_file", None)
     return Profile.model_validate(sub)

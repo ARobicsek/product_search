@@ -1,7 +1,8 @@
 """Tests for ``product_search.cli`` helpers that don't need a full CLI run.
 
-Scoped to ``_passed_match_key`` (the per-listing key for source-stats joins)
-and ``_cmd_probe_url`` (Phase 15's diagnostic command).
+Scoped to ``_passed_match_key`` (the per-listing key for source-stats joins),
+``annotate_dominant_rejections`` (ADR-109 attribution) and the ADR-084
+zero-result reason callout.
 """
 
 from __future__ import annotations
@@ -10,12 +11,8 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-import pytest
-
-from product_search.adapters import universal_ai
 from product_search.cli import (
     _build_zero_reason_callout,
-    _cmd_probe_url,
     _passed_match_key,
     annotate_dominant_rejections,
 )
@@ -211,167 +208,6 @@ def test_passed_match_key_carries_source_url_for_same_host_disambiguation() -> N
     )
 
 
-# --- probe-url --------------------------------------------------------------
-
-
-def test_probe_url_exits_zero_on_jsonld_fixture(
-    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
-) -> None:
-    """JSON-LD fixture → exit 0, report shows 2 JSON-LD listings."""
-    html = (FIXTURE_DIR / "shopify_jsonld.html").read_text(encoding="utf-8")
-    monkeypatch.setattr(
-        universal_ai, "_fetch_html",
-        lambda url, timeout=20.0: (html, 200, "stub"),
-    )
-
-    with pytest.raises(SystemExit) as exc:
-        _cmd_probe_url("https://shop.synthstore.example.com/", render=False)
-    assert exc.value.code == 0
-
-    captured = capsys.readouterr()
-    assert "JSON-LD listings:  2" in captured.out
-    assert "Synthbose QuietComfort 700" in captured.out
-
-
-def test_probe_url_exits_nonzero_on_no_candidates(
-    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
-) -> None:
-    """A page with neither JSON-LD nor anchor candidates → exit 1."""
-    monkeypatch.setattr(
-        universal_ai, "_fetch_html",
-        lambda url, timeout=20.0: (
-            "<html><body><p>Just a Cloudflare challenge.</p></body></html>",
-            200, "stub",
-        ),
-    )
-
-    with pytest.raises(SystemExit) as exc:
-        _cmd_probe_url("https://blocked.example.com/", render=False)
-    assert exc.value.code == 1
-
-
-def test_probe_url_render_requires_alterlab_key(
-    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
-) -> None:
-    """--render without ALTERLAB_API_KEY must fail loudly (exit 2)."""
-    monkeypatch.delenv("ALTERLAB_API_KEY", raising=False)
-
-    with pytest.raises(SystemExit) as exc:
-        _cmd_probe_url("https://example.com/", render=True)
-    assert exc.value.code == 2
-
-    captured = capsys.readouterr()
-    assert "--render requires ALTERLAB_API_KEY" in captured.err
-
-
-def test_probe_url_render_errors_when_alterlab_falls_through(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """If --render is set and the fetch falls back to curl_cffi (AlterLab
-    failed), the command must error — otherwise the user can't tell whether
-    the rendered path worked."""
-    monkeypatch.setenv("ALTERLAB_API_KEY", "test-key")
-    monkeypatch.setattr(
-        universal_ai, "_fetch_html",
-        lambda url, timeout=20.0: ("<html></html>", 200, "curl_cffi"),
-    )
-
-    with pytest.raises(SystemExit) as exc:
-        _cmd_probe_url("https://example.com/", render=True)
-    assert exc.value.code == 1
-
-
-def test_probe_url_with_alterlab_options(monkeypatch: pytest.MonkeyPatch) -> None:
-    """When _cmd_probe_url is called with custom country, min_tier, or
-    wait_condition, they are built into alterlab_options and passed to
-    _fetch_html (ADR-071)."""
-    monkeypatch.setenv("ALTERLAB_API_KEY", "test-key-cli")
-
-    html = (FIXTURE_DIR / "shopify_jsonld.html").read_text(encoding="utf-8")
-    captured_opts: list[dict[str, Any] | None] = []
-
-    def _mock_fetch(
-        url: str, timeout: float = 20.0, alterlab_options: dict[str, Any] | None = None
-    ) -> tuple[str, int, str]:
-        captured_opts.append(alterlab_options)
-        return (html, 200, "alterlab")
-
-    monkeypatch.setattr(universal_ai, "_fetch_html", _mock_fetch)
-
-    # Calling with all three custom options
-    with pytest.raises(SystemExit) as exc:
-        _cmd_probe_url(
-            "https://example.com/",
-            render=False,
-            country="gb",
-            min_tier=2,
-            wait_condition="networkidle",
-        )
-    assert exc.value.code == 0
-
-    assert len(captured_opts) == 1
-    opts = captured_opts[0]
-    assert opts is not None
-    assert opts["country"] == "gb"
-    assert opts["min_tier"] == 2
-    assert opts["wait_condition"] == "networkidle"
-    assert opts["render_js"] is True
-
-
-def test_probe_url_parser_setup(monkeypatch: pytest.MonkeyPatch) -> None:
-    """The argument parser correctly parses --country, --min-tier, and
-    --wait-condition and forwards them to _cmd_probe_url (ADR-071)."""
-    import sys
-
-    from product_search import cli
-
-    captured: list[dict[str, Any]] = []
-
-    def _mock_cmd_probe_url(
-        url: str,
-        *,
-        render: bool,
-        save_body: str | None = None,
-        detail: bool = False,
-        country: str | None = None,
-        min_tier: int | None = None,
-        wait_condition: str | None = None,
-    ) -> None:
-        captured.append({
-            "url": url,
-            "render": render,
-            "save_body": save_body,
-            "detail": detail,
-            "country": country,
-            "min_tier": min_tier,
-            "wait_condition": wait_condition,
-        })
-
-    monkeypatch.setattr(cli, "_cmd_probe_url", _mock_cmd_probe_url)
-
-    # Simulate: python -m product_search.cli probe-url "https://example.com"
-    #   --country us --min-tier 3 --wait-condition networkidle --render --detail
-    monkeypatch.setattr(sys, "argv", [
-        "cli.py", "probe-url", "https://example.com",
-        "--country", "us",
-        "--min-tier", "3",
-        "--wait-condition", "networkidle",
-        "--render",
-        "--detail",
-    ])
-
-    cli.main()
-
-    assert len(captured) == 1
-    c = captured[0]
-    assert c["url"] == "https://example.com"
-    assert c["render"] is True
-    assert c["detail"] is True
-    assert c["country"] == "us"
-    assert c["min_tier"] == 3
-    assert c["wait_condition"] == "networkidle"
-
-
 # --- ADR-084: zero-result reason callout -----------------------------------
 
 
@@ -412,25 +248,6 @@ def test_zero_reason_callout_classifies_and_skips_clean() -> None:
     assert "**newegg.com** — _no match_" in callout
     # No permanent source → NOTE, not WARNING.
     assert callout.startswith("> [!NOTE]")
-
-
-def test_zero_reason_callout_known_failure_is_warning(monkeypatch) -> None:
-    # We mock a blocker host, since there are no blocker hosts in the real
-    # registry right now after ADR-104 downgraded the CF-walls to warnings.
-    from product_search.vendor_quirks import _load_registry
-    
-    def mock_load_registry(*args, **kwargs):
-        return {"blocked.com": {"known_failure": {"severity": "blocker"}}}
-    monkeypatch.setattr("product_search.vendor_quirks._load_registry", mock_load_registry)
-
-    stats = [
-        {"source": "universal_ai_search", "display_source": "blocked.com",
-         "match_host": "blocked.com", "fetched": 0, "passed": 0,
-         "diagnostics": {"body_len": 0}},
-    ]
-    callout = _build_zero_reason_callout(stats)
-    assert callout.startswith("> [!WARNING]")
-    assert "**blocked.com** — _blocked_" in callout
 
 
 def test_build_zero_reason_callout_includes_per_source_httperror() -> None:
