@@ -56,6 +56,7 @@ def call(
     messages: list[Message],
     response_format: Literal["text", "json"] = "text",
     max_tokens: int = 2048,
+    temperature: float | None = None,
 ) -> LLMResponse:
     try:
         import openai
@@ -97,6 +98,8 @@ def call(
     kwargs: dict[str, object] = {"max_tokens": max_tokens}
     if response_format == "json":
         kwargs["response_format"] = {"type": "json_object"}
+    if temperature is not None:
+        kwargs["temperature"] = temperature
 
     try:
         resp = client.chat.completions.create(

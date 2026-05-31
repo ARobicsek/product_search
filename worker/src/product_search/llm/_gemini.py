@@ -22,6 +22,7 @@ def call(
     messages: list[Message],
     response_format: Literal["text", "json"] = "text",
     max_tokens: int = 2048,
+    temperature: float | None = None,
 ) -> LLMResponse:
     try:
         import google.generativeai as genai  # type: ignore
@@ -40,6 +41,8 @@ def call(
     generation_config: dict[str, Any] = {"max_output_tokens": max_tokens}
     if response_format == "json":
         generation_config["response_mime_type"] = "application/json"
+    if temperature is not None:
+        generation_config["temperature"] = temperature
 
     client = genai.GenerativeModel(  # type: ignore[attr-defined]
         model_name=model,

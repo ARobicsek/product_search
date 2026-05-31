@@ -90,6 +90,32 @@ class Listing:
     flags: list[str] = field(default_factory=list)
     total_for_target_usd: float | None = None  # cheapest way to hit the target
 
+    # --- Generic display / click-through fields (Phase 31, REBUILD_PLAN §3) ----
+    # Added additively for the Serper-recall rebuild. ``buy_url`` is the click
+    # target (distinct from the canonical ``url``): for a Serper listing both
+    # are the Google Shopping cluster redirect today; a future resolver step can
+    # rewrite ``buy_url`` to a direct-merchant link without touching ``url``.
+    # The rest are carried by the shopping index and useful for display.
+    buy_url: str | None = None
+    image_url: str | None = None
+    rating: float | None = None        # e.g. 4.8 (out of 5)
+    rating_count: int | None = None    # number of ratings backing ``rating``
+
+    @property
+    def price_usd(self) -> float:
+        """Generic price accessor (REBUILD_PLAN §3).
+
+        Aliases the stored RAM-era ``unit_price_usd`` so Phase 32+ generic code
+        and the Serper adapter use the generic name now; the destructive rename
+        of the stored field is deferred to Phase 36 (when the RAM pipeline that
+        owns ``unit_price_usd``/kit fields is deleted). See ADR-134.
+        """
+        return self.unit_price_usd
+
+    @price_usd.setter
+    def price_usd(self, value: float) -> None:
+        self.unit_price_usd = value
+
     def to_dict(self) -> dict[str, Any]:
         """Return a JSON-serialisable dict (datetime → ISO string)."""
         d: dict[str, Any] = {
@@ -113,6 +139,10 @@ class Listing:
             "qvl_status": self.qvl_status,
             "flags": self.flags,
             "total_for_target_usd": self.total_for_target_usd,
+            "buy_url": self.buy_url,
+            "image_url": self.image_url,
+            "rating": self.rating,
+            "rating_count": self.rating_count,
         }
         return d
 

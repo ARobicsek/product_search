@@ -8,6 +8,25 @@ so the live file stays small while nothing is lost. See
 
 ---
 
+## Phase 29 Session-C state (2026-05-28→29) — SUPERSEDED by the rebuild (ADR-133/134)
+
+ADR-105 through ADR-116 + ADR-121 + ADR-122 + ADR-123 + ADR-124 + ADR-125 done. Tree green: web `tsc` / `eslint` / `test:guards 60/60` / `test:parity 6/6` / `next build` ok; worker `pytest 420/420`, ruff(src)+mypy clean. **This session's work is on branch `claude/quirky-volta-L3R7L`, NOT main** (user asked these as an investigation; merge to main when they confirm). Remaining Session-C defects: ADR-117 (P0, own session — `AskUserQuestion` interview first), ADR-118 (P1), ADR-119 (P1), ADR-120 (P2). **ADR-122/123/124/125 unverified live — need a real onboard + run to confirm in prod** (ADR-124/125 especially: confirm Amazon now recovers via Scrappey and reports a real result / TRANSIENT, not "Vendor doesn't carry"). **NEXT SESSION is owner-requested live naive-user verification — see [NEXT_SESSION_LIVE_VERIFY.md](NEXT_SESSION_LIVE_VERIFY.md); it covers exactly this.**
+
+**ADR-114 + ADR-115 verification result: PASS with follow-up.** User ran a live re-onboard + run of `dji-neo-2-motion-fly-more-combo` against prod 2026-05-28. The save-time probe modal appeared, streamed per-URL progress, offered Continue / Save-anyway, and the save committed all 8 sources. The right-pane draft preview stayed in sync (8 sources visible in the saved YAML is the proof). **The features shipped fine.** What the live test SURFACED is six new defects in the layers around them — see [SESSION_C_BRIEF.md](SESSION_C_BRIEF.md):
+
+- **Defect A (ADR-116, DONE 2026-05-28)** — Detail-URL relevance gate + match_aliases hallucination guard shipped. Closes Standing Candidates #5 + #7.
+- **Defect B (ADR-117, P0 by impact — design-interview first)** — ai_filter rejects sibling SKUs by default; user wants family-match-as-default with `variant_strict` opt-out.
+- **Defect C (ADR-118, P1)** — Vendor-condition compatibility gate: `inventory_condition: refurbished` for Backmarket etc. + save-time gate.
+- **Defect D (ADR-119, P1)** — Amazon `&i=<department>` URL guard: strip at save + runtime canonicalization.
+- **Defect E (ADR-120, P2)** — `vendor_doesnt_carry` vs `mis_scoped` vs `wrong_variant` diagnostic subkinds.
+- **Defect F (ADR-121, DONE 2026-05-28)** — Probe modal bounded loop + backfill row de-dup + plan visibility. Was P3 cosmetic in the original brief; Session-C review found two real functional bugs (non-terminating loop, host-keyed render bug) and upgraded to P1. See [SESSION_C_BRIEF.md](SESSION_C_BRIEF.md) Defect F (rewritten) and ADR-121 (ACCEPTED).
+
+**Pick-up order in next session:** 118 → 119 → 120, all independently shippable in one session if disciplined (116 + 121 DONE); **117 is its own session that opens with an `AskUserQuestion` interview**.
+
+**Older-but-still-live follow-up:** the existing `supermicro-h14ssl-n` profile won't get `match_aliases` until the user re-onboards or edits it (the app owns `products/`); the ADR-099 carry-gate's family-core token still protects it from the gotodirect/altex/bestbuy spend regardless.
+
+---
+
 ## Current state — 2026-05-26 ADR-099 implemented (carry-gate + WATCHED) (SUPERSEDED by Phase 29 ADR-105/109)
 
 **Deliverables:** ADR-099 in DECISIONS.md (ACCEPTED). A deterministic carry-gate so an "aspirational" not-yet-stocking vendor costs ~$0/run instead of a full LLM extraction of guaranteed-junk, plus an honest WATCHED status that says exactly why a vendor returned 0.

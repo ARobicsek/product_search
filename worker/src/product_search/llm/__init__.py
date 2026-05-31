@@ -59,6 +59,7 @@ def call_llm(
     messages: list[Message],
     response_format: Literal["text", "json"] = "text",
     max_tokens: int = 2048,
+    temperature: float | None = None,
 ) -> LLMResponse:
     """Call the specified LLM provider.
 
@@ -69,6 +70,10 @@ def call_llm(
         messages: Conversation turns (role + content).
         response_format: ``"text"`` or ``"json"``; provider support varies.
         max_tokens: Maximum output tokens.
+        temperature: Sampling temperature. ``None`` (default) leaves it at the
+            provider default. ``ai_filter`` passes ``0`` so the filter is
+            deterministic run-to-run (ADR-132 — at provider-default ~1.0 Haiku's
+            pass-count swung 35/28/19 on identical input).
 
     Returns:
         ``LLMResponse`` with the text reply and token-usage info.
@@ -94,6 +99,7 @@ def call_llm(
         messages=messages,
         response_format=response_format,
         max_tokens=max_tokens,
+        temperature=temperature,
     )
 
     # Dump trace for debugging

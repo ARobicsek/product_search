@@ -89,6 +89,13 @@ def reject_in_stock(listing: Listing, rule: FilterRule) -> str | None:
 
 
 def reject_single_sku_url(listing: Listing, rule: FilterRule) -> str | None:
+    # ADR-131 P0: Serper shopping listings always carry a google.com/search
+    # cluster-redirect ``link`` (the only link Serper gives) — it is an offer
+    # redirect, NEVER a vendor search-results page. Applied verbatim, the
+    # "search?" heuristic below rejects 100% of Serper listings. Skip the rule
+    # for serper sources; their offer-vs-search distinction does not exist.
+    if listing.source == "serper_shopping":
+        return None
     # A basic heuristic: if the URL contains "search?" or "sch?", it's likely a search page.
     url = listing.url.lower()
     if "search?" in url or "sch?" in url or "/sch/" in url:

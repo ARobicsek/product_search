@@ -20,6 +20,7 @@ def call(
     messages: list[Message],
     response_format: Literal["text", "json"] = "text",
     max_tokens: int = 2048,
+    temperature: float | None = None,
 ) -> LLMResponse:
     try:
         import anthropic
@@ -34,12 +35,18 @@ def call(
         {"role": m.role, "content": m.content} for m in messages
     ]
 
+    # ``omit`` is the SDK sentinel meaning "leave at the provider default".
+    temperature_arg: float | anthropic.Omit = (
+        temperature if temperature is not None else anthropic.omit
+    )
+
     try:
         resp = client.messages.create(
             model=model,
             system=system,
             messages=sdk_messages,
             max_tokens=max_tokens,
+            temperature=temperature_arg,
         )
     except anthropic.APIStatusError as exc:
         raise LLMError(f"Anthropic API error ({exc.status_code}): {exc.message}") from exc

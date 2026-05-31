@@ -1,0 +1,47 @@
+# COMMITTED TEST FIXTURE — Phase 31 (profile schema v2). Do NOT move under products/.
+# Pairs with tests/fixtures/serper/dji_neo2_fly_more_combo.json. v2 collapses
+# sourcing to "query + spec" (ADR-133/134): no vendor list, no URLs, no page_type.
+schema_version: 2
+slug: "dji-neo-2-motion-fly-more-combo"
+display_name: "DJI Neo 2 Motion Fly More Combo"
+description: >
+  DJI Neo 2 Motion Fly More Combo — the palm-sized 4K drone bundle that ships
+  with the RC Motion 3 controller and FPV goggles. New, US sellers preferred.
+product_type: "drone"
+
+target:
+  unit: "unit"
+  amount: 1
+
+queries:
+  - "DJI Neo 2 Motion Fly More Combo"
+
+match:
+  aliases:
+    - "DJI Neo 2"
+    - "Neo 2 Motion Fly More"
+  title_excludes:
+    - "Refurbished"
+    - "Used"
+    - "Open Box"
+    - "Renewed"
+  variant_strict: true
+
+filters:
+  condition_in: ["new"]
+  in_stock: true
+
+flags:
+  - low_seller_feedback: { rating_pct_below: 98, count_below: 50 }
+
+sources:
+  serper: { enabled: true, gl: us, num: 40 }
+  ebay: { enabled: true }
+
+vendor_allowlist: []
+vendor_blocklist: []
+
+display:
+  max_listings: 20
+  per_vendor_cap: 3
+  attrs: ["price", "condition", "seller", "seller_rating"]

@@ -251,6 +251,9 @@ How each rule type works (only the ones present above apply):
   quantity_available is null/unknown.
 - single_sku_url: reject only if the URL clearly points at a search results page
   (e.g. contains "/sch/", "search?", or "?_nkw="). Otherwise pass.
+  EXCEPTION: a "serper_shopping" source uses a google.com/search shopping-cluster
+  redirect link that is an OFFER, not a vendor search page — never reject a
+  "serper_shopping" listing for this rule (ADR-131 P0).
 - title_excludes {{values:[...]}}: reject if any string in values appears in the
   title (case-insensitive substring match). Otherwise pass.
 
@@ -314,6 +317,9 @@ ONLY output the JSON object.
                 "index": local_i,
                 "title": lst.title,
                 "url": lst.url,
+                # ADR-131 P0: the model needs the adapter id to apply the
+                # serper_shopping single_sku_url exception.
+                "source": lst.source,
                 "price": lst.unit_price_usd,
                 "condition": lst.condition,
                 "is_kit": lst.is_kit,
@@ -330,6 +336,10 @@ ONLY output the JSON object.
                 messages=[Message(role="user", content=json.dumps(payload_for_llm, indent=2))],
                 max_tokens=_AI_FILTER_MAX_TOKENS,
                 response_format="json",
+                # ADR-132: deterministic filtering. At provider-default (~1.0)
+                # Haiku's pass-count swung 35/28/19 on identical input; temp=0
+                # makes it near-deterministic (det 1.00 on 3/4 bake-off products).
+                temperature=0,
             )
         except Exception as e:
             _loud(f"Filtering LLM call failed (batch {batch_no}/{len(batches)}): {e!r}")
