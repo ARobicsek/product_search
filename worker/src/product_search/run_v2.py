@@ -20,9 +20,10 @@ Serper runs (noted, never silently dropped).
 from __future__ import annotations
 
 import sys
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import UTC, date, datetime
-from typing import Any, Callable
+from typing import Any
 
 from product_search.display_v2 import resolve_columns
 from product_search.models import AdapterQuery, Listing

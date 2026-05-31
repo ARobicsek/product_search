@@ -12,10 +12,10 @@ is trivially testable and never fabricates a reason.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from enum import Enum
+from enum import StrEnum
 
 
-class RunOutcomeClass(str, Enum):
+class RunOutcomeClass(StrEnum):
     OK = "ok"
     INDEX_UNAVAILABLE = "index_unavailable"
     NO_RECALL = "no_recall"
@@ -24,7 +24,7 @@ class RunOutcomeClass(str, Enum):
 
 # Additive notes that can accompany any primary class (they don't, on their own,
 # describe the whole run — e.g. eBay failing while Serper succeeded).
-class RunOutcomeNote(str, Enum):
+class RunOutcomeNote(StrEnum):
     EBAY_UNAVAILABLE = "ebay_unavailable"
     DEGRADED_ATTR = "degraded_attr"
 
