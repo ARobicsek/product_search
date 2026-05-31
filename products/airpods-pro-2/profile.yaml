@@ -1,0 +1,43 @@
+schema_version: 2
+slug: airpods-pro-2
+display_name: AirPods Pro 2 (White, USB-C)
+description: Apple AirPods Pro (2nd generation) in White with USB-C charging case, new condition
+product_type: headphones
+target:
+  unit: count
+  amount: 1
+queries:
+  - AirPods Pro 2 USB-C White
+match:
+  aliases:
+    - AirPods Pro 2nd generation USB-C White
+    - AirPods Pro (2nd generation) USB-C
+    - MTJV3 USB-C
+    - MQD83
+  title_excludes:
+    - AirPods Pro 1
+    - AirPods Pro Max
+    - Black
+    - Lightning
+    - used
+    - refurbished
+    - Max
+  variant_strict: true
+filters:
+  condition_in:
+    - new
+  in_stock: true
+sources:
+  serper:
+    enabled: true
+    gl: us
+  ebay:
+    enabled: true
+display:
+  max_listings: 20
+  per_vendor_cap: 3
+  attrs:
+    - price
+    - condition
+    - seller
+    - seller_rating
