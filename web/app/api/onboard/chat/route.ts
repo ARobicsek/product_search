@@ -2,8 +2,8 @@ import { NextRequest } from 'next/server';
 import Anthropic from '@anthropic-ai/sdk';
 import { loadOnboardPrompt } from '@/lib/onboard/prompt';
 import { extractDraftJson, findLatestStateRaw } from '@/lib/onboard/blocks';
-import { probeUrl } from '@/lib/onboard/probe-url';
-import { validateProfileDraft } from '@/lib/onboard/validation';
+import { serperShoppingPreview } from '@/lib/serper';
+import { validateProfileDraftV2 } from '@/lib/onboard/validation-v2';
 import { shouldForceFinalize } from '@/lib/onboard/turn-budget';
 
 export const runtime = 'edge';
@@ -13,13 +13,11 @@ export const runtime = 'edge';
 // implementation (ADR-014/-015 superseded by Phase 14 plan in PROGRESS.md).
 const PROVIDER = process.env.LLM_ONBOARD_PROVIDER ?? 'anthropic';
 const MODEL = process.env.LLM_ONBOARD_MODEL ?? 'claude-haiku-4-5';
-// 4096 was hit mid-output on a vendor-discovery turn (web_search results inlined
-// into the model's own message + a follow-up probe sweep). The model produced an
-// intro sentence ("Let me probe the remaining candidates:") and ran out of
-// output budget BEFORE emitting the probe_url tool calls — leaving the loop with
-// zero custom tool uses, so it exited and the client just saw a silent halt. The
-// vendor-sweep turns are the hot spot; 8192 leaves comfortable headroom while
-// still well under Haiku 4.5's per-message ceiling.
+// 4096 was historically hit mid-output when web_search results got inlined into
+// the model's own message and it ran out of output budget BEFORE emitting the
+// follow-up tool calls — leaving the loop with zero tool uses, so it exited and
+// the client saw a silent halt. 8192 leaves comfortable headroom while still
+// well under Haiku 4.5's per-message ceiling.
 const MAX_TOKENS = 8192;
 const MAX_TURNS_PER_REQUEST = 50;
 // Phase 14 bench saw two consecutive vendor-discovery turns fire 3+4 searches
@@ -143,13 +141,13 @@ export async function POST(request: NextRequest) {
           if (forceFinalize) {
             history.push({
               role: 'user',
-              content: "Time's up for this turn! Emit your best draft now as-is using the probe results you already have. Note any unresolved vendor in sources_pending. End with <state> and <draft> blocks.",
+              content: "Time's up for this turn! Emit your best current <draft> now as-is, based on what you have so far. End your message with <state> and <draft> blocks.",
             });
             send({ type: 'status', message: 'finalizing your draft…' });
-            // ADR-122: deterministic signal that this turn ran out of its
-            // wall-clock budget mid-probe. The client uses it to offer an
-            // explicit "keep probing the unfinished vendors" affordance instead
-            // of relying on the LLM to mention the time-out in prose.
+            // Deterministic signal that this turn ran out of its wall-clock
+            // budget mid-research. The client uses it to offer an explicit
+            // "continue" affordance instead of relying on the model to mention
+            // the time-out in prose.
             send({ type: 'turn_truncated' });
           }
 
@@ -161,56 +159,32 @@ export async function POST(request: NextRequest) {
               max_uses: WEB_SEARCH_MAX_USES,
             },
             {
-              name: 'probe_url',
-                description: 'Probe a vendor search or product URL to verify if listings can be extracted. Returns diagnostic details like response status, body size, JSON-LD count, and product anchor count.',
+              name: 'serper_preview',
+                description: 'Fire ONE real Google Shopping query (via Serper) to confirm your draft actually surfaces the target item BEFORE telling the user it is ready. Returns the top live listings (title, merchant, price). Read them: is the target present? Are obvious wrong variants caught by title_excludes? If not, adjust queries/match and you may preview once more. The same results are shown to the user. This is the only verification step — there is no per-vendor probing.',
                 input_schema: {
                   type: 'object',
                   properties: {
-                    url: {
+                    query: {
                       type: 'string',
-                      description: 'The absolute URL to probe.',
+                      description: 'The search query to send to Google Shopping. Use your best drafted query for this product.',
                     },
-                    page_type: {
+                    gl: {
                       type: 'string',
-                      enum: ['search', 'detail'],
-                      description: 'Whether this URL is a search/category page (lists many products) or a single-product detail page. For a "detail" URL, 0 product anchors is EXPECTED and NOT a failure — judge extractability by the returned detailExtractable flag instead. Defaults to "search".',
-                    },
-                    target_name: {
-                      type: 'string',
-                      description: 'The target product\'s display name or model number (e.g. "Supermicro H14SSL-N"). Used to compute relevanceHits — how many product anchors on the page match the target. Pass this for search URLs to detect mis-scoped URLs.',
-                    },
-                    alterlab_options: {
-                      type: 'object',
-                      description: 'Optional AlterLab rendering parameters (residential proxy, US exit IPs, and JS waits) to use if the site is a known hard/anti-bot vendor.',
-                      properties: {
-                        country: {
-                          type: 'string',
-                          description: 'Optional two-letter country code for the exit proxy (e.g. "us").',
-                        },
-                        min_tier: {
-                          type: 'integer',
-                          description: 'Optional minimum proxy/render tier 1..4 (3 = stealth/residential; 4 = full headless browser, which beats Cloudflare challenges that tier 3 cannot).',
-                        },
-                        wait_condition: {
-                          type: 'string',
-                          enum: ['domcontentloaded', 'networkidle', 'load'],
-                          description: 'Optional: wait for the page to reach this load state before capturing HTML. Use "networkidle" for sites that render the price asynchronously via JS. (Do NOT use the old "wait_for" field — it is not a real AlterLab parameter and silently breaks the fetch.)',
-                        },
-                      },
+                      description: 'Optional two-letter country code for the shopping locale (defaults to "us").',
                     },
                   },
-                  required: ['url'],
+                  required: ['query'],
                 },
               },
               {
                 name: 'validate_profile',
-                description: 'Validates a profile draft against the schema and deterministic guardrails. Returns any hard errors (which will block save) and soft warnings. You MUST call this before emitting the final draft to the user and fix any issues it reports.',
+                description: 'Validates a v2 profile draft against the schema and deterministic guardrails (queries required, distinctive carry-gate aliases, a real slug, at least one enabled source). Returns any hard errors (which BLOCK save) and soft warnings. You MUST call this before telling the user the profile is ready and fix any errors it reports.',
                 input_schema: {
                   type: 'object',
                   properties: {
                     draft: {
                       type: 'object',
-                      description: 'The JSON draft of the profile.',
+                      description: 'The JSON draft of the v2 profile (schema_version: 2).',
                     },
                   },
                   required: ['draft'],
@@ -237,8 +211,8 @@ export async function POST(request: NextRequest) {
               const block = event.content_block;
               if (block.type === 'server_tool_use' && block.name === 'web_search') {
                 send({ type: 'tool_use', name: 'web_search' });
-              } else if (block.type === 'tool_use' && block.name === 'probe_url') {
-                send({ type: 'tool_use', name: 'probe_url' });
+              } else if (block.type === 'tool_use' && block.name === 'serper_preview') {
+                send({ type: 'tool_use', name: 'serper_preview' });
               } else if (block.type === 'tool_use' && block.name === 'validate_profile') {
                 send({ type: 'tool_use', name: 'validate_profile' });
               }
@@ -302,59 +276,65 @@ export async function POST(request: NextRequest) {
                 const toolUseId = toolUse.id;
                 
                 let resultText = '';
-                if (toolUse.name === 'probe_url') {
-                  const input = toolUse.input as { url: string; alterlab_options?: Record<string, unknown>; page_type?: 'search' | 'detail'; target_name?: string };
-                  const url = input.url;
-                  const alterlabOptions = input.alterlab_options;
-                  const pageType = input.page_type;
-                  const targetName = input.target_name;
+                if (toolUse.name === 'serper_preview') {
+                  const input = toolUse.input as { query?: string; gl?: string };
+                  const query = typeof input.query === 'string' ? input.query : '';
+                  const gl = typeof input.gl === 'string' ? input.gl : undefined;
 
-                  // Send the detailed tool_use event so the client can display exactly what is being probed
-                  send({ type: 'tool_use', name: 'probe_url', input });
+                  // Detailed tool_use event so the client can show which query
+                  // is being previewed.
+                  send({ type: 'tool_use', name: 'serper_preview', input });
 
-                  try {
-                    const probeRes = await probeUrl(url, alterlabOptions, pageType, targetName);
-                    resultText = JSON.stringify(probeRes, null, 2);
-                    // ADR-122: stream the verdict to the client so the save-time
-                    // probe can REUSE interview probes instead of re-running every
-                    // URL from scratch. Only the verdict (url/ok/reason/pageType) is
-                    // sent — the save endpoint still re-validates anything it must.
-                    send({
-                      type: 'probe_result',
-                      url,
-                      ok: probeRes.ok,
-                      reason: probeRes.reason,
-                      pageType: pageType ?? 'search',
+                  const r = await serperShoppingPreview(query, { gl });
+                  // Stream the live results to the user pane (both the model and
+                  // the user confirm the query surfaces the item together).
+                  send({
+                    type: 'serper_preview',
+                    query: r.query,
+                    ok: r.ok,
+                    count: r.count,
+                    items: r.items.slice(0, 12),
+                    error: r.error,
+                  });
+
+                  // Compact text summary back to the model so it can judge
+                  // target-present + title_excludes coverage.
+                  if (!r.ok) {
+                    resultText =
+                      `serper_preview FAILED for query "${r.query}": ${r.error ?? 'unknown error'}. ` +
+                      `The shopping index may be unreachable right now — you can proceed with your best ` +
+                      `draft and tell the user the live preview couldn't run this time.`;
+                  } else if (r.count === 0) {
+                    resultText =
+                      `serper_preview for "${r.query}" returned 0 results. The query may be too specific ` +
+                      `or mis-scoped — consider broadening it, then preview once more.`;
+                  } else {
+                    const top = r.items.slice(0, 20);
+                    const lines = top.map((it) => {
+                      const price = it.priceText ?? (it.price != null ? `$${it.price}` : '—');
+                      return `${it.title} | ${it.merchant ?? '—'} | ${price}`;
                     });
-                  } catch (err) {
-                    resultText = JSON.stringify({
-                      ok: false,
-                      url,
-                      error: err instanceof Error ? err.message : String(err),
-                    }, null, 2);
+                    resultText =
+                      `serper_preview for "${r.query}" returned ${r.count} results (top ${top.length}):\n` +
+                      lines.join('\n') +
+                      `\n\nCheck: is the target present? Are obvious wrong variants caught by title_excludes?`;
                   }
                 } else if (toolUse.name === 'validate_profile') {
                   const input = toolUse.input as { draft: Record<string, unknown> };
                   const draft = input.draft;
-                  const stateRaw = findLatestStateRaw(trimmedMessages);
-                  let state = null;
-                  try {
-                    if (stateRaw) state = JSON.parse(stateRaw);
-                  } catch {}
-                  const originalSlug = state?.slug_decisions?.original_slug ?? null;
 
-                  send({ type: 'tool_use', name: 'validate_profile' });
-                  // ADR-114: the validate_profile draft argument is the
-                  // authoritative current draft. Surface it to the client so
-                  // the right-pane preview reflects the LLM's working state
-                  // even when the final non-tool emission of <draft> blocks
-                  // never lands (force-finalize, truncation, etc.).
+                  // The validate_profile draft argument is the authoritative
+                  // current draft (ADR-114). Surface it to the client so the
+                  // right-pane preview reflects the model's working state even
+                  // when the final non-tool emission of <draft> never lands.
                   if (draft && typeof draft === 'object' && !Array.isArray(draft)) {
                     send({ type: 'draft_update', draft });
                   }
 
                   try {
-                    const validationRes = validateProfileDraft(draft, state, originalSlug as string | null);
+                    // Advisory check during the interview (edit-mode slug pin
+                    // happens authoritatively at save). originalSlug = null here.
+                    const validationRes = validateProfileDraftV2(draft, null);
                     resultText = JSON.stringify({
                       ok: validationRes.ok,
                       errors: validationRes.errors,

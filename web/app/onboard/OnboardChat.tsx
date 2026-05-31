@@ -10,17 +10,18 @@ import {
   Bot,
   CheckCircle2,
   DollarSign,
+  ExternalLink,
   Loader2,
   Save,
   Search,
   Send,
   Trash2,
   User,
-  X,
 } from 'lucide-react';
 import { estimateCostUsd, formatCostUsd } from '@/lib/llm-prices';
 import { extractDraftJson, extractStateJson, stripBlocks } from '@/lib/onboard/blocks';
-import { renderProfileYaml } from '@/lib/onboard/render-yaml';
+import { renderProfileV2Yaml } from '@/lib/onboard/validation-v2';
+import type { SerperItem } from '@/lib/serper';
 
 interface ChatMessage {
   role: 'user' | 'assistant';
@@ -33,65 +34,17 @@ type SaveState =
   | { kind: 'success'; slug: string; commitUrl: string | null; probeStatus: string; warnings: string[] }
   | { kind: 'error'; message: string; details?: string[] };
 
-// ADR-115: save-time probe modal state.
-type UrlProbeStatus = 'queued' | 'probing' | 'ok' | 'failed' | 'deadline';
-
-interface UrlProbeRow {
-  url: string;
-  host: string | null;
-  pageType: 'search' | 'detail';
-  status: UrlProbeStatus;
-  reason?: string;
+// Phase 34 (ADR-137): the live Serper preview replaces the entire v1 probe
+// apparatus. The model fires one real Google Shopping query mid-interview; the
+// results stream here so the user and the model confirm the query surfaces the
+// item together before saving.
+interface SerperPreviewState {
+  query: string;
+  ok: boolean;
+  count: number;
+  items: SerperItem[];
+  error?: string;
 }
-
-interface BackfillRow {
-  host: string;
-  state: 'running' | 'added' | 'failed' | 'skipped';
-  detail?: string;
-  urls: string[];
-}
-
-// ADR-121: the modal shows a per-host roll-up at the top so the user can see
-// at a glance which vendors are pending vs done. `totalUrls` reflects the
-// whole universal_ai_search set; `continueUrls` is what THIS attempt covers
-// (= totalUrls on the first pass, only the unprobed remainder on a Continue).
-interface PlanSummary {
-  totalUrls: number;
-  continueUrls: number;
-  byHost: Array<{ host: string; count: number }>;
-}
-
-type ProbeState =
-  | { kind: 'idle' }
-  | {
-      kind: 'streaming';
-      attempt: number;
-      phase: string;
-      rows: UrlProbeRow[];
-      backfills: BackfillRow[];
-      plan: PlanSummary | null;
-    }
-  | {
-      kind: 'awaiting';
-      attempt: number;
-      rows: UrlProbeRow[];
-      backfills: BackfillRow[];
-      plan: PlanSummary | null;
-      enrichedDraft: Record<string, unknown>;
-      unprobed: string[];
-      validationErrors: string[];
-      validationWarnings: string[];
-      // If the only validation errors are the ADR-111 force_detail_backup
-      // ones, "Save and proceed anyway" is offered as a bypass. Other errors
-      // (schema, missing match_aliases, etc.) genuinely block save.
-      bypassableViolations: boolean;
-      // ADR-121: true when this Continue pass made zero progress (every URL
-      // we asked for is still unprobed). The modal then hides plain Continue
-      // and steers the user to "Save and proceed anyway" so the loop can't
-      // run forever on a slow/walled vendor with a deadline that's too tight.
-      noProgress: boolean;
-    }
-  | { kind: 'error'; message: string };
 
 function getKickoff(initialProfile?: string | null): ChatMessage {
   if (!initialProfile) {
@@ -127,7 +80,7 @@ function findLatestState(messages: ChatMessage[]): Record<string, unknown> | nul
 function safeRender(intent: Record<string, unknown> | null): string | null {
   if (!intent) return null;
   try {
-    return renderProfileYaml(intent);
+    return renderProfileV2Yaml(intent);
   } catch {
     return null;
   }
@@ -145,18 +98,14 @@ export function OnboardChat({ initialProfile, initialSlug }: { initialProfile?: 
   // ADR-114: drafts streamed from the server (extracted from <draft> blocks in
   // each iteration's assistant text, plus the input to validate_profile tool
   // calls). The server can see drafts the client never will — Anthropic stops
-  // each message at the first tool_use, so during long probe loops the client
+  // each message at the first tool_use, so during multi-tool turns the client
   // never receives a closing </draft> and falls back to turn-1's empty stub.
   const [latestToolDraft, setLatestToolDraft] = useState<Record<string, unknown> | null>(null);
-  // ADR-115: save-time probe modal state.
-  const [probeState, setProbeState] = useState<ProbeState>({ kind: 'idle' });
-  // ADR-122: verdicts of the probes the LLM ran DURING the interview, streamed
-  // back as `probe_result` events. onSave() passes these to the save-time probe
-  // so it reuses them instead of re-running every URL from scratch.
-  const chatProbesRef = useRef<Map<string, { ok: boolean; reason: string | null }>>(new Map());
-  // ADR-122: set when a chat turn force-finalized mid-probe (budget ran out).
-  // Drives a deterministic "keep probing the unfinished vendors" affordance
-  // instead of relying on the LLM to mention the time-out in prose.
+  // Phase 34: the latest live Serper preview (one query the model fired to
+  // confirm the draft surfaces the item). Persists in the pane until reset.
+  const [serperPreview, setSerperPreview] = useState<SerperPreviewState | null>(null);
+  // Set when a chat turn force-finalized mid-research (50s budget). Drives a
+  // deterministic "continue" affordance instead of relying on the model's prose.
   const [turnTruncated, setTurnTruncated] = useState(false);
   const [sessionUsage, setSessionUsage] = useState({
     inputTokens: 0,
@@ -187,8 +136,6 @@ export function OnboardChat({ initialProfile, initialSlug }: { initialProfile?: 
     setStreaming(true);
     setError('');
     setStatusLine('');
-    // ADR-122: reset the truncation flag for the new turn; it'll be re-set if
-    // this turn also force-finalizes mid-probe.
     setTurnTruncated(false);
     setMessages([...history, { role: 'assistant', content: '' }]);
 
@@ -251,10 +198,11 @@ export function OnboardChat({ initialProfile, initialSlug }: { initialProfile?: 
           cache_creation_tokens?: number;
           stopReason?: string | null;
           draft?: Record<string, unknown>;
-          // ADR-122: interview probe verdict streamed for save-time reuse.
-          url?: string;
+          // serper_preview event fields.
+          query?: string;
           ok?: boolean;
-          reason?: string | null;
+          count?: number;
+          items?: SerperItem[];
         };
         try {
           payload = JSON.parse(json);
@@ -272,19 +220,23 @@ export function OnboardChat({ initialProfile, initialSlug }: { initialProfile?: 
             return copy;
           });
         } else if (payload.type === 'tool_use') {
-          if (payload.name === 'probe_url') {
-            let hostStr = 'URL';
-            try {
-              if (payload.input?.url) {
-                hostStr = new URL(payload.input.url as string).host;
-              }
-            } catch {
-              hostStr = 'URL';
-            }
-            setStatusLine(`Probing ${hostStr}…`);
+          if (payload.name === 'serper_preview') {
+            const q = typeof payload.input?.query === 'string' ? (payload.input.query as string) : '';
+            setStatusLine(q ? `Previewing Google Shopping for “${q}”…` : 'Previewing Google Shopping results…');
+          } else if (payload.name === 'validate_profile') {
+            setStatusLine('Validating the draft…');
           } else {
             setStatusLine('Searching the web…');
           }
+        } else if (payload.type === 'serper_preview' && typeof payload.query === 'string') {
+          setStatusLine('');
+          setSerperPreview({
+            query: payload.query,
+            ok: payload.ok === true,
+            count: typeof payload.count === 'number' ? payload.count : (payload.items?.length ?? 0),
+            items: Array.isArray(payload.items) ? payload.items : [],
+            error: typeof payload.error === 'string' ? payload.error : undefined,
+          });
         } else if (payload.type === 'usage') {
           hasUsage = true;
           setSessionUsage((u) => ({
@@ -296,30 +248,22 @@ export function OnboardChat({ initialProfile, initialSlug }: { initialProfile?: 
             provider: payload.provider ?? u.provider,
             model: payload.model ?? u.model,
           }));
-        } else if (payload.type === 'probe_result' && typeof payload.url === 'string') {
-          // ADR-122: remember the interview probe verdict so onSave can reuse it.
-          chatProbesRef.current.set(payload.url, {
-            ok: payload.ok === true,
-            reason: typeof payload.reason === 'string' ? payload.reason : null,
-          });
         } else if (payload.type === 'turn_truncated') {
-          // ADR-122: this turn ran out of budget mid-probe.
           setTurnTruncated(true);
         } else if (payload.type === 'status' && typeof payload.message === 'string') {
           setStatusLine(payload.message);
         } else if (payload.type === 'draft_update' && payload.draft && typeof payload.draft === 'object') {
           // ADR-114: server-streamed draft. Always replace — the server emits
-          // these in order (per validate_profile call and per <draft> block
-          // it parses out of an iteration's assistant text), so the latest
-          // event is the freshest known draft.
+          // these in order (per validate_profile call and per <draft> block it
+          // parses out of an iteration's assistant text), so the latest event
+          // is the freshest known draft.
           setLatestToolDraft(payload.draft);
         } else if (payload.type === 'error') {
           setError(payload.error ?? 'unknown error');
         } else if (payload.type === 'done') {
           // The model hit the per-message output cap before finishing. Without
           // this hint the assistant message just ends mid-thought and the user
-          // sees a frozen UI — that's the failure mode that prompted bumping
-          // MAX_TOKENS in route.ts. Tell the user they can resume.
+          // sees a frozen UI. Tell the user they can resume.
           if (payload.stopReason === 'max_tokens') {
             setError(
               'The assistant ran out of output budget mid-response. Reply "continue" to resume.',
@@ -339,7 +283,7 @@ export function OnboardChat({ initialProfile, initialSlug }: { initialProfile?: 
     if (!text) return;
     setInput('');
     // After a previous save (success or error), the user is now continuing the
-    // conversation — typically to address a warning or add coverage. Clear the
+    // conversation — typically to refine the query or adjust the spec. Clear the
     // terminal save state so the Save button re-enables for the next draft.
     if (saveState.kind === 'success' || saveState.kind === 'error') {
       setSaveState({ kind: 'idle' });
@@ -354,6 +298,8 @@ export function OnboardChat({ initialProfile, initialSlug }: { initialProfile?: 
     setSaveState({ kind: 'idle' });
     setError('');
     setLatestToolDraft(null);
+    setSerperPreview(null);
+    setTurnTruncated(false);
     setSessionUsage({
       inputTokens: 0,
       outputTokens: 0,
@@ -366,12 +312,21 @@ export function OnboardChat({ initialProfile, initialSlug }: { initialProfile?: 
     void runTurn([kickoffMessage]);
   }
 
+  // Deterministic "continue" affordance after a turn force-finalized mid-research.
+  function onContinue() {
+    if (streaming) return;
+    setTurnTruncated(false);
+    if (saveState.kind === 'success' || saveState.kind === 'error') {
+      setSaveState({ kind: 'idle' });
+    }
+    const next: ChatMessage[] = [...messages, { role: 'user', content: 'continue' }];
+    void runTurn(next);
+  }
+
   // ADR-114: prefer the server-streamed draft over the client-parsed <draft>
-  // block. The server can see drafts that never reach the client closing tag
-  // (each Anthropic message ends at the first tool_use, so multi-tool turns
-  // never emit a complete </draft>). Fall back to the message-text scanner
-  // when no server stream has arrived yet, and to the initial YAML in edit
-  // mode if neither source has populated.
+  // block (each Anthropic message ends at the first tool_use, so multi-tool
+  // turns never emit a complete </draft>). Fall back to the message-text
+  // scanner, then to the initial YAML in edit mode.
   let draftIntent: Record<string, unknown> | null = latestToolDraft ?? findLatestDraft(messages);
   if (!draftIntent && initialProfile) {
     try {
@@ -383,13 +338,9 @@ export function OnboardChat({ initialProfile, initialSlug }: { initialProfile?: 
   const draftYaml = safeRender(draftIntent);
   const draftSlug = (draftIntent?.slug as string | undefined) ?? null;
 
-  // ADR-115: actually POST to /api/onboard/save with whatever draft + flags
-  // the caller hands us. Used by both the auto-save-after-clean-probe path
-  // and the "Save and proceed anyway" bypass path.
-  async function commitSave(
-    draft: Record<string, unknown>,
-    bypassForceDetailBackup: boolean,
-  ): Promise<void> {
+  // Phase 34: single direct save — no probe pass. POST the v2 draft, auto-forward
+  // any 422 validation error back to the model (ADR-113), open the page on success.
+  async function commitSave(draft: Record<string, unknown>): Promise<void> {
     setSaveState({ kind: 'saving' });
     const secret = process.env.NEXT_PUBLIC_WEB_SHARED_SECRET ?? '';
     try {
@@ -400,7 +351,6 @@ export function OnboardChat({ initialProfile, initialSlug }: { initialProfile?: 
           draft,
           originalSlug: initialSlug,
           state: findLatestState(messages),
-          bypassForceDetailBackup,
         }),
       });
       const data = (await res.json()) as {
@@ -414,11 +364,12 @@ export function OnboardChat({ initialProfile, initialSlug }: { initialProfile?: 
       };
       if (!res.ok || !data.ok || !data.slug) {
         if (res.status === 422) {
+          // ADR-113: hand the validation error back to the model to fix, rather
+          // than showing the user a wall of schema text.
           const errorMsg = data.error ?? 'Validation failed';
           const detailsList = data.details && data.details.length > 0 ? `\n- ${data.details.join('\n- ')}` : '';
           const prompt = `I clicked Save but the profile failed validation:\n${errorMsg}${detailsList}\n\nPlease fix these errors and re-validate before asking me to save again.`;
           setSaveState({ kind: 'idle' });
-          setProbeState({ kind: 'idle' });
           const next: ChatMessage[] = [...messages, { role: 'user', content: prompt }];
           await runTurn(next);
           return;
@@ -440,7 +391,6 @@ export function OnboardChat({ initialProfile, initialSlug }: { initialProfile?: 
         probeStatus: data.probeStatus ?? 'skipped',
         warnings,
       });
-      setProbeState({ kind: 'idle' });
       if (warnings.length === 0) {
         setTimeout(() => router.push(`/${data.slug}`), 800);
       }
@@ -452,266 +402,9 @@ export function OnboardChat({ initialProfile, initialSlug }: { initialProfile?: 
     }
   }
 
-  // ADR-115: stream a probe pass against /api/onboard/probe. Reuses the same
-  // SSE shape pattern as /api/onboard/chat. Caller supplies the draft to
-  // probe; carryOver lets "Continue probing" resume from a prior partial pass
-  // without re-probing already-finished URLs.
-  async function streamProbe(
-    draft: Record<string, unknown>,
-    attempt: number,
-    carryOver?: {
-      // Set only for "Continue probing" (re-probe just these); absent on the
-      // first save pass, where priorResults may still carry reused interview
-      // verdicts (ADR-122).
-      unprobed?: string[];
-      priorResults: Array<{ url: string; ok: boolean; reason: string | null }>;
-      rows?: UrlProbeRow[];
-      backfills?: BackfillRow[];
-    },
-  ): Promise<void> {
-    setProbeState({
-      kind: 'streaming',
-      attempt,
-      phase: carryOver?.unprobed ? 'Resuming probe…' : 'Starting probe…',
-      rows: carryOver?.rows ?? [],
-      backfills: carryOver?.backfills ?? [],
-      plan: null,
-    });
-    const secret = process.env.NEXT_PUBLIC_WEB_SHARED_SECRET ?? '';
-    let response: Response;
-    try {
-      response = await fetch('/api/onboard/probe', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'x-web-secret': secret },
-        body: JSON.stringify({
-          draft,
-          unprobed: carryOver?.unprobed,
-          priorResults: carryOver?.priorResults,
-        }),
-      });
-    } catch (err) {
-      setProbeState({
-        kind: 'error',
-        message: err instanceof Error ? err.message : 'probe request failed',
-      });
-      return;
-    }
-    if (!response.ok || !response.body) {
-      const txt = await response.text().catch(() => '');
-      setProbeState({
-        kind: 'error',
-        message: `probe request failed: ${response.status} ${txt.slice(0, 200)}`,
-      });
-      return;
-    }
-
-    // Mutable copies we'll re-assign into state as events arrive.
-    const rows: UrlProbeRow[] = [...(carryOver?.rows ?? [])];
-    // ADR-121: backfill rows are keyed by host. Carry-over from a prior
-    // attempt re-uses the same slot — we replace, never append — so a host
-    // that gets re-skipped each attempt (e.g. target.com when the budget
-    // is gone) shows ONE row instead of one-per-attempt.
-    const backfills: BackfillRow[] = [...(carryOver?.backfills ?? [])];
-    let phase = 'Probing…';
-    let plan: PlanSummary | null = null;
-
-    const reader = response.body.getReader();
-    const decoder = new TextDecoder();
-    let buffer = '';
-
-    const updateRow = (url: string, patch: Partial<UrlProbeRow>) => {
-      const idx = rows.findIndex((r) => r.url === url);
-      if (idx >= 0) rows[idx] = { ...rows[idx], ...patch };
-      else rows.push({ url, host: null, pageType: 'search', status: 'queued', ...patch });
-    };
-
-    const upsertBackfill = (host: string, patch: Partial<BackfillRow>) => {
-      const idx = backfills.findIndex((b) => b.host === host);
-      if (idx >= 0) backfills[idx] = { ...backfills[idx], ...patch };
-      else backfills.push({ host, state: 'running', urls: [], ...patch });
-    };
-
-    const flush = () => {
-      setProbeState({
-        kind: 'streaming',
-        attempt,
-        phase,
-        rows: [...rows],
-        backfills: [...backfills],
-        plan,
-      });
-    };
-
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      buffer += decoder.decode(value, { stream: true });
-      let idx;
-      while ((idx = buffer.indexOf('\n\n')) !== -1) {
-        const raw = buffer.slice(0, idx).trim();
-        buffer = buffer.slice(idx + 2);
-        if (!raw.startsWith('data:')) continue;
-        const json = raw.slice(5).trim();
-        if (!json) continue;
-        let p: Record<string, unknown>;
-        try { p = JSON.parse(json) as Record<string, unknown>; } catch { continue; }
-        const t = p.type as string | undefined;
-        if (t === 'phase' && typeof p.message === 'string') {
-          phase = p.message;
-        } else if (t === 'plan_summary') {
-          // ADR-121: seed the per-host roll-up the modal renders at the top.
-          const totalUrls = typeof p.totalUrls === 'number' ? p.totalUrls : 0;
-          const continueUrls = typeof p.continueUrls === 'number' ? p.continueUrls : 0;
-          const byHostRaw = Array.isArray(p.byHost) ? p.byHost : [];
-          const byHost = byHostRaw
-            .filter((h): h is { host: string; count: number } =>
-              !!h && typeof (h as { host?: unknown }).host === 'string'
-              && typeof (h as { count?: unknown }).count === 'number')
-            .map((h) => ({ host: h.host, count: h.count }));
-          plan = { totalUrls, continueUrls, byHost };
-        } else if (t === 'url_start' && typeof p.url === 'string') {
-          updateRow(p.url, {
-            host: (p.host as string | null) ?? null,
-            pageType: (p.pageType as 'search' | 'detail') ?? 'search',
-            status: 'probing',
-          });
-        } else if (t === 'url_done' && typeof p.url === 'string') {
-          updateRow(p.url, {
-            host: (p.host as string | null) ?? null,
-            status: p.ok ? 'ok' : 'failed',
-            reason: typeof p.reason === 'string' ? p.reason : undefined,
-          });
-        } else if (t === 'url_deadline' && typeof p.url === 'string') {
-          updateRow(p.url, {
-            status: 'deadline',
-            reason: 'didn’t finish within the time limit (slow vendor — goes through a bot-wall bypass). Click “Continue probing” to keep going.',
-          });
-        } else if (t === 'backfill_start' && typeof p.host === 'string') {
-          // ADR-121: replace any prior pass's row for this host so the user
-          // sees the current state, not an accumulation across attempts.
-          upsertBackfill(p.host, { state: 'running', urls: [], detail: undefined });
-        } else if (t === 'backfill_added' && typeof p.host === 'string' && typeof p.url === 'string') {
-          const idx = backfills.findIndex((b) => b.host === p.host);
-          if (idx >= 0) {
-            backfills[idx] = { ...backfills[idx], urls: [...backfills[idx].urls, p.url] };
-          }
-        } else if (t === 'backfill_failed' && typeof p.host === 'string') {
-          // Recorded as the host's per-row event; the backfill is not marked
-          // failed unless every candidate failed (see backfill_done below).
-        } else if (t === 'backfill_skip' && typeof p.host === 'string') {
-          upsertBackfill(p.host, {
-            state: 'skipped',
-            detail: typeof p.reason === 'string' ? p.reason : undefined,
-            urls: [],
-          });
-        } else if (t === 'backfill_done' && typeof p.host === 'string') {
-          const idx = backfills.findIndex((b) => b.host === p.host);
-          if (idx >= 0) {
-            backfills[idx] = {
-              ...backfills[idx],
-              state: (p.added as number) > 0 ? 'added' : 'failed',
-            };
-          }
-        } else if (t === 'done') {
-          const enrichedDraft = p.enrichedDraft as Record<string, unknown>;
-          const complete = p.complete === true;
-          const unprobed = Array.isArray(p.unprobed) ? (p.unprobed as string[]) : [];
-          const noProgress = p.noProgress === true;
-          const validation = (p.validation as {
-            ok: boolean;
-            errors: string[];
-            warnings: string[];
-            userErrors?: string[];
-            userWarnings?: string[];
-          } | undefined) ?? { ok: true, errors: [], warnings: [] };
-
-          if (complete && validation.ok) {
-            // All clean. Drop the modal and commit silently.
-            await commitSave(enrichedDraft, false);
-            return;
-          }
-          // Bypassability is decided from the TECHNICAL errors (they carry the
-          // ADR markers); the modal renders the plain-English userErrors (ADR-123).
-          const bypassableViolations = validation.errors.length > 0 && validation.errors.every((e) =>
-            /save is BLOCKED|Save is BLOCKED|ADR-067|ADR-111|force_detail_backup/.test(e)
-          );
-          setProbeState({
-            kind: 'awaiting',
-            attempt,
-            rows,
-            backfills,
-            plan,
-            enrichedDraft,
-            unprobed,
-            validationErrors: validation.userErrors ?? validation.errors,
-            validationWarnings: validation.userWarnings ?? validation.warnings,
-            bypassableViolations: bypassableViolations || (complete && !validation.ok && bypassableViolations),
-            noProgress,
-          });
-          return;
-        } else if (t === 'error') {
-          setProbeState({
-            kind: 'error',
-            message: typeof p.error === 'string' ? p.error : 'probe stream error',
-          });
-          return;
-        }
-        flush();
-      }
-    }
-    // If we exited without a `done` event, surface that as an error.
-    setProbeState({ kind: 'error', message: 'probe stream ended without a done event' });
-  }
-
   function onSave() {
-    if (!draftIntent || saveState.kind === 'saving' || probeState.kind === 'streaming') return;
-    // ADR-122: reuse the verdicts of the probes the LLM already ran during the
-    // interview, so the save-time pass skips re-probing what was confirmed
-    // (force_detail_backup hosts still needing a detail URL are re-probed
-    // server-side regardless). This is the "why is it probing AGAIN?" fix.
-    const priorResults = Array.from(chatProbesRef.current.entries()).map(
-      ([url, v]) => ({ url, ok: v.ok, reason: v.reason }),
-    );
-    void streamProbe(draftIntent, 1, priorResults.length ? { priorResults } : undefined);
-  }
-
-  // ADR-122: deterministic "keep probing" affordance after a chat turn ran out
-  // of its budget mid-probe. Sends a canned follow-up so the user doesn't have
-  // to notice the time-out in the LLM's prose and hand-type the request.
-  function onKeepProbing() {
-    if (streaming) return;
-    setTurnTruncated(false);
-    if (saveState.kind === 'success' || saveState.kind === 'error') {
-      setSaveState({ kind: 'idle' });
-    }
-    const msg =
-      'That turn ran out of time before probing every vendor. Please keep probing the ' +
-      'vendors that did not finish (the ones you left in sources_pending or noted as ' +
-      'needing a probe), confirm which ones work, and update the draft.';
-    const next: ChatMessage[] = [...messages, { role: 'user', content: msg }];
-    void runTurn(next);
-  }
-
-  function onContinueProbe() {
-    if (probeState.kind !== 'awaiting') return;
-    const carryOver = {
-      unprobed: probeState.unprobed,
-      priorResults: probeState.rows
-        .filter((r) => r.status === 'ok' || r.status === 'failed')
-        .map((r) => ({ url: r.url, ok: r.status === 'ok', reason: r.reason ?? null })),
-      rows: probeState.rows,
-      backfills: probeState.backfills,
-    };
-    void streamProbe(probeState.enrichedDraft, probeState.attempt + 1, carryOver);
-  }
-
-  function onSaveAnyway() {
-    if (probeState.kind !== 'awaiting') return;
-    void commitSave(probeState.enrichedDraft, probeState.bypassableViolations);
-  }
-
-  function onCancelProbe() {
-    setProbeState({ kind: 'idle' });
+    if (!draftIntent || saveState.kind === 'saving' || streaming) return;
+    void commitSave(draftIntent);
   }
 
   return (
@@ -741,15 +434,14 @@ export function OnboardChat({ initialProfile, initialSlug }: { initialProfile?: 
               <Loader2 className="w-3.5 h-3.5 mt-0.5 shrink-0 text-amber-600" />
               <div className="flex-1">
                 <span className="text-amber-800 dark:text-amber-200">
-                  This turn ran out of time before every vendor was probed — any unfinished
-                  ones are parked in <code>sources_pending</code>.
+                  That turn ran long and was cut off before finishing.
                 </span>
                 <button
                   type="button"
-                  onClick={onKeepProbing}
+                  onClick={onContinue}
                   className="ml-2 underline font-medium text-amber-900 dark:text-amber-100 hover:no-underline"
                 >
-                  Keep probing the unfinished vendors
+                  Continue
                 </button>
               </div>
             </div>
@@ -792,7 +484,7 @@ export function OnboardChat({ initialProfile, initialSlug }: { initialProfile?: 
         </form>
       </section>
 
-      {/* Draft profile preview */}
+      {/* Draft profile preview + live Serper preview */}
       <aside className="mt-3 md:mt-0 flex flex-col min-h-0 bg-white dark:bg-gray-950 rounded-xl border border-gray-200 dark:border-gray-800 overflow-hidden">
         <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-800 flex items-center justify-between">
           <h2 className="text-sm font-semibold">Draft profile</h2>
@@ -810,6 +502,7 @@ export function OnboardChat({ initialProfile, initialSlug }: { initialProfile?: 
               The draft will appear here once the interview gets going.
             </div>
           )}
+          {serperPreview && <SerperPreviewPanel preview={serperPreview} />}
         </div>
         <div className="border-t border-gray-200 dark:border-gray-800 p-3 space-y-2 bg-gray-50 dark:bg-gray-900/50">
           {sessionUsage.turns > 0 && (
@@ -841,16 +534,14 @@ export function OnboardChat({ initialProfile, initialSlug }: { initialProfile?: 
                 <CheckCircle2 className="w-4 h-4 shrink-0" />
                 <span>
                   Saved <strong>{saveState.slug}</strong>.
-                  {saveState.probeStatus === 'pending'
-                    ? ' URL validation running in background…'
-                    : saveState.warnings.length === 0
-                      ? ' Opening the page…'
-                      : ''}
+                  {saveState.warnings.length === 0
+                    ? ' Opening the page…'
+                    : ''}
                 </span>
               </div>
               {saveState.warnings.length > 0 && (
                 <div className="text-[11px] text-amber-800 dark:text-amber-300 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-900/40 rounded-lg px-3 py-2 space-y-2">
-                  <div className="font-medium">Heads up — coverage could be better:</div>
+                  <div className="font-medium">Heads up:</div>
                   <ul className="list-disc ml-4 space-y-0.5">
                     {saveState.warnings.map((w, i) => (
                       <li key={i}>{w}</li>
@@ -877,312 +568,84 @@ export function OnboardChat({ initialProfile, initialSlug }: { initialProfile?: 
               !draftYaml ||
               saveState.kind === 'saving' ||
               saveState.kind === 'success' ||
-              streaming ||
-              probeState.kind === 'streaming'
+              streaming
             }
             className="w-full flex items-center justify-center gap-2 rounded-lg bg-blue-600 text-white text-sm font-medium px-4 py-2 disabled:bg-gray-300 disabled:dark:bg-gray-700 disabled:cursor-not-allowed hover:bg-blue-700 transition focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
-            {saveState.kind === 'saving' || probeState.kind === 'streaming' ? (
+            {saveState.kind === 'saving' ? (
               <Loader2 className="w-4 h-4 animate-spin" />
             ) : (
               <Save className="w-4 h-4" />
             )}
-            {saveState.kind === 'saving'
-              ? 'Committing…'
-              : probeState.kind === 'streaming'
-                ? 'Probing vendor URLs…'
-                : 'Save profile to repo'}
+            {saveState.kind === 'saving' ? 'Committing…' : 'Save profile to repo'}
           </button>
         </div>
       </aside>
-
-      {probeState.kind !== 'idle' && (
-        <ProbeModal
-          state={probeState}
-          onContinue={onContinueProbe}
-          onSaveAnyway={onSaveAnyway}
-          onCancel={onCancelProbe}
-        />
-      )}
     </div>
   );
 }
 
-// ADR-121: header text for the streaming/awaiting modal phases. Shows how
-// many URLs are done out of how many this attempt covers, so the user
-// never wonders whether the loop has bounds.
-function headerForStreaming(state: Extract<ProbeState, { kind: 'streaming' }>): string {
-  const done = state.rows.filter((r) => r.status === 'ok' || r.status === 'failed').length;
-  const total = state.plan?.continueUrls ?? state.rows.length;
-  if (total === 0) return `Probing… (attempt ${state.attempt})`;
-  return `Probing vendor URLs — ${done}/${total} done (attempt ${state.attempt})`;
-}
-
-function headerForAwaiting(state: Extract<ProbeState, { kind: 'awaiting' }>): string {
-  if (state.noProgress) {
-    return `Probe attempt ${state.attempt} — no progress; pick how to proceed`;
-  }
-  return `Probe attempt ${state.attempt} — choose how to proceed`;
-}
-
-// ADR-121: per-host roll-up. Renders one chip per host showing done/total at
-// a glance ("amazon.com 1/2 ✓, target.com 0/1 ⏳") so the user can see
-// which vendors are still pending without scanning the row list.
-function HostRollup({
-  rows,
-  plan,
-}: {
-  rows: UrlProbeRow[];
-  plan: PlanSummary | null;
-}) {
-  if (!plan || plan.byHost.length === 0) return null;
-  const finishedByHost = new Map<string, number>();
-  for (const r of rows) {
-    if (!r.host) continue;
-    if (r.status === 'ok' || r.status === 'failed') {
-      finishedByHost.set(r.host, (finishedByHost.get(r.host) ?? 0) + 1);
-    }
-  }
+// Phase 34: compact live Serper preview panel. Renders the one real Google
+// Shopping query the model fired so the user can confirm the target surfaces
+// before saving. Honest (ADR-001): every field is verbatim from Serper.
+function SerperPreviewPanel({ preview }: { preview: SerperPreviewState }) {
   return (
-    <div className="flex flex-wrap gap-1.5 text-[11px]">
-      {plan.byHost.map((h) => {
-        const done = finishedByHost.get(h.host) ?? 0;
-        const allDone = done >= h.count;
-        return (
-          <span
-            key={h.host}
-            className={`rounded-full px-2 py-0.5 border ${
-              allDone
-                ? 'bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-900/40 text-emerald-800 dark:text-emerald-300'
-                : 'bg-gray-50 dark:bg-gray-900 border-gray-200 dark:border-gray-800 text-gray-600 dark:text-gray-400'
-            }`}
-          >
-            {h.host} {done}/{h.count} {allDone ? '✓' : '⏳'}
-          </span>
-        );
-      })}
-    </div>
-  );
-}
-
-function ProbeModal({
-  state,
-  onContinue,
-  onSaveAnyway,
-  onCancel,
-}: {
-  state: ProbeState;
-  onContinue: () => void;
-  onSaveAnyway: () => void;
-  onCancel: () => void;
-}) {
-  if (state.kind === 'idle') return null;
-
-  const isStreaming = state.kind === 'streaming';
-  const isAwaiting = state.kind === 'awaiting';
-  const isError = state.kind === 'error';
-
-  return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-3"
-      role="dialog"
-      aria-modal="true"
-    >
-      <div className="bg-white dark:bg-gray-950 rounded-xl border border-gray-200 dark:border-gray-800 w-full max-w-2xl max-h-[85vh] flex flex-col overflow-hidden shadow-2xl">
-        <header className="px-4 py-3 border-b border-gray-200 dark:border-gray-800 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            {isStreaming && <Loader2 className="w-4 h-4 animate-spin text-blue-600" />}
-            {isAwaiting && <AlertCircle className="w-4 h-4 text-amber-600" />}
-            {isError && <AlertCircle className="w-4 h-4 text-red-600" />}
-            <h3 className="text-sm font-semibold">
-              {isStreaming && headerForStreaming(state)}
-              {isAwaiting && headerForAwaiting(state)}
-              {isError && 'Probe failed'}
-            </h3>
-          </div>
-          {!isStreaming && (
-            <button
-              type="button"
-              onClick={onCancel}
-              className="rounded-full p-1 hover:bg-gray-100 dark:hover:bg-gray-800"
-              aria-label="Close"
-            >
-              <X className="w-4 h-4 text-gray-500" />
-            </button>
-          )}
-        </header>
-
-        <div className="flex-1 overflow-y-auto p-4 space-y-3">
-          {isStreaming && (
-            <p className="text-xs text-gray-600 dark:text-gray-400">{state.phase}</p>
-          )}
-
-          {(isStreaming || isAwaiting) && (
-            <HostRollup rows={state.rows} plan={state.plan} />
-          )}
-
-          {(isStreaming || isAwaiting) && state.rows.length > 0 && (
-            <ul className="space-y-1.5">
-              {state.rows.map((row) => (
-                <li
-                  key={row.url}
-                  className="flex items-start gap-2 text-xs border border-gray-200 dark:border-gray-800 rounded-lg px-2.5 py-1.5"
-                >
-                  <span className="mt-0.5 w-3 h-3 shrink-0 flex items-center justify-center">
-                    {row.status === 'probing' && <Loader2 className="w-3 h-3 animate-spin text-blue-600" />}
-                    {row.status === 'ok' && <CheckCircle2 className="w-3 h-3 text-emerald-600" />}
-                    {row.status === 'failed' && <AlertCircle className="w-3 h-3 text-red-600" />}
-                    {row.status === 'deadline' && <AlertCircle className="w-3 h-3 text-amber-600" />}
-                    {row.status === 'queued' && <span className="w-2 h-2 rounded-full bg-gray-300 dark:bg-gray-700" />}
-                  </span>
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-1.5">
-                      <span className="font-medium truncate">{row.host ?? row.url}</span>
-                      {row.pageType === 'detail' && (
-                        <span className="text-[10px] px-1 py-0.5 rounded bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400">
-                          detail
-                        </span>
-                      )}
-                    </div>
-                    <div className="text-[11px] text-gray-500 dark:text-gray-400 truncate">{row.url}</div>
-                    {row.reason && (
-                      <div className="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5">{row.reason}</div>
-                    )}
-                  </div>
-                </li>
-              ))}
-            </ul>
-          )}
-
-          {(isStreaming || isAwaiting) && state.backfills.length > 0 && (
-            <div className="border-t border-gray-200 dark:border-gray-800 pt-3 space-y-1.5">
-              <div className="text-[11px] uppercase tracking-wide text-gray-500 font-medium">
-                Looking for product detail pages on hosts that only have a search URL
-              </div>
-              <div className="text-[10px] text-gray-400 dark:text-gray-500">
-                Capped at 3 candidates per host. Re-trying does not add more searches.
-              </div>
-              {state.backfills.map((b, i) => (
-                <div
-                  key={`${b.host}-${i}`}
-                  className="flex items-start gap-2 text-xs border border-gray-200 dark:border-gray-800 rounded-lg px-2.5 py-1.5"
-                >
-                  <span className="mt-0.5 w-3 h-3 shrink-0 flex items-center justify-center">
-                    {b.state === 'running' && <Loader2 className="w-3 h-3 animate-spin text-blue-600" />}
-                    {b.state === 'added' && <CheckCircle2 className="w-3 h-3 text-emerald-600" />}
-                    {b.state === 'failed' && <AlertCircle className="w-3 h-3 text-red-600" />}
-                    {b.state === 'skipped' && <AlertCircle className="w-3 h-3 text-gray-400" />}
-                  </span>
-                  <div className="min-w-0 flex-1">
-                    <div className="font-medium">{b.host}</div>
-                    {b.detail && (
-                      <div className="text-[11px] text-gray-500 dark:text-gray-400">{b.detail}</div>
-                    )}
-                    {b.urls.length > 0 && (
-                      <ul className="text-[11px] text-gray-500 dark:text-gray-400 truncate">
-                        {b.urls.map((u) => (
-                          <li key={u} className="truncate">+ {u}</li>
-                        ))}
-                      </ul>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-
-          {isAwaiting && state.validationErrors.length > 0 && (
-            <div className="border border-amber-200 dark:border-amber-900/40 bg-amber-50 dark:bg-amber-900/20 rounded-lg px-3 py-2 text-[11px] text-amber-800 dark:text-amber-300 space-y-1">
-              <div className="font-medium">
-                {state.bypassableViolations
-                  ? 'A couple of vendors need a direct product link before saving:'
-                  : 'These need to be fixed before saving:'}
-              </div>
-              <ul className="list-disc ml-4 space-y-0.5">
-                {state.validationErrors.slice(0, 6).map((e, i) => (
-                  <li key={i} className="break-words">{e}</li>
-                ))}
-              </ul>
-            </div>
-          )}
-
-          {isAwaiting && state.unprobed.length > 0 && (
-            <div className="text-[11px] text-gray-500 dark:text-gray-400">
-              {state.unprobed.length} URL(s) didn&apos;t finish probing within the budget.
-              {state.noProgress && (
-                <>
-                  {' '}
-                  <span className="text-amber-700 dark:text-amber-400">
-                    This attempt made no progress on any of them — likely a slow or
-                    bot-walled vendor that won&apos;t finish within the per-attempt budget.
-                    Save what you have; the runtime will re-fetch on the next scheduled run.
-                  </span>
-                </>
-              )}
-            </div>
-          )}
-
-          {isError && (
-            <div className="text-xs text-red-700 dark:text-red-400 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-900/40 rounded-lg px-3 py-2">
-              {state.message}
-            </div>
-          )}
+    <div className="border-t border-gray-200 dark:border-gray-800">
+      <div className="px-3 sm:px-4 pt-3 pb-2 flex items-center gap-2">
+        <Search className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+        <div className="min-w-0">
+          <div className="text-xs font-semibold">Live preview · Google Shopping</div>
+          <div className="text-[11px] text-gray-500 truncate">“{preview.query}”</div>
         </div>
-
-        {isAwaiting && (
-          <footer className="border-t border-gray-200 dark:border-gray-800 p-3 flex flex-wrap gap-2 justify-end">
-            <button
-              type="button"
-              onClick={onCancel}
-              className="rounded-lg border border-gray-300 dark:border-gray-700 px-3 py-1.5 text-xs hover:bg-gray-50 dark:hover:bg-gray-900"
-            >
-              Cancel
-            </button>
-            {/* ADR-121: hide Continue when the last pass made zero progress.
-                The vendors that timed out will time out again next attempt;
-                offering an unbounded Continue created the "would it last
-                forever?" trap reported in the live test. */}
-            {state.unprobed.length > 0 && !state.noProgress && (
-              <button
-                type="button"
-                onClick={onContinue}
-                className="rounded-lg bg-blue-600 text-white px-3 py-1.5 text-xs hover:bg-blue-700"
-              >
-                Continue probing
-              </button>
-            )}
-            {(state.bypassableViolations || state.validationErrors.length === 0) && (
-              <button
-                type="button"
-                onClick={onSaveAnyway}
-                className={`rounded-lg text-white px-3 py-1.5 text-xs ${
-                  state.noProgress
-                    ? 'bg-blue-600 hover:bg-blue-700'
-                    : 'bg-amber-600 hover:bg-amber-700'
-                }`}
-              >
-                {state.noProgress
-                  ? 'Stop and save what we have'
-                  : state.validationErrors.length > 0
-                    ? 'Save and proceed anyway'
-                    : 'Save now'}
-              </button>
-            )}
-          </footer>
-        )}
-
-        {isError && (
-          <footer className="border-t border-gray-200 dark:border-gray-800 p-3 flex justify-end">
-            <button
-              type="button"
-              onClick={onCancel}
-              className="rounded-lg border border-gray-300 dark:border-gray-700 px-3 py-1.5 text-xs hover:bg-gray-50 dark:hover:bg-gray-900"
-            >
-              Close
-            </button>
-          </footer>
-        )}
       </div>
+      {!preview.ok ? (
+        <div className="mx-3 sm:mx-4 mb-3 flex items-start gap-2 text-[11px] text-amber-800 dark:text-amber-300 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-900/40 rounded-lg px-3 py-2">
+          <AlertCircle className="w-3.5 h-3.5 mt-0.5 shrink-0" />
+          <span>Preview couldn&apos;t run: {preview.error ?? 'unknown error'}.</span>
+        </div>
+      ) : preview.count === 0 ? (
+        <div className="mx-3 sm:mx-4 mb-3 flex items-start gap-2 text-[11px] text-amber-800 dark:text-amber-300 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-900/40 rounded-lg px-3 py-2">
+          <AlertCircle className="w-3.5 h-3.5 mt-0.5 shrink-0" />
+          <span>No offers found for this query — it may be too specific or mis-scoped.</span>
+        </div>
+      ) : (
+        <>
+          <div className="px-3 sm:px-4 pb-1 text-[11px] text-gray-500">
+            {preview.count} result{preview.count === 1 ? '' : 's'} (showing top {preview.items.length})
+          </div>
+          <ul className="px-3 sm:px-4 pb-3 space-y-1.5">
+            {preview.items.map((it, i) => (
+              <li
+                key={it.productId ?? it.link ?? i}
+                className="text-xs border border-gray-200 dark:border-gray-800 rounded-lg px-2.5 py-1.5"
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <span className="min-w-0 flex-1 font-medium text-gray-800 dark:text-gray-200 line-clamp-2">
+                    {it.title}
+                  </span>
+                  {it.link && (
+                    <a
+                      href={it.link}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="shrink-0 text-gray-400 hover:text-blue-600"
+                      aria-label="Open listing"
+                    >
+                      <ExternalLink className="w-3.5 h-3.5" />
+                    </a>
+                  )}
+                </div>
+                <div className="mt-0.5 flex items-center gap-2 text-[11px] text-gray-500 dark:text-gray-400">
+                  <span className="truncate">{it.merchant ?? 'unknown merchant'}</span>
+                  <span className="font-semibold text-gray-700 dark:text-gray-300 ml-auto shrink-0">
+                    {it.priceText ?? (it.price != null ? `$${it.price}` : '—')}
+                  </span>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
     </div>
   );
 }

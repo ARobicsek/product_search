@@ -7,6 +7,7 @@ import { readAlertsFromYaml } from '@/lib/alerts';
 import { probeAndUpdateProfile } from '@/lib/onboard/probe-and-update';
 
 import { validateProfileDraft } from '@/lib/onboard/validation';
+import { validateProfileDraftV2 } from '@/lib/onboard/validation-v2';
 
 export const runtime = 'nodejs';
 export const maxDuration = 60;
@@ -63,119 +64,118 @@ export async function POST(request: NextRequest) {
   // path stays for any in-flight client that hasn't reloaded since the
   // chat route was updated.
   let yamlText: string | null = null;
-  // Keep a reference to the raw draft so we can pass it to the background
-  // probe step (only relevant for the `draft` path).
+  // Set only for the legacy v1 draft path, which schedules a background probe
+  // pass. v2 drafts NEVER probe (the probe apparatus retired in Phase 34), so
+  // this stays null for them and probeStatus comes back 'skipped'.
   let draftForProbe: Record<string, unknown> | null = null;
+  let slug: string | null = null;
   // ADR-123: `message` stays for back-compat; `userMessage` is the plain-English
   // text the save UI actually renders.
   const warnings: Array<{ host?: string; message: string; userMessage: string }> = [];
+
+  const originalSlug =
+    typeof body.originalSlug === 'string' && SLUG_RE.test(body.originalSlug)
+      ? body.originalSlug
+      : null;
 
   if (body.draft !== undefined && body.draft !== null) {
     if (typeof body.draft !== 'object' || Array.isArray(body.draft)) {
       return bad('draft must be a JSON object');
     }
-    try {
-      const draft = body.draft as Record<string, unknown>;
-      // Onboarder-edit-strips-alerts fix (Phase 17 Part D): the onboarder
-      // prompt is intentionally unaware of `alerts` — they're user-driven
-      // via the schedule editor. Without this splice, editing a profile
-      // through /onboard?edit=<slug> would silently drop every alert the
-      // user had configured. We re-attach the existing alerts from the
-      // on-disk profile whenever the draft omits the key.
-      if (
-        body.originalSlug &&
-        SLUG_RE.test(body.originalSlug) &&
-        draft.alerts === undefined
-      ) {
-        const existing = await getProductProfileContent(body.originalSlug).catch(
-          () => null,
-        );
-        if (existing) {
-          const existingAlerts = readAlertsFromYaml(existing);
-          if (existingAlerts.length > 0) {
-            draft.alerts = existingAlerts;
-          }
+    const draft = body.draft as Record<string, unknown>;
+
+    // Onboarder-edit-strips-alerts fix (Phase 17 Part D): the onboarder is
+    // intentionally unaware of `alerts` — they're user-driven via the schedule
+    // editor. Without this re-attach, editing a profile through
+    // /onboard?edit=<slug> would silently drop every alert the user configured.
+    if (originalSlug && draft.alerts === undefined) {
+      const existing = await getProductProfileContent(originalSlug).catch(() => null);
+      if (existing) {
+        const existingAlerts = readAlertsFromYaml(existing);
+        if (existingAlerts.length > 0) {
+          draft.alerts = existingAlerts;
         }
       }
-      // Optimistic save: render YAML directly from the draft WITHOUT
-      // running probes. Probes will run asynchronously after the response.
-      draftForProbe = { ...draft };
-      
+    }
+
+    if (draft.schema_version === 2) {
+      // Phase 34 (ADR-137): v2 "query + spec" draft. Validate + render via the
+      // v2 gate; no probing — the whole probe/backfill apparatus retired with
+      // self-scraping (REBUILD_PLAN §6).
+      const r = validateProfileDraftV2(draft, originalSlug);
+      warnings.push(
+        ...r.warnings.map((message, i) => ({
+          message,
+          userMessage: r.userWarnings[i] ?? message,
+        })),
+      );
+      if (!r.ok || !r.yamlText || !r.slug) {
+        return bad(r.errors[0] || 'profile validation failed', 422, {
+          details: r.errors.slice(1),
+        });
+      }
+      yamlText = r.yamlText;
+      slug = r.slug;
+    } else {
+      // Legacy v1 draft path — kept for one release while clients reload.
       const state =
         body.state && typeof body.state === 'object' && !Array.isArray(body.state)
           ? (body.state as Record<string, unknown>)
           : null;
-      const originalSlug = (body.originalSlug && SLUG_RE.test(body.originalSlug)) ? body.originalSlug : null;
       const bypassForceDetailBackup = body.bypassForceDetailBackup === true;
-
-      const validationRes = validateProfileDraft(draft, state, originalSlug, {
-        bypassForceDetailBackup,
-      });
-      
+      let validationRes;
+      try {
+        validationRes = validateProfileDraft(draft, state, originalSlug, {
+          bypassForceDetailBackup,
+        });
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : 'render-yaml failed';
+        return bad(`failed to render YAML from draft: ${msg}`, 422);
+      }
       warnings.push(
         ...validationRes.warnings.map((message, i) => ({
           message,
           userMessage: validationRes.userWarnings[i] ?? message,
         })),
       );
-      
-      if (!validationRes.ok || !validationRes.yamlText) {
+      if (!validationRes.ok || !validationRes.yamlText || !validationRes.slug) {
         return bad(validationRes.errors[0] || 'profile validation failed', 422, {
           details: validationRes.errors.slice(1),
         });
       }
       yamlText = validationRes.yamlText;
-      
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : 'render-yaml failed';
-      return bad(`failed to render YAML from draft: ${msg}`, 422);
+      slug = validationRes.slug;
+      // Optimistic save: probes run asynchronously after the response.
+      draftForProbe = { ...draft };
     }
   } else if (typeof body.yaml === 'string' && body.yaml.trim().length > 0) {
-    // Legacy path: no probe gating — older clients send pre-rendered YAML
-    // and we accept it as-is to avoid breaking in-flight saves.
+    // Legacy path: older clients send pre-rendered YAML; accept it as-is.
     yamlText = body.yaml;
-  } else {
-    return bad('either draft (object) or yaml (non-empty string) is required');
-  }
-
-  let slug: string;
-
-  if (body.draft !== undefined && body.draft !== null) {
-    // Already validated via validateProfileDraft which checks slug
-    const state = body.state && typeof body.state === 'object' && !Array.isArray(body.state) ? (body.state as Record<string, unknown>) : null;
-    const originalSlug = (body.originalSlug && SLUG_RE.test(body.originalSlug)) ? body.originalSlug : null;
-    const bypassForceDetailBackup = body.bypassForceDetailBackup === true;
-    const validationRes = validateProfileDraft(
-      draftForProbe as Record<string, unknown>,
-      state,
-      originalSlug,
-      { bypassForceDetailBackup },
-    );
-    slug = validationRes.slug!;
-  } else {
-    if (body.originalSlug && SLUG_RE.test(body.originalSlug)) {
-      // Edit mode: aggressively pin the slug to whatever the URL said, even if
-      // the LLM hallucinated a new one in the draft.
-      yamlText = yamlText!.replace(/^\s*slug\s*:\s*.*$/m, `slug: "${body.originalSlug}"`);
+    if (originalSlug) {
+      // Edit mode: pin the slug to whatever the URL said, even if the LLM
+      // hallucinated a new one in the draft.
+      yamlText = yamlText.replace(/^\s*slug\s*:\s*.*$/m, `slug: "${originalSlug}"`);
     }
-
     let parsed;
     try {
-      parsed = parseAndValidateProfileYaml(yamlText!);
+      parsed = parseAndValidateProfileYaml(yamlText);
     } catch (err) {
       if (err instanceof ProfileValidationError) {
-        return bad('profile failed schema validation', 422, {
-          details: err.errors,
-        });
+        return bad('profile failed schema validation', 422, { details: err.errors });
       }
       const msg = err instanceof Error ? err.message : 'profile validation failed';
       return bad(msg, 422);
     }
-
     slug = parsed.slug;
     if (!SLUG_RE.test(slug)) {
       return bad(`slug ${JSON.stringify(slug)} fails ${SLUG_RE.source}`, 422);
     }
+  } else {
+    return bad('either draft (object) or yaml (non-empty string) is required');
+  }
+
+  if (!yamlText || !slug) {
+    return bad('internal: failed to resolve slug/yaml from request', 500);
   }
 
   let result;

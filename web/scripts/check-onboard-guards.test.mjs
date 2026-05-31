@@ -464,34 +464,12 @@ test('ADR-121: probe route emits a plan_summary event with per-host counts', () 
   );
 });
 
-test('ADR-121: client hides "Continue probing" when noProgress is true', () => {
-  // The footer button is the loop-exit lever. If noProgress fires, plain
-  // Continue is hidden and the user is steered to "Stop and save what we
-  // have." Without this guard the loop is unbounded for slow vendors.
-  assert.ok(
-    /state\.unprobed\.length\s*>\s*0\s*&&\s*!state\.noProgress/.test(onboardChatSrc),
-    'OnboardChat must gate the Continue button on !state.noProgress',
-  );
-  assert.ok(
-    /Stop and save what we have/.test(onboardChatSrc),
-    'OnboardChat must offer the explicit "Stop and save what we have" CTA on noProgress',
-  );
-});
-
-test('ADR-121: client de-dups backfill rows by host across attempts', () => {
-  // The accumulation bug came from calling backfills.push on every
-  // backfill_start / backfill_skip event. The new shape uses an upsert
-  // keyed by host so a re-skipped vendor shows ONE row, not one-per-attempt.
-  assert.ok(
-    /upsertBackfill\s*\(/.test(onboardChatSrc),
-    'OnboardChat must use a host-keyed upsertBackfill helper for backfill events',
-  );
-  // The push-on-backfill-skip pattern is the bug; make sure it does not return.
-  assert.ok(
-    !/backfills\.push\(\s*\{\s*host:\s*p\.host,\s*state:\s*'skipped'/.test(onboardChatSrc),
-    'OnboardChat must not append a fresh backfill row on backfill_skip — use upsertBackfill',
-  );
-});
+// ADR-121's two client-side guards (Continue-probing gating + host-keyed
+// backfill de-dup) were RETIRED in Phase 34 (ADR-137): the save-time probe
+// modal they protected was removed from OnboardChat.tsx when the v2 onboarder
+// replaced the whole probe/backfill apparatus with the single live Serper
+// preview (REBUILD_PLAN §6). The probe route itself is unchanged and its
+// server-side ADR-121 guards (plan_summary / noProgress) still run above.
 
 test('ADR-114: prompt tells the LLM to emit blocks BEFORE tool_use in tool-using turns', () => {
   // Anthropic stops the assistant message at the first tool_use block, so a
@@ -634,14 +612,18 @@ const chatRouteSrc = readFileSyncForAdr115(
   'utf8',
 );
 
-test('ADR-122: chat route streams probe verdicts + a turn_truncated signal', () => {
-  assert.ok(
-    /type:\s*'probe_result'/.test(chatRouteSrc),
-    'chat route must stream probe_result so the save probe can reuse interview verdicts',
-  );
+test('ADR-122/Phase-34: chat route emits a turn_truncated signal on force-finalize', () => {
+  // The probe_result verdict stream was retired in Phase 34 (ADR-137) — the v2
+  // onboarder has no save-time probe to reuse interview verdicts. The
+  // turn_truncated signal survives: it drives the client's "Continue"
+  // affordance when a turn force-finalizes against the 50s wall-clock budget.
   assert.ok(
     /type:\s*'turn_truncated'/.test(chatRouteSrc),
-    'chat route must emit turn_truncated when a turn force-finalizes mid-probe',
+    'chat route must emit turn_truncated when a turn force-finalizes',
+  );
+  assert.ok(
+    !/type:\s*'probe_result'/.test(chatRouteSrc),
+    'the retired probe_result stream must be gone from the v2 chat route',
   );
 });
 
@@ -679,26 +661,21 @@ test('ADR-122: budget-exhausted wording explains the slowness and points to Cont
   );
 });
 
-test('ADR-122: onSave reuses interview probes via chatProbesRef', () => {
-  assert.ok(
-    /chatProbesRef/.test(onboardChatSrc),
-    'OnboardChat must track interview probe verdicts in chatProbesRef',
-  );
-  assert.ok(
-    /chatProbesRef\.current\.entries\(\)/.test(onboardChatSrc)
-      && /priorResults\.length\s*\?\s*\{\s*priorResults\s*\}/.test(onboardChatSrc),
-    'onSave must pass chatProbesRef verdicts as priorResults',
-  );
-});
+// ADR-122's "onSave reuses interview probes via chatProbesRef" guard was
+// RETIRED in Phase 34 (ADR-137): the v2 onboarder saves directly (no save-time
+// probe pass), so there are no interview verdicts to reuse.
 
-test('ADR-122: client offers a deterministic keep-probing affordance on turn_truncated', () => {
+test('ADR-122/Phase-34: client offers a deterministic continue affordance on turn_truncated', () => {
+  // The keep-probing affordance became a generic "Continue" in the v2 onboarder
+  // (no probing) — but the deterministic turn_truncated → client-affordance
+  // contract survives so a force-finalized turn never strands the user.
   assert.ok(
     /type === 'turn_truncated'|=== 'turn_truncated'/.test(onboardChatSrc),
     'OnboardChat must handle the turn_truncated event',
   );
   assert.ok(
-    /onKeepProbing/.test(onboardChatSrc) && /Keep probing the unfinished vendors/.test(onboardChatSrc),
-    'OnboardChat must render a deterministic "keep probing" affordance',
+    /onContinue/.test(onboardChatSrc) && /turnTruncated/.test(onboardChatSrc),
+    'OnboardChat must render a deterministic continue affordance on turn_truncated',
   );
 });
 
@@ -794,11 +771,9 @@ test('ADR-123: probe route forwards userErrors/userWarnings to the client', () =
   );
 });
 
-test('ADR-123: client renders userErrors and uses a button to open the saved product', () => {
-  assert.ok(
-    /validation\.userErrors\s*\?\?\s*validation\.errors/.test(onboardChatSrc),
-    'modal must display userErrors (falling back to errors)',
-  );
+test('ADR-123: save-success panel uses plain-English warnings + a button to open the product', () => {
+  // The probe-modal userErrors rendering was retired in Phase 34 (ADR-137)
+  // along with the modal. The save-success panel survives unchanged.
   assert.ok(
     /w\.userMessage\s*\?\?\s*w\.message/.test(onboardChatSrc),
     'save success panel must display warning userMessage',
