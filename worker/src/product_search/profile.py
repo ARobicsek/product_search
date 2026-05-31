@@ -266,10 +266,18 @@ class VendorSeenAlert(BaseModel):
     host: str = Field(min_length=1)
 
 
+class NewVendorCarriesAlert(BaseModel):
+    """Fire when ANY new host appears in today's survivors that wasn't in
+    yesterday's. Host-agnostic unlike ``VendorSeenAlert`` which tracks a
+    specific host. REBUILD_PLAN §5 step 7/9."""
+
+    kind: Literal["new_vendor_carries"]
+
+
 # Discriminated union of all alert rule kinds. Add new kinds here, give them
 # a unique ``kind`` literal, and update the TS mirror in web/lib/onboard/schema.ts.
 AlertRule = Annotated[
-    PriceBelowAlert | VendorSeenAlert,
+    PriceBelowAlert | VendorSeenAlert | NewVendorCarriesAlert,
     Field(discriminator="kind"),
 ]
 

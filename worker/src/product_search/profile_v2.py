@@ -25,6 +25,7 @@ import yaml
 from pydantic import BaseModel, Field, field_validator
 
 from product_search.profile import (
+    AlertRule,
     Schedule,
     Target,
     _resolve_profile_path,  # reused: same env-override + repo-root resolution
@@ -151,9 +152,9 @@ class ProfileV2(BaseModel):
     display: DisplaySpec = Field(default_factory=DisplaySpec)
 
     schedule: Schedule | None = None  # reused from v1
-    # ``alerts`` stays permissive — Phase 35 types the rule set (incl. the new
-    # ``new_vendor_carries`` rule). The Phase 17 price rules carry over.
-    alerts: list[dict[str, Any]] = Field(default_factory=list)
+    # Alert rules — typed discriminated union, same as v1 (Phase 17).
+    # Includes ``price_below``, ``vendor_seen``, and ``new_vendor_carries``.
+    alerts: list[AlertRule] = Field(default_factory=list)
 
     @field_validator("queries")
     @classmethod

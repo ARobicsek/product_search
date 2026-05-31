@@ -45,3 +45,9 @@ display:
   max_listings: 20
   per_vendor_cap: 3
   attrs: ["price", "condition", "seller", "seller_rating"]
+
+alerts:
+  - kind: price_below
+    threshold_usd: 550
+    mode: is_below
+  - kind: new_vendor_carries

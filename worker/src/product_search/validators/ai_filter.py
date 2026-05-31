@@ -171,7 +171,11 @@ _AI_FILTER_BATCH_SIZE = 50
 _AI_FILTER_MAX_TOKENS = 16384
 
 
-def ai_filter(listings: list[Listing], profile: Profile) -> list[Listing]:
+def ai_filter(
+    listings: list[Listing],
+    profile: Profile,
+    display_attrs: list[str] | None = None,
+) -> list[Listing]:
     """Filter listings using an LLM to evaluate strict rules.
 
     Asks the model to return a verdict (pass/fail) and a short reason for every
@@ -205,7 +209,9 @@ def ai_filter(listings: list[Listing], profile: Profile) -> list[Listing]:
     relevance_rule = {
         "rule": "relevance_check",
         "description": (
-            "Must be the actual requested product, not an accessory or alternative."
+            "Must be the actual requested product, not an accessory or alternative. "
+            "Reject wholesale, lot, or bulk listings (e.g. '25+ Copies', 'Lot of 10') "
+            "unless the target specifically asks for multiple units."
         ),
     }
     rules_json = json.dumps([relevance_rule] + rules_full, indent=2)
@@ -229,6 +235,7 @@ How each rule type works (only the ones present above apply):
   base model (e.g. if 'Dyson V15 Detect' is requested, pass 'Dyson V15 Detect Extra', 'Dyson V15 Detect
   Absolute', 'Dyson V15 Detect Complete', or color variants like 'Yellow/Nickel'),
   provided they contain the requested base model name.
+- condition_in {{values:[...]}}: pass if the title/URL do not indicate a condition, but reject if the title clearly indicates a condition not in values (e.g., 'used', 'refurbished', 'renewed' when values only allows 'new').
 - form_factor_in {{values:[...]}}: pass if attrs.form_factor is in values, OR if neither
   attrs.form_factor nor the title indicates a specific form factor. Reject only when
   attrs.form_factor is set to something not in values, OR the title clearly contains a
@@ -268,6 +275,9 @@ Decision rules:
 - For each failure, name the specific rule and quote the offending substring from
   attrs/title/url so the human reviewer can verify.
 
+The profile expects the following display attributes: {display_attrs or []}
+If any of these attributes can be clearly extracted from the title (e.g., color, storage capacity), add them to a new "extracted_features" dictionary in your evaluation object for that listing. For example: "extracted_features": {{"color": "black"}}.
+
 You will receive a JSON list of products. Output a JSON object with a single key
 "evaluations" containing an array with one entry PER PRODUCT, in input order. Each
 entry must have these exact keys:
@@ -275,6 +285,7 @@ entry must have these exact keys:
   - "pass": boolean
   - "reason": short string (1 sentence) — for failures, name the specific rule that
     failed and quote the offending word from attrs/title/url.
+  - "extracted_features": (optional) object, only if display attributes were requested and found.
 
 Every input product must appear exactly once in "evaluations". Do not omit any.
 IMPORTANT: Do NOT output any chain-of-thought or reasoning text outside the JSON.
@@ -454,6 +465,7 @@ ONLY output the JSON object.
             evaluations_by_index[global_idx] = {
                 "pass": bool(ev.get("pass")),
                 "reason": str(ev.get("reason", "")).strip(),
+                "extracted_features": ev.get("extracted_features", {}),
             }
 
     LAST_RUN_RAW_RESPONSE = "\n\n--- batch boundary ---\n\n".join(raw_responses)
@@ -502,6 +514,13 @@ ONLY output the JSON object.
             "source_url": source_url,
         })
         if passed:
+            extracted = verdict.get("extracted_features", {})
+            if extracted and isinstance(extracted, dict):
+                if lst.attrs is None:
+                    lst.attrs = {}
+                for k, v in extracted.items():
+                    if v and str(v).strip():
+                        lst.attrs[k] = str(v).strip()
             passed_listings.append(lst)
 
     _write_filter_log(profile.slug, log_entries)

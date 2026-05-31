@@ -138,15 +138,41 @@ def build_v2_markdown(payload: dict[str, Any]) -> str:
             f"{payload['recall_count']} found). Cheapest first."
         )
         lines.append("")
-        lines.append("| # | Price | Title | Vendor | Condition |")
-        lines.append("|---|-------|-------|--------|-----------|")
+        columns = payload.get("columns", ["price", "title", "seller", "condition"])
+        header_cols = ["#"]
+        for c in columns:
+            if c == "price" or c == "price_usd": header_cols.append("Price")
+            elif c == "title": header_cols.append("Title")
+            elif c == "seller" or c == "seller_name": header_cols.append("Vendor")
+            elif c == "condition": header_cols.append("Condition")
+            elif c == "seller_rating" or c == "seller_rating_pct": header_cols.append("Rating")
+            else: header_cols.append(c.replace("_", " ").title())
+
+        lines.append("| " + " | ".join(header_cols) + " |")
+        lines.append("|" + "|".join(["---"] * len(header_cols)) + "|")
         for lst in listings:
-            price = lst["price_usd"]
-            price_s = f"${price:,.2f}" if price else "—"
-            title = str(lst["title"]).replace("|", "\\|")[:80]
-            vendor = str(lst["seller_name"] or "—").replace("|", "\\|")
-            cond = str(lst["condition"] or "—")
-            lines.append(f"| {lst['rank']} | {price_s} | {title} | {vendor} | {cond} |")
+            row = [str(lst.get("rank", ""))]
+            for c in columns:
+                if c == "price" or c == "price_usd":
+                    price = lst.get("price_usd")
+                    row.append(f"${price:,.2f}" if price else "—")
+                elif c == "title":
+                    title = str(lst.get("title", "")).replace("|", "\\|")[:80]
+                    suspicious = "🚨 SUSPICIOUS: " if "price_anomaly_low" in lst.get("flags", []) else ""
+                    url = lst.get("url", "")
+                    title_link = f"[{title}]({url})" if url else title
+                    row.append(f"{suspicious}{title_link}")
+                elif c == "seller" or c == "seller_name":
+                    row.append(str(lst.get("seller_name") or "—").replace("|", "\\|"))
+                elif c == "condition":
+                    row.append(str(lst.get("condition") or "—"))
+                elif c == "seller_rating" or c == "seller_rating_pct":
+                    rating = lst.get("seller_rating_pct")
+                    row.append(f"{rating}%" if rating is not None else "—")
+                else:
+                    val = lst.get("attrs", {}).get(c)
+                    row.append(str(val or "—").replace("|", "\\|"))
+            lines.append("| " + " | ".join(row) + " |")
         if payload["overflow"]:
             lines.append("")
             for vendor, n in payload["overflow"].items():

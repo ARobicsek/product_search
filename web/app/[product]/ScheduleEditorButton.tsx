@@ -48,7 +48,8 @@ type AlertDraft =
       mode: PriceBelowMode;
       price_basis: PriceBasis;
     }
-  | { kind: 'vendor_seen'; host: string };
+  | { kind: 'vendor_seen'; host: string }
+  | { kind: 'new_vendor_carries' };
 
 function ruleToDraft(rule: AlertRule): AlertDraft {
   if (rule.kind === 'price_below') {
@@ -61,6 +62,9 @@ function ruleToDraft(rule: AlertRule): AlertDraft {
       mode: rule.mode ?? 'drops_below',
       price_basis: rule.price_basis ?? 'unit',
     };
+  }
+  if (rule.kind === 'new_vendor_carries') {
+    return { kind: 'new_vendor_carries' };
   }
   return { kind: 'vendor_seen', host: rule.host };
 }
@@ -77,6 +81,10 @@ function draftToRule(draft: AlertDraft): { rule: AlertRule | null; error: string
     rule.price_basis = draft.price_basis;
     const err = validateAlertRule(rule);
     return err ? { rule: null, error: err } : { rule, error: null };
+  }
+  if (draft.kind === 'new_vendor_carries') {
+    const rule: AlertRule = { kind: 'new_vendor_carries' };
+    return { rule, error: null };
   }
   const host = draft.host.trim().toLowerCase().replace(/^www\./, '');
   const rule: AlertRule = { kind: 'vendor_seen', host };
@@ -733,6 +741,8 @@ function AlertForm({
                 mode: 'is_below',
                 price_basis: 'unit',
               });
+            } else if (kind === 'new_vendor_carries') {
+              onChange({ kind: 'new_vendor_carries' });
             } else {
               onChange({ kind: 'vendor_seen', host: '' });
             }
@@ -741,6 +751,7 @@ function AlertForm({
         >
           <option value="price_below">Price is below threshold</option>
           <option value="vendor_seen">Vendor surfaces a listing</option>
+          <option value="new_vendor_carries">Any new vendor carries this product</option>
         </select>
       </div>
 
@@ -828,7 +839,7 @@ function AlertForm({
             </select>
           </div>
         </>
-      ) : (
+      ) : draft.kind === 'vendor_seen' ? (
         <div className="flex items-center gap-2">
           <label className="text-[11px] text-gray-700 dark:text-gray-300 shrink-0 w-20">Host</label>
           <input
@@ -841,6 +852,10 @@ function AlertForm({
             className="flex-1 text-xs px-2 py-1 border border-gray-200 dark:border-gray-700 rounded bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100"
           />
         </div>
+      ) : (
+        <p className="text-[10px] text-gray-500 dark:text-gray-400 leading-snug">
+          Fires whenever a vendor that wasn&apos;t in the previous run&apos;s results starts carrying this product. No configuration needed.
+        </p>
       )}
 
       {error && (

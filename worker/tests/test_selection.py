@@ -59,17 +59,19 @@ def test_cheapest_first_with_cap_and_truncation() -> None:
     assert result.hidden_anomalies == 0
 
 
-def test_price_anomaly_excluded_from_display() -> None:
+def test_price_anomaly_sequestered_to_bottom() -> None:
     listings = [
         _listing(599.0, "B&H"),
         _listing(610.0, "Walmart"),
         _listing(67.2, "Scam", flags=[FLAG_PRICE_ANOMALY_LOW]),
     ]
     result = select_for_display(listings, max_listings=10, per_vendor_cap=3)
-    assert result.hidden_anomalies == 1
-    assert all(lst.price_usd != 67.2 for lst in result.displayed)
+    assert result.hidden_anomalies == 0
     # The anomaly never ranks #1.
     assert result.displayed[0].price_usd == 599.0
+    # The anomaly is sequestered to the bottom.
+    assert result.displayed[-1].price_usd == 67.2
+    assert result.displayed[-1].seller_name == "Scam"
 
 
 def test_unpriced_sorts_last() -> None:

@@ -41,3 +41,13 @@ display:
     - condition
     - seller
     - seller_rating
+
+alerts:
+  - kind: price_below
+    threshold_usd: 120
+    mode: is_below
+    price_basis: unit
+
+schedule:
+  cron: "0 * * * *"
+  timezone: UTC

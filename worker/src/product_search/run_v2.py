@@ -10,13 +10,8 @@ It ties together the Phase-31 recall + the Phase-32 deterministic edges:
 
 The pure core (``run_v2_pipeline``) does no I/O and takes the recall listings +
 an injectable ``ai_filter_fn``, so the whole pipeline is unit-testable without
-the network or an LLM. The ``run_v2`` wrapper adds recall, persistence, and
-report writing.
-
-Recall dispatches every enabled source (Serper always; eBay when
-``sources.ebay.enabled``) and unions + de-dups the results; each source fails
-independently (a per-source flag feeds the honest run-outcome, never a silent
-drop). Alerts (``new_vendor_carries``) remain a Phase 35 concern.
+the network or an LLM. The ``run_v2`` wrapper adds recall, persistence, alerts
+evaluation, push notification, and report writing.
 """
 
 from __future__ import annotations
@@ -25,6 +20,7 @@ import sys
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import UTC, date, datetime
+from pathlib import Path
 from typing import Any
 
 from product_search.display_v2 import resolve_columns
@@ -44,8 +40,8 @@ from product_search.validators.price_sanity import (
     apply_ship_from_gate,
 )
 
-# An ai_filter-shaped callable: (listings, v1-filter-Profile) -> survivors.
-AiFilterFn = Callable[[list[Listing], Any], list[Listing]]
+# An ai_filter-shaped callable: (listings, v1-filter-Profile, display_attrs) -> survivors.
+AiFilterFn = Callable[..., list[Listing]]
 RecallFn = Callable[[ProfileV2], list[Listing]]
 
 
@@ -100,7 +96,7 @@ def run_v2_pipeline(
     ]
 
     # 4. LLM relevance + spec filter (Haiku-4.5 @ temp=0, ADR-132).
-    survivors = ai_filter_fn(det_passed, filter_profile)
+    survivors = ai_filter_fn(det_passed, filter_profile, profile.display.attrs)
 
     # 5. Price-anomaly flags over the matched survivors (ADR-131 P1).
     annotate_price_anomalies(survivors)
@@ -272,18 +268,53 @@ def run_v2(
     snapshot_date: date = datetime.now(tz=UTC).date()
 
     # --- Persist the FULL survivor set to history (REBUILD_PLAN §5.6). --------
+    csv_path: Path | None = None
     if not no_store and result.survivors:
-        _persist(slug, result.survivors)
+        csv_path = _persist(slug, result.survivors)
+
+    # --- Diff + Alerts + Push (Phase 35, REBUILD_PLAN §5 steps 7/9) --------
+    alerts_md = ""
+    if profile.alerts and csv_path is not None:
+        from product_search.alerts import (
+            evaluate_alerts,
+            load_alerts_state,
+            load_previous_run,
+            render_audit_panel,
+            save_alerts_state,
+        )
+        from product_search.notify import notify_material_change
+
+        previous_listings = load_previous_run(slug, exclude=csv_path)
+        alerts_state = load_alerts_state(slug)
+        fired = evaluate_alerts(
+            profile.alerts,
+            result.survivors,
+            previous_listings,
+            alerts_state,
+            display_name=profile.display_name,
+        )
+        save_alerts_state(slug, alerts_state)
+        outcomes: list[bool] = []
+        for fa in fired:
+            ok = notify_material_change(slug, fa.headline)
+            outcomes.append(ok)
+            print(
+                f"Alert fired ({fa.rule.kind}): {fa.headline} "
+                f"(notify={'ok' if ok else 'failed'})",
+                file=sys.stderr,
+            )
+        alerts_md = render_audit_panel(fired, outcomes)
 
     # --- Report sidecar (JSON source of truth) + markdown fallback. ----------
     if not no_report:
-        _write_report(slug, profile, result, run_calls, snapshot_date)
+        _write_report(slug, profile, result, run_calls, snapshot_date, alerts_md=alerts_md)
 
     print(json.dumps([lst.to_dict() for lst in result.selection.displayed], indent=2))
 
 
-def _persist(slug: str, survivors: list[Listing]) -> None:
-    """Best-effort history persistence (CSV + SQLite). Never fatal to a run."""
+def _persist(slug: str, survivors: list[Listing]) -> Path | None:
+    """Best-effort history persistence (CSV + SQLite). Never fatal to a run.
+    Returns the CSV path on success, None on failure."""
     try:
         from product_search.storage.csv_dump import default_csv_path, write_snapshot_csv
         from product_search.storage.db import connect, insert_listings
@@ -296,8 +327,10 @@ def _persist(slug: str, survivors: list[Listing]) -> None:
         csv_path = default_csv_path(slug, datetime.now(tz=UTC))
         write_snapshot_csv(csv_path, survivors)
         print(f"Stored {len(survivors)} survivor(s); CSV: {csv_path}", file=sys.stderr)
+        return csv_path
     except Exception as exc:  # noqa: BLE001 — persistence is best-effort
         print(f"WARNING: history persistence failed: {exc}", file=sys.stderr)
+        return None
 
 
 def _write_report(
@@ -306,6 +339,7 @@ def _write_report(
     result: RunV2Result,
     run_calls: list[dict[str, Any]],
     snapshot_date: date,
+    alerts_md: str = "",
 ) -> None:
     from product_search.synthesizer import default_report_path, write_report
     from product_search.synthesizer.report_json import (
@@ -330,8 +364,11 @@ def _write_report(
     json_path = default_json_path(slug, snapshot_date)
     write_json_sidecar(json_path, payload)
 
+    md = build_v2_markdown(payload)
+    if alerts_md:
+        md += "\n\n" + alerts_md
     md_path = default_report_path(slug, snapshot_date)
-    write_report(md_path, build_v2_markdown(payload))
+    write_report(md_path, md)
 
     print(f"Wrote JSON sidecar: {json_path}", file=sys.stderr)
     print(f"Wrote report: {md_path}", file=sys.stderr)

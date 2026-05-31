@@ -98,9 +98,11 @@ def apply_vendor_filter(
     return out
 
 
-def _price_sort_key(listing: Listing) -> float:
+def _price_sort_key(listing: Listing) -> tuple[int, float]:
     p = listing.price_usd
-    return p if p and p > 0 else _PRICE_FLOOR
+    price_val = p if p and p > 0 else _PRICE_FLOOR
+    is_anomalous = 1 if FLAG_PRICE_ANOMALY_LOW in listing.flags else 0
+    return (is_anomalous, price_val)
 
 
 def select_for_display(
@@ -115,10 +117,9 @@ def select_for_display(
     in ``hidden_anomalies``). Returns the displayed slice plus the per-vendor
     overflow counts for the offers the cap held back.
     """
-    eligible = [lst for lst in listings if FLAG_PRICE_ANOMALY_LOW not in lst.flags]
-    hidden = len(listings) - len(eligible)
+    hidden = 0
 
-    ranked = sorted(eligible, key=_price_sort_key)
+    ranked = sorted(listings, key=_price_sort_key)
 
     per_vendor_seen: dict[str, int] = {}
     capped: list[Listing] = []

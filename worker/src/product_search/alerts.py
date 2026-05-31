@@ -28,7 +28,7 @@ from pathlib import Path
 from urllib.parse import urlparse
 
 from product_search.models import Listing
-from product_search.profile import AlertRule, PriceBelowAlert, VendorSeenAlert
+from product_search.profile import AlertRule, NewVendorCarriesAlert, PriceBelowAlert, VendorSeenAlert
 from product_search.storage.csv_dump import read_snapshot_csv
 
 
@@ -83,6 +83,8 @@ def rule_fingerprint(rule: AlertRule) -> str:
         )
     if isinstance(rule, VendorSeenAlert):
         return f"vendor_seen|{rule.host}"
+    if isinstance(rule, NewVendorCarriesAlert):
+        return "new_vendor_carries"
     return repr(rule)  # pragma: no cover — discriminator rejects unknown kinds
 
 
@@ -234,11 +236,57 @@ def _evaluate_vendor_seen(
     return FiredAlert(rule=rule, headline=headline)
 
 
+def _evaluate_new_vendor_carries(
+    rule: NewVendorCarriesAlert,
+    current: list[Listing],
+    previous: list[Listing] | None,
+    display_name: str = "",
+) -> list[FiredAlert]:
+    """Fire one alert per NEW host in today's survivors vs yesterday's.
+
+    Host-agnostic: unlike ``VendorSeenAlert`` (which tracks a single named
+    host), this fires for ANY host that appears in ``current`` but was absent
+    from ``previous``.  First-run policy (``previous is None``): every host
+    in ``current`` counts as new — consistent with ``VendorSeenAlert``'s
+    "first observation counts" convention.
+    """
+    curr_hosts: set[str] = set()
+    for lst in current:
+        h = listing_host(lst)
+        if h:
+            curr_hosts.add(h)
+
+    if not curr_hosts:
+        return []
+
+    prev_hosts: set[str] = set()
+    if previous is not None:
+        for lst in previous:
+            h = listing_host(lst)
+            if h:
+                prev_hosts.add(h)
+
+    new_hosts = sorted(curr_hosts - prev_hosts)
+    if not new_hosts:
+        return []
+
+    target_label = display_name or "this product"
+    fired: list[FiredAlert] = []
+    for host in new_hosts:
+        fired.append(FiredAlert(
+            rule=rule,
+            headline=f"New vendor now carries {target_label}: {host}",
+        ))
+    return fired
+
+
 def evaluate_alerts(
     rules: list[AlertRule],
     current: list[Listing],
     previous: list[Listing] | None,
     state: AlertsState | None = None,
+    *,
+    display_name: str = "",
 ) -> list[FiredAlert]:
     """Evaluate every rule and return the ones that fire on this run.
 
@@ -263,6 +311,10 @@ def evaluate_alerts(
                 res = _evaluate_price_below(rule, current, previous)
         elif isinstance(rule, VendorSeenAlert):
             res = _evaluate_vendor_seen(rule, current, previous)
+        elif isinstance(rule, NewVendorCarriesAlert):
+            results = _evaluate_new_vendor_carries(rule, current, previous, display_name=display_name)
+            fired.extend(results)
+            continue
         else:  # pragma: no cover — schema discriminator rejects unknown kinds
             continue
         if res is not None:

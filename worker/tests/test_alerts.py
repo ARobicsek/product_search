@@ -26,7 +26,12 @@ from product_search.alerts import (
     save_alerts_state,
 )
 from product_search.models import Listing
-from product_search.profile import PriceBelowAlert, VendorSeenAlert
+from product_search.profile import (
+    NewVendorCarriesAlert,
+    PriceBelowAlert,
+    VendorSeenAlert,
+)
+
 from product_search.storage.csv_dump import write_snapshot_csv
 
 # ---------------------------------------------------------------------------
@@ -574,3 +579,81 @@ def test_price_basis_fingerprint_distinct() -> None:
     assert rule_fingerprint(
         PriceBelowAlert(**base, price_basis="unit")
     ) != rule_fingerprint(PriceBelowAlert(**base, price_basis="total"))
+
+
+# ---------------------------------------------------------------------------
+# Phase 35 — new_vendor_carries (host-agnostic; REBUILD_PLAN §5 step 7/9)
+# ---------------------------------------------------------------------------
+
+
+def test_new_vendor_carries_fires_for_new_hosts() -> None:
+    rule = NewVendorCarriesAlert(kind="new_vendor_carries")
+    current = [
+        _mk_listing(url="https://amazon.com/dp/X"),
+        _mk_listing(url="https://bhphotovideo.com/c/product/X"),
+    ]
+    previous = [_mk_listing(url="https://amazon.com/dp/Y")]
+    fired = evaluate_alerts([rule], current, previous, display_name="DJI Neo 2")
+    assert len(fired) == 1
+    assert "bhphotovideo.com" in fired[0].headline
+    assert "DJI Neo 2" in fired[0].headline
+
+
+def test_new_vendor_carries_no_fire_when_same_hosts() -> None:
+    rule = NewVendorCarriesAlert(kind="new_vendor_carries")
+    current = [_mk_listing(url="https://amazon.com/dp/X")]
+    previous = [_mk_listing(url="https://amazon.com/dp/Y")]
+    fired = evaluate_alerts([rule], current, previous, display_name="DJI Neo 2")
+    assert len(fired) == 0
+
+
+def test_new_vendor_carries_first_run_fires_for_all_hosts() -> None:
+    """First observation counts — consistent with VendorSeenAlert."""
+    rule = NewVendorCarriesAlert(kind="new_vendor_carries")
+    current = [
+        _mk_listing(url="https://amazon.com/dp/X"),
+        _mk_listing(url="https://bhphotovideo.com/c/product/X"),
+    ]
+    fired = evaluate_alerts([rule], current, None, display_name="DJI Neo 2")
+    assert len(fired) == 2
+    hosts = {fa.headline.split(": ")[-1] for fa in fired}
+    assert hosts == {"amazon.com", "bhphotovideo.com"}
+
+
+def test_new_vendor_carries_no_fire_when_no_survivors() -> None:
+    rule = NewVendorCarriesAlert(kind="new_vendor_carries")
+    fired = evaluate_alerts([rule], [], None, display_name="DJI Neo 2")
+    assert len(fired) == 0
+
+
+def test_new_vendor_carries_multiple_listings_same_new_host_fires_once() -> None:
+    rule = NewVendorCarriesAlert(kind="new_vendor_carries")
+    current = [
+        _mk_listing(url="https://bhphotovideo.com/c/product/X"),
+        _mk_listing(url="https://bhphotovideo.com/c/product/Y"),
+    ]
+    previous = [_mk_listing(url="https://amazon.com/dp/X")]
+    fired = evaluate_alerts([rule], current, previous, display_name="DJI Neo 2")
+    assert len(fired) == 1
+    assert "bhphotovideo.com" in fired[0].headline
+
+
+def test_new_vendor_carries_fingerprint() -> None:
+    rule = NewVendorCarriesAlert(kind="new_vendor_carries")
+    assert rule_fingerprint(rule) == "new_vendor_carries"
+
+
+def test_new_vendor_carries_coexists_with_price_below() -> None:
+    """Both rule types evaluated independently in the same run."""
+    rules = [
+        PriceBelowAlert(kind="price_below", threshold_usd=200.0),
+        NewVendorCarriesAlert(kind="new_vendor_carries"),
+    ]
+    current = [
+        _mk_listing(url="https://amazon.com/dp/X", unit_price_usd=150.0),
+        _mk_listing(url="https://bhphotovideo.com/c/product/X", unit_price_usd=180.0),
+    ]
+    fired = evaluate_alerts(rules, current, None, display_name="Test Product")
+    kinds = {fa.rule.kind for fa in fired}
+    assert "price_below" in kinds
+    assert "new_vendor_carries" in kinds

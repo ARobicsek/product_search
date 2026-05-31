@@ -59,7 +59,11 @@ export interface VendorSeenRule {
   host: string;
 }
 
-export type AlertRule = PriceBelowRule | VendorSeenRule;
+export interface NewVendorCarriesRule {
+  kind: 'new_vendor_carries';
+}
+
+export type AlertRule = PriceBelowRule | VendorSeenRule | NewVendorCarriesRule;
 
 export const ALERT_CONDITIONS: ReadonlyArray<'new' | 'used' | 'refurbished'> = [
   'new',
@@ -149,6 +153,9 @@ function parseRuleFields(fields: Record<string, string>): AlertRule | null {
     if (!host) return null;
     return { kind: 'vendor_seen', host };
   }
+  if (kind === 'new_vendor_carries') {
+    return { kind: 'new_vendor_carries' };
+  }
   return null;
 }
 
@@ -162,6 +169,9 @@ function renderRule(rule: AlertRule): string {
     if (rule.mode) lines.push(`    mode: ${rule.mode}`);
     if (rule.price_basis) lines.push(`    price_basis: ${rule.price_basis}`);
     return lines.join('\n');
+  }
+  if (rule.kind === 'new_vendor_carries') {
+    return `  - kind: new_vendor_carries`;
   }
   return [`  - kind: vendor_seen`, `    host: ${rule.host}`].join('\n');
 }
@@ -227,6 +237,9 @@ export function validateAlertRule(rule: AlertRule): string | null {
     }
     return null;
   }
+  if (rule.kind === 'new_vendor_carries') {
+    return null; // No fields to validate — zero-config rule.
+  }
   return 'unknown alert kind';
 }
 
@@ -245,6 +258,9 @@ export function describeRule(rule: AlertRule): string {
           ? `is at or below ${amount} (once per dip)`
           : `drops below ${amount}`;
     return `Cheapest${cond} ${basis} ${suffix}`;
+  }
+  if (rule.kind === 'new_vendor_carries') {
+    return 'Any new vendor starts carrying this product';
   }
   return `Any listing seen at ${rule.host}`;
 }

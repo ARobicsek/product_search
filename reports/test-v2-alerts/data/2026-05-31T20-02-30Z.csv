@@ -1,0 +1,3 @@
+source,url,title,fetched_at,brand,mpn,attrs,condition,is_kit,kit_module_count,unit_price_usd,kit_price_usd,quantity_available,seller_name,seller_rating_pct,seller_feedback_count,ship_from_country,qvl_status,flags,total_for_target_usd
+serper_shopping,https://amazon.com/dp/X,Test listing,2026-05-31T12:00:00+00:00,Acme,ACME-1,{},new,0,1,150.0,,,someone,,,,,[],
+serper_shopping,https://bhphotovideo.com/c/product/X,Test listing,2026-05-31T12:00:00+00:00,Acme,ACME-1,{},new,0,1,180.0,,,someone,,,,,[],

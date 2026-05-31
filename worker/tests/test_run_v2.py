@@ -16,8 +16,8 @@ PROFILES_V2_DIR = Path(__file__).parent / "fixtures" / "profiles_v2"
 FIXTURE = PROFILES_V2_DIR / "dji-neo-2-motion-fly-more-combo" / "profile.yaml"
 
 
-def _passthrough(listings: list[Listing], _profile: object) -> list[Listing]:
-    """Stand-in ai_filter: keeps every listing (no LLM, no network)."""
+def _passthrough(listings: list[Listing], profile: Any, display_attrs: Any = None) -> list[Listing]:
+    """A no-op ai_filter_fn for testing the pure pipeline core."""
     return list(listings)
 
 
@@ -63,7 +63,7 @@ def _recall_set() -> list[Listing]:
     ]
 
 
-def test_pipeline_drops_excluded_titles_and_hides_anomaly() -> None:
+def test_pipeline_drops_excluded_titles_and_sequesters_anomaly() -> None:
     profile = load_profile_v2_from_path(FIXTURE)
     result = run_v2_pipeline(profile, _recall_set(), ai_filter_fn=_passthrough)
 
@@ -73,13 +73,13 @@ def test_pipeline_drops_excluded_titles_and_hides_anomaly() -> None:
     assert all("Open Box" not in lst.title for lst in result.survivors)
     assert len(result.survivors) == 5
 
-    # The $67.20 anomaly is hidden from display but kept in survivors/history.
-    assert result.selection.hidden_anomalies == 1
+    # The $67.20 anomaly is sequestered to the bottom.
+    assert result.selection.hidden_anomalies == 0
     assert any(lst.price_usd == 67.2 for lst in result.survivors)
-    assert all(lst.price_usd != 67.2 for lst in result.selection.displayed)
-
+    
     # Cheapest-first, anomaly never #1.
     assert result.selection.displayed[0].price_usd == 599.0
+    assert result.selection.displayed[-1].price_usd == 67.2
     assert result.outcome.klass is RunOutcomeClass.OK
 
 

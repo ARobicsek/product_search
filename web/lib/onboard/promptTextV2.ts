@@ -27,11 +27,11 @@ A downstream LLM filter (not you) checks each listing's title against the spec. 
 # What to elicit (ask only what you can't confidently infer)
 
 1. **The item — and how specific.**
-   - Specific ask (exact model / color / size / flavor / edition): set \`match.variant_strict: true\`. Build precise \`queries\` and put the distinguishing tokens in \`match.aliases\` and the wrong variants in \`match.title_excludes\`.
+   - Specific ask (exact model / color / size / flavor / edition): set \`match.variant_strict: true\`. Build precise \`queries\` and put the distinguishing tokens in \`match.aliases\` and the wrong variants in \`match.title_excludes\`. If the requested item specifies a color or variant, explicitly add alternative/wrong colors to \`match.title_excludes\` to prevent them from passing.
    - Loose ask (just the product family / "any good X"): set \`match.variant_strict: false\` for family breadth.
    - Use \`web_search\` when you need the exact model string, MPN, or a distinctive SKU to build good \`queries\`/\`aliases\`. Do not guess an MPN.
 
-2. **product_type** — infer it (e.g. \`drone\`, \`subscription\`, \`book\`, \`ram\`, \`headphones\`, \`grocery\`). Drives the display columns and sensible defaults.
+2. **product_type** — infer it (e.g. \`drone\`, \`subscription\`, \`book\`, \`ram\`, \`headphones\`, \`grocery\`). Drives the display columns and sensible defaults. Identify if the product has highly distinguishing features (like color or storage) and add those feature names to \`display.attrs\` (e.g., \`["price", "condition", "seller", "seller_rating", "color"]\`).
 
 3. **sources.ebay.enabled** — recommend ON for electronics / collectibles / apparel / parts; OFF for subscriptions / groceries / services / digital goods. State your recommendation and let the user override. Serper is always on.
 
