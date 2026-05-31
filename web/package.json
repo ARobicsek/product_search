@@ -11,7 +11,7 @@
     "start": "next start",
     "lint": "eslint",
     "test:parity": "node --test --experimental-strip-types scripts/check-alterlab-parity.test.mjs scripts/check-report-columns-parity.test.mjs scripts/check-search-url-parity.test.mjs",
-    "test:guards": "node --test --experimental-strip-types scripts/check-onboard-guards.test.mjs"
+    "test:guards": "node --test --experimental-strip-types scripts/check-onboard-guards.test.mjs scripts/check-onboard-v2.test.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.91.1",
