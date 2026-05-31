@@ -188,3 +188,26 @@ def load_profile_v2(slug: str) -> ProfileV2:
     ``PRODUCT_SEARCH_PRODUCTS_DIR``), then validates against ``ProfileV2``.
     """
     return load_profile_v2_from_path(_resolve_profile_path(slug))
+
+
+def peek_schema_version(slug: str) -> int | None:
+    """Return a profile's ``schema_version`` without full validation.
+
+    Cheap sniff used by ``cli.py`` to route ``search`` to the v1 or v2 pipeline.
+    A v1 profile (no ``schema_version`` key, or ``1``) returns 1; a v2 profile
+    returns 2. Returns ``None`` when the file is missing or unreadable so the
+    caller can fall through to the v1 path's own not-found handling.
+    """
+    try:
+        raw: Any = yaml.safe_load(_resolve_profile_path(slug).read_text(encoding="utf-8"))
+    except (FileNotFoundError, OSError, yaml.YAMLError):
+        return None
+    if not isinstance(raw, dict):
+        return None
+    version = raw.get("schema_version")
+    if version is None:
+        return 1
+    try:
+        return int(version)
+    except (TypeError, ValueError):
+        return None

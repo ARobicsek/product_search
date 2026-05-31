@@ -232,12 +232,25 @@ def main() -> None:
         _cmd_llm_ping(args.provider, args.model)
 
     elif args.command == "search":
-        _cmd_search(
-            args.slug,
-            no_validate=args.no_validate,
-            no_store=args.no_store,
-            no_report=args.no_report,
-        )
+        # Route schema_version: 2 profiles to the v2 (Serper-recall) pipeline;
+        # everything else stays on the legacy v1 path (Phase 32, ADR).
+        from product_search.profile_v2 import peek_schema_version
+
+        if peek_schema_version(args.slug) == 2:
+            from product_search.run_v2 import run_v2
+
+            run_v2(
+                args.slug,
+                no_store=args.no_store,
+                no_report=args.no_report,
+            )
+        else:
+            _cmd_search(
+                args.slug,
+                no_validate=args.no_validate,
+                no_store=args.no_store,
+                no_report=args.no_report,
+            )
 
     elif args.command == "diff":
         _cmd_diff(args.slug)
