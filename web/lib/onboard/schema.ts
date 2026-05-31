@@ -273,7 +273,7 @@ function validateSchedule(schedule: unknown, ctx: ValidationContext) {
 // universal_ai_search Tier 1.5 detail-page extractor (ADR-049).
 const SOURCE_PAGE_TYPES = new Set<string>(['detail', 'search']);
 
-const ALERT_KINDS = new Set<string>(['price_below', 'vendor_seen']);
+const ALERT_KINDS = new Set<string>(['price_below', 'vendor_seen', 'new_vendor_carries']);
 const ALERT_CONDITIONS = new Set<string>(['new', 'used', 'refurbished']);
 // Mirrors profile.py:PriceBelowAlert.mode (ADR-056, ADR-057).
 const ALERT_PRICE_MODES = new Set<string>([
@@ -335,6 +335,7 @@ function validateAlerts(alerts: unknown, ctx: ValidationContext) {
         ctx.errors.push(`alerts[${i}].host: must be a non-empty string`);
       }
     }
+    // new_vendor_carries has no fields to validate — zero-config rule.
   });
 }
 
@@ -381,9 +382,15 @@ export function parseAndValidateProfileYaml(text: string): ParsedProfile {
     validateRules(obj.spec_flags, 'spec_flags', KNOWN_FLAG_RULES, true, ctx);
   }
 
-  validateSources(obj.sources, 'sources', false, 1, ctx);
-  if (obj.sources_pending !== undefined) {
-    validateSources(obj.sources_pending, 'sources_pending', true, 0, ctx);
+  const schemaVersion = obj.schema_version !== undefined ? asInt(obj.schema_version, 'schema_version', ctx) : 1;
+
+  if (schemaVersion === 2) {
+    asObject(obj.sources, 'sources', ctx);
+  } else {
+    validateSources(obj.sources, 'sources', false, 1, ctx);
+    if (obj.sources_pending !== undefined) {
+      validateSources(obj.sources_pending, 'sources_pending', true, 0, ctx);
+    }
   }
 
   // ``qvl_file`` is optional. RAM-domain reference data; non-RAM products
