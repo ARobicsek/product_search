@@ -44,6 +44,60 @@ def vendor_key(listing: Listing) -> str:
     return name or "(unknown vendor)"
 
 
+# Adapter source id → the marketplace label a user would name in an allow/block
+# list. An eBay listing's ``seller_name`` is an individual username, so "never
+# eBay" must match the *marketplace*, not the username. (Serper merchants surface
+# their real name in ``seller_name``, so they need no extra label.)
+_MARKETPLACE_LABEL: dict[str, str] = {"ebay_search": "ebay"}
+
+
+def _vendor_match_tokens(listing: Listing) -> list[str]:
+    """Lowercased identity tokens a vendor allow/block entry can match against."""
+    tokens = [vendor_key(listing)]
+    label = _MARKETPLACE_LABEL.get(listing.source)
+    if label:
+        tokens.append(label)
+    return tokens
+
+
+def vendor_matches_any(listing: Listing, entries: list[str]) -> bool:
+    """True if *listing*'s vendor matches any allow/block-list *entry*.
+
+    Match is a case-insensitive substring of the entry within a vendor token
+    (so "Walmart" matches the Serper source "Walmart - Seller", "B&H" matches
+    "B&H Photo-Video", and "eBay" matches both the eBay marketplace and a Serper
+    result whose ``source`` is literally "eBay"). Empty entries are ignored.
+    """
+    for raw in entries:
+        e = (raw or "").strip().lower()
+        if not e:
+            continue
+        if any(e in t for t in _vendor_match_tokens(listing) if t):
+            return True
+    return False
+
+
+def apply_vendor_filter(
+    listings: list[Listing],
+    *,
+    allowlist: list[str],
+    blocklist: list[str],
+) -> list[Listing]:
+    """Scope the recall set to the user's vendor preferences (REBUILD_PLAN §5.3).
+
+    A non-empty ``allowlist`` keeps only listings from a named vendor ("only
+    these vendors"); a ``blocklist`` drops listings from a named vendor ("never
+    eBay/Poshmark/etc"). Both empty → passthrough. The allowlist is applied
+    first, then the blocklist (a vendor in both is excluded). Deterministic.
+    """
+    out = listings
+    if allowlist:
+        out = [lst for lst in out if vendor_matches_any(lst, allowlist)]
+    if blocklist:
+        out = [lst for lst in out if not vendor_matches_any(lst, blocklist)]
+    return out
+
+
 def _price_sort_key(listing: Listing) -> float:
     p = listing.price_usd
     return p if p and p > 0 else _PRICE_FLOOR

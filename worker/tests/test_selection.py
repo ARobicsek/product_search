@@ -5,13 +5,24 @@ from __future__ import annotations
 from datetime import UTC, datetime
 
 from product_search.models import Listing
-from product_search.selection import select_for_display, vendor_key
+from product_search.selection import (
+    apply_vendor_filter,
+    select_for_display,
+    vendor_key,
+    vendor_matches_any,
+)
 from product_search.validators.price_sanity import FLAG_PRICE_ANOMALY_LOW
 
 
-def _listing(price: float, seller: str, *, flags: list[str] | None = None) -> Listing:
+def _listing(
+    price: float,
+    seller: str,
+    *,
+    flags: list[str] | None = None,
+    source: str = "serper_shopping",
+) -> Listing:
     return Listing(
-        source="serper_shopping",
+        source=source,
         url="https://google.com/search?q=x",
         title="DJI Neo 2 Fly More Combo",
         fetched_at=datetime.now(tz=UTC),
@@ -76,3 +87,66 @@ def test_empty_input() -> None:
 def test_vendor_key_normalises() -> None:
     assert vendor_key(_listing(1.0, "  B&H  ")) == "b&h"
     assert vendor_key(_listing(1.0, "")) == "(unknown vendor)"
+
+
+# ---------------------------------------------------------------------------
+# Vendor allow/blocklist (Phase 33)
+# ---------------------------------------------------------------------------
+
+
+def test_vendor_matches_substring_of_merchant_name() -> None:
+    # "walmart" matches the fuller Serper source string.
+    assert vendor_matches_any(_listing(1.0, "Walmart - Seller"), ["Walmart"])
+    assert vendor_matches_any(_listing(1.0, "B&H Photo-Video"), ["b&h"])
+    assert not vendor_matches_any(_listing(1.0, "Newegg"), ["Walmart"])
+
+
+def test_vendor_matches_ebay_marketplace_label() -> None:
+    # An eBay listing's seller_name is a username; "eBay" still matches via the
+    # marketplace label.
+    ebay_lst = _listing(1.0, "randomseller123", source="ebay_search")
+    assert vendor_matches_any(ebay_lst, ["eBay"])
+    # A Serper result whose source string is literally "eBay" matches too.
+    serper_ebay = _listing(1.0, "eBay")
+    assert vendor_matches_any(serper_ebay, ["ebay"])
+
+
+def test_vendor_filter_empty_lists_passthrough() -> None:
+    listings = [_listing(1.0, "B&H"), _listing(2.0, "Walmart")]
+    out = apply_vendor_filter(listings, allowlist=[], blocklist=[])
+    assert out == listings
+
+
+def test_vendor_allowlist_keeps_only_named() -> None:
+    listings = [
+        _listing(1.0, "B&H Photo"),
+        _listing(2.0, "Walmart"),
+        _listing(3.0, "Newegg"),
+    ]
+    out = apply_vendor_filter(listings, allowlist=["B&H", "Newegg"], blocklist=[])
+    assert {lst.seller_name for lst in out} == {"B&H Photo", "Newegg"}
+
+
+def test_vendor_blocklist_drops_ebay_and_named() -> None:
+    listings = [
+        _listing(1.0, "B&H"),
+        _listing(2.0, "poshmark_seller", source="serper_shopping"),
+        _listing(3.0, "username99", source="ebay_search"),
+        _listing(4.0, "Poshmark"),
+    ]
+    out = apply_vendor_filter(listings, allowlist=[], blocklist=["eBay", "Poshmark"])
+    # eBay marketplace listing dropped; "Poshmark" merchant dropped (both forms).
+    assert {lst.seller_name for lst in out} == {"B&H"}
+
+
+def test_vendor_allowlist_then_blocklist() -> None:
+    listings = [
+        _listing(1.0, "B&H"),
+        _listing(2.0, "Walmart"),
+        _listing(3.0, "Newegg"),
+    ]
+    # Allow B&H + Walmart, then block Walmart → only B&H survives.
+    out = apply_vendor_filter(
+        listings, allowlist=["B&H", "Walmart"], blocklist=["Walmart"]
+    )
+    assert {lst.seller_name for lst in out} == {"B&H"}

@@ -130,11 +130,15 @@ def test_ebay_fetch_fixture_returns_listings() -> None:
 
 
 def test_ebay_fixture_listing_fields() -> None:
-    """The Samsung MPN in the fixture must map to the expected Listing fields."""
+    """The Samsung MPN in the fixture must map to the expected Listing fields.
+
+    ``ram_specs=True`` opts into the legacy DDR5 title parsing (the v1 RAM
+    pipeline path; Phase 36 removes it).
+    """
     from product_search.adapters.ebay import fetch
 
     query = AdapterQuery(source_id="ebay_search")
-    listings = fetch(query, fixture_path=FIXTURE_FILE)
+    listings = fetch(query, fixture_path=FIXTURE_FILE, ram_specs=True)
 
     # Find the single-module Samsung 32GB listing.
     samsung_single = next(
@@ -151,20 +155,61 @@ def test_ebay_fixture_listing_fields() -> None:
     assert samsung_single.quantity_available == 42
     assert samsung_single.attrs.get("capacity_gb") == 32
     assert samsung_single.attrs.get("speed_mts") == 4800
+    # eBay's itemWebUrl is a direct merchant link → buy_url is set.
+    assert samsung_single.buy_url == samsung_single.url
 
 
 def test_ebay_fixture_kit_detection() -> None:
-    """The 8x32GB kit listing must be detected as a kit."""
+    """The 8x32GB kit listing must be detected as a kit (ram_specs path)."""
     from product_search.adapters.ebay import fetch
 
     query = AdapterQuery(source_id="ebay_search")
-    listings = fetch(query, fixture_path=FIXTURE_FILE)
+    listings = fetch(query, fixture_path=FIXTURE_FILE, ram_specs=True)
 
     kit = next((lst for lst in listings if lst.is_kit), None)
     assert kit is not None, "Expected at least one kit listing in fixture"
     assert kit.kit_module_count == 8
     assert kit.kit_price_usd is not None
     assert kit.unit_price_usd < kit.kit_price_usd
+
+
+def test_ebay_generic_default_no_ram_parsing() -> None:
+    """Generic mode (the default) must not divide kit prices or invent attrs.
+
+    Phase 33: v2 / Serper-era recall gets the clean shape. The same RAM fixture,
+    parsed WITHOUT ``ram_specs``, yields no kit detection and no capacity/speed
+    attrs — the kit's ``unit_price_usd`` is the whole listing price, not divided.
+    """
+    from product_search.adapters.ebay import fetch
+
+    query = AdapterQuery(source_id="ebay_search")
+    listings = fetch(query, fixture_path=FIXTURE_FILE)  # ram_specs defaults False
+
+    assert listings, "fixture should yield listings"
+    for lst in listings:
+        assert lst.is_kit is False
+        assert lst.kit_module_count == 1
+        assert lst.kit_price_usd is None
+        assert "capacity_gb" not in lst.attrs
+        assert "speed_mts" not in lst.attrs
+        assert lst.unit_price_usd > 0
+        assert lst.buy_url == lst.url
+
+
+def test_ebay_ram_specs_from_query_extra() -> None:
+    """``query.extra['ram_specs']`` flips on RAM parsing without the kwarg.
+
+    This is the path the v1 RAM profile uses (the DDR5 fixture source sets
+    ``ram_specs: true``, which ``AdapterQuery.from_profile_source`` puts in
+    ``extra``).
+    """
+    from product_search.adapters.ebay import fetch
+
+    query = AdapterQuery(source_id="ebay_search", extra={"ram_specs": True})
+    listings = fetch(query, fixture_path=FIXTURE_FILE)
+
+    assert any(lst.attrs.get("capacity_gb") == 32 for lst in listings)
+    assert any(lst.is_kit for lst in listings)
 
 
 def test_ebay_live_mode_raises_without_credentials() -> None:

@@ -45,6 +45,7 @@ spec_flags:
 
 sources:
   - id: "ebay_search"
+    ram_specs: true   # legacy DDR5 title parsing (kit + capacity/speed attrs); Phase 36 removes
     queries:
       - "DDR5 4800 RDIMM ECC 32GB"
       - "DDR5 PC5-38400R 32GB"

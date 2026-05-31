@@ -3,18 +3,20 @@
 This is the v2 spine that ``cli.py`` routes a ``schema_version: 2`` profile to.
 It ties together the Phase-31 recall + the Phase-32 deterministic edges:
 
-    recall (Serper) → ship-from gate → deterministic filters → ai_filter
-    (relevance) → price-anomaly flags → diversity selection → type-aware JSON
-    sidecar + lean markdown, with an honest run-outcome.
+    recall (Serper + eBay) → ship-from gate → vendor allow/blocklist →
+    deterministic filters → ai_filter (relevance) → price-anomaly flags →
+    diversity selection → type-aware JSON sidecar + lean markdown, with an
+    honest run-outcome.
 
 The pure core (``run_v2_pipeline``) does no I/O and takes the recall listings +
 an injectable ``ai_filter_fn``, so the whole pipeline is unit-testable without
 the network or an LLM. The ``run_v2`` wrapper adds recall, persistence, and
 report writing.
 
-eBay recall and alerts are out of scope here (Phase 33 / Phase 35). A profile
-with ``sources.ebay.enabled`` is honored for recall in Phase 33; for now only
-Serper runs (noted, never silently dropped).
+Recall dispatches every enabled source (Serper always; eBay when
+``sources.ebay.enabled``) and unions + de-dups the results; each source fails
+independently (a per-source flag feeds the honest run-outcome, never a silent
+drop). Alerts (``new_vendor_carries``) remain a Phase 35 concern.
 """
 
 from __future__ import annotations
@@ -30,7 +32,11 @@ from product_search.models import AdapterQuery, Listing
 from product_search.profile_v2 import ProfileV2, load_profile_v2
 from product_search.profile_v2_filter import to_filter_profile
 from product_search.run_outcome import RunOutcome, classify_run_outcome
-from product_search.selection import SelectionResult, select_for_display
+from product_search.selection import (
+    SelectionResult,
+    apply_vendor_filter,
+    select_for_display,
+)
 from product_search.validators.ai_filter import ai_filter
 from product_search.validators.filters import apply_filters
 from product_search.validators.price_sanity import (
@@ -77,28 +83,36 @@ def run_v2_pipeline(
     # 1. Ship-from gate (flag offers from outside the market; no-op for Serper).
     gated, _ = apply_ship_from_gate(recall_listings, _allowed_countries(profile))
 
-    # 2. Deterministic filters (condition_in, in_stock, title_excludes,
+    # 2. Vendor allow/blocklist — scope to the user's named vendors before the
+    #    paid LLM filter sees them (REBUILD_PLAN §5.3 / Phase 33).
+    vendor_scoped = apply_vendor_filter(
+        gated,
+        allowlist=profile.vendor_allowlist,
+        blocklist=profile.vendor_blocklist,
+    )
+
+    # 3. Deterministic filters (condition_in, in_stock, title_excludes,
     #    single_sku_url — all Serper-aware already).
     det_passed = [
         lst
-        for lst in gated
+        for lst in vendor_scoped
         if apply_filters(lst, filter_profile.spec_filters, filter_profile) is None
     ]
 
-    # 3. LLM relevance + spec filter (Haiku-4.5 @ temp=0, ADR-132).
+    # 4. LLM relevance + spec filter (Haiku-4.5 @ temp=0, ADR-132).
     survivors = ai_filter_fn(det_passed, filter_profile)
 
-    # 4. Price-anomaly flags over the matched survivors (ADR-131 P1).
+    # 5. Price-anomaly flags over the matched survivors (ADR-131 P1).
     annotate_price_anomalies(survivors)
 
-    # 5. Diversity selection — cheapest-first, per-vendor cap, breadth.
+    # 6. Diversity selection — cheapest-first, per-vendor cap, breadth.
     selection = select_for_display(
         survivors,
         max_listings=profile.display.max_listings,
         per_vendor_cap=profile.display.per_vendor_cap,
     )
 
-    # 6. Type-aware display columns.
+    # 7. Type-aware display columns.
     columns = resolve_columns(
         profile_attrs=profile.display.attrs,
         product_type=profile.product_type,
@@ -126,18 +140,91 @@ def run_v2_pipeline(
     )
 
 
-def _default_recall(profile: ProfileV2) -> list[Listing]:
-    """Recall via the Serper shopping adapter (honors WORKER_USE_FIXTURES)."""
-    from product_search.adapters import serper
+@dataclass
+class RecallOutcome:
+    """Recall listings plus per-source error flags (Phase 33).
 
-    if not profile.sources.serper.enabled:
-        return []
-    query = AdapterQuery(
-        source_id="serper_shopping",
-        queries=list(profile.queries),
-        extra={"gl": profile.sources.serper.gl, "num": profile.sources.serper.num},
+    Each source fails independently: Serper failing does not stop eBay and vice
+    versa. The booleans feed the honest run-outcome (``index_unavailable`` /
+    ``ebay_unavailable``), so a failure is reported, never silently dropped.
+    """
+
+    listings: list[Listing]
+    serper_error: bool = False
+    ebay_error: bool = False
+
+
+def _dedup_union(listings: list[Listing]) -> list[Listing]:
+    """De-duplicate the cross-source union by click URL, keeping the first seen.
+
+    Each adapter already de-dups internally (Serper by productId, eBay by
+    itemId); this collapses the rare cross-source collision (the same offer
+    surfaced by both). Listings with an empty URL are always kept.
+    """
+    seen: set[str] = set()
+    out: list[Listing] = []
+    for lst in listings:
+        key = (lst.url or "").strip()
+        if key and key in seen:
+            continue
+        if key:
+            seen.add(key)
+        out.append(lst)
+    return out
+
+
+def _default_recall(profile: ProfileV2) -> RecallOutcome:
+    """Recall via the enabled shopping adapters (honors WORKER_USE_FIXTURES).
+
+    Serper (always, when enabled) + eBay (when ``sources.ebay.enabled``); the
+    queries are the same. Each adapter's auth/API errors are caught and recorded
+    as a per-source flag rather than aborting the run — the other source's
+    results still come back.
+    """
+    from product_search.adapters import ebay, serper
+    from product_search.adapters.ebay import EbayAPIError, EbayAuthError
+    from product_search.adapters.serper import SerperAPIError, SerperAuthError
+
+    listings: list[Listing] = []
+    serper_error = False
+    ebay_error = False
+
+    if profile.sources.serper.enabled:
+        try:
+            listings.extend(
+                serper.fetch(
+                    AdapterQuery(
+                        source_id="serper_shopping",
+                        queries=list(profile.queries),
+                        extra={
+                            "gl": profile.sources.serper.gl,
+                            "num": profile.sources.serper.num,
+                        },
+                    )
+                )
+            )
+        except (SerperAuthError, SerperAPIError) as exc:
+            serper_error = True
+            print(f"ERROR (Serper recall): {exc}", file=sys.stderr)
+
+    if profile.sources.ebay.enabled:
+        try:
+            listings.extend(
+                # Generic mode (no ram_specs): eBay carries real condition +
+                # stock quantity; the RAM title parsing stays off for v2.
+                ebay.fetch(
+                    AdapterQuery(source_id="ebay_search", queries=list(profile.queries))
+                )
+            )
+        except (EbayAuthError, EbayAPIError) as exc:
+            ebay_error = True
+            print(f"ERROR (eBay recall): {exc}", file=sys.stderr)
+
+    return RecallOutcome(
+        listings=_dedup_union(listings),
+        serper_error=serper_error,
+        ebay_error=ebay_error,
     )
-    return serper.fetch(query)
 
 
 def run_v2(
@@ -150,28 +237,22 @@ def run_v2(
     """Load a v2 profile, run the pipeline, persist + write the report sidecar."""
     import json
 
-    from product_search.adapters.serper import SerperAPIError, SerperAuthError
-
     profile = load_profile_v2(slug)
-    recall = recall_fn or _default_recall
 
+    # Injected recall_fn (tests) returns a plain list and is assumed error-free;
+    # the default network recall returns a RecallOutcome carrying per-source flags.
     serper_error = False
-    recall_listings: list[Listing] = []
-    try:
-        recall_listings = recall(profile)
-    except (SerperAuthError, SerperAPIError) as exc:
-        serper_error = True
-        print(f"ERROR (Serper recall): {exc}", file=sys.stderr)
-
-    if profile.sources.ebay.enabled:
-        print(
-            "[run_v2] sources.ebay.enabled is set but eBay recall is wired in "
-            "Phase 33; running Serper only this session.",
-            file=sys.stderr,
-        )
+    ebay_error = False
+    if recall_fn is not None:
+        recall_listings = recall_fn(profile)
+    else:
+        outcome = _default_recall(profile)
+        recall_listings = outcome.listings
+        serper_error = outcome.serper_error
+        ebay_error = outcome.ebay_error
 
     result = run_v2_pipeline(
-        profile, recall_listings, serper_error=serper_error
+        profile, recall_listings, serper_error=serper_error, ebay_error=ebay_error
     )
 
     print(

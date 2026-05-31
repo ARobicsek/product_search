@@ -152,15 +152,26 @@ def _parse_speed_from_title(title: str) -> int | None:
     return None
 
 
-def _item_to_listing(item: dict[str, Any]) -> Listing:
-    """Convert one eBay Browse API itemSummary dict to a ``Listing``."""
+def _item_to_listing(item: dict[str, Any], *, ram_specs: bool = False) -> Listing:
+    """Convert one eBay Browse API itemSummary dict to a ``Listing``.
+
+    Generic by default (Phase 33, REBUILD_PLAN §3): the listing carries the real
+    structured eBay fields — title, price, condition, seller, stock quantity,
+    ship-from, ``buy_url`` (the ``itemWebUrl`` is a direct merchant link) — and
+    NOTHING product-type-specific. ``is_kit``/``kit_module_count``/``kit_price_usd``
+    stay at their no-kit defaults and ``attrs`` is empty.
+
+    ``ram_specs=True`` re-enables the legacy DDR5 title parsing (kit detection +
+    ``capacity_gb``/``speed_mts`` attrs) for the v1 RAM pipeline only. That path
+    is deleted in Phase 36; generic recall must NOT run it, because the kit regex
+    would divide a generic "2-pack" price and the capacity regex would invent a
+    spec attr from an unrelated "32GB" in a title.
+    """
     title: str = item.get("title", "")
     url: str = item.get("itemWebUrl", "")
     condition_raw: str = item.get("condition", "Used")
     price_str: str = item.get("price", {}).get("value", "0")
     price_usd = float(price_str)
-
-    is_kit, kit_module_count, unit_price_usd, kit_price_usd = _parse_kit(title, price_usd)
 
     seller: dict[str, Any] = item.get("seller", {})
     seller_name: str = seller.get("username", "")
@@ -184,17 +195,21 @@ def _item_to_listing(item: dict[str, Any]) -> Listing:
     mpn: str | None = item.get("mpn") or None
     brand: str | None = item.get("brand") or None
 
-    capacity_gb = _parse_capacity_from_title(title)
-    speed_mts = _parse_speed_from_title(title)
-
-    # Build attrs dict from what we can parse; leave missing fields absent.
+    # Generic defaults (no kit, no spec attrs).
     attrs: dict[str, Any] = {}
-    if capacity_gb is not None:
-        attrs["capacity_gb"] = capacity_gb
-    if speed_mts is not None:
-        attrs["speed_mts"] = speed_mts
-    # form_factor and ecc are hard to extract from titles reliably;
-    # the validator will check these come Phase 3.
+    is_kit = False
+    kit_module_count = 1
+    unit_price_usd = price_usd
+    kit_price_usd: float | None = None
+
+    if ram_specs:
+        is_kit, kit_module_count, unit_price_usd, kit_price_usd = _parse_kit(title, price_usd)
+        capacity_gb = _parse_capacity_from_title(title)
+        speed_mts = _parse_speed_from_title(title)
+        if capacity_gb is not None:
+            attrs["capacity_gb"] = capacity_gb
+        if speed_mts is not None:
+            attrs["speed_mts"] = speed_mts
 
     return Listing(
         source="ebay_search",
@@ -214,6 +229,9 @@ def _item_to_listing(item: dict[str, Any]) -> Listing:
         seller_rating_pct=seller_rating_pct,
         seller_feedback_count=seller_feedback_count,
         ship_from_country=ship_from_country,
+        # eBay's itemWebUrl is a direct merchant link — the click target
+        # (distinct-field hygiene, REBUILD_PLAN §3).
+        buy_url=url or None,
     )
 
 
@@ -222,7 +240,7 @@ def _item_to_listing(item: dict[str, Any]) -> Listing:
 # ---------------------------------------------------------------------------
 
 
-def _fetch_fixture(query: AdapterQuery) -> list[Listing]:
+def _fetch_fixture(query: AdapterQuery, *, ram_specs: bool) -> list[Listing]:
     """Return Listings from saved fixture JSON files.
 
     Loads every ``.json`` file in the fixture directory and parses it as an
@@ -240,7 +258,7 @@ def _fetch_fixture(query: AdapterQuery) -> list[Listing]:
     for fpath in files:
         data: dict[str, Any] = json.loads(fpath.read_text(encoding="utf-8"))
         for item in data.get("itemSummaries", []):
-            listings.append(_item_to_listing(item))
+            listings.append(_item_to_listing(item, ram_specs=ram_specs))
     return listings
 
 
@@ -278,7 +296,7 @@ def _get_access_token(client_id: str, client_secret: str) -> str:
     return token
 
 
-def _fetch_live(query: AdapterQuery) -> list[Listing]:
+def _fetch_live(query: AdapterQuery, *, ram_specs: bool) -> list[Listing]:
     """Fetch listings from the live eBay Browse API.
 
     Requires ``EBAY_CLIENT_ID`` and ``EBAY_CLIENT_SECRET`` in environment.
@@ -329,7 +347,7 @@ def _fetch_live(query: AdapterQuery) -> list[Listing]:
                 if item_id in seen_ids:
                     continue
                 seen_ids.add(item_id)
-                listings.append(_item_to_listing(item))
+                listings.append(_item_to_listing(item, ram_specs=ram_specs))
 
     return listings
 
@@ -343,6 +361,7 @@ def fetch(
     query: AdapterQuery,
     *,
     fixture_path: Path | None = None,
+    ram_specs: bool | None = None,
 ) -> list[Listing]:
     """Fetch eBay listings for the given query.
 
@@ -350,6 +369,11 @@ def fetch(
         query: Search parameters from the product profile.
         fixture_path: If given, load from this specific fixture file instead
             of auto-discovering fixture dir.  Only used in tests.
+        ram_specs: Opt into the legacy DDR5 title parsing (kit detection +
+            ``capacity_gb``/``speed_mts`` attrs). Defaults to the value of
+            ``query.extra["ram_specs"]`` (the v1 RAM profile sets it), else
+            ``False`` — generic recall (v2 / Serper-era) gets the clean shape.
+            Removed entirely in Phase 36 with the rest of the RAM pipeline.
 
     Returns:
         List of ``Listing`` objects (may be empty if the search returns nothing).
@@ -359,6 +383,8 @@ def fetch(
         ``EbayAPIError``: if the eBay API returns an error.
         ``FileNotFoundError``: if fixture mode and no fixtures are present.
     """
+    rs = ram_specs if ram_specs is not None else bool(query.extra.get("ram_specs", False))
+
     use_fixtures = (
         os.environ.get("WORKER_USE_FIXTURES", "").strip() in ("1", "true", "yes")
         or fixture_path is not None
@@ -368,7 +394,7 @@ def fetch(
         if fixture_path is not None:
             # Single-file fixture (used in unit tests)
             data: dict[str, Any] = json.loads(fixture_path.read_text(encoding="utf-8"))
-            return [_item_to_listing(item) for item in data.get("itemSummaries", [])]
-        return _fetch_fixture(query)
+            return [_item_to_listing(item, ram_specs=rs) for item in data.get("itemSummaries", [])]
+        return _fetch_fixture(query, ram_specs=rs)
 
-    return _fetch_live(query)
+    return _fetch_live(query, ram_specs=rs)

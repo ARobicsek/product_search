@@ -1,0 +1,78 @@
+{
+  "_fixture_note": "Synthetic fixture matching eBay Browse API v1 itemSummaries shape for a GENERIC (non-RAM) product — the DJI Neo 2 drone. Exercises the Phase 33 generic eBay path: no kit price-division, no capacity/speed attrs, buy_url == itemWebUrl (direct merchant link). Includes a new in-stock listing, a used listing (condition filtering), and a foreign ship-from (ship-from gate). Prices/sellers are representative, not scraped.",
+  "href": "https://api.ebay.com/buy/browse/v1/item_summary/search?q=DJI+Neo+2+Motion+Fly+More+Combo&limit=3",
+  "total": 87,
+  "limit": 3,
+  "offset": 0,
+  "itemSummaries": [
+    {
+      "itemId": "v1|3001001001|0",
+      "title": "DJI Neo 2 Motion Fly More Combo - 4K Palm Drone with RC Motion 3 & Goggles - NEW",
+      "itemWebUrl": "https://www.ebay.com/itm/3001001001",
+      "condition": "New",
+      "conditionId": "1000",
+      "price": { "value": "599.00", "currency": "USD" },
+      "buyingOptions": ["FIXED_PRICE"],
+      "seller": {
+        "username": "dronedepot_us",
+        "feedbackScore": 28140,
+        "feedbackPercentage": "99.6"
+      },
+      "shippingOptions": [
+        { "shippingCostType": "FIXED", "shippingCost": {"value": "0.00", "currency": "USD"}, "shipToLocationRegion": "US" }
+      ],
+      "itemLocation": { "country": "US", "postalCode": "07001" },
+      "estimatedAvailabilities": [
+        { "estimatedAvailabilityStatus": "IN_STOCK", "estimatedAvailableQuantity": 12 }
+      ],
+      "brand": "DJI",
+      "additionalImages": []
+    },
+    {
+      "itemId": "v1|3001001002|0",
+      "title": "DJI Neo 2 Motion Fly More Combo (Open Box / Used) - tested, complete",
+      "itemWebUrl": "https://www.ebay.com/itm/3001001002",
+      "condition": "Used",
+      "conditionId": "3000",
+      "price": { "value": "529.99", "currency": "USD" },
+      "buyingOptions": ["FIXED_PRICE"],
+      "seller": {
+        "username": "gadgetreseller88",
+        "feedbackScore": 612,
+        "feedbackPercentage": "98.1"
+      },
+      "shippingOptions": [
+        { "shippingCostType": "CALCULATED", "shipToLocationRegion": "US" }
+      ],
+      "itemLocation": { "country": "US", "postalCode": "90045" },
+      "estimatedAvailabilities": [
+        { "estimatedAvailabilityStatus": "IN_STOCK", "estimatedAvailableQuantity": 1 }
+      ],
+      "brand": "DJI",
+      "additionalImages": []
+    },
+    {
+      "itemId": "v1|3001001003|0",
+      "title": "DJI Neo 2 Motion Fly More Combo 4K Drone Brand New Sealed",
+      "itemWebUrl": "https://www.ebay.com/itm/3001001003",
+      "condition": "New",
+      "conditionId": "1000",
+      "price": { "value": "612.50", "currency": "USD" },
+      "buyingOptions": ["FIXED_PRICE"],
+      "seller": {
+        "username": "hk_electronics_outlet",
+        "feedbackScore": 4530,
+        "feedbackPercentage": "97.4"
+      },
+      "shippingOptions": [
+        { "shippingCostType": "CALCULATED", "shipToLocationRegion": "WORLDWIDE" }
+      ],
+      "itemLocation": { "country": "HK", "postalCode": "" },
+      "estimatedAvailabilities": [
+        { "estimatedAvailabilityStatus": "IN_STOCK", "estimatedAvailableQuantity": 5 }
+      ],
+      "brand": "DJI",
+      "additionalImages": []
+    }
+  ]
+}

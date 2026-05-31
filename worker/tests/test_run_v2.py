@@ -10,7 +10,7 @@ import pytest
 from product_search.models import Listing
 from product_search.profile_v2 import ProfileV2, load_profile_v2_from_path
 from product_search.run_outcome import RunOutcomeClass
-from product_search.run_v2 import run_v2, run_v2_pipeline
+from product_search.run_v2 import _default_recall, run_v2, run_v2_pipeline
 
 PROFILES_V2_DIR = Path(__file__).parent / "fixtures" / "profiles_v2"
 FIXTURE = PROFILES_V2_DIR / "dji-neo-2-motion-fly-more-combo" / "profile.yaml"
@@ -27,9 +27,10 @@ def _listing(
     title: str = "DJI Neo 2 Motion Fly More Combo",
     seller: str = "B&H",
     condition: str = "",
+    source: str = "serper_shopping",
 ) -> Listing:
     return Listing(
-        source="serper_shopping",
+        source=source,
         url="https://google.com/search?q=x",
         title=title,
         fetched_at=datetime.now(tz=UTC),
@@ -113,6 +114,137 @@ def test_pipeline_degraded_attr_on_min_quantity() -> None:
     result = run_v2_pipeline(profile, [_listing(50.0)], ai_filter_fn=_passthrough)
     assert result.degraded_attrs is True
     assert any(c == "degraded_attr" for c, _ in result.outcome.notes)
+
+
+def test_pipeline_vendor_blocklist_drops_vendor() -> None:
+    raw = {
+        "schema_version": 2,
+        "slug": "x-prod",
+        "display_name": "DJI Neo 2 Motion Fly More Combo",
+        "target": {"unit": "count", "amount": 1},
+        "queries": ["DJI Neo 2 Motion Fly More Combo"],
+        "vendor_blocklist": ["eBay"],
+    }
+    profile = ProfileV2.model_validate(raw)
+    blocked = _listing(540.0, seller="someseller", source="ebay_search")
+    # Real itm URL so, absent the blocklist, it would pass single_sku_url and
+    # survive — the test then genuinely exercises the blocklist, not the URL gate.
+    blocked.url = "https://www.ebay.com/itm/999"
+    recall = [_listing(599.0, seller="B&H"), blocked]
+    result = run_v2_pipeline(profile, recall, ai_filter_fn=_passthrough)
+    # The eBay marketplace listing is dropped before display despite being
+    # the cheapest.
+    assert all(lst.source != "ebay_search" for lst in result.survivors)
+    assert result.selection.displayed[0].seller_name == "B&H"
+
+
+# ---------------------------------------------------------------------------
+# Recall orchestration (Phase 33 — Serper + eBay union/dedup, per-source errors)
+# ---------------------------------------------------------------------------
+
+
+def _both_sources_profile() -> ProfileV2:
+    return ProfileV2.model_validate(
+        {
+            "schema_version": 2,
+            "slug": "x-prod",
+            "display_name": "X Prod",
+            "target": {"unit": "count", "amount": 1},
+            "queries": ["x prod"],
+            "sources": {"serper": {"enabled": True}, "ebay": {"enabled": True}},
+        }
+    )
+
+
+def test_default_recall_unions_serper_and_ebay(monkeypatch: pytest.MonkeyPatch) -> None:
+    from product_search.adapters import ebay, serper
+
+    s = _listing(100.0, seller="Walmart")
+    s.url = "https://google.com/search?q=a"
+    e = _listing(90.0, seller="ebayuser", source="ebay_search")
+    e.url = "https://www.ebay.com/itm/1"
+    monkeypatch.setattr(serper, "fetch", lambda _q: [s])
+    monkeypatch.setattr(ebay, "fetch", lambda _q: [e])
+
+    outcome = _default_recall(_both_sources_profile())
+    assert len(outcome.listings) == 2
+    assert outcome.serper_error is False
+    assert outcome.ebay_error is False
+
+
+def test_default_recall_dedups_by_url(monkeypatch: pytest.MonkeyPatch) -> None:
+    from product_search.adapters import ebay, serper
+
+    a = _listing(100.0, seller="Walmart")
+    a.url = "https://www.ebay.com/itm/dupe"
+    b = _listing(100.0, seller="ebayuser", source="ebay_search")
+    b.url = "https://www.ebay.com/itm/dupe"
+    monkeypatch.setattr(serper, "fetch", lambda _q: [a])
+    monkeypatch.setattr(ebay, "fetch", lambda _q: [b])
+
+    outcome = _default_recall(_both_sources_profile())
+    assert len(outcome.listings) == 1  # collapsed by shared URL
+
+
+def test_default_recall_skips_disabled_ebay(monkeypatch: pytest.MonkeyPatch) -> None:
+    from product_search.adapters import ebay, serper
+
+    called = {"ebay": False}
+
+    def _ebay_fetch(_q: object) -> list[Listing]:
+        called["ebay"] = True
+        return []
+
+    monkeypatch.setattr(serper, "fetch", lambda _q: [_listing(100.0)])
+    monkeypatch.setattr(ebay, "fetch", _ebay_fetch)
+
+    profile = ProfileV2.model_validate(
+        {
+            "schema_version": 2,
+            "slug": "x-prod",
+            "display_name": "X Prod",
+            "target": {"unit": "count", "amount": 1},
+            "queries": ["x prod"],
+            "sources": {"serper": {"enabled": True}, "ebay": {"enabled": False}},
+        }
+    )
+    outcome = _default_recall(profile)
+    assert called["ebay"] is False
+    assert len(outcome.listings) == 1
+
+
+def test_default_recall_captures_ebay_error(monkeypatch: pytest.MonkeyPatch) -> None:
+    from product_search.adapters import ebay, serper
+    from product_search.adapters.ebay import EbayAuthError
+
+    def _ebay_fetch(_q: object) -> list[Listing]:
+        raise EbayAuthError("no creds")
+
+    monkeypatch.setattr(serper, "fetch", lambda _q: [_listing(100.0)])
+    monkeypatch.setattr(ebay, "fetch", _ebay_fetch)
+
+    outcome = _default_recall(_both_sources_profile())
+    assert outcome.ebay_error is True
+    assert outcome.serper_error is False
+    assert len(outcome.listings) == 1  # Serper still came back
+
+
+def test_default_recall_captures_serper_error(monkeypatch: pytest.MonkeyPatch) -> None:
+    from product_search.adapters import ebay, serper
+    from product_search.adapters.serper import SerperAPIError
+
+    def _serper_fetch(_q: object) -> list[Listing]:
+        raise SerperAPIError("502")
+
+    monkeypatch.setattr(serper, "fetch", _serper_fetch)
+    monkeypatch.setattr(
+        ebay, "fetch", lambda _q: [_listing(90.0, seller="u", source="ebay_search")]
+    )
+
+    outcome = _default_recall(_both_sources_profile())
+    assert outcome.serper_error is True
+    assert outcome.ebay_error is False
+    assert len(outcome.listings) == 1
 
 
 def test_run_v2_wrapper_writes_sidecar(
