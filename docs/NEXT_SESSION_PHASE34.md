@@ -3,17 +3,23 @@
 **Read first:** `docs/PROGRESS.md` ("Most recent work" bullet), `docs/REBUILD_PLAN.md` §6 + §10.
 **Branch:** `main`. **One phase per session.**
 
-## ⚠️ Relocate the repo out of OneDrive first
-This session ran in `C:\Users\ariro\OneDrive\Personal\Product search`. OneDrive's sync engine
-intermittently **corrupted/swallowed file-content reads** (Read/cat/sed returned garbled or empty
-content even after sync was paused), which made it unsafe to read+edit the large route/component
-files — that's why the wiring was deferred. The repo is fully pushed to GitHub, so:
+## ✅ Location — you are in the right place (relocation DONE)
+This repo now lives at **`C:\dev\product-search`** (Git Bash: `/c/dev/product-search`), **outside OneDrive**.
+The relocation is complete; the old OneDrive copy (`C:\Users\ariro\OneDrive\Personal\Product search`)
+is **abandoned — do not edit it**. The gitignored secrets were copied into this clone and verified
+byte-identical: `.env` (root) and `web/.env.local` (these are the only env files the repo had; there is
+no `worker/.env`). `SERPER_API_KEY` for local Serper lives in the root `.env`.
+
+**First, install deps** (the new clone has no `node_modules` yet):
 ```
-git clone https://github.com/ARobicsek/product_search C:\dev\product-search
-cd C:\dev\product-search\web && npm install
+cd /c/dev/product-search/web && npm install
 ```
-Then run the wiring session there. (Test command output worked fine all session; only file-content
-reads were corrupted — but don't risk editing 1700 lines against a flaky view.)
+Then confirm the foundation is intact: `npm run test:guards` → expect **77/77**.
+
+> Why the move: under OneDrive the sync engine intermittently corrupted/swallowed file-content reads
+> and cancelled parallel tool batches (it persisted even with sync paused). Working from `C:\dev`
+> avoids that entirely. See memory `project_onedrive_corrupts_reads`. (Git Bash gotcha that bit the
+> first clone attempt: use **forward slashes** — `C:/dev/...` — backslashes get eaten by bash.)
 
 ## What landed this session (committed, verified, INERT)
 Four NEW files that **nothing imports yet** — the live onboarder is untouched and stays fully v1:
