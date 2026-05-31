@@ -235,7 +235,8 @@ How each rule type works (only the ones present above apply):
   base model (e.g. if 'Dyson V15 Detect' is requested, pass 'Dyson V15 Detect Extra', 'Dyson V15 Detect
   Absolute', 'Dyson V15 Detect Complete', or color variants like 'Yellow/Nickel'),
   provided they contain the requested base model name.
-- condition_in {{values:[...]}}: pass if the title/URL do not indicate a condition, but reject if the title clearly indicates a condition not in values (e.g., 'used', 'refurbished', 'renewed' when values only allows 'new').
+- condition_in {{values:[...]}}: pass if the title/URL do not indicate a condition, but reject if the title clearly
+  indicates a condition not in values (e.g., 'used', 'refurbished', 'renewed' when values only allows 'new').
 - form_factor_in {{values:[...]}}: pass if attrs.form_factor is in values, OR if neither
   attrs.form_factor nor the title indicates a specific form factor. Reject only when
   attrs.form_factor is set to something not in values, OR the title clearly contains a
@@ -276,7 +277,9 @@ Decision rules:
   attrs/title/url so the human reviewer can verify.
 
 The profile expects the following display attributes: {display_attrs or []}
-If any of these attributes can be clearly extracted from the title (e.g., color, storage capacity), add them to a new "extracted_features" dictionary in your evaluation object for that listing. For example: "extracted_features": {{"color": "black"}}.
+If any of these attributes can be clearly extracted from the title (e.g., color, storage capacity), add them to a new
+"extracted_features" dictionary in your evaluation object for that listing. For example:
+"extracted_features": {{"color": "black"}}.
 
 You will receive a JSON list of products. Output a JSON object with a single key
 "evaluations" containing an array with one entry PER PRODUCT, in input order. Each

@@ -141,12 +141,18 @@ def build_v2_markdown(payload: dict[str, Any]) -> str:
         columns = payload.get("columns", ["price", "title", "seller", "condition"])
         header_cols = ["#"]
         for c in columns:
-            if c == "price" or c == "price_usd": header_cols.append("Price")
-            elif c == "title": header_cols.append("Title")
-            elif c == "seller" or c == "seller_name": header_cols.append("Vendor")
-            elif c == "condition": header_cols.append("Condition")
-            elif c == "seller_rating" or c == "seller_rating_pct": header_cols.append("Rating")
-            else: header_cols.append(c.replace("_", " ").title())
+            if c == "price" or c == "price_usd":
+                header_cols.append("Price")
+            elif c == "title":
+                header_cols.append("Title")
+            elif c == "seller" or c == "seller_name":
+                header_cols.append("Vendor")
+            elif c == "condition":
+                header_cols.append("Condition")
+            elif c == "seller_rating" or c == "seller_rating_pct":
+                header_cols.append("Rating")
+            else:
+                header_cols.append(c.replace("_", " ").title())
 
         lines.append("| " + " | ".join(header_cols) + " |")
         lines.append("|" + "|".join(["---"] * len(header_cols)) + "|")
