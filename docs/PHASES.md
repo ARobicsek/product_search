@@ -1100,3 +1100,43 @@ Amazon US is **absent from Serper's Google Shopping** (ADR-130/131), so it's the
 ### Cost note
 Standard queue ~$0.0006–0.001/search × search-only + ~3–5-query cap ≈ **$0.002–0.005/run** when Amazon is enabled (negligible; Scrappey-level, but structured). Live mode (~$0.002) only for any future sync preview. DataForSEO is prepaid PAYG — no subscription, balance never expires.
 
+## Phase 39 — AI-filter cost reduction: prompt-cache the rules prompt + trim verdict output (PROPOSED 2026-06-01 — ADR-142)
+
+> **Read [ADR-142](DECISIONS.md) first.** Worker-only; no recall/onboarder behavior change. *(Numbered 39; a parallel session may take a number — renumber if it collides, like 37→38 did.)*
+
+### Why
+The Haiku-4.5 relevance filter is now the dominant per-run cost. On the 2026-06-01 prod DJI Neo 2 run it was **$0.219 of the $0.224 total** — it judged **350 wide-net listings in 7 batches of 50** ([ai_filter.py](../worker/src/product_search/validators/ai_filter.py), `_AI_FILTER_BATCH_SIZE=50`), and the long rules **system prompt (~16–17K tokens) is rebuilt once but re-sent at full price on every batch** with **no prompt caching** ([llm/_anthropic.py](../worker/src/product_search/llm/_anthropic.py) sends `system=` as a plain string; `LLMResponse` has no cache fields). Adding Amazon as a third recall source structurally enlarges the net, so this cost compounds. Two levers (from the 2026-06-01 cost analysis): **(1) prompt-cache the stable system block** (primary, input-side), **(2) trim the per-listing verdict output** (secondary, output-side — output is billed 5× input). Haiku 4.5 = **$1/MTok in, $5/MTok out** ([llm/pricing.py](../worker/src/product_search/llm/pricing.py) `Pricing(1.0, 5.0)`).
+
+### Ground rules
+- **Determinism is sacrosanct (ADR-132).** Keep `temperature=0`. Caching and the reason-trim must NOT change which listings pass — verify an identical survivor set on a committed fixture before/after.
+- **No fabricated savings (ADR-001 spirit).** The cost panel must price cache reads/writes from the **real** `usage.cache_read_input_tokens`/`cache_creation_input_tokens` the SDK returns — never a hardcoded discount.
+- **Preserve load-bearing reasons.** *Reject*-reasons feed the rejection-rollup table ([cli.py:685-713](../worker/src/product_search/cli.py#L685-L713)) + the `relevance_check` classification ([cli.py:108](../worker/src/product_search/cli.py#L108)); `extracted_features` feeds Phase-37 smart cards. *Pass*-reasons are logged to `reports/<slug>/<date>.filter.jsonl` but **never surfaced** — those are the safe ones to drop.
+- Worker-only. CLAUDE.md fixtures discipline; `WORKER_USE_FIXTURES` path stays a no-op for the filter.
+
+### Tasks
+
+**Step 1 — Cache plumbing through the LLM seam.** Add an opt-in `cache_system: bool = False` to `call_llm` ([llm/__init__.py](../worker/src/product_search/llm/__init__.py)); when set for the `anthropic` provider, `_anthropic.call` sends `system` as a content-block list with `cache_control: {"type": "ephemeral"}` (instead of a bare string). Extend `LLMResponse` with optional `cache_read_input_tokens` / `cache_creation_input_tokens` (read from `resp.usage`; `None` for providers/calls without caching). Leave other providers/callers untouched (default `False`).
+
+**Step 2 — Opt the filter in.** `ai_filter` passes `cache_system=True`. The system block is identical across the 7 batches (only the user message varies), so batch 1 *writes* the cache (1.25× input) and batches 2–7 *read* it (0.1× input), all inside the 5-min ephemeral TTL (batches run seconds apart). Sum the cache token fields into `LAST_RUN_USAGE`. (The ~16K-token system block is well above Haiku's ~2048-token min-cacheable size; the SDK no-ops gracefully below it.)
+
+**Step 3 — Cache-aware cost panel.** Extend `pricing.py` + the `_build_run_cost` accounting so an `ai_filter` step prices: uncached input × 1.0, cache-write × 1.25, cache-read × 0.10, output × 5.0 (all ÷1e6, Haiku rates). Surface the split honestly (e.g. a `cache_read_tokens` field on the step, or a corrected `cost_usd`). Don't break the existing `amazon_recall` explicit-`cost_usd` path (Phase 38).
+
+**Step 4 — Trim verdict output (secondary lever).** Update the `ai_filter` system prompt so the model emits `reason` **only when `pass:false`** (passes carry just `index` + `pass` + optional `extracted_features`). **Decision to confirm:** *also* cap/structure reject reasons (rule-name + offending token, bounded length) for a bigger output cut, vs. keep the current full reject sentence (better rollup readability). Recommendation: drop pass-reasons (safe) **and** bound reject reasons to ≤~120 chars (keep a sentence, just capped). Magnitude is honestly smaller than Step 1–3 — on the DJI run only the 65 pass-reasons would drop; rejects (which dominate) still need reasons.
+
+**Step 5 — Tests + verify.** Offline: assert `call_llm(cache_system=True)` builds the cache-control system block (mock the SDK; assert no behavioral change when `False`); assert the cost panel prices a cache-read step below the equivalent uncached step; assert the filter prompt no longer requests pass-reasons; **regression: identical survivor set** on a committed fixture vs. pre-change. Optionally a single live filter run to confirm `cache_read_input_tokens > 0` and a lower panel cost.
+
+### Done when
+- A multi-batch filter run reports real `cache_read_input_tokens > 0` and a **measurably lower** `ai_filter` panel cost; the panel prices cache reads/writes from real usage (no hardcoded discount).
+- Survivor set is **byte-identical** to pre-change on the regression fixture (determinism preserved).
+- Pass-reasons removed from filter output/log; reject-reasons + `extracted_features` intact.
+- Worker green (`pytest`, `ruff src tests`, `mypy`). No web changes unless the report-JSON cost shape changed (then re-verify the report renders).
+- ADR-142 → ACCEPTED with the measured before/after run cost.
+
+### Out of scope (separate levers)
+- **Trimming the recall net** (query-variation count, Serper `num` 100→40) — trades recall; deliberately not touched here (the wide net is the design).
+- Caching synth/onboarder calls (onboarder already caches; synth is a single call).
+- Cross-run / longer-TTL caching, a cheaper pre-filter pass, or batching changes.
+
+### Cost note (estimate)
+Caching the ~16K-token system block across 7 batches turns ~117K full-price system input-tokens into ~1× write + 6× read-at-0.1× ≈ a ~70–80% cut on the input side; with the output untouched that's roughly **$0.22 → ~$0.13 per filter-heavy run (~40%)**, compounding as Amazon enlarges recall sets. Step 4 shaves a smaller additional slice off the 5×-priced output. Numbers to be confirmed by the Step-5 measured run.
+
