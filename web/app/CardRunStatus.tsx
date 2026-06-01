@@ -71,8 +71,15 @@ export function CardRunStatus({
         </span>
       )}
       {timeText && (
-        <time dateTime={primaryIso ?? undefined}>
-          {status === 'running' && primaryIso ? `since ${timeText}` : timeText}
+        <time
+          dateTime={primaryIso ?? undefined}
+          className={status === 'waiting' ? 'font-normal text-gray-400 dark:text-gray-500' : ''}
+        >
+          {status === 'running' && primaryIso
+            ? `since ${timeText}`
+            : status === 'waiting'
+              ? `(last run: ${timeText})`
+              : timeText}
         </time>
       )}
     </span>
