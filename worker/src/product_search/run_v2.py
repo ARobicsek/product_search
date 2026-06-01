@@ -233,6 +233,7 @@ def run_v2(
     """Load a v2 profile, run the pipeline, persist + write the report sidecar."""
     import json
 
+    run_started_at = datetime.now(tz=UTC)
     profile = load_profile_v2(slug)
 
     # Injected recall_fn (tests) returns a plain list and is assumed error-free;
@@ -270,7 +271,7 @@ def run_v2(
     # --- Persist the FULL survivor set to history (REBUILD_PLAN §5.6). --------
     csv_path: Path | None = None
     if not no_store and result.survivors:
-        csv_path = _persist(slug, result.survivors)
+        csv_path = _persist(slug, result.survivors, run_started_at)
 
     # --- Diff + Alerts + Push (Phase 35, REBUILD_PLAN §5 steps 7/9) --------
     alerts_md = ""
@@ -312,7 +313,7 @@ def run_v2(
     print(json.dumps([lst.to_dict() for lst in result.selection.displayed], indent=2))
 
 
-def _persist(slug: str, survivors: list[Listing]) -> Path | None:
+def _persist(slug: str, survivors: list[Listing], run_started_at: datetime) -> Path | None:
     """Best-effort history persistence (CSV + SQLite). Never fatal to a run.
     Returns the CSV path on success, None on failure."""
     try:
@@ -324,7 +325,7 @@ def _persist(slug: str, survivors: list[Listing]) -> Path | None:
             insert_listings(conn, survivors)
         finally:
             conn.close()
-        csv_path = default_csv_path(slug, datetime.now(tz=UTC))
+        csv_path = default_csv_path(slug, run_started_at)
         write_snapshot_csv(csv_path, survivors)
         print(f"Stored {len(survivors)} survivor(s); CSV: {csv_path}", file=sys.stderr)
         return csv_path
