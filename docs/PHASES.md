@@ -1048,3 +1048,55 @@ Capture the two DJI fixtures so ADR-105/106/109 are testable offline:
 - A dedicated native adapter for any vendor (Tier-A work).
 - Microcenter/Backmarket production Cloudflare strategy beyond the existing Scrappey path.
 
+---
+
+## Phase 37 — Amazon recall via DataForSEO (PAYG, structured) (PROPOSED 2026-06-01 — ADR-141; owner confirms GO at session start)
+
+> This is the **first post-rebuild phase** (the Phases 30–36 rebuild arc is complete; it was tracked in [REBUILD_PLAN.md](REBUILD_PLAN.md), not here). It activates the REBUILD_PLAN §0/§10 *"Future: Amazon adapter"* extension point. **Read [ADR-141](DECISIONS.md) first** — it records the decision, the verified PAYG cost analysis, and *why not Scrappey*. Don't re-debate those points.
+
+### Why
+Amazon US is **absent from Serper's Google Shopping** (ADR-130/131), so it's the single biggest remaining recall gap and cannot be closed in the Serper/eBay layer — it needs a dedicated source. The owner values **recall + price control (cost) + strictly PAYG**. ADR-141 settled the *how*: a structured PAYG Amazon API (**DataForSEO Merchant "Amazon Products," Standard queue, ~$0.0006–0.001/search**) behind the existing `fetch(query)->[Listing]` seam — **not** the retired Scrappey/AlterLab browser-render path (illusory cost edge + re-opens the ADR-139 parser/CAPTCHA treadmill + wrong-SKU-price risk).
+
+### Ground rules
+- **No-fabrication seam (ADR-001).** The adapter maps DataForSEO's *structured JSON fields* (asin/title/price/rating/url) to `Listing`. The LLM never reads an Amazon page. Missing fields stay `None`.
+- **Don't reintroduce the scraping tier (ADR-139).** No Scrappey/AlterLab, no HTML parsing, no `vendor_quirks`. If recall disappoints, swap the structured provider — don't add a renderer.
+- **CLAUDE.md sync discipline** + **fixtures-not-live-slugs (ADR-062)**: any test profile is a committed fixture under `worker/tests/fixtures/`; capture a real DataForSEO response → committed fixture; tests run offline via `WORKER_USE_FIXTURES`.
+- **Secrets**: `DATAFORSEO_LOGIN`/`DATAFORSEO_PASSWORD` never committed (GH Actions secrets + Vercel + local `.env`). Push pre-authorized.
+
+### Suggested split (likely two sessions — one phase per session)
+**37a — worker recall path** (Steps 1–5, 8): de-risk + adapter + profile + wire-in + tests. **37b — onboarder + deploy + live verify** (Steps 6–7, 9): onboarder toggle, workflow secret mapping, live run.
+
+### Tasks
+
+**Step 1 — Recall sanity-check (do first; free DataForSEO signup credit, ~30 min).** Throwaway `worker/scripts/amazon_spike.py` (mirror `scripts/serper_spike.py`): fire ~5 representative queries (DJI Neo 2 Motion Fly More Combo; supermicro-h14ssl-n; a subscription; + 2 others from committed fixtures/profiles) at the DataForSEO Amazon Products endpoint. Measure: results/query (recall), % with a structured price, target-relevance, **field completeness** (asin/title/price/rating/url/condition?/availability?), latency (confirm Standard-queue turnaround is acceptable for the cron worker). **GO/NO-GO**: GO if recall + price-field completeness are clearly better than "nothing" (the bar is low — Amazon is currently 0). Capture one raw response → `worker/tests/fixtures/amazon/<query>.json`. NO-GO ⇒ try the provider-agnostic fallback (RapidAPI/Rainforest) before abandoning.
+
+**Step 2 — `adapters/amazon.py`** (mirror `adapters/serper.py` structurally). `fetch(query, *, fixture_path=None) -> list[Listing]`; `WORKER_USE_FIXTURES` + single-file fixture mode; live = DataForSEO **Basic auth** (`DATAFORSEO_LOGIN`/`DATAFORSEO_PASSWORD` from env or `worker/.env`), default **Standard queue** (`task_post` → poll `task_get`/`tasks_ready`), `priority` switch for Live. Map JSON → `Listing`: `source="amazon_dataforseo"` (adapter id, **not** merchant); `seller_name` = merchant/"Amazon"; `url`==`buy_url` = the **real `/dp/<ASIN>` Amazon URL** (unlike Serper, Amazon yields a direct merchant link — distinct-field hygiene still holds); `attrs["asin"]`; `rating`/`rating_count`/`image_url`; `condition` from data else `""` (honest-degraded, like Serper — never `"unknown"`, which `reject_condition_in` would reject 100%); `quantity_available=None` (search-only). Exceptions `AmazonAuthError`/`AmazonAPIError` mirroring Serper. **Write the provider behind a thin internal seam** (`_PROVIDER` config) so RapidAPI/Rainforest can swap without touching the pipeline. Dedup by ASIN→url.
+
+**Step 3 — Profile schema.** Add `AmazonSource(enabled: bool = False, depth: int = 48, priority: Literal["standard","live"] = "standard")` to `SourcesV2` in `profile_v2.py`; **off by default**. Test in `test_profile_v2.py`.
+
+**Step 4 — Wire into the run spine.** In `run_v2._default_recall`, add an `if profile.sources.amazon.enabled:` block with its own `amazon_error` flag in `RecallOutcome` (per-source independent failure, like eBay); thread `amazon_error` through `run_v2_pipeline` → `classify_run_outcome`; add the additive **`amazon_unavailable`** note to `run_outcome.py` (mirror `ebay_unavailable`) + REBUILD_PLAN §8 / honest-error-taxonomy. Ship-from gate is a no-op for US Amazon (like Serper). `_dedup_union` already collapses cross-source URL collisions.
+
+**Step 5 — Run-cost panel.** Record Amazon spend as a flat per-query API cost (recall is a flat-fee call; surface it in `run_calls`/the cost table so per-run Amazon cost is visible — honest cost accounting). Consider adding Serper's recall cost at the same time (currently only `ai_filter` is panelled).
+
+**Step 6 — Onboarder v2** (`promptTextV2.ts` + `validation-v2.ts`). Teach the model to set `sources.amazon.enabled` (on for physical goods sold on Amazon; off for subscriptions/services/groceries — mirror the eBay guidance). **Decision to confirm:** keep the one-shot live preview **Serper-only in v1** (avoid extra preview cost/complexity); note an Amazon-preview as a follow-up. Update the v2 onboard guard tests.
+
+**Step 7 — Deploy wiring.** `.env.example`: add `DATAFORSEO_LOGIN`/`DATAFORSEO_PASSWORD` (and note the dead `ALTERLAB_API_KEY`/`SCRAPPEY_API_KEY` keys are post-ADR-139 vestigial — candidate to remove). Map the two new secrets into the worker env in **both** `search-on-demand.yml` + `search-scheduled.yml` (GH Actions doesn't auto-inject secrets — this was the b0d024a SERPER lesson). Live verify a Run-now on an Amazon-enabled fixture/throwaway product.
+
+**Step 8 — Tests + fixtures** (offline). Committed DataForSEO Amazon fixture(s) under `worker/tests/fixtures/amazon/`; `test_amazon.py` (mapping, ASIN dedup, auth error, fixture mode — mirror `test_serper.py`/`test_ebay.py`); `AmazonSource` test; run_v2 wire-in test (`amazon_error` → `amazon_unavailable`); cross-source dedup test.
+
+### Done when
+- A `schema_version: 2` profile with `sources.amazon.enabled: true` recalls Amazon listings end-to-end through `run_v2` (verified offline on fixtures; live-verified once secrets exist).
+- `amazon_unavailable` is emitted honestly on auth/API failure without aborting Serper/eBay.
+- Amazon off by default; spend visible in the cost panel; query-depth capped.
+- Worker green (`pytest`, `ruff src tests`, `mypy`); web green if onboarder touched (`tsc`/`eslint`/`test:guards`/`test:parity`/`next build`).
+- ADR-141 marked ACCEPTED with a Consequence noting what shipped (incl. the Step-1 GO/NO-GO recall result + chosen provider); PROGRESS.md updated; commit + push.
+
+### Out of scope (future enrichment seams)
+- Per-ASIN multi-seller/offers enrichment + `min_quantity` honoring for Amazon (the §0 "enrich top-N" seam; same deferral as eBay's min_quantity).
+- Non-US Amazon marketplaces.
+- Merchant-link resolution beyond the direct `/dp/<ASIN>` URL.
+- Amazon in the onboarder live-preview (Serper-only preview stays v1).
+
+### Cost note
+Standard queue ~$0.0006–0.001/search × search-only + ~3–5-query cap ≈ **$0.002–0.005/run** when Amazon is enabled (negligible; Scrappey-level, but structured). Live mode (~$0.002) only for any future sync preview. DataForSEO is prepaid PAYG — no subscription, balance never expires.
+
