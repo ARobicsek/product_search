@@ -1,23 +1,27 @@
 schema_version: 2
 slug: the-week-us-one-year-subscription
-display_name: The Week US – One Year Subscription
-description: One year subscription to The Week magazine, US edition.
+display_name: The Week US – One Year Subscription (Print or Print+Digital)
+description: One year subscription to The Week magazine, US edition—print or print+digital only, no digital-only.
 product_type: subscription
 target:
   unit: count
   amount: 1
 queries:
-  - The Week magazine US one year subscription
-  - The Week US annual subscription
-  - The Week magazine subscription one year
+  - The Week magazine US one year subscription print
+  - The Week US annual subscription print
+  - The Week magazine print subscription one year
+  - The Week US print digital subscription
 match:
   aliases:
     - The Week US
     - The Week one year
+    - The Week print
   title_excludes:
     - bundle
     - gift card
     - back issue
+    - digital only
+    - digital subscription
   variant_strict: false
 filters: {}
 sources:
