@@ -43,3 +43,6 @@ alerts:
     mode: is_below
     price_basis: unit
 
+schedule:
+  run_at: 2026-06-01T04:25:00Z
+  timezone: UTC
