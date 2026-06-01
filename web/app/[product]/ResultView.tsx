@@ -377,29 +377,33 @@ export function ResultView({ data }: { data: ReportSidecar }) {
               {v1.listings_meta.total_passed} passing listings.
             </p>
           )}
-          {!isV1 && hasMore && !showAll && (
-            <button
-              onClick={() => setShowAll(true)}
-              className="w-full py-2.5 text-sm font-medium text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 bg-blue-50/50 dark:bg-blue-950/20 hover:bg-blue-50 dark:hover:bg-blue-950/40 border border-blue-200 dark:border-blue-900 rounded-xl transition-colors cursor-pointer"
-            >
-              Show all {allListings!.length} listings
-              <span className="text-gray-500 dark:text-gray-400 font-normal">
-                {' '}(showing top {data.listings.length})
-              </span>
-            </button>
-          )}
-          {!isV1 && showAll && hasMore && (
-            <button
-              onClick={() => setShowAll(false)}
-              className="w-full py-2.5 text-sm font-medium text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 bg-gray-50/50 dark:bg-gray-900/20 hover:bg-gray-100 dark:hover:bg-gray-800/40 border border-gray-200 dark:border-gray-800 rounded-xl transition-colors cursor-pointer"
-            >
-              Show top {data.listings.length} only
-            </button>
-          )}
-          {!isV1 && !hasMore && v2.survivor_count > v2.displayed_count && (
-            <p className="text-xs text-gray-500 dark:text-gray-400 text-center">
-              Showing {v2.displayed_count} of {v2.survivor_count} matched listings ({v2.recall_count} found).
-            </p>
+          {!isV1 && (
+            <div className="space-y-3 pt-2">
+              {hasMore && !showAll && (
+                <button
+                  onClick={() => setShowAll(true)}
+                  className="w-full py-2.5 text-sm font-medium text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 bg-blue-50/50 dark:bg-blue-950/20 hover:bg-blue-50 dark:hover:bg-blue-950/40 border border-blue-200 dark:border-blue-900 rounded-xl transition-colors cursor-pointer"
+                >
+                  Show all {allListings!.length} listings
+                  <span className="text-gray-500 dark:text-gray-400 font-normal">
+                    {' '}(showing top {data.listings.length})
+                  </span>
+                </button>
+              )}
+              {showAll && hasMore && (
+                <button
+                  onClick={() => setShowAll(false)}
+                  className="w-full py-2.5 text-sm font-medium text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 bg-gray-50/50 dark:bg-gray-900/20 hover:bg-gray-100 dark:hover:bg-gray-800/40 border border-gray-200 dark:border-gray-800 rounded-xl transition-colors cursor-pointer"
+                >
+                  Show top {data.listings.length} only
+                </button>
+              )}
+              <p className="text-xs text-gray-500 dark:text-gray-400 text-center">
+                {visibleListings.length === v2.survivor_count
+                  ? `Showing all ${v2.survivor_count} matched listings (${v2.recall_count} found).`
+                  : `Showing ${visibleListings.length} of ${v2.survivor_count} matched listings (${v2.recall_count} found).`}
+              </p>
+            </div>
           )}
         </section>
       ) : (

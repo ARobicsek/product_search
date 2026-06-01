@@ -26,6 +26,24 @@ from product_search.synthesizer.flag_labels import Badge, _coerce_entry, _load_r
 
 
 def _vendor_host(lst: Listing) -> str | None:
+    if lst.source == "serper_shopping":
+        seller = lst.seller_name.lower()
+        if "ebay" in seller:
+            return "ebay.com"
+        if "amazon" in seller:
+            return "amazon.com"
+        if "walmart" in seller:
+            return "walmart.com"
+        if "newegg" in seller:
+            return "newegg.com"
+        if "bhphoto" in seller:
+            return "bhphotovideo.com"
+        if "." in seller and " " not in seller:
+            return seller
+        # best effort fallback for "Target" -> "target.com"
+        clean = seller.replace(" ", "").replace("-", "")
+        return f"{clean}.com" if clean else None
+
     parsed = urlparse(lst.url).netloc.lower()
     return parsed or None
 
