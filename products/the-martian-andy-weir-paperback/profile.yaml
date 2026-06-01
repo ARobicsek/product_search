@@ -1,0 +1,38 @@
+schema_version: 2
+slug: the-martian-andy-weir-paperback
+display_name: The Martian by Andy Weir (Paperback)
+description: The Martian by Andy Weir in paperback format, new or used condition.
+product_type: book
+target:
+  unit: count
+  amount: 1
+queries:
+  - The Martian Andy Weir Paperback
+match:
+  aliases:
+    - Martian Andy Weir
+    - '0553418025'
+  title_excludes:
+    - hardcover
+    - ebook
+    - audiobook
+    - kindle
+  variant_strict: true
+filters:
+  condition_in:
+    - new
+    - used
+sources:
+  serper:
+    enabled: true
+    gl: us
+  ebay:
+    enabled: false
+display:
+  max_listings: 20
+  per_vendor_cap: 3
+  attrs:
+    - price
+    - condition
+    - seller
+    - seller_rating
