@@ -143,6 +143,10 @@ def _result_to_listing(result: dict[str, Any]) -> Listing:
     rating_raw = result.get("rating")
     rating_count_raw = result.get("ratingCount")
 
+    image_url = result.get("imageUrl")
+    if isinstance(image_url, str) and image_url.startswith("data:"):
+        image_url = None
+
     return Listing(
         source=_SOURCE_ID,
         # Serper's ``link`` is ALWAYS a google.com/search shopping-cluster
@@ -166,7 +170,7 @@ def _result_to_listing(result: dict[str, Any]) -> Listing:
         seller_feedback_count=None,
         ship_from_country=None,
         buy_url=link,
-        image_url=result.get("imageUrl"),
+        image_url=image_url,
         rating=float(rating_raw) if isinstance(rating_raw, (int, float)) else None,
         rating_count=int(rating_count_raw) if isinstance(rating_count_raw, (int, float)) else None,
     )
