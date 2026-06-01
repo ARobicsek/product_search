@@ -157,8 +157,9 @@ export function validateProfileDraftV2(
   if (sources) {
     const serperEnabled = isPlainObject(sources.serper) ? sources.serper.enabled !== false : true;
     const ebayEnabled = isPlainObject(sources.ebay) ? sources.ebay.enabled === true : false;
-    if (!serperEnabled && !ebayEnabled) {
-      errors.push('At least one source must be enabled (sources.serper or sources.ebay).');
+    const amazonEnabled = isPlainObject(sources.amazon) ? sources.amazon.enabled === true : false;
+    if (!serperEnabled && !ebayEnabled && !amazonEnabled) {
+      errors.push('At least one source must be enabled (sources.serper, sources.ebay, or sources.amazon).');
     }
   }
 

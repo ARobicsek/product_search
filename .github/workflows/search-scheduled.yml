@@ -58,6 +58,11 @@ jobs:
           # eBay Browse API credentials (secondary recall source).
           EBAY_CLIENT_ID: ${{ secrets.EBAY_CLIENT_ID }}
           EBAY_CLIENT_SECRET: ${{ secrets.EBAY_CLIENT_SECRET }}
+          # DataForSEO Amazon recall (Phase 38, ADR-141). Only used when a profile
+          # sets sources.amazon.enabled; without these the amazon adapter raises
+          # AmazonAuthError → amazon_unavailable (Serper/eBay still run).
+          DATAFORSEO_LOGIN: ${{ secrets.DATAFORSEO_LOGIN }}
+          DATAFORSEO_PASSWORD: ${{ secrets.DATAFORSEO_PASSWORD }}
           # Without these two, notify.py early-returns and NO alert push is
           # ever sent (the alert still fires + disarms in the state machine).
           # PUSH_NOTIFY_SECRET must equal the same-named value in Vercel.

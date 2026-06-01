@@ -168,6 +168,22 @@ test('validateProfileDraftV2: both sources disabled is rejected', () => {
   assert.ok(res.errors.some((e) => e.toLowerCase().includes('source')));
 });
 
+test('validateProfileDraftV2: all three sources disabled is rejected (incl. amazon)', () => {
+  const d = validDraft();
+  d.sources = { serper: { enabled: false }, ebay: { enabled: false }, amazon: { enabled: false } };
+  const res = validateProfileDraftV2(d);
+  assert.equal(res.ok, false);
+  assert.ok(res.errors.some((e) => e.toLowerCase().includes('amazon')));
+});
+
+test('validateProfileDraftV2: amazon-only enabled satisfies the at-least-one-source gate', () => {
+  const d = validDraft();
+  d.sources = { serper: { enabled: false }, ebay: { enabled: false }, amazon: { enabled: true } };
+  const res = validateProfileDraftV2(d);
+  assert.equal(res.ok, true, res.errors.join('; '));
+  assert.match(res.yamlText ?? '', /amazon:/);
+});
+
 test('validateProfileDraftV2: missing product_type warns but does not block', () => {
   const d = validDraft();
   delete d.product_type;
@@ -215,6 +231,12 @@ test('promptTextV2: documents the v2 tools and rules', () => {
     'Distinctive aliases',
     '<draft>',
   ]) {
+    assert.ok(promptTextV2.includes(needle), `prompt should mention "${needle}"`);
+  }
+});
+
+test('promptTextV2: documents the Amazon opt-in source guidance', () => {
+  for (const needle of ['sources.amazon.enabled', 'Amazon US is absent from Google Shopping']) {
     assert.ok(promptTextV2.includes(needle), `prompt should mention "${needle}"`);
   }
 });
