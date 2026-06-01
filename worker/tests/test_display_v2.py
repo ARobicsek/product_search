@@ -70,14 +70,22 @@ def test_falls_back_to_type_default_when_attrs_empty() -> None:
     assert "term" in cols  # subscription default includes term, and it's populated
 
 
-def test_unknown_column_dropped() -> None:
+def test_dynamic_attr_column_resolution() -> None:
+    # Populated dynamic attr is kept
     cols = resolve_columns(
-        profile_attrs=["price", "color"],  # "color" isn't a known key
+        profile_attrs=["price", "color"],
         product_type=None,
-        displayed=[_listing()],
+        displayed=[_listing(attrs={"color": "Blue"})],
     )
-    assert "color" not in cols
-    assert cols == ["price"]
+    assert cols == ["price", "color"]
+
+    # Unpopulated dynamic attr is dropped
+    cols_empty = resolve_columns(
+        profile_attrs=["price", "color"],
+        product_type=None,
+        displayed=[_listing(attrs={})],
+    )
+    assert cols_empty == ["price"]
 
 
 def test_price_always_present() -> None:

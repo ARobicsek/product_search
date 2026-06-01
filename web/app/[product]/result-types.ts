@@ -17,6 +17,8 @@ export interface ResultListing {
   source: string;
   vendor_host: string | null;
   url: string;
+  buy_url: string | null;
+  image_url: string | null;
   title: string;
   price_usd: number | null;
   total_for_target_usd: number | null;
@@ -26,6 +28,16 @@ export interface ResultListing {
   is_kit: boolean;
   kit_module_count: number;
   badges: Badge[];
+  seller_rating_pct: number | null;
+  seller_feedback_count: number | null;
+  rating: number | null;
+  rating_count: number | null;
+  ship_from_country: string | null;
+  quantity_available: number | null;
+  brand: string | null;
+  mpn: string | null;
+  attrs: Record<string, string> | null;
+  flags: string[];
 }
 
 export type SourceStatus =

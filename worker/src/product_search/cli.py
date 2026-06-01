@@ -1099,7 +1099,7 @@ def _cmd_scheduler_tick() -> None:
                 from product_search.profile_v2 import load_profile_v2
                 profile = load_profile_v2(slug)
             else:
-                profile = load_profile(slug)
+                profile = load_profile(slug)  # type: ignore[assignment]
         except Exception as exc:
             print(f"Skipping {slug} (invalid profile): {exc}", file=sys.stderr)
             continue

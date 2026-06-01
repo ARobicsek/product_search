@@ -76,7 +76,15 @@ def resolve_columns(
         key = col.strip().lower()
         pred = _POPULATED.get(key)
         if pred is None:
-            continue  # unknown column key — drop rather than show a blank
+            # Dynamic attr from extracted_features — show if any
+            # displayed listing carries a non-empty value in its attrs dict.
+            if any(
+                bool(str((lst.attrs or {}).get(key, "")).strip())
+                for lst in displayed
+            ):
+                if key not in out:
+                    out.append(key)
+            continue
         if key == "price" or any(pred(lst) for lst in displayed):
             if key not in out:
                 out.append(key)

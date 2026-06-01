@@ -133,7 +133,68 @@ function VendorFavicon({ host }: { host: string | null }) {
   );
 }
 
-function ListingCard({ listing }: { listing: ResultListing }) {
+/** Column keys already rendered by hardcoded card sections — skip in dynamic loop. */
+const HARDCODED_COLUMNS = new Set([
+  'price', 'condition', 'seller', 'title',
+]);
+
+/** Human-readable labels for known attribute keys. */
+const ATTR_LABELS: Record<string, string> = {
+  seller_rating: 'Rating',
+  rating: 'Rating',
+  rating_count: 'Reviews',
+  quantity: 'Qty',
+  ship_from: 'Ships from',
+  brand: 'Brand',
+  mpn: 'MPN',
+  color: 'Color',
+  size: 'Size',
+  storage: 'Storage',
+  material: 'Material',
+  edition: 'Edition',
+  pack_size: 'Pack size',
+  term: 'Term',
+  flavor: 'Flavor',
+};
+
+/**
+ * Resolve a column's display value from the listing.
+ * Structured fields (from the API) take priority over attrs (title-derived).
+ */
+function getColumnValue(listing: ResultListing, col: string): string | null {
+  switch (col) {
+    case 'seller_rating':
+      return listing.seller_rating_pct != null ? `${listing.seller_rating_pct}%` : null;
+    case 'rating':
+      return listing.rating != null ? `${listing.rating}★` : null;
+    case 'rating_count':
+      return listing.rating_count != null ? `${listing.rating_count}` : null;
+    case 'quantity':
+      return listing.quantity_available != null ? `${listing.quantity_available}` : null;
+    case 'ship_from':
+      return listing.ship_from_country || null;
+    case 'brand':
+      return listing.brand || null;
+    case 'mpn':
+      return listing.mpn || null;
+    default:
+      // Fall back to attrs dict (extracted features from title)
+      return listing.attrs?.[col] ? String(listing.attrs[col]) : null;
+  }
+}
+
+/** Whether a column value came from title extraction (low confidence) vs structured API data. */
+function isExtractedAttr(listing: ResultListing, col: string): boolean {
+  const STRUCTURED_COLS = new Set([
+    'seller_rating', 'rating', 'rating_count',
+    'quantity', 'ship_from', 'brand', 'mpn',
+  ]);
+  if (STRUCTURED_COLS.has(col)) return false;
+  // If it's resolved from attrs, it was extracted from the title by the AI filter
+  return !!listing.attrs?.[col];
+}
+
+function ListingCard({ listing, columns }: { listing: ResultListing; columns?: string[] }) {
   const host = listing.vendor_host ?? listing.source;
   const cleanHost = host.replace(/^www\./, '');
   const showTotal =
@@ -157,9 +218,22 @@ function ListingCard({ listing }: { listing: ResultListing }) {
         </span>
       </header>
 
-      <h3 className="text-base font-semibold text-gray-900 dark:text-gray-100 break-words">
-        {listing.title}
-      </h3>
+      <div className="flex gap-3">
+        {listing.image_url && (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={listing.image_url}
+            alt=""
+            width={48}
+            height={48}
+            className="rounded-lg object-cover shrink-0 self-start"
+            onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+          />
+        )}
+        <h3 className="text-base font-semibold text-gray-900 dark:text-gray-100 break-words">
+          {listing.title}
+        </h3>
+      </div>
 
       <div className="flex items-baseline gap-3 flex-wrap">
         <span className="text-2xl font-bold text-gray-900 dark:text-gray-100 tabular-nums">
@@ -183,13 +257,25 @@ function ListingCard({ listing }: { listing: ResultListing }) {
         {listing.is_kit && listing.kit_module_count > 1 && (
           <span>{listing.kit_module_count}-pack</span>
         )}
+        {/* Dynamic attribute pills from sidecar columns */}
+        {columns?.filter(c => !HARDCODED_COLUMNS.has(c)).map(col => {
+          const value = getColumnValue(listing, col);
+          if (!value) return null;
+          const label = ATTR_LABELS[col] || col.replace(/_/g, ' ');
+          const extracted = isExtractedAttr(listing, col);
+          return (
+            <span key={col} className={extracted ? 'opacity-60' : ''}>
+              {label}: {value}
+            </span>
+          );
+        })}
       </div>
 
       <BadgeRow badges={listing.badges} />
 
       <div className="pt-2">
         <a
-          href={listing.url}
+          href={listing.buy_url || listing.url}
           target="_blank"
           rel="noopener noreferrer"
           className="inline-flex items-center gap-1 text-sm font-medium text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 break-all"
@@ -382,7 +468,11 @@ export function ResultView({ data }: { data: ReportSidecar }) {
       {hasListings ? (
         <section className="space-y-3">
           {visibleListings.map((lst) => (
-            <ListingCard key={`${lst.rank}-${lst.url}`} listing={lst} />
+            <ListingCard
+              key={`${lst.rank}-${lst.url}`}
+              listing={lst}
+              columns={!isV1 ? v2.columns : undefined}
+            />
           ))}
           {isV1 && v1.listings_meta.total_passed > v1.listings_meta.shown && (
             <p className="text-xs text-gray-500 dark:text-gray-400 text-center">

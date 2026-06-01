@@ -277,7 +277,11 @@ Decision rules:
   attrs/title/url so the human reviewer can verify.
 
 The profile expects the following display attributes: {display_attrs or []}
-If any of these attributes can be clearly extracted from the title (e.g., color, storage capacity), add them to a new
+Additionally, if you can clearly identify any of these common product attributes
+from the title, extract them too: color, size, storage, material, edition,
+pack_size, term, flavor. Only extract when the value is UNAMBIGUOUSLY present
+in the title — never guess.
+If any of these attributes can be clearly extracted, add them to a new
 "extracted_features" dictionary in your evaluation object for that listing. For example:
 "extracted_features": {{"color": "black"}}.
 
@@ -522,7 +526,17 @@ ONLY output the JSON object.
                 if lst.attrs is None:
                     lst.attrs = {}
                 for k, v in extracted.items():
-                    if v and str(v).strip():
+                    if not v or not str(v).strip():
+                        continue
+                    # Structured data wins — don't override real API fields
+                    # with title-derived guesses.
+                    if k == "condition" and lst.condition:
+                        continue
+                    if k == "brand" and lst.brand:
+                        continue
+                    if k == "quantity" and lst.quantity_available is not None:
+                        continue
+                    if k not in lst.attrs:
                         lst.attrs[k] = str(v).strip()
             passed_listings.append(lst)
 
