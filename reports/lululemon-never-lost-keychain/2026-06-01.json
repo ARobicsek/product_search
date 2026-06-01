@@ -4,11 +4,7 @@
   "display_name": "Lululemon Never Lost Keychain",
   "product_type": "accessories",
   "snapshot_date": "2026-06-01",
-<<<<<<< Updated upstream
-  "generated_at": "2026-06-01T16:13:43.331386+00:00",
-=======
-  "generated_at": "2026-06-01T15:31:33.966818+00:00",
->>>>>>> Stashed changes
+  "generated_at": "2026-06-01T16:31:28.649263+00:00",
   "columns": [
     "price",
     "seller",
@@ -48,578 +44,38 @@
     {
       "rank": 2,
       "source": "serper_shopping",
-<<<<<<< Updated upstream
-=======
-      "vendor_host": "ebay.com",
-      "url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Key+Tag&prds=localAnnotatedOfferId:1,productid:90779232485454944,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
-      "buy_url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Key+Tag&prds=localAnnotatedOfferId:1,productid:90779232485454944,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
+      "vendor_host": "whatnot.com",
+      "url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Keychain&prds=localAnnotatedOfferId:1,productid:8577682908042388890,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
+      "buy_url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Keychain&prds=localAnnotatedOfferId:1,productid:8577682908042388890,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
       "image_url": null,
-      "title": "Lululemon Never Lost Keychains |choose Your Favorite",
-      "price_usd": 17.99,
+      "title": "Lululemon Never Lost Keychain2",
+      "price_usd": 15.0,
       "total_for_target_usd": null,
       "currency_approx_fx": null,
       "condition": "",
-      "seller_name": "eBay",
+      "seller_name": "Whatnot",
       "is_kit": false,
       "kit_module_count": 1,
       "badges": [],
       "seller_rating_pct": null,
       "seller_feedback_count": null,
-      "rating": null,
-      "rating_count": null,
+      "rating": 4.6,
+      "rating_count": 6000,
       "ship_from_country": null,
       "quantity_available": null,
       "flags": [],
       "brand": null,
       "mpn": null,
       "attrs": {
-        "serper_product_id": "90779232485454944"
+        "serper_product_id": "8577682908042388890"
       }
     },
     {
       "rank": 3,
       "source": "serper_shopping",
       "vendor_host": "ebay.com",
-      "url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Key+Finder+Keychain&prds=localAnnotatedOfferId:1,productid:15128604497774858187,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
-      "buy_url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Key+Finder+Keychain&prds=localAnnotatedOfferId:1,productid:15128604497774858187,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
-      "image_url": null,
-      "title": "Lululemon Never Lost Keychain Black Silver Fabric Metal Logo One Size",
-      "price_usd": 17.99,
-      "total_for_target_usd": null,
-      "currency_approx_fx": null,
-      "condition": "",
-      "seller_name": "eBay",
-      "is_kit": false,
-      "kit_module_count": 1,
-      "badges": [],
-      "seller_rating_pct": null,
-      "seller_feedback_count": null,
-      "rating": null,
-      "rating_count": null,
-      "ship_from_country": null,
-      "quantity_available": null,
-      "flags": [],
-      "brand": null,
-      "mpn": null,
-      "attrs": {
-        "serper_product_id": "15128604497774858187",
-        "color": "Black Silver"
-      }
-    },
-    {
-      "rank": 4,
-      "source": "serper_shopping",
-      "vendor_host": "whatnot.com",
-      "url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Key+Tag&prds=localAnnotatedOfferId:1,productid:18411013052525239449,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
-      "buy_url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Key+Tag&prds=localAnnotatedOfferId:1,productid:18411013052525239449,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
-      "image_url": "https://encrypted-tbn2.gstatic.com/shopping?q=tbn:ANd9GcRuf8WXjAisbTVqgOddyMz5hWG5BIWDL-4lpLg5sBJQwd56mXJpR_YDptpcHIupA3wWUCZSL9JgmO30peqcJ0Us5vLqtC9P4eRi9GXoP38k2KYXiTXdxYC-7w",
-      "title": "Brand new Lululemon Never Lost keychain with tag, orange5",
-      "price_usd": 18.0,
-      "total_for_target_usd": null,
-      "currency_approx_fx": null,
-      "condition": "",
-      "seller_name": "Whatnot",
-      "is_kit": false,
-      "kit_module_count": 1,
-      "badges": [],
-      "seller_rating_pct": null,
-      "seller_feedback_count": null,
-      "rating": 4.6,
-      "rating_count": 6000,
-      "ship_from_country": null,
-      "quantity_available": null,
-      "flags": [],
-      "brand": null,
-      "mpn": null,
-      "attrs": {
-        "serper_product_id": "18411013052525239449",
-        "color": "orange"
-      }
-    },
-    {
-      "rank": 5,
-      "source": "serper_shopping",
-      "vendor_host": "ebay.com",
-      "url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Key+Finder+Keychain&prds=localAnnotatedOfferId:1,productid:13117181214943952618,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
-      "buy_url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Key+Finder+Keychain&prds=localAnnotatedOfferId:1,productid:13117181214943952618,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
-      "image_url": null,
-      "title": "Lululemon Never Lost Keychain One Size Burnt Apricot/terra Orange",
-      "price_usd": 19.99,
-      "total_for_target_usd": null,
-      "currency_approx_fx": null,
-      "condition": "",
-      "seller_name": "eBay - amyazingfinds",
-      "is_kit": false,
-      "kit_module_count": 1,
-      "badges": [],
-      "seller_rating_pct": null,
-      "seller_feedback_count": null,
-      "rating": 4.6,
-      "rating_count": 6000,
-      "ship_from_country": null,
-      "quantity_available": null,
-      "flags": [],
-      "brand": null,
-      "mpn": null,
-      "attrs": {
-        "serper_product_id": "13117181214943952618",
-        "color": "Burnt Apricot/terra Orange"
-      }
-    },
-    {
-      "rank": 6,
-      "source": "serper_shopping",
-      "vendor_host": "lyst.com",
-      "url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Keychain&prds=localAnnotatedOfferId:1,catalogid:1789922101432972502,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
-      "buy_url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Keychain&prds=localAnnotatedOfferId:1,catalogid:1789922101432972502,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
-      "image_url": null,
-      "title": "lululemon Never Lost Keychain",
-      "price_usd": 20.0,
-      "total_for_target_usd": null,
-      "currency_approx_fx": null,
-      "condition": "",
-      "seller_name": "Lyst",
-      "is_kit": false,
-      "kit_module_count": 1,
-      "badges": [],
-      "seller_rating_pct": null,
-      "seller_feedback_count": null,
-      "rating": 4.6,
-      "rating_count": 5300,
-      "ship_from_country": null,
-      "quantity_available": null,
-      "flags": [],
-      "brand": null,
-      "mpn": null,
-      "attrs": {
-        "serper_product_id": "1789922101432972502"
-      }
-    },
-    {
-      "rank": 7,
-      "source": "serper_shopping",
-      "vendor_host": "breederscupshop.com",
-      "url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Keychain&prds=localAnnotatedOfferId:1,productid:5906866808652153448,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
-      "buy_url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Keychain&prds=localAnnotatedOfferId:1,productid:5906866808652153448,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
-      "image_url": null,
-      "title": "Lululemon Never Lost Keychain - Candy Cloud",
-      "price_usd": 20.0,
-      "total_for_target_usd": null,
-      "currency_approx_fx": null,
-      "condition": "",
-      "seller_name": "BreedersCupShop",
-      "is_kit": false,
-      "kit_module_count": 1,
-      "badges": [],
-      "seller_rating_pct": null,
-      "seller_feedback_count": null,
-      "rating": 4.6,
-      "rating_count": 5200,
-      "ship_from_country": null,
-      "quantity_available": null,
-      "flags": [],
-      "brand": null,
-      "mpn": null,
-      "attrs": {
-        "serper_product_id": "5906866808652153448",
-        "color": "Candy Cloud"
-      }
-    },
-    {
-      "rank": 8,
-      "source": "serper_shopping",
-      "vendor_host": "breederscupshop.com",
-      "url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Keychain&prds=localAnnotatedOfferId:1,productid:11711166728826619207,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
-      "buy_url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Keychain&prds=localAnnotatedOfferId:1,productid:11711166728826619207,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
-      "image_url": null,
-      "title": "Lululemon Never Lost Keychain - Ivy Grove",
-      "price_usd": 20.0,
-      "total_for_target_usd": null,
-      "currency_approx_fx": null,
-      "condition": "",
-      "seller_name": "BreedersCupShop",
-      "is_kit": false,
-      "kit_module_count": 1,
-      "badges": [],
-      "seller_rating_pct": null,
-      "seller_feedback_count": null,
-      "rating": 4.6,
-      "rating_count": 5000,
-      "ship_from_country": null,
-      "quantity_available": null,
-      "flags": [],
-      "brand": null,
-      "mpn": null,
-      "attrs": {
-        "serper_product_id": "11711166728826619207",
-        "color": "Ivy Grove"
-      }
-    },
-    {
-      "rank": 9,
-      "source": "serper_shopping",
-      "vendor_host": "whatnot.com",
-      "url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Keychain&prds=localAnnotatedOfferId:1,catalogid:10648850726585805974,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
-      "buy_url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Keychain&prds=localAnnotatedOfferId:1,catalogid:10648850726585805974,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
-      "image_url": null,
-      "title": "Lululemon Never Lost Keychain",
-      "price_usd": 20.0,
-      "total_for_target_usd": null,
-      "currency_approx_fx": null,
-      "condition": "",
-      "seller_name": "Whatnot",
-      "is_kit": false,
-      "kit_module_count": 1,
-      "badges": [],
-      "seller_rating_pct": null,
-      "seller_feedback_count": null,
-      "rating": 4.6,
-      "rating_count": 6000,
-      "ship_from_country": null,
-      "quantity_available": null,
-      "flags": [],
-      "brand": null,
-      "mpn": null,
-      "attrs": {
-        "serper_product_id": "10648850726585805974"
-      }
-    },
-    {
-      "rank": 10,
-      "source": "serper_shopping",
-      "vendor_host": "editorialist.com",
-      "url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Keychain&prds=localAnnotatedOfferId:1,catalogid:9633741554625192854,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
-      "buy_url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Keychain&prds=localAnnotatedOfferId:1,catalogid:9633741554625192854,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
-      "image_url": null,
-      "title": "Lululemon Never Lost Keychain Downtown Tan/Light Ivory/Silver / ONE",
-      "price_usd": 20.0,
-      "total_for_target_usd": null,
-      "currency_approx_fx": null,
-      "condition": "",
-      "seller_name": "Editorialist",
-      "is_kit": false,
-      "kit_module_count": 1,
-      "badges": [],
-      "seller_rating_pct": null,
-      "seller_feedback_count": null,
-      "rating": null,
-      "rating_count": null,
-      "ship_from_country": null,
-      "quantity_available": null,
-      "flags": [],
-      "brand": null,
-      "mpn": null,
-      "attrs": {
-        "serper_product_id": "9633741554625192854",
-        "color": "Downtown Tan/Light Ivory/Silver"
-      }
-    },
-    {
-      "rank": 11,
-      "source": "serper_shopping",
-      "vendor_host": "breederscupshop.com",
-      "url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Keychain&prds=localAnnotatedOfferId:1,productid:3362697158900194356,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
-      "buy_url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Keychain&prds=localAnnotatedOfferId:1,productid:3362697158900194356,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
-      "image_url": null,
-      "title": "Lululemon Never Lost Keychain - Pink Pearl",
-      "price_usd": 20.0,
-      "total_for_target_usd": null,
-      "currency_approx_fx": null,
-      "condition": "",
-      "seller_name": "BreedersCupShop",
-      "is_kit": false,
-      "kit_module_count": 1,
-      "badges": [],
-      "seller_rating_pct": null,
-      "seller_feedback_count": null,
-      "rating": null,
-      "rating_count": null,
-      "ship_from_country": null,
-      "quantity_available": null,
-      "flags": [],
-      "brand": null,
-      "mpn": null,
-      "attrs": {
-        "serper_product_id": "3362697158900194356",
-        "color": "Pink Pearl"
-      }
-    },
-    {
-      "rank": 12,
-      "source": "serper_shopping",
-      "vendor_host": "whatnot.com",
-      "url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Keychain&prds=localAnnotatedOfferId:1,productid:5824818961717490183,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
-      "buy_url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Keychain&prds=localAnnotatedOfferId:1,productid:5824818961717490183,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
-      "image_url": null,
-      "title": "lululemon never lost keychain3",
-      "price_usd": 20.0,
-      "total_for_target_usd": null,
-      "currency_approx_fx": null,
-      "condition": "",
-      "seller_name": "Whatnot",
-      "is_kit": false,
-      "kit_module_count": 1,
-      "badges": [],
-      "seller_rating_pct": null,
-      "seller_feedback_count": null,
-      "rating": 4.6,
-      "rating_count": 6000,
-      "ship_from_country": null,
-      "quantity_available": null,
-      "flags": [],
-      "brand": null,
-      "mpn": null,
-      "attrs": {
-        "serper_product_id": "5824818961717490183"
-      }
-    },
-    {
-      "rank": 13,
-      "source": "serper_shopping",
-      "vendor_host": "poshmark.com",
-      "url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Keychain&prds=localAnnotatedOfferId:1,productid:6758612294650583316,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
-      "buy_url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Keychain&prds=localAnnotatedOfferId:1,productid:6758612294650583316,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
-      "image_url": null,
-      "title": "Lululemon Athletica Other | Black Lululemon Never Lost Keychain | Color: Black | Size: Os | Gjade6365's Closet",
-      "price_usd": 20.0,
-      "total_for_target_usd": null,
-      "currency_approx_fx": null,
-      "condition": "",
-      "seller_name": "Poshmark",
-      "is_kit": false,
-      "kit_module_count": 1,
-      "badges": [],
-      "seller_rating_pct": null,
-      "seller_feedback_count": null,
-      "rating": null,
-      "rating_count": null,
-      "ship_from_country": null,
-      "quantity_available": null,
-      "flags": [],
-      "brand": null,
-      "mpn": null,
-      "attrs": {
-        "serper_product_id": "6758612294650583316",
-        "color": "Black"
-      }
-    },
-    {
-      "rank": 14,
-      "source": "serper_shopping",
-      "vendor_host": "poshmark.com",
-      "url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Keychain&prds=localAnnotatedOfferId:1,productid:18020499821372950083,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
-      "buy_url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Keychain&prds=localAnnotatedOfferId:1,productid:18020499821372950083,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
-      "image_url": "https://encrypted-tbn2.gstatic.com/shopping?q=tbn:ANd9GcRsongUad9Fs9rz5oRv34OEZa9w2nl7UDluPzoA-tNuvnvps7llzBzSt-2A582FeZtZyh6gHowIh8mMV60yhicAdSED5_3DB1U8gs9ucx4yVJ1_S1VTg0be",
-      "title": "Lululemon Athletica Accessories | Nwt Lululemon Never Lost Keychain Pink Mist/Silver | Color: Pink/Silver | Size: Os | Pm-26282203's Closet",
-      "price_usd": 21.0,
-      "total_for_target_usd": null,
-      "currency_approx_fx": null,
-      "condition": "",
-      "seller_name": "Poshmark",
-      "is_kit": false,
-      "kit_module_count": 1,
-      "badges": [],
-      "seller_rating_pct": null,
-      "seller_feedback_count": null,
-      "rating": 4.6,
-      "rating_count": 6000,
-      "ship_from_country": null,
-      "quantity_available": null,
-      "flags": [],
-      "brand": null,
-      "mpn": null,
-      "attrs": {
-        "serper_product_id": "18020499821372950083",
-        "color": "Pink Mist/Silver"
-      }
-    },
-    {
-      "rank": 15,
-      "source": "serper_shopping",
-      "vendor_host": "poshmark.com",
-      "url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Key+Finder+Keychain&prds=localAnnotatedOfferId:1,productid:1151104408281496212,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
-      "buy_url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Key+Finder+Keychain&prds=localAnnotatedOfferId:1,productid:1151104408281496212,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
-      "image_url": "https://encrypted-tbn3.gstatic.com/shopping?q=tbn:ANd9GcSGVswTJ6IqDKBG30RjX-7mOXF6Z-YKUgmNFzjsvacDqs5YEP18E0dbRcGHZhwfjFfLf1SAc0VHOY3HdQ3SGJpMPEfzroHu",
-      "title": "LULULEMON! Never Lost Keychain",
-      "price_usd": 21.0,
-      "total_for_target_usd": null,
-      "currency_approx_fx": null,
-      "condition": "",
-      "seller_name": "Poshmark",
-      "is_kit": false,
-      "kit_module_count": 1,
-      "badges": [],
-      "seller_rating_pct": null,
-      "seller_feedback_count": null,
-      "rating": 4.6,
-      "rating_count": 5200,
-      "ship_from_country": null,
-      "quantity_available": null,
-      "flags": [],
-      "brand": null,
-      "mpn": null,
-      "attrs": {
-        "serper_product_id": "1151104408281496212"
-      }
-    },
-    {
-      "rank": 16,
-      "source": "serper_shopping",
-      "vendor_host": "lululemon.com",
-      "url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Key+Finder+Keychain&prds=localAnnotatedOfferId:1,catalogid:8461859789952323690,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
-      "buy_url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Key+Finder+Keychain&prds=localAnnotatedOfferId:1,catalogid:8461859789952323690,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
-      "image_url": null,
-      "title": "lululemon Never Lost Keychain",
-      "price_usd": 24.0,
-      "total_for_target_usd": null,
-      "currency_approx_fx": null,
-      "condition": "",
-      "seller_name": "lululemon",
-      "is_kit": false,
-      "kit_module_count": 1,
-      "badges": [],
-      "seller_rating_pct": null,
-      "seller_feedback_count": null,
-      "rating": 4.8,
-      "rating_count": 734,
-      "ship_from_country": null,
-      "quantity_available": null,
-      "flags": [],
-      "brand": null,
-      "mpn": null,
-      "attrs": {
-        "serper_product_id": "8461859789952323690"
-      }
-    },
-    {
-      "rank": 17,
-      "source": "serper_shopping",
-      "vendor_host": "ebay.com",
-      "url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Keychain&prds=localAnnotatedOfferId:1,productid:12927376325456476166,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
-      "buy_url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Keychain&prds=localAnnotatedOfferId:1,productid:12927376325456476166,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
-      "image_url": null,
-      "title": "Lululemon Never Lost Keychain One Size Rpcr/wnby 00603.",
-      "price_usd": 28.0,
-      "total_for_target_usd": null,
-      "currency_approx_fx": null,
-      "condition": "",
-      "seller_name": "eBay - neverevernotshopping",
-      "is_kit": false,
-      "kit_module_count": 1,
-      "badges": [],
-      "seller_rating_pct": null,
-      "seller_feedback_count": null,
-      "rating": 4.6,
-      "rating_count": 5200,
-      "ship_from_country": null,
-      "quantity_available": null,
-      "flags": [],
-      "brand": null,
-      "mpn": null,
-      "attrs": {
-        "serper_product_id": "12927376325456476166",
-        "color": "Rpcr/wnby"
-      }
-    },
-    {
-      "rank": 18,
-      "source": "serper_shopping",
-      "vendor_host": "ebay.com",
-      "url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Key+Tag&prds=localAnnotatedOfferId:1,productid:15031732163681515071,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
-      "buy_url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Key+Tag&prds=localAnnotatedOfferId:1,productid:15031732163681515071,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
-      "image_url": null,
-      "title": "Lululemon Never Lost Keychain Wordmark Vapor Gold",
-      "price_usd": 29.97,
-      "total_for_target_usd": null,
-      "currency_approx_fx": null,
-      "condition": "",
-      "seller_name": "eBay - fashionella",
-      "is_kit": false,
-      "kit_module_count": 1,
-      "badges": [],
-      "seller_rating_pct": null,
-      "seller_feedback_count": null,
-      "rating": null,
-      "rating_count": null,
-      "ship_from_country": null,
-      "quantity_available": null,
-      "flags": [],
-      "brand": null,
-      "mpn": null,
-      "attrs": {
-        "serper_product_id": "15031732163681515071",
-        "color": "Vapor Gold"
-      }
-    },
-    {
-      "rank": 19,
-      "source": "serper_shopping",
-      "vendor_host": "ebay.com",
-      "url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Keychain&prds=localAnnotatedOfferId:1,productid:1998517365201533547,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
-      "buy_url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Keychain&prds=localAnnotatedOfferId:1,productid:1998517365201533547,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
-      "image_url": null,
-      "title": "Lululemon Never Lost Keychain in Riverside/Faint Lavender",
-      "price_usd": 29.99,
-      "total_for_target_usd": null,
-      "currency_approx_fx": null,
-      "condition": "",
-      "seller_name": "eBay - finderskeepersalabama",
-      "is_kit": false,
-      "kit_module_count": 1,
-      "badges": [],
-      "seller_rating_pct": null,
-      "seller_feedback_count": null,
-      "rating": null,
-      "rating_count": null,
-      "ship_from_country": null,
-      "quantity_available": null,
-      "flags": [],
-      "brand": null,
-      "mpn": null,
-      "attrs": {
-        "serper_product_id": "1998517365201533547",
-        "color": "Riverside/Faint Lavender"
-      }
-    },
-    {
-      "rank": 20,
-      "source": "serper_shopping",
-      "vendor_host": "ebay.com",
-      "url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Keychain&prds=localAnnotatedOfferId:1,productid:14976843986139883533,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
-      "buy_url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Keychain&prds=localAnnotatedOfferId:1,productid:14976843986139883533,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
-      "image_url": "https://encrypted-tbn2.gstatic.com/shopping?q=tbn:ANd9GcQnnrwGvlTlAs-V7FlAZIWD08IRNu9cnuyF71eD0O67XsoljRgw31N2uNhMTGiToQwoApoBPrjO-gP5nb0cNUTNw_6u__hsje39_XyFvCPV-s_Jq_mXIOgHCA",
-      "title": "Lululemon Never Lost Keychain Balf/ltiv Gold Hardware Authentic",
-      "price_usd": 32.99,
-      "total_for_target_usd": null,
-      "currency_approx_fx": null,
-      "condition": "",
-      "seller_name": "eBay - rainingroes",
-      "is_kit": false,
-      "kit_module_count": 1,
-      "badges": [],
-      "seller_rating_pct": null,
-      "seller_feedback_count": null,
-      "rating": 4.6,
-      "rating_count": 6000,
-      "ship_from_country": null,
-      "quantity_available": null,
-      "flags": [],
-      "brand": null,
-      "mpn": null,
-      "attrs": {
-        "serper_product_id": "14976843986139883533",
-        "color": "Balf/ltiv Gold Hardware"
-      }
-    }
-  ],
-  "all_listings": [
-    {
-      "rank": 1,
-      "source": "serper_shopping",
->>>>>>> Stashed changes
-      "vendor_host": "ebay.com",
-      "url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Key+Tag&prds=localAnnotatedOfferId:1,productid:5087710754109019309,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
-      "buy_url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Key+Tag&prds=localAnnotatedOfferId:1,productid:5087710754109019309,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
+      "url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Keychain&prds=localAnnotatedOfferId:1,productid:5087710754109019309,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
+      "buy_url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Keychain&prds=localAnnotatedOfferId:1,productid:5087710754109019309,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
       "image_url": null,
       "title": "Lululemon Gray/Gold 'Never Lost' Keychain",
       "price_usd": 15.0,
@@ -645,13 +101,41 @@
       }
     },
     {
-      "rank": 3,
+      "rank": 4,
       "source": "serper_shopping",
-<<<<<<< Updated upstream
+      "vendor_host": "poshmark.com",
+      "url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Keychain&prds=localAnnotatedOfferId:1,productid:10262168675132620592,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
+      "buy_url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Keychain&prds=localAnnotatedOfferId:1,productid:10262168675132620592,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
+      "image_url": null,
+      "title": "Lululemon never lost keychain",
+      "price_usd": 15.0,
+      "total_for_target_usd": null,
+      "currency_approx_fx": null,
+      "condition": "",
+      "seller_name": "Poshmark",
+      "is_kit": false,
+      "kit_module_count": 1,
+      "badges": [],
+      "seller_rating_pct": null,
+      "seller_feedback_count": null,
+      "rating": 4.6,
+      "rating_count": 6000,
+      "ship_from_country": null,
+      "quantity_available": null,
+      "flags": [],
+      "brand": null,
+      "mpn": null,
+      "attrs": {
+        "serper_product_id": "10262168675132620592"
+      }
+    },
+    {
+      "rank": 5,
+      "source": "serper_shopping",
       "vendor_host": "whatnot.com",
       "url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Key+Tag&prds=localAnnotatedOfferId:1,productid:9255967139022434912,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
       "buy_url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Key+Tag&prds=localAnnotatedOfferId:1,productid:9255967139022434912,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
-      "image_url": null,
+      "image_url": "https://encrypted-tbn1.gstatic.com/shopping?q=tbn:ANd9GcSnG-3ap-JDXEjvFSB4hZI0-GjomfhE7jAMmLWvfD3zPuNtO2JILXUh13oo-Jk_oVXXSYfN1K9otFzJAY41gGeejsqzdTHf8rxVqlIqCcI",
       "title": "Lululemon Never lost keychain 100% AUTHENTIC/NO CANCELLATIONS.",
       "price_usd": 15.0,
       "total_for_target_usd": null,
@@ -675,18 +159,18 @@
       }
     },
     {
-      "rank": 4,
+      "rank": 6,
       "source": "serper_shopping",
       "vendor_host": "ebay.com",
-      "url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Keychain&prds=localAnnotatedOfferId:1,productid:16949053103879304246,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
-      "buy_url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Keychain&prds=localAnnotatedOfferId:1,productid:16949053103879304246,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
-      "image_url": "https://encrypted-tbn0.gstatic.com/shopping?q=tbn:ANd9GcQ5vD7v8Nv9XdSfZfOJwFcJikaX8VqVdI4lum6irVEMVQLWAN5FPZ5Q43ck-PxVDSrLNCine_ZSz3PH0umeljv1KBV4afxmo0QA63Gf7cRN",
-      "title": "Lululemon Never Lost Keychain Black Logo Wristlet Strap",
-      "price_usd": 16.5,
+      "url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Keychain&prds=localAnnotatedOfferId:1,productid:15128604497774858187,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
+      "buy_url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Keychain&prds=localAnnotatedOfferId:1,productid:15128604497774858187,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
+      "image_url": "https://encrypted-tbn2.gstatic.com/shopping?q=tbn:ANd9GcTZgt4LudkTmfICIxJSp3yQwJiU3X7F72Ddj4eeyb124VKF5hXY-a8kBo_nYI7WGJ2c9JNxpeUdTO-2D38PyCUxoG1zldsGZ_1gl9tsmFE",
+      "title": "Lululemon Never Lost Keychain Black Silver Fabric Metal Logo One Size",
+      "price_usd": 17.99,
       "total_for_target_usd": null,
       "currency_approx_fx": null,
       "condition": "",
-      "seller_name": "eBay - mimil-2693",
+      "seller_name": "eBay",
       "is_kit": false,
       "kit_module_count": 1,
       "badges": [],
@@ -700,15 +184,13 @@
       "brand": null,
       "mpn": null,
       "attrs": {
-        "serper_product_id": "16949053103879304246",
-        "color": "Black"
+        "serper_product_id": "15128604497774858187",
+        "color": "Black Silver"
       }
     },
     {
-      "rank": 5,
+      "rank": 7,
       "source": "serper_shopping",
-=======
->>>>>>> Stashed changes
       "vendor_host": "ebay.com",
       "url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Key+Tag&prds=localAnnotatedOfferId:1,productid:90779232485454944,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
       "buy_url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Key+Tag&prds=localAnnotatedOfferId:1,productid:90779232485454944,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
@@ -736,42 +218,12 @@
       }
     },
     {
-      "rank": 3,
-      "source": "serper_shopping",
-      "vendor_host": "ebay.com",
-      "url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Key+Finder+Keychain&prds=localAnnotatedOfferId:1,productid:15128604497774858187,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
-      "buy_url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Key+Finder+Keychain&prds=localAnnotatedOfferId:1,productid:15128604497774858187,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
-      "image_url": null,
-      "title": "Lululemon Never Lost Keychain Black Silver Fabric Metal Logo One Size",
-      "price_usd": 17.99,
-      "total_for_target_usd": null,
-      "currency_approx_fx": null,
-      "condition": "",
-      "seller_name": "eBay",
-      "is_kit": false,
-      "kit_module_count": 1,
-      "badges": [],
-      "seller_rating_pct": null,
-      "seller_feedback_count": null,
-      "rating": null,
-      "rating_count": null,
-      "ship_from_country": null,
-      "quantity_available": null,
-      "flags": [],
-      "brand": null,
-      "mpn": null,
-      "attrs": {
-        "serper_product_id": "15128604497774858187",
-        "color": "Black Silver"
-      }
-    },
-    {
-      "rank": 4,
+      "rank": 8,
       "source": "serper_shopping",
       "vendor_host": "whatnot.com",
       "url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Key+Tag&prds=localAnnotatedOfferId:1,productid:18411013052525239449,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
       "buy_url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Key+Tag&prds=localAnnotatedOfferId:1,productid:18411013052525239449,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
-      "image_url": "https://encrypted-tbn2.gstatic.com/shopping?q=tbn:ANd9GcRuf8WXjAisbTVqgOddyMz5hWG5BIWDL-4lpLg5sBJQwd56mXJpR_YDptpcHIupA3wWUCZSL9JgmO30peqcJ0Us5vLqtC9P4eRi9GXoP38k2KYXiTXdxYC-7w",
+      "image_url": null,
       "title": "Brand new Lululemon Never Lost keychain with tag, orange5",
       "price_usd": 18.0,
       "total_for_target_usd": null,
@@ -796,25 +248,18 @@
       }
     },
     {
-<<<<<<< Updated upstream
-      "rank": 8,
+      "rank": 9,
       "source": "serper_shopping",
       "vendor_host": "ebay.com",
-      "url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Key+Tag&prds=localAnnotatedOfferId:1,productid:10740909552915250388,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
-      "buy_url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Key+Tag&prds=localAnnotatedOfferId:1,productid:10740909552915250388,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
-=======
-      "rank": 5,
-      "source": "serper_shopping",
-      "vendor_host": "ebay.com",
-      "url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Keychain&prds=localAnnotatedOfferId:1,productid:14108715438130415601,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
-      "buy_url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Keychain&prds=localAnnotatedOfferId:1,productid:14108715438130415601,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
+      "url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Keychain&prds=localAnnotatedOfferId:1,productid:15501764726088757263,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
+      "buy_url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Keychain&prds=localAnnotatedOfferId:1,productid:15501764726088757263,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
       "image_url": null,
-      "title": "LULULEMON Never Lost Keychain Rhino Grey / Electric Lemon NWT *NEW!* Same Day",
+      "title": "Lululemon Never Lost Keychain - Black/White Unisex",
       "price_usd": 19.99,
       "total_for_target_usd": null,
       "currency_approx_fx": null,
       "condition": "",
-      "seller_name": "eBay",
+      "seller_name": "eBay - simsdeal570",
       "is_kit": false,
       "kit_module_count": 1,
       "badges": [],
@@ -828,52 +273,47 @@
       "brand": null,
       "mpn": null,
       "attrs": {
-        "serper_product_id": "14108715438130415601",
-        "color": "Rhino Grey / Electric Lemon"
+        "serper_product_id": "15501764726088757263",
+        "color": "Black/White"
       }
     },
     {
-      "rank": 6,
+      "rank": 10,
       "source": "serper_shopping",
       "vendor_host": "ebay.com",
-      "url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Key+Tag&prds=localAnnotatedOfferId:1,productid:6918583032880776932,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
-      "buy_url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Key+Tag&prds=localAnnotatedOfferId:1,productid:6918583032880776932,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
->>>>>>> Stashed changes
+      "url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Key+Tag&prds=localAnnotatedOfferId:1,productid:10740909552915250388,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
+      "buy_url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Key+Tag&prds=localAnnotatedOfferId:1,productid:10740909552915250388,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
       "image_url": null,
-      "title": "Lululemon Never Lost Keychain Wordmark. Deep Luxe/gold/bone",
+      "title": "Lululemon Never Lost Keys Keychain Lanyard Silver",
       "price_usd": 19.99,
       "total_for_target_usd": null,
       "currency_approx_fx": null,
       "condition": "",
-      "seller_name": "eBay",
+      "seller_name": "eBay - haleighbugscloset",
       "is_kit": false,
       "kit_module_count": 1,
       "badges": [],
       "seller_rating_pct": null,
       "seller_feedback_count": null,
-      "rating": null,
-      "rating_count": null,
+      "rating": 4.6,
+      "rating_count": 6000,
       "ship_from_country": null,
       "quantity_available": null,
       "flags": [],
       "brand": null,
       "mpn": null,
       "attrs": {
-        "serper_product_id": "6918583032880776932",
-        "color": "Deep Luxe/gold/bone"
+        "serper_product_id": "10740909552915250388",
+        "color": "Silver"
       }
     },
     {
-<<<<<<< Updated upstream
-      "rank": 9,
-=======
-      "rank": 7,
->>>>>>> Stashed changes
+      "rank": 11,
       "source": "serper_shopping",
       "vendor_host": "ebay.com",
       "url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Key+Finder+Keychain&prds=localAnnotatedOfferId:1,productid:13117181214943952618,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
       "buy_url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Key+Finder+Keychain&prds=localAnnotatedOfferId:1,productid:13117181214943952618,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
-      "image_url": null,
+      "image_url": "https://encrypted-tbn2.gstatic.com/shopping?q=tbn:ANd9GcT--mnrW6al_p7hfxsyn-NFW7qWz0ZpMHDMbx8n6RoVbm4xP7XZyz9-iYwICer3DTcCgFIudQjMkAQKoCRkcYmKMbebbytbVVbQpfCm2f97",
       "title": "Lululemon Never Lost Keychain One Size Burnt Apricot/terra Orange",
       "price_usd": 19.99,
       "total_for_target_usd": null,
@@ -894,48 +334,11 @@
       "mpn": null,
       "attrs": {
         "serper_product_id": "13117181214943952618",
-        "color": "Burnt Apricot/terra Orange"
+        "color": "Burnt Apricot/Terra Orange"
       }
     },
     {
-<<<<<<< Updated upstream
-      "rank": 10,
-=======
-      "rank": 8,
->>>>>>> Stashed changes
-      "source": "serper_shopping",
-      "vendor_host": "lyst.com",
-      "url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Keychain&prds=localAnnotatedOfferId:1,catalogid:1789922101432972502,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
-      "buy_url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Keychain&prds=localAnnotatedOfferId:1,catalogid:1789922101432972502,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
-      "image_url": null,
-      "title": "lululemon Never Lost Keychain",
-      "price_usd": 20.0,
-      "total_for_target_usd": null,
-      "currency_approx_fx": null,
-      "condition": "",
-      "seller_name": "Lyst",
-      "is_kit": false,
-      "kit_module_count": 1,
-      "badges": [],
-      "seller_rating_pct": null,
-      "seller_feedback_count": null,
-      "rating": 4.6,
-      "rating_count": 5300,
-      "ship_from_country": null,
-      "quantity_available": null,
-      "flags": [],
-      "brand": null,
-      "mpn": null,
-      "attrs": {
-        "serper_product_id": "1789922101432972502"
-      }
-    },
-    {
-<<<<<<< Updated upstream
-      "rank": 11,
-=======
-      "rank": 9,
->>>>>>> Stashed changes
+      "rank": 12,
       "source": "serper_shopping",
       "vendor_host": "breederscupshop.com",
       "url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Keychain&prds=localAnnotatedOfferId:1,productid:5906866808652153448,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
@@ -965,11 +368,7 @@
       }
     },
     {
-<<<<<<< Updated upstream
-      "rank": 12,
-=======
-      "rank": 10,
->>>>>>> Stashed changes
+      "rank": 13,
       "source": "serper_shopping",
       "vendor_host": "breederscupshop.com",
       "url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Keychain&prds=localAnnotatedOfferId:1,productid:11711166728826619207,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
@@ -996,99 +395,6 @@
       "attrs": {
         "serper_product_id": "11711166728826619207",
         "color": "Ivy Grove"
-      }
-    },
-    {
-<<<<<<< Updated upstream
-      "rank": 13,
-=======
-      "rank": 11,
->>>>>>> Stashed changes
-      "source": "serper_shopping",
-      "vendor_host": "whatnot.com",
-      "url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Keychain&prds=localAnnotatedOfferId:1,catalogid:10648850726585805974,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
-      "buy_url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Keychain&prds=localAnnotatedOfferId:1,catalogid:10648850726585805974,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
-      "image_url": null,
-      "title": "Lululemon Never Lost Keychain",
-      "price_usd": 20.0,
-      "total_for_target_usd": null,
-      "currency_approx_fx": null,
-      "condition": "",
-      "seller_name": "Whatnot",
-      "is_kit": false,
-      "kit_module_count": 1,
-      "badges": [],
-      "seller_rating_pct": null,
-      "seller_feedback_count": null,
-      "rating": 4.6,
-      "rating_count": 6000,
-      "ship_from_country": null,
-      "quantity_available": null,
-      "flags": [],
-      "brand": null,
-      "mpn": null,
-      "attrs": {
-        "serper_product_id": "10648850726585805974"
-      }
-    },
-    {
-      "rank": 12,
-      "source": "serper_shopping",
-      "vendor_host": "editorialist.com",
-      "url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Keychain&prds=localAnnotatedOfferId:1,catalogid:9633741554625192854,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
-      "buy_url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Keychain&prds=localAnnotatedOfferId:1,catalogid:9633741554625192854,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
-      "image_url": null,
-      "title": "Lululemon Never Lost Keychain Downtown Tan/Light Ivory/Silver / ONE",
-      "price_usd": 20.0,
-      "total_for_target_usd": null,
-      "currency_approx_fx": null,
-      "condition": "",
-      "seller_name": "Editorialist",
-      "is_kit": false,
-      "kit_module_count": 1,
-      "badges": [],
-      "seller_rating_pct": null,
-      "seller_feedback_count": null,
-      "rating": null,
-      "rating_count": null,
-      "ship_from_country": null,
-      "quantity_available": null,
-      "flags": [],
-      "brand": null,
-      "mpn": null,
-      "attrs": {
-        "serper_product_id": "9633741554625192854",
-        "color": "Downtown Tan/Light Ivory/Silver"
-      }
-    },
-    {
-      "rank": 13,
-      "source": "serper_shopping",
-      "vendor_host": "breederscupshop.com",
-      "url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Keychain&prds=localAnnotatedOfferId:1,productid:3362697158900194356,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
-      "buy_url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Keychain&prds=localAnnotatedOfferId:1,productid:3362697158900194356,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
-      "image_url": null,
-      "title": "Lululemon Never Lost Keychain - Pink Pearl",
-      "price_usd": 20.0,
-      "total_for_target_usd": null,
-      "currency_approx_fx": null,
-      "condition": "",
-      "seller_name": "BreedersCupShop",
-      "is_kit": false,
-      "kit_module_count": 1,
-      "badges": [],
-      "seller_rating_pct": null,
-      "seller_feedback_count": null,
-      "rating": null,
-      "rating_count": null,
-      "ship_from_country": null,
-      "quantity_available": null,
-      "flags": [],
-      "brand": null,
-      "mpn": null,
-      "attrs": {
-        "serper_product_id": "3362697158900194356",
-        "color": "Pink Pearl"
       }
     },
     {
@@ -1124,17 +430,46 @@
     {
       "rank": 15,
       "source": "serper_shopping",
-<<<<<<< Updated upstream
-      "vendor_host": "poshmark.com",
-      "url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Keychain&prds=localAnnotatedOfferId:1,productid:6758612294650583316,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
-      "buy_url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Keychain&prds=localAnnotatedOfferId:1,productid:6758612294650583316,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
+      "vendor_host": "lyst.com",
+      "url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Keychain&prds=localAnnotatedOfferId:1,productid:1304690458633525472,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
+      "buy_url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Keychain&prds=localAnnotatedOfferId:1,productid:1304690458633525472,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
       "image_url": null,
-      "title": "Lululemon Athletica Other | Black Lululemon Never Lost Keychain | Color: Black | Size: Os | Gjade6365's Closet",
+      "title": "lululemon athletica Women's Never Lost Keychain - White - Wallets",
       "price_usd": 20.0,
       "total_for_target_usd": null,
       "currency_approx_fx": null,
       "condition": "",
-      "seller_name": "Poshmark",
+      "seller_name": "Lyst",
+      "is_kit": false,
+      "kit_module_count": 1,
+      "badges": [],
+      "seller_rating_pct": null,
+      "seller_feedback_count": null,
+      "rating": 4.8,
+      "rating_count": 118,
+      "ship_from_country": null,
+      "quantity_available": null,
+      "flags": [],
+      "brand": null,
+      "mpn": null,
+      "attrs": {
+        "serper_product_id": "1304690458633525472",
+        "color": "White"
+      }
+    },
+    {
+      "rank": 16,
+      "source": "serper_shopping",
+      "vendor_host": "editorialist.com",
+      "url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Keychain&prds=localAnnotatedOfferId:1,catalogid:9633741554625192854,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
+      "buy_url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Keychain&prds=localAnnotatedOfferId:1,catalogid:9633741554625192854,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
+      "image_url": null,
+      "title": "Lululemon Never Lost Keychain Downtown Tan/Light Ivory/Silver / ONE",
+      "price_usd": 20.0,
+      "total_for_target_usd": null,
+      "currency_approx_fx": null,
+      "condition": "",
+      "seller_name": "Editorialist",
       "is_kit": false,
       "kit_module_count": 1,
       "badges": [],
@@ -1148,8 +483,8 @@
       "brand": null,
       "mpn": null,
       "attrs": {
-        "serper_product_id": "6758612294650583316",
-        "color": "Black"
+        "serper_product_id": "9633741554625192854",
+        "color": "Downtown Tan/Light Ivory/Silver"
       }
     },
     {
@@ -1160,18 +495,11 @@
       "buy_url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Keychain&prds=localAnnotatedOfferId:1,productid:14335882722394782725,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
       "image_url": "https://encrypted-tbn0.gstatic.com/shopping?q=tbn:ANd9GcTB5piNwgJhGurrrK8joFTHDJRP4Mh-i0awx_Hzyh5gARK8pqRs5PmPHVP_S6xrtSNb1Q-1fTR7OMRUgn6MUhubdBXimQd3MYN0tsUotx3O",
       "title": "Lululemon Athletica Accessories | Lululemon Neverlost Keychain | Color: Pink | Size: Os | Jenniferlusk45's Closet",
-=======
-      "vendor_host": "whatnot.com",
-      "url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Keychain&prds=localAnnotatedOfferId:1,productid:5824818961717490183,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
-      "buy_url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Keychain&prds=localAnnotatedOfferId:1,productid:5824818961717490183,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
-      "image_url": null,
-      "title": "lululemon never lost keychain3",
->>>>>>> Stashed changes
       "price_usd": 20.0,
       "total_for_target_usd": null,
       "currency_approx_fx": null,
       "condition": "",
-      "seller_name": "Whatnot",
+      "seller_name": "Poshmark",
       "is_kit": false,
       "kit_module_count": 1,
       "badges": [],
@@ -1185,29 +513,19 @@
       "brand": null,
       "mpn": null,
       "attrs": {
-        "serper_product_id": "5824818961717490183"
+        "serper_product_id": "14335882722394782725",
+        "color": "Pink"
       }
     },
     {
-<<<<<<< Updated upstream
       "rank": 18,
       "source": "serper_shopping",
       "vendor_host": "lululemon.com",
-      "url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Key+Finder+Keychain&prds=localAnnotatedOfferId:1,catalogid:8461859789952323690,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
-      "buy_url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Key+Finder+Keychain&prds=localAnnotatedOfferId:1,catalogid:8461859789952323690,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
+      "url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Keychain&prds=localAnnotatedOfferId:1,catalogid:4302320118592601606,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
+      "buy_url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Keychain&prds=localAnnotatedOfferId:1,catalogid:4302320118592601606,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
       "image_url": null,
       "title": "lululemon Never Lost Keychain",
-      "price_usd": 24.0,
-=======
-      "rank": 16,
-      "source": "serper_shopping",
-      "vendor_host": "poshmark.com",
-      "url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Keychain&prds=localAnnotatedOfferId:1,productid:6758612294650583316,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
-      "buy_url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Keychain&prds=localAnnotatedOfferId:1,productid:6758612294650583316,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
-      "image_url": null,
-      "title": "Lululemon Athletica Other | Black Lululemon Never Lost Keychain | Color: Black | Size: Os | Gjade6365's Closet",
-      "price_usd": 20.0,
->>>>>>> Stashed changes
+      "price_usd": 22.0,
       "total_for_target_usd": null,
       "currency_approx_fx": null,
       "condition": "",
@@ -1217,15 +535,15 @@
       "badges": [],
       "seller_rating_pct": null,
       "seller_feedback_count": null,
-      "rating": 4.8,
-      "rating_count": 734,
+      "rating": 4.9,
+      "rating_count": 23,
       "ship_from_country": null,
       "quantity_available": null,
       "flags": [],
       "brand": null,
       "mpn": null,
       "attrs": {
-        "serper_product_id": "8461859789952323690"
+        "serper_product_id": "4302320118592601606"
       }
     },
     {
@@ -1262,30 +580,30 @@
       "rank": 20,
       "source": "serper_shopping",
       "vendor_host": "ebay.com",
-      "url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Keychain&prds=localAnnotatedOfferId:1,productid:12927376325456476166,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
-      "buy_url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Keychain&prds=localAnnotatedOfferId:1,productid:12927376325456476166,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
-      "image_url": null,
-      "title": "Lululemon Never Lost Keychain One Size Rpcr/wnby 00603.",
-      "price_usd": 28.0,
+      "url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Key+Tag&prds=localAnnotatedOfferId:1,productid:1998517365201533547,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
+      "buy_url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Key+Tag&prds=localAnnotatedOfferId:1,productid:1998517365201533547,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
+      "image_url": "https://encrypted-tbn0.gstatic.com/shopping?q=tbn:ANd9GcQkeBazW2Yz5Vs8bH3zFXePEYul87neyVZEVN3qyaA6vcngopTHX7v-8U6R238adTk4HK_2rAymtm_5vfGVC6LiRlZLeS_tPvLIsj5naO-Msqt1Ksy6R6zyZA",
+      "title": "Lululemon Never Lost Keychain in Riverside/Faint Lavender",
+      "price_usd": 29.99,
       "total_for_target_usd": null,
       "currency_approx_fx": null,
       "condition": "",
-      "seller_name": "eBay - neverevernotshopping",
+      "seller_name": "eBay - finderskeepersalabama",
       "is_kit": false,
       "kit_module_count": 1,
       "badges": [],
       "seller_rating_pct": null,
       "seller_feedback_count": null,
-      "rating": 4.6,
-      "rating_count": 5200,
+      "rating": null,
+      "rating_count": null,
       "ship_from_country": null,
       "quantity_available": null,
       "flags": [],
       "brand": null,
       "mpn": null,
       "attrs": {
-        "serper_product_id": "12927376325456476166",
-        "color": "Rpcr/wnby"
+        "serper_product_id": "1998517365201533547",
+        "color": "Riverside/Faint Lavender"
       }
     }
   ],
@@ -1323,9 +641,38 @@
     {
       "rank": 2,
       "source": "serper_shopping",
+      "vendor_host": "whatnot.com",
+      "url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Keychain&prds=localAnnotatedOfferId:1,productid:8577682908042388890,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
+      "buy_url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Keychain&prds=localAnnotatedOfferId:1,productid:8577682908042388890,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
+      "image_url": null,
+      "title": "Lululemon Never Lost Keychain2",
+      "price_usd": 15.0,
+      "total_for_target_usd": null,
+      "currency_approx_fx": null,
+      "condition": "",
+      "seller_name": "Whatnot",
+      "is_kit": false,
+      "kit_module_count": 1,
+      "badges": [],
+      "seller_rating_pct": null,
+      "seller_feedback_count": null,
+      "rating": 4.6,
+      "rating_count": 6000,
+      "ship_from_country": null,
+      "quantity_available": null,
+      "flags": [],
+      "brand": null,
+      "mpn": null,
+      "attrs": {
+        "serper_product_id": "8577682908042388890"
+      }
+    },
+    {
+      "rank": 3,
+      "source": "serper_shopping",
       "vendor_host": "ebay.com",
-      "url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Key+Tag&prds=localAnnotatedOfferId:1,productid:5087710754109019309,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
-      "buy_url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Key+Tag&prds=localAnnotatedOfferId:1,productid:5087710754109019309,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
+      "url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Keychain&prds=localAnnotatedOfferId:1,productid:5087710754109019309,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
+      "buy_url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Keychain&prds=localAnnotatedOfferId:1,productid:5087710754109019309,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
       "image_url": null,
       "title": "Lululemon Gray/Gold 'Never Lost' Keychain",
       "price_usd": 15.0,
@@ -1351,12 +698,41 @@
       }
     },
     {
-      "rank": 3,
+      "rank": 4,
+      "source": "serper_shopping",
+      "vendor_host": "poshmark.com",
+      "url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Keychain&prds=localAnnotatedOfferId:1,productid:10262168675132620592,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
+      "buy_url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Keychain&prds=localAnnotatedOfferId:1,productid:10262168675132620592,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
+      "image_url": null,
+      "title": "Lululemon never lost keychain",
+      "price_usd": 15.0,
+      "total_for_target_usd": null,
+      "currency_approx_fx": null,
+      "condition": "",
+      "seller_name": "Poshmark",
+      "is_kit": false,
+      "kit_module_count": 1,
+      "badges": [],
+      "seller_rating_pct": null,
+      "seller_feedback_count": null,
+      "rating": 4.6,
+      "rating_count": 6000,
+      "ship_from_country": null,
+      "quantity_available": null,
+      "flags": [],
+      "brand": null,
+      "mpn": null,
+      "attrs": {
+        "serper_product_id": "10262168675132620592"
+      }
+    },
+    {
+      "rank": 5,
       "source": "serper_shopping",
       "vendor_host": "whatnot.com",
       "url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Key+Tag&prds=localAnnotatedOfferId:1,productid:9255967139022434912,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
       "buy_url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Key+Tag&prds=localAnnotatedOfferId:1,productid:9255967139022434912,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
-      "image_url": null,
+      "image_url": "https://encrypted-tbn1.gstatic.com/shopping?q=tbn:ANd9GcSnG-3ap-JDXEjvFSB4hZI0-GjomfhE7jAMmLWvfD3zPuNtO2JILXUh13oo-Jk_oVXXSYfN1K9otFzJAY41gGeejsqzdTHf8rxVqlIqCcI",
       "title": "Lululemon Never lost keychain 100% AUTHENTIC/NO CANCELLATIONS.",
       "price_usd": 15.0,
       "total_for_target_usd": null,
@@ -1380,18 +756,18 @@
       }
     },
     {
-      "rank": 4,
+      "rank": 6,
       "source": "serper_shopping",
       "vendor_host": "ebay.com",
-      "url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Keychain&prds=localAnnotatedOfferId:1,productid:16949053103879304246,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
-      "buy_url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Keychain&prds=localAnnotatedOfferId:1,productid:16949053103879304246,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
-      "image_url": "https://encrypted-tbn0.gstatic.com/shopping?q=tbn:ANd9GcQ5vD7v8Nv9XdSfZfOJwFcJikaX8VqVdI4lum6irVEMVQLWAN5FPZ5Q43ck-PxVDSrLNCine_ZSz3PH0umeljv1KBV4afxmo0QA63Gf7cRN",
-      "title": "Lululemon Never Lost Keychain Black Logo Wristlet Strap",
-      "price_usd": 16.5,
+      "url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Keychain&prds=localAnnotatedOfferId:1,productid:15128604497774858187,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
+      "buy_url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Keychain&prds=localAnnotatedOfferId:1,productid:15128604497774858187,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
+      "image_url": "https://encrypted-tbn2.gstatic.com/shopping?q=tbn:ANd9GcTZgt4LudkTmfICIxJSp3yQwJiU3X7F72Ddj4eeyb124VKF5hXY-a8kBo_nYI7WGJ2c9JNxpeUdTO-2D38PyCUxoG1zldsGZ_1gl9tsmFE",
+      "title": "Lululemon Never Lost Keychain Black Silver Fabric Metal Logo One Size",
+      "price_usd": 17.99,
       "total_for_target_usd": null,
       "currency_approx_fx": null,
       "condition": "",
-      "seller_name": "eBay - mimil-2693",
+      "seller_name": "eBay",
       "is_kit": false,
       "kit_module_count": 1,
       "badges": [],
@@ -1405,13 +781,12 @@
       "brand": null,
       "mpn": null,
       "attrs": {
-        "serper_product_id": "16949053103879304246",
-        "color": "Black"
+        "serper_product_id": "15128604497774858187",
+        "color": "Black Silver"
       }
     },
     {
-<<<<<<< Updated upstream
-      "rank": 5,
+      "rank": 7,
       "source": "serper_shopping",
       "vendor_host": "ebay.com",
       "url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Key+Tag&prds=localAnnotatedOfferId:1,productid:90779232485454944,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
@@ -1440,37 +815,7 @@
       }
     },
     {
-      "rank": 6,
-      "source": "serper_shopping",
-      "vendor_host": "ebay.com",
-      "url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Key+Finder+Keychain&prds=localAnnotatedOfferId:1,productid:15128604497774858187,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
-      "buy_url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Key+Finder+Keychain&prds=localAnnotatedOfferId:1,productid:15128604497774858187,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
-      "image_url": null,
-      "title": "Lululemon Never Lost Keychain Black Silver Fabric Metal Logo One Size",
-      "price_usd": 17.99,
-      "total_for_target_usd": null,
-      "currency_approx_fx": null,
-      "condition": "",
-      "seller_name": "eBay",
-      "is_kit": false,
-      "kit_module_count": 1,
-      "badges": [],
-      "seller_rating_pct": null,
-      "seller_feedback_count": null,
-      "rating": null,
-      "rating_count": null,
-      "ship_from_country": null,
-      "quantity_available": null,
-      "flags": [],
-      "brand": null,
-      "mpn": null,
-      "attrs": {
-        "serper_product_id": "15128604497774858187",
-        "color": "Black Silver"
-      }
-    },
-    {
-      "rank": 7,
+      "rank": 8,
       "source": "serper_shopping",
       "vendor_host": "whatnot.com",
       "url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Key+Tag&prds=localAnnotatedOfferId:1,productid:18411013052525239449,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
@@ -1500,14 +845,14 @@
       }
     },
     {
-      "rank": 8,
+      "rank": 9,
       "source": "serper_shopping",
       "vendor_host": "ebay.com",
-      "url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Keychain&prds=localAnnotatedOfferId:1,productid:14108715438130415601,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
-      "buy_url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Keychain&prds=localAnnotatedOfferId:1,productid:14108715438130415601,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
-      "image_url": null,
-      "title": "LULULEMON Never Lost Keychain Rhino Grey / Electric Lemon NWT *NEW!* Same Day",
-      "price_usd": 19.99,
+      "url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Key+Tag&prds=localAnnotatedOfferId:1,productid:3633827762436895009,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
+      "buy_url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Key+Tag&prds=localAnnotatedOfferId:1,productid:3633827762436895009,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
+      "image_url": "https://encrypted-tbn0.gstatic.com/shopping?q=tbn:ANd9GcS8b4D6ZN49ybgpuh3DKNBRMVAq-MkoR7B8-yrDA-ECEaCDd6aTD4P6PkiKlVm2lB9urUeKKljFrINNks4UCPDXIRj6pZj5wP-G2Iew9dg",
+      "title": "Lululemon Never Lost Keychain Unisex O/s Grey Sage White Logo Webbing",
+      "price_usd": 19.95,
       "total_for_target_usd": null,
       "currency_approx_fx": null,
       "condition": "",
@@ -1525,12 +870,42 @@
       "brand": null,
       "mpn": null,
       "attrs": {
-        "serper_product_id": "14108715438130415601",
-        "color": "Rhino Grey / Electric Lemon"
+        "serper_product_id": "3633827762436895009",
+        "color": "Grey Sage White"
       }
     },
     {
-      "rank": 9,
+      "rank": 10,
+      "source": "serper_shopping",
+      "vendor_host": "ebay.com",
+      "url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Keychain&prds=localAnnotatedOfferId:1,productid:15501764726088757263,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
+      "buy_url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Keychain&prds=localAnnotatedOfferId:1,productid:15501764726088757263,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
+      "image_url": null,
+      "title": "Lululemon Never Lost Keychain - Black/White Unisex",
+      "price_usd": 19.99,
+      "total_for_target_usd": null,
+      "currency_approx_fx": null,
+      "condition": "",
+      "seller_name": "eBay - simsdeal570",
+      "is_kit": false,
+      "kit_module_count": 1,
+      "badges": [],
+      "seller_rating_pct": null,
+      "seller_feedback_count": null,
+      "rating": 4.6,
+      "rating_count": 6000,
+      "ship_from_country": null,
+      "quantity_available": null,
+      "flags": [],
+      "brand": null,
+      "mpn": null,
+      "attrs": {
+        "serper_product_id": "15501764726088757263",
+        "color": "Black/White"
+      }
+    },
+    {
+      "rank": 11,
       "source": "serper_shopping",
       "vendor_host": "ebay.com",
       "url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Key+Tag&prds=localAnnotatedOfferId:1,productid:10740909552915250388,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
@@ -1560,13 +935,13 @@
       }
     },
     {
-      "rank": 10,
+      "rank": 12,
       "source": "serper_shopping",
       "vendor_host": "ebay.com",
-      "url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Key+Tag&prds=localAnnotatedOfferId:1,productid:6918583032880776932,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
-      "buy_url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Key+Tag&prds=localAnnotatedOfferId:1,productid:6918583032880776932,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
-      "image_url": "https://encrypted-tbn2.gstatic.com/shopping?q=tbn:ANd9GcQ9hn_RNPqKTsPTw9O3-ak1iKTSYNChTHmTONim9MGkuv9FY0sVLTmbE2hl-sASRndYw6Eo7wBCzCLBj3WuJ0gx3bVAUPCYJZfjiIA-qaU",
-      "title": "Lululemon Never Lost Keychain Wordmark. Deep Luxe/gold/bone",
+      "url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Key+Tag&prds=localAnnotatedOfferId:1,productid:14108715438130415601,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
+      "buy_url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Key+Tag&prds=localAnnotatedOfferId:1,productid:14108715438130415601,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
+      "image_url": "https://encrypted-tbn0.gstatic.com/shopping?q=tbn:ANd9GcR0PmAN8mLr_BbpJVCf_fAbz2QZPzQOUd5Sbwkw660t54hbTntFX53vR0-QWhLpGYHoN1W8q0e_rM8mjJGz1EhK1vFLkxEuoftIZPtTfn-p664Pwq0zOvoY",
+      "title": "LULULEMON Never Lost Keychain Rhino Grey / Electric Lemon NWT *NEW!* Same Day",
       "price_usd": 19.99,
       "total_for_target_usd": null,
       "currency_approx_fx": null,
@@ -1577,25 +952,25 @@
       "badges": [],
       "seller_rating_pct": null,
       "seller_feedback_count": null,
-      "rating": null,
-      "rating_count": null,
+      "rating": 4.6,
+      "rating_count": 6000,
       "ship_from_country": null,
       "quantity_available": null,
       "flags": [],
       "brand": null,
       "mpn": null,
       "attrs": {
-        "serper_product_id": "6918583032880776932",
-        "color": "Deep Luxe/gold/bone"
+        "serper_product_id": "14108715438130415601",
+        "color": "Rhino Grey / Electric Lemon"
       }
     },
     {
-      "rank": 11,
+      "rank": 13,
       "source": "serper_shopping",
       "vendor_host": "ebay.com",
       "url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Key+Finder+Keychain&prds=localAnnotatedOfferId:1,productid:13117181214943952618,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
       "buy_url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Key+Finder+Keychain&prds=localAnnotatedOfferId:1,productid:13117181214943952618,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
-      "image_url": null,
+      "image_url": "https://encrypted-tbn2.gstatic.com/shopping?q=tbn:ANd9GcT--mnrW6al_p7hfxsyn-NFW7qWz0ZpMHDMbx8n6RoVbm4xP7XZyz9-iYwICer3DTcCgFIudQjMkAQKoCRkcYmKMbebbytbVVbQpfCm2f97",
       "title": "Lululemon Never Lost Keychain One Size Burnt Apricot/terra Orange",
       "price_usd": 19.99,
       "total_for_target_usd": null,
@@ -1616,40 +991,11 @@
       "mpn": null,
       "attrs": {
         "serper_product_id": "13117181214943952618",
-        "color": "Burnt Apricot/terra Orange"
+        "color": "Burnt Apricot/Terra Orange"
       }
     },
     {
-      "rank": 12,
-      "source": "serper_shopping",
-      "vendor_host": "lyst.com",
-      "url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Keychain&prds=localAnnotatedOfferId:1,catalogid:1789922101432972502,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
-      "buy_url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Keychain&prds=localAnnotatedOfferId:1,catalogid:1789922101432972502,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
-      "image_url": null,
-      "title": "lululemon Never Lost Keychain",
-      "price_usd": 20.0,
-      "total_for_target_usd": null,
-      "currency_approx_fx": null,
-      "condition": "",
-      "seller_name": "Lyst",
-      "is_kit": false,
-      "kit_module_count": 1,
-      "badges": [],
-      "seller_rating_pct": null,
-      "seller_feedback_count": null,
-      "rating": 4.6,
-      "rating_count": 5300,
-      "ship_from_country": null,
-      "quantity_available": null,
-      "flags": [],
-      "brand": null,
-      "mpn": null,
-      "attrs": {
-        "serper_product_id": "1789922101432972502"
-      }
-    },
-    {
-      "rank": 13,
+      "rank": 14,
       "source": "serper_shopping",
       "vendor_host": "breederscupshop.com",
       "url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Keychain&prds=localAnnotatedOfferId:1,productid:5906866808652153448,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
@@ -1679,7 +1025,7 @@
       }
     },
     {
-      "rank": 14,
+      "rank": 15,
       "source": "serper_shopping",
       "vendor_host": "breederscupshop.com",
       "url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Keychain&prds=localAnnotatedOfferId:1,productid:11711166728826619207,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
@@ -1709,66 +1055,7 @@
       }
     },
     {
-      "rank": 15,
-      "source": "serper_shopping",
-      "vendor_host": "whatnot.com",
-      "url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Keychain&prds=localAnnotatedOfferId:1,catalogid:10648850726585805974,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
-      "buy_url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Keychain&prds=localAnnotatedOfferId:1,catalogid:10648850726585805974,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
-      "image_url": null,
-      "title": "Lululemon Never Lost Keychain",
-      "price_usd": 20.0,
-      "total_for_target_usd": null,
-      "currency_approx_fx": null,
-      "condition": "",
-      "seller_name": "Whatnot",
-      "is_kit": false,
-      "kit_module_count": 1,
-      "badges": [],
-      "seller_rating_pct": null,
-      "seller_feedback_count": null,
-      "rating": 4.6,
-      "rating_count": 6000,
-      "ship_from_country": null,
-      "quantity_available": null,
-      "flags": [],
-      "brand": null,
-      "mpn": null,
-      "attrs": {
-        "serper_product_id": "10648850726585805974"
-      }
-    },
-    {
       "rank": 16,
-      "source": "serper_shopping",
-      "vendor_host": "editorialist.com",
-      "url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Keychain&prds=localAnnotatedOfferId:1,catalogid:9633741554625192854,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
-      "buy_url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Keychain&prds=localAnnotatedOfferId:1,catalogid:9633741554625192854,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
-      "image_url": null,
-      "title": "Lululemon Never Lost Keychain Downtown Tan/Light Ivory/Silver / ONE",
-      "price_usd": 20.0,
-      "total_for_target_usd": null,
-      "currency_approx_fx": null,
-      "condition": "",
-      "seller_name": "Editorialist",
-      "is_kit": false,
-      "kit_module_count": 1,
-      "badges": [],
-      "seller_rating_pct": null,
-      "seller_feedback_count": null,
-      "rating": null,
-      "rating_count": null,
-      "ship_from_country": null,
-      "quantity_available": null,
-      "flags": [],
-      "brand": null,
-      "mpn": null,
-      "attrs": {
-        "serper_product_id": "9633741554625192854",
-        "color": "Downtown Tan/Light Ivory/Silver"
-      }
-    },
-    {
-      "rank": 17,
       "source": "serper_shopping",
       "vendor_host": "breederscupshop.com",
       "url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Keychain&prds=localAnnotatedOfferId:1,productid:3362697158900194356,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
@@ -1798,18 +1085,78 @@
       }
     },
     {
-      "rank": 18,
+      "rank": 17,
       "source": "serper_shopping",
-      "vendor_host": "poshmark.com",
-      "url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Keychain&prds=localAnnotatedOfferId:1,productid:6758612294650583316,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
-      "buy_url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Keychain&prds=localAnnotatedOfferId:1,productid:6758612294650583316,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
+      "vendor_host": "lyst.com",
+      "url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Keychain&prds=localAnnotatedOfferId:1,productid:1304690458633525472,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
+      "buy_url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Keychain&prds=localAnnotatedOfferId:1,productid:1304690458633525472,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
       "image_url": null,
-      "title": "Lululemon Athletica Other | Black Lululemon Never Lost Keychain | Color: Black | Size: Os | Gjade6365's Closet",
+      "title": "lululemon athletica Women's Never Lost Keychain - White - Wallets",
       "price_usd": 20.0,
       "total_for_target_usd": null,
       "currency_approx_fx": null,
       "condition": "",
-      "seller_name": "Poshmark",
+      "seller_name": "Lyst",
+      "is_kit": false,
+      "kit_module_count": 1,
+      "badges": [],
+      "seller_rating_pct": null,
+      "seller_feedback_count": null,
+      "rating": 4.8,
+      "rating_count": 118,
+      "ship_from_country": null,
+      "quantity_available": null,
+      "flags": [],
+      "brand": null,
+      "mpn": null,
+      "attrs": {
+        "serper_product_id": "1304690458633525472",
+        "color": "White"
+      }
+    },
+    {
+      "rank": 18,
+      "source": "serper_shopping",
+      "vendor_host": "ebay.com",
+      "url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Keychain&prds=localAnnotatedOfferId:1,productid:3739608699412987011,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
+      "buy_url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Keychain&prds=localAnnotatedOfferId:1,productid:3739608699412987011,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
+      "image_url": null,
+      "title": "Lululemon Never Lost Keychain Color: Wine Berry Os",
+      "price_usd": 20.0,
+      "total_for_target_usd": null,
+      "currency_approx_fx": null,
+      "condition": "",
+      "seller_name": "eBay",
+      "is_kit": false,
+      "kit_module_count": 1,
+      "badges": [],
+      "seller_rating_pct": null,
+      "seller_feedback_count": null,
+      "rating": 4.6,
+      "rating_count": 5100,
+      "ship_from_country": null,
+      "quantity_available": null,
+      "flags": [],
+      "brand": null,
+      "mpn": null,
+      "attrs": {
+        "serper_product_id": "3739608699412987011",
+        "color": "Wine Berry"
+      }
+    },
+    {
+      "rank": 19,
+      "source": "serper_shopping",
+      "vendor_host": "editorialist.com",
+      "url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Keychain&prds=localAnnotatedOfferId:1,catalogid:9633741554625192854,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
+      "buy_url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Keychain&prds=localAnnotatedOfferId:1,catalogid:9633741554625192854,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
+      "image_url": null,
+      "title": "Lululemon Never Lost Keychain Downtown Tan/Light Ivory/Silver / ONE",
+      "price_usd": 20.0,
+      "total_for_target_usd": null,
+      "currency_approx_fx": null,
+      "condition": "",
+      "seller_name": "Editorialist",
       "is_kit": false,
       "kit_module_count": 1,
       "badges": [],
@@ -1823,25 +1170,18 @@
       "brand": null,
       "mpn": null,
       "attrs": {
-        "serper_product_id": "6758612294650583316",
-        "color": "Black"
+        "serper_product_id": "9633741554625192854",
+        "color": "Downtown Tan/Light Ivory/Silver"
       }
     },
     {
-      "rank": 19,
+      "rank": 20,
       "source": "serper_shopping",
       "vendor_host": "whatnot.com",
-      "url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Keychain&prds=localAnnotatedOfferId:1,productid:5824818961717490183,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
-      "buy_url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Keychain&prds=localAnnotatedOfferId:1,productid:5824818961717490183,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
-=======
-      "rank": 17,
-      "source": "serper_shopping",
-      "vendor_host": "whatnot.com",
-      "url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Key+Tag&prds=localAnnotatedOfferId:1,productid:17160369924839585149,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
-      "buy_url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Key+Tag&prds=localAnnotatedOfferId:1,productid:17160369924839585149,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
->>>>>>> Stashed changes
+      "url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Keychain&prds=localAnnotatedOfferId:1,productid:8406318544168574660,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
+      "buy_url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Keychain&prds=localAnnotatedOfferId:1,productid:8406318544168574660,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
       "image_url": null,
-      "title": "Lululemon never lost keychain yellow with silver hardware1",
+      "title": "NWT LULULEMON NEVER LOST KEYCHAIN",
       "price_usd": 20.0,
       "total_for_target_usd": null,
       "currency_approx_fx": null,
@@ -1853,45 +1193,14 @@
       "seller_rating_pct": null,
       "seller_feedback_count": null,
       "rating": 4.6,
-      "rating_count": 6000,
+      "rating_count": 5000,
       "ship_from_country": null,
       "quantity_available": null,
       "flags": [],
       "brand": null,
       "mpn": null,
       "attrs": {
-<<<<<<< Updated upstream
-        "serper_product_id": "5824818961717490183"
-      }
-    },
-    {
-      "rank": 20,
-      "source": "serper_shopping",
-      "vendor_host": "ebay.com",
-      "url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Keychain&prds=localAnnotatedOfferId:1,productid:10061195504533500740,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
-      "buy_url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Keychain&prds=localAnnotatedOfferId:1,productid:10061195504533500740,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
-      "image_url": null,
-      "title": "Lululemon Never Lost Keychain Faint Lavendar",
-      "price_usd": 20.0,
-      "total_for_target_usd": null,
-      "currency_approx_fx": null,
-      "condition": "",
-      "seller_name": "eBay",
-      "is_kit": false,
-      "kit_module_count": 1,
-      "badges": [],
-      "seller_rating_pct": null,
-      "seller_feedback_count": null,
-      "rating": 4.6,
-      "rating_count": 6000,
-      "ship_from_country": null,
-      "quantity_available": null,
-      "flags": [],
-      "brand": null,
-      "mpn": null,
-      "attrs": {
-        "serper_product_id": "10061195504533500740",
-        "color": "Faint Lavendar"
+        "serper_product_id": "8406318544168574660"
       }
     },
     {
@@ -1922,85 +1231,50 @@
       "attrs": {
         "serper_product_id": "14335882722394782725",
         "color": "Pink"
-=======
-        "serper_product_id": "17160369924839585149",
-        "color": "yellow with silver hardware"
->>>>>>> Stashed changes
       }
     },
     {
-      "rank": 18,
-      "source": "serper_shopping",
-      "vendor_host": "poshmark.com",
-      "url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Keychain&prds=localAnnotatedOfferId:1,productid:18020499821372950083,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
-      "buy_url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Keychain&prds=localAnnotatedOfferId:1,productid:18020499821372950083,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
-      "image_url": "https://encrypted-tbn2.gstatic.com/shopping?q=tbn:ANd9GcRsongUad9Fs9rz5oRv34OEZa9w2nl7UDluPzoA-tNuvnvps7llzBzSt-2A582FeZtZyh6gHowIh8mMV60yhicAdSED5_3DB1U8gs9ucx4yVJ1_S1VTg0be",
-      "title": "Lululemon Athletica Accessories | Nwt Lululemon Never Lost Keychain Pink Mist/Silver | Color: Pink/Silver | Size: Os | Pm-26282203's Closet",
-      "price_usd": 21.0,
-      "total_for_target_usd": null,
-      "currency_approx_fx": null,
-      "condition": "",
-      "seller_name": "Poshmark",
-      "is_kit": false,
-      "kit_module_count": 1,
-      "badges": [],
-      "seller_rating_pct": null,
-      "seller_feedback_count": null,
-      "rating": 4.6,
-      "rating_count": 6000,
-      "ship_from_country": null,
-      "quantity_available": null,
-      "flags": [],
-      "brand": null,
-      "mpn": null,
-      "attrs": {
-        "serper_product_id": "18020499821372950083",
-        "color": "Pink Mist/Silver"
-      }
-    },
-    {
-      "rank": 19,
-      "source": "serper_shopping",
-      "vendor_host": "poshmark.com",
-      "url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Keychain&prds=localAnnotatedOfferId:1,productid:18020499821372950083,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
-      "buy_url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Keychain&prds=localAnnotatedOfferId:1,productid:18020499821372950083,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
-      "image_url": "https://encrypted-tbn2.gstatic.com/shopping?q=tbn:ANd9GcRsongUad9Fs9rz5oRv34OEZa9w2nl7UDluPzoA-tNuvnvps7llzBzSt-2A582FeZtZyh6gHowIh8mMV60yhicAdSED5_3DB1U8gs9ucx4yVJ1_S1VTg0be",
-      "title": "Lululemon Athletica Accessories | Nwt Lululemon Never Lost Keychain Pink Mist/Silver | Color: Pink/Silver | Size: Os | Pm-26282203's Closet",
-      "price_usd": 21.0,
-      "total_for_target_usd": null,
-      "currency_approx_fx": null,
-      "condition": "",
-      "seller_name": "Poshmark",
-      "is_kit": false,
-      "kit_module_count": 1,
-      "badges": [],
-      "seller_rating_pct": null,
-      "seller_feedback_count": null,
-      "rating": 4.6,
-      "rating_count": 6000,
-      "ship_from_country": null,
-      "quantity_available": null,
-      "flags": [],
-      "brand": null,
-      "mpn": null,
-      "attrs": {
-        "serper_product_id": "18020499821372950083",
-        "color": "Pink Mist/Silver"
-      }
-    },
-    {
-      "rank": 24,
+      "rank": 22,
       "source": "serper_shopping",
       "vendor_host": "whatnot.com",
-      "url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Keychain&prds=localAnnotatedOfferId:1,productid:10704268905039484147,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
-      "buy_url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Keychain&prds=localAnnotatedOfferId:1,productid:10704268905039484147,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
-      "image_url": "https://encrypted-tbn1.gstatic.com/shopping?q=tbn:ANd9GcRBVD1tmF6r9Hrrk_vjcEAGeyhDhLX5Zv77wF4ru4pu9FsJm2JYklgIOLiWfBKgrdkwIqpAgmRriyUF5QSNzBCm3PWdUIZ5DBs0F5cAKRg",
-      "title": "Lululemon never lost keychain wordmark",
-      "price_usd": 21.0,
+      "url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Key+Tag&prds=localAnnotatedOfferId:1,productid:5824818961717490183,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
+      "buy_url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Key+Tag&prds=localAnnotatedOfferId:1,productid:5824818961717490183,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
+      "image_url": null,
+      "title": "lululemon never lost keychain3",
+      "price_usd": 20.0,
       "total_for_target_usd": null,
       "currency_approx_fx": null,
       "condition": "",
       "seller_name": "Whatnot",
+      "is_kit": false,
+      "kit_module_count": 1,
+      "badges": [],
+      "seller_rating_pct": null,
+      "seller_feedback_count": null,
+      "rating": 4.6,
+      "rating_count": 6000,
+      "ship_from_country": null,
+      "quantity_available": null,
+      "flags": [],
+      "brand": null,
+      "mpn": null,
+      "attrs": {
+        "serper_product_id": "5824818961717490183"
+      }
+    },
+    {
+      "rank": 23,
+      "source": "serper_shopping",
+      "vendor_host": "poshmark.com",
+      "url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Key+Finder+Keychain&prds=localAnnotatedOfferId:1,productid:13035937554893649541,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
+      "buy_url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Key+Finder+Keychain&prds=localAnnotatedOfferId:1,productid:13035937554893649541,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
+      "image_url": "https://encrypted-tbn1.gstatic.com/shopping?q=tbn:ANd9GcQCsx-7naQRfqOWEt7S1V5F9hR_8nqZ_pLf_rP4aFQcaB50jvgwCkBPeyU1rExqGqnjxsqOIuobdd-U6fOJteYVi6npKSxA04lG9IYKa1w",
+      "title": "Lululemon Athletica Other | Red Lululemon Never Lost Keychain | Color: Pink | Size: Os | Gjade6365's Closet",
+      "price_usd": 20.0,
+      "total_for_target_usd": null,
+      "currency_approx_fx": null,
+      "condition": "",
+      "seller_name": "Poshmark",
       "is_kit": false,
       "kit_module_count": 1,
       "badges": [],
@@ -2014,15 +1288,71 @@
       "brand": null,
       "mpn": null,
       "attrs": {
-        "serper_product_id": "10704268905039484147"
+        "serper_product_id": "13035937554893649541",
+        "color": "Pink"
       }
     },
     {
-<<<<<<< Updated upstream
+      "rank": 24,
+      "source": "serper_shopping",
+      "vendor_host": "ebay.com",
+      "url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Key+Finder+Keychain&prds=localAnnotatedOfferId:1,productid:10061195504533500740,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
+      "buy_url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Key+Finder+Keychain&prds=localAnnotatedOfferId:1,productid:10061195504533500740,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
+      "image_url": "https://encrypted-tbn2.gstatic.com/shopping?q=tbn:ANd9GcRp3hJQkmSk5ntN0omiHYowykId-r1vdnyBlzTz_F4qns4O5ZhbWkLdck-V7vunDfSrO-gvL5ALxpWN02Vu3Gd_aFbujaNmobbt1pY35Hxt",
+      "title": "Lululemon Never Lost Keychain Faint Lavendar",
+      "price_usd": 20.0,
+      "total_for_target_usd": null,
+      "currency_approx_fx": null,
+      "condition": "",
+      "seller_name": "eBay",
+      "is_kit": false,
+      "kit_module_count": 1,
+      "badges": [],
+      "seller_rating_pct": null,
+      "seller_feedback_count": null,
+      "rating": 4.6,
+      "rating_count": 6000,
+      "ship_from_country": null,
+      "quantity_available": null,
+      "flags": [],
+      "brand": null,
+      "mpn": null,
+      "attrs": {
+        "serper_product_id": "10061195504533500740",
+        "color": "Faint Lavender"
+      }
+    },
+    {
       "rank": 25,
-=======
-      "rank": 20,
->>>>>>> Stashed changes
+      "source": "serper_shopping",
+      "vendor_host": "poshmark.com",
+      "url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Keychain&prds=localAnnotatedOfferId:1,productid:1151104408281496212,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
+      "buy_url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Keychain&prds=localAnnotatedOfferId:1,productid:1151104408281496212,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
+      "image_url": null,
+      "title": "LULULEMON! Never Lost Keychain",
+      "price_usd": 21.0,
+      "total_for_target_usd": null,
+      "currency_approx_fx": null,
+      "condition": "",
+      "seller_name": "Poshmark",
+      "is_kit": false,
+      "kit_module_count": 1,
+      "badges": [],
+      "seller_rating_pct": null,
+      "seller_feedback_count": null,
+      "rating": 4.6,
+      "rating_count": 5200,
+      "ship_from_country": null,
+      "quantity_available": null,
+      "flags": [],
+      "brand": null,
+      "mpn": null,
+      "attrs": {
+        "serper_product_id": "1151104408281496212"
+      }
+    },
+    {
+      "rank": 26,
       "source": "serper_shopping",
       "vendor_host": "whatnot.com",
       "url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Key+Finder+Keychain&prds=localAnnotatedOfferId:1,productid:4255694440898716167,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
@@ -2051,53 +1381,41 @@
       }
     },
     {
-<<<<<<< Updated upstream
-      "rank": 26,
-=======
-      "rank": 21,
->>>>>>> Stashed changes
+      "rank": 27,
       "source": "serper_shopping",
-      "vendor_host": "poshmark.com",
-      "url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Key+Finder+Keychain&prds=localAnnotatedOfferId:1,productid:1151104408281496212,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
-      "buy_url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Key+Finder+Keychain&prds=localAnnotatedOfferId:1,productid:1151104408281496212,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
-      "image_url": "https://encrypted-tbn3.gstatic.com/shopping?q=tbn:ANd9GcSGVswTJ6IqDKBG30RjX-7mOXF6Z-YKUgmNFzjsvacDqs5YEP18E0dbRcGHZhwfjFfLf1SAc0VHOY3HdQ3SGJpMPEfzroHu",
-      "title": "LULULEMON! Never Lost Keychain",
-      "price_usd": 21.0,
+      "vendor_host": "lululemon.com",
+      "url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Keychain&prds=localAnnotatedOfferId:1,catalogid:4302320118592601606,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
+      "buy_url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Keychain&prds=localAnnotatedOfferId:1,catalogid:4302320118592601606,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
+      "image_url": null,
+      "title": "lululemon Never Lost Keychain",
+      "price_usd": 22.0,
       "total_for_target_usd": null,
       "currency_approx_fx": null,
       "condition": "",
-      "seller_name": "Poshmark",
+      "seller_name": "lululemon",
       "is_kit": false,
       "kit_module_count": 1,
       "badges": [],
       "seller_rating_pct": null,
       "seller_feedback_count": null,
-      "rating": 4.6,
-      "rating_count": 5200,
+      "rating": 4.9,
+      "rating_count": 23,
       "ship_from_country": null,
       "quantity_available": null,
       "flags": [],
       "brand": null,
       "mpn": null,
       "attrs": {
-        "serper_product_id": "1151104408281496212"
+        "serper_product_id": "4302320118592601606"
       }
     },
     {
-<<<<<<< Updated upstream
-      "rank": 27,
-=======
-      "rank": 22,
->>>>>>> Stashed changes
+      "rank": 28,
       "source": "serper_shopping",
       "vendor_host": "whatnot.com",
       "url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Key+Tag&prds=localAnnotatedOfferId:1,productid:2965180513210746022,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
       "buy_url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Key+Tag&prds=localAnnotatedOfferId:1,productid:2965180513210746022,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
-<<<<<<< Updated upstream
       "image_url": "https://encrypted-tbn3.gstatic.com/shopping?q=tbn:ANd9GcThfIhNPb8lV1-dr9BmD3v0MbP_cOD1hD8fX194_ZAD4X8CoufqZaJzbpHrCJGArbsCa-eJu3dLBQmzAmPXaO0lLqPB2qvxL5mifOc4qslZWbKRYQeEnon77Q",
-=======
-      "image_url": null,
->>>>>>> Stashed changes
       "title": "Lululemon Never Lost Keychain Reflective Rockwood/Red Clay NWT",
       "price_usd": 22.0,
       "total_for_target_usd": null,
@@ -2118,16 +1436,15 @@
       "mpn": null,
       "attrs": {
         "serper_product_id": "2965180513210746022",
-<<<<<<< Updated upstream
         "color": "Rockwood/Red Clay"
       }
     },
     {
-      "rank": 28,
+      "rank": 29,
       "source": "serper_shopping",
       "vendor_host": "ebay.com",
-      "url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Keychain&prds=localAnnotatedOfferId:1,productid:18159537896655051144,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
-      "buy_url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Keychain&prds=localAnnotatedOfferId:1,productid:18159537896655051144,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
+      "url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Key+Tag&prds=localAnnotatedOfferId:1,productid:18159537896655051144,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
+      "buy_url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Key+Tag&prds=localAnnotatedOfferId:1,productid:18159537896655051144,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
       "image_url": null,
       "title": "Lululemon Collective Pinnacle \u201cnever Lost\u201d Key Chain \u2013 Black",
       "price_usd": 22.5,
@@ -2153,19 +1470,11 @@
       }
     },
     {
-      "rank": 29,
+      "rank": 30,
       "source": "serper_shopping",
-=======
-        "color": "Reflective Rockwood/Red Clay"
-      }
-    },
-    {
-      "rank": 23,
-      "source": "serper_shopping",
->>>>>>> Stashed changes
       "vendor_host": "whatnot.com",
-      "url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Keychain&prds=localAnnotatedOfferId:1,productid:11914819454165671979,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
-      "buy_url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Keychain&prds=localAnnotatedOfferId:1,productid:11914819454165671979,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
+      "url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Key+Finder+Keychain&prds=localAnnotatedOfferId:1,productid:11914819454165671979,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
+      "buy_url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Key+Finder+Keychain&prds=localAnnotatedOfferId:1,productid:11914819454165671979,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
       "image_url": null,
       "title": "Lululemon Never Lost Keychain5",
       "price_usd": 23.0,
@@ -2190,78 +1499,72 @@
       }
     },
     {
-<<<<<<< Updated upstream
-      "rank": 30,
-      "source": "serper_shopping",
-      "vendor_host": "lululemon.com",
-      "url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Key+Finder+Keychain&prds=localAnnotatedOfferId:1,catalogid:8461859789952323690,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
-      "buy_url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Key+Finder+Keychain&prds=localAnnotatedOfferId:1,catalogid:8461859789952323690,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
-      "image_url": null,
-      "title": "lululemon Never Lost Keychain",
-      "price_usd": 24.0,
-      "total_for_target_usd": null,
-      "currency_approx_fx": null,
-      "condition": "",
-      "seller_name": "lululemon",
-      "is_kit": false,
-      "kit_module_count": 1,
-      "badges": [],
-      "seller_rating_pct": null,
-      "seller_feedback_count": null,
-      "rating": 4.8,
-      "rating_count": 734,
-      "ship_from_country": null,
-      "quantity_available": null,
-      "flags": [],
-      "brand": null,
-      "mpn": null,
-      "attrs": {
-        "serper_product_id": "8461859789952323690"
-      }
-    },
-    {
       "rank": 31,
-=======
-      "rank": 24,
->>>>>>> Stashed changes
       "source": "serper_shopping",
-      "vendor_host": "lululemon.com",
-      "url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Key+Finder+Keychain&prds=localAnnotatedOfferId:1,catalogid:8461859789952323690,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
-      "buy_url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Key+Finder+Keychain&prds=localAnnotatedOfferId:1,catalogid:8461859789952323690,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
+      "vendor_host": "ebay.com",
+      "url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Key+Tag&prds=localAnnotatedOfferId:1,productid:12823653838599260782,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
+      "buy_url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Key+Tag&prds=localAnnotatedOfferId:1,productid:12823653838599260782,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
       "image_url": null,
-      "title": "lululemon Never Lost Keychain",
-      "price_usd": 24.0,
+      "title": "Lululemon Never Lost Keychain - RHIG / ELLE - Rhino Gray / Elle Yellow",
+      "price_usd": 24.99,
       "total_for_target_usd": null,
       "currency_approx_fx": null,
       "condition": "",
-      "seller_name": "lululemon",
+      "seller_name": "eBay - formylittlesweetpea",
       "is_kit": false,
       "kit_module_count": 1,
       "badges": [],
       "seller_rating_pct": null,
       "seller_feedback_count": null,
-      "rating": 4.8,
-      "rating_count": 734,
+      "rating": null,
+      "rating_count": null,
       "ship_from_country": null,
       "quantity_available": null,
       "flags": [],
       "brand": null,
       "mpn": null,
       "attrs": {
-        "serper_product_id": "8461859789952323690"
+        "serper_product_id": "12823653838599260782",
+        "color": "Rhino Gray / Elle Yellow"
       }
     },
     {
-<<<<<<< Updated upstream
       "rank": 32,
-=======
-      "rank": 25,
->>>>>>> Stashed changes
       "source": "serper_shopping",
       "vendor_host": "whatnot.com",
-      "url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Keychain&prds=localAnnotatedOfferId:1,productid:509503692353811549,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
-      "buy_url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Keychain&prds=localAnnotatedOfferId:1,productid:509503692353811549,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
+      "url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Keychain&prds=localAnnotatedOfferId:1,productid:7697420813388173587,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
+      "buy_url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Keychain&prds=localAnnotatedOfferId:1,productid:7697420813388173587,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
       "image_url": null,
+      "title": "NWT Lululemon Never lost Keychain: Copper/Pink1",
+      "price_usd": 25.0,
+      "total_for_target_usd": null,
+      "currency_approx_fx": null,
+      "condition": "",
+      "seller_name": "Whatnot",
+      "is_kit": false,
+      "kit_module_count": 1,
+      "badges": [],
+      "seller_rating_pct": null,
+      "seller_feedback_count": null,
+      "rating": null,
+      "rating_count": null,
+      "ship_from_country": null,
+      "quantity_available": null,
+      "flags": [],
+      "brand": null,
+      "mpn": null,
+      "attrs": {
+        "serper_product_id": "7697420813388173587",
+        "color": "Copper/Pink"
+      }
+    },
+    {
+      "rank": 33,
+      "source": "serper_shopping",
+      "vendor_host": "whatnot.com",
+      "url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Key+Tag&prds=localAnnotatedOfferId:1,productid:509503692353811549,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
+      "buy_url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Key+Tag&prds=localAnnotatedOfferId:1,productid:509503692353811549,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
+      "image_url": "https://encrypted-tbn2.gstatic.com/shopping?q=tbn:ANd9GcTjux__N_9FSWVASm2CKi38pPImGWRImTjcVTYo-bNY0bseF8neXzh2so6CKUcqKToJfuIYI7jcou8Pavojd6RxL1216-3yJV3RAnkNUe_gw0lGjyiScDg-Pg",
       "title": "Lululemon Never Lost Keychain *Metallic Wordmark Light Ivory (LTIV) NWT1",
       "price_usd": 25.0,
       "total_for_target_usd": null,
@@ -2286,23 +1589,13 @@
       }
     },
     {
-<<<<<<< Updated upstream
-      "rank": 33,
+      "rank": 34,
       "source": "serper_shopping",
       "vendor_host": "poshmark.com",
       "url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Key+Tag&prds=localAnnotatedOfferId:1,productid:16605345697831577453,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
       "buy_url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Key+Tag&prds=localAnnotatedOfferId:1,productid:16605345697831577453,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
-      "image_url": null,
+      "image_url": "https://encrypted-tbn2.gstatic.com/shopping?q=tbn:ANd9GcRR25DmnDt9lgr286HmmNJ6fHnbhlOYwXywK9vhtpjTL5tzRMWJEon0OHBcKOQLgQ2mFs62oAN4jn7Kh_A1zEhAiXKZnIxiW_aMRyIJL9HwPTbOtmxcoZiShg",
       "title": "Lululemon Gray Never Lost Keychain Brand New | Color: Gray/Yellow | Size: Os | Daisy_Deals26's Closet",
-=======
-      "rank": 26,
-      "source": "serper_shopping",
-      "vendor_host": "whatnot.com",
-      "url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Keychain&prds=localAnnotatedOfferId:1,catalogid:12001689327506579589,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
-      "buy_url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Keychain&prds=localAnnotatedOfferId:1,catalogid:12001689327506579589,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
-      "image_url": "https://encrypted-tbn1.gstatic.com/shopping?q=tbn:ANd9GcSEDwZMiuMHpgRV9qqw7NoTSbCpLn_1QXRq6mK3cU1GZoUFY-8tdDjPcGMF_GPGhN2yovAfzajenadHmMBDjvno2ITfbxx3uzlEkERuCCiUQgTPgsIkXQSM9Q",
-      "title": "Lulu Never Lost Key Chain",
->>>>>>> Stashed changes
       "price_usd": 25.0,
       "total_for_target_usd": null,
       "currency_approx_fx": null,
@@ -2326,82 +1619,7 @@
       }
     },
     {
-<<<<<<< Updated upstream
-      "rank": 34,
-      "source": "serper_shopping",
-      "vendor_host": "ebay.com",
-      "url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Key+Tag&prds=localAnnotatedOfferId:1,productid:12480126304004549351,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
-      "buy_url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Key+Tag&prds=localAnnotatedOfferId:1,productid:12480126304004549351,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
-      "image_url": "https://encrypted-tbn0.gstatic.com/shopping?q=tbn:ANd9GcQFL_s8Yx8RWEnVxrLLNLM4sreGJ9eF1D2Wc1x7_YibHx09JD4sxnYKJ6dC0A-Wr_O_3SUAStUmbnMcNH-EarkkLNisnaXa",
-      "title": "LULULEMON Never Lost Keychain PINK With Silver Hardware NWT",
-      "price_usd": 25.0,
-      "total_for_target_usd": null,
-      "currency_approx_fx": null,
-      "condition": "",
-      "seller_name": "eBay",
-      "is_kit": false,
-      "kit_module_count": 1,
-      "badges": [],
-      "seller_rating_pct": null,
-      "seller_feedback_count": null,
-      "rating": null,
-      "rating_count": null,
-      "ship_from_country": null,
-      "quantity_available": null,
-      "flags": [],
-      "brand": null,
-      "mpn": null,
-      "attrs": {
-        "serper_product_id": "12480126304004549351",
-        "color": "Pink"
-      }
-    },
-    {
       "rank": 35,
-      "source": "serper_shopping",
-      "vendor_host": "whatnot.com",
-      "url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Key+Finder+Keychain&prds=localAnnotatedOfferId:1,productid:11686467546201862421,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
-      "buy_url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Key+Finder+Keychain&prds=localAnnotatedOfferId:1,productid:11686467546201862421,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
-=======
-      "rank": 27,
-      "source": "serper_shopping",
-      "vendor_host": "whatnot.com",
-      "url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Key+Tag&prds=localAnnotatedOfferId:1,productid:11686467546201862421,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
-      "buy_url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Key+Tag&prds=localAnnotatedOfferId:1,productid:11686467546201862421,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
->>>>>>> Stashed changes
-      "image_url": "https://encrypted-tbn3.gstatic.com/shopping?q=tbn:ANd9GcQA8hSBxrkWb5_q4Gd-vgj5SxOJzgAxXDNRXy-RWAZWSiDxouLqj67UymO0PUXrKm0PpuxSLQKE8GwIq7il1VNjPQwHygBtn_7kID9n7Tk",
-      "title": "Lululemon Nwts Never lost keychain! TRNV/WHT1",
-      "price_usd": 25.0,
-      "total_for_target_usd": null,
-      "currency_approx_fx": null,
-      "condition": "",
-      "seller_name": "Whatnot",
-      "is_kit": false,
-      "kit_module_count": 1,
-      "badges": [],
-      "seller_rating_pct": null,
-      "seller_feedback_count": null,
-      "rating": 4.6,
-      "rating_count": 6000,
-      "ship_from_country": null,
-      "quantity_available": null,
-      "flags": [],
-      "brand": null,
-      "mpn": null,
-      "attrs": {
-        "serper_product_id": "11686467546201862421",
-<<<<<<< Updated upstream
-        "color": "TRNV/WHT"
-      }
-    },
-    {
-      "rank": 36,
-=======
-        "color": "TRNV/WHT1"
-      }
-    },
-    {
-      "rank": 28,
       "source": "serper_shopping",
       "vendor_host": "ebay.com",
       "url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Key+Finder+Keychain&prds=localAnnotatedOfferId:1,productid:12480126304004549351,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
@@ -2427,15 +1645,45 @@
       "mpn": null,
       "attrs": {
         "serper_product_id": "12480126304004549351",
-        "color": "PINK"
+        "color": "Pink"
       }
     },
     {
-      "rank": 29,
+      "rank": 36,
+      "source": "serper_shopping",
+      "vendor_host": "whatnot.com",
+      "url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Key+Finder+Keychain&prds=localAnnotatedOfferId:1,productid:11686467546201862421,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
+      "buy_url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Key+Finder+Keychain&prds=localAnnotatedOfferId:1,productid:11686467546201862421,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
+      "image_url": "https://encrypted-tbn3.gstatic.com/shopping?q=tbn:ANd9GcQA8hSBxrkWb5_q4Gd-vgj5SxOJzgAxXDNRXy-RWAZWSiDxouLqj67UymO0PUXrKm0PpuxSLQKE8GwIq7il1VNjPQwHygBtn_7kID9n7Tk",
+      "title": "Lululemon Nwts Never lost keychain! TRNV/WHT1",
+      "price_usd": 25.0,
+      "total_for_target_usd": null,
+      "currency_approx_fx": null,
+      "condition": "",
+      "seller_name": "Whatnot",
+      "is_kit": false,
+      "kit_module_count": 1,
+      "badges": [],
+      "seller_rating_pct": null,
+      "seller_feedback_count": null,
+      "rating": 4.6,
+      "rating_count": 6000,
+      "ship_from_country": null,
+      "quantity_available": null,
+      "flags": [],
+      "brand": null,
+      "mpn": null,
+      "attrs": {
+        "serper_product_id": "11686467546201862421",
+        "color": "TRNV/WHT"
+      }
+    },
+    {
+      "rank": 37,
       "source": "serper_shopping",
       "vendor_host": "poshmark.com",
-      "url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Key+Tag&prds=localAnnotatedOfferId:1,productid:17469000475684083741,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
-      "buy_url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Key+Tag&prds=localAnnotatedOfferId:1,productid:17469000475684083741,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
+      "url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Key+Finder+Keychain&prds=localAnnotatedOfferId:1,productid:17469000475684083741,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
+      "buy_url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Key+Finder+Keychain&prds=localAnnotatedOfferId:1,productid:17469000475684083741,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
       "image_url": "https://encrypted-tbn2.gstatic.com/shopping?q=tbn:ANd9GcSVvZtOlWg_Xf3xf8K9Xmr5IQwEnBfYTMvopYuW88m16rXPd8_LujYGaKC1ZYa7OTlLSXfIwAlkE-7E4SRKY4hfS1ohhPQ-5uic8mZ0Ef8V",
       "title": "Lululemon Athletica Accessories | Lululemon Never Lost Keychain. | Color: Pink/Silver | Size: Os | Gso's Closet",
       "price_usd": 27.0,
@@ -2461,42 +1709,7 @@
       }
     },
     {
-      "rank": 30,
->>>>>>> Stashed changes
-      "source": "serper_shopping",
-      "vendor_host": "ebay.com",
-      "url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Keychain&prds=localAnnotatedOfferId:1,productid:12927376325456476166,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
-      "buy_url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Keychain&prds=localAnnotatedOfferId:1,productid:12927376325456476166,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
-      "image_url": null,
-      "title": "Lululemon Never Lost Keychain One Size Rpcr/wnby 00603.",
-      "price_usd": 28.0,
-      "total_for_target_usd": null,
-      "currency_approx_fx": null,
-      "condition": "",
-      "seller_name": "eBay - neverevernotshopping",
-      "is_kit": false,
-      "kit_module_count": 1,
-      "badges": [],
-      "seller_rating_pct": null,
-      "seller_feedback_count": null,
-      "rating": 4.6,
-      "rating_count": 5200,
-      "ship_from_country": null,
-      "quantity_available": null,
-      "flags": [],
-      "brand": null,
-      "mpn": null,
-      "attrs": {
-        "serper_product_id": "12927376325456476166",
-        "color": "Rpcr/wnby"
-      }
-    },
-    {
-<<<<<<< Updated upstream
-      "rank": 37,
-=======
-      "rank": 31,
->>>>>>> Stashed changes
+      "rank": 38,
       "source": "serper_shopping",
       "vendor_host": "ebay.com",
       "url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Key+Tag&prds=localAnnotatedOfferId:1,catalogid:12614155138762668918,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
@@ -2525,15 +1738,11 @@
       }
     },
     {
-<<<<<<< Updated upstream
-      "rank": 38,
-=======
-      "rank": 32,
->>>>>>> Stashed changes
+      "rank": 39,
       "source": "serper_shopping",
       "vendor_host": "ebay.com",
-      "url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Keychain&prds=localAnnotatedOfferId:1,productid:10247659899378351934,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
-      "buy_url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Keychain&prds=localAnnotatedOfferId:1,productid:10247659899378351934,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
+      "url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Key+Tag&prds=localAnnotatedOfferId:1,productid:10247659899378351934,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
+      "buy_url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Key+Tag&prds=localAnnotatedOfferId:1,productid:10247659899378351934,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
       "image_url": null,
       "title": "Lululemon Never Lost Keychain Solar Grey",
       "price_usd": 28.5,
@@ -2559,16 +1768,12 @@
       }
     },
     {
-<<<<<<< Updated upstream
-      "rank": 39,
-=======
-      "rank": 33,
->>>>>>> Stashed changes
+      "rank": 40,
       "source": "serper_shopping",
       "vendor_host": "whatnot.com",
       "url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Keychain&prds=localAnnotatedOfferId:1,productid:11783503597397009278,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
       "buy_url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Keychain&prds=localAnnotatedOfferId:1,productid:11783503597397009278,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
-      "image_url": null,
+      "image_url": "https://encrypted-tbn3.gstatic.com/shopping?q=tbn:ANd9GcQ7xVWRb3bbNKc6LopTiYQ3fc_j2iOngLqucLK-Ka1fyTLKhWfVLIFzNAmpgPoSlWKIIF1I2FKOWrcZYr_1s4r_qeaWx63ZnztuWYwb8ECJ",
       "title": "Lululemon Never lost Keychain",
       "price_usd": 29.0,
       "total_for_target_usd": null,
@@ -2592,87 +1797,71 @@
       }
     },
     {
-<<<<<<< Updated upstream
-      "rank": 40,
-=======
-      "rank": 34,
->>>>>>> Stashed changes
-      "source": "serper_shopping",
-      "vendor_host": "whatnot.com",
-      "url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Keychain&prds=localAnnotatedOfferId:1,productid:1326477144422165805,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
-      "buy_url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Keychain&prds=localAnnotatedOfferId:1,productid:1326477144422165805,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
-      "image_url": "https://encrypted-tbn1.gstatic.com/shopping?q=tbn:ANd9GcShxKwcqLdRFVj_ivIniwKlLWZjWxp_AOujDTPvTEFVMIEox7ACntIj_EaiMhHUJTkO8i2nXrby-EQlc7cYPN78ue_9g0VYTPSlPuzIarg",
-      "title": "Lululemon Never lost keychain",
-      "price_usd": 29.0,
-      "total_for_target_usd": null,
-      "currency_approx_fx": null,
-      "condition": "",
-      "seller_name": "Whatnot",
-      "is_kit": false,
-      "kit_module_count": 1,
-      "badges": [],
-      "seller_rating_pct": null,
-      "seller_feedback_count": null,
-      "rating": null,
-      "rating_count": null,
-      "ship_from_country": null,
-      "quantity_available": null,
-      "flags": [],
-      "brand": null,
-      "mpn": null,
-      "attrs": {
-        "serper_product_id": "1326477144422165805"
-      }
-    },
-    {
-<<<<<<< Updated upstream
       "rank": 41,
-=======
-      "rank": 35,
->>>>>>> Stashed changes
       "source": "serper_shopping",
       "vendor_host": "ebay.com",
-      "url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Key+Tag&prds=localAnnotatedOfferId:1,productid:15031732163681515071,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
-      "buy_url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Key+Tag&prds=localAnnotatedOfferId:1,productid:15031732163681515071,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
-<<<<<<< Updated upstream
-      "image_url": "https://encrypted-tbn2.gstatic.com/shopping?q=tbn:ANd9GcTRbTgJTIXZB1DRRUfmQEO4rJapucRrrES93QeR2xPAJJKIAZVh4Zst40PdHIIcQiELagMHfLzTsXflQaaFNoA8sNeIWwCR7YiDC9xyeHpKpoki-b4S9l62mQ",
-=======
-      "image_url": null,
->>>>>>> Stashed changes
-      "title": "Lululemon Never Lost Keychain Wordmark Vapor Gold",
-      "price_usd": 29.97,
+      "url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Keychain&prds=localAnnotatedOfferId:1,productid:9420328261069175610,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
+      "buy_url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Keychain&prds=localAnnotatedOfferId:1,productid:9420328261069175610,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
+      "image_url": "https://encrypted-tbn0.gstatic.com/shopping?q=tbn:ANd9GcR9iJ1gMbIxbjUlYQ-JzqBFG_qfdS9gKLN2p9tXNZ7-FOShGNIxcE8g4vRv8-EWj5Zq-FQQCvquXVDOJddGjsBxbs3h3PaF7exyD2ogFuTdaFGI06N9iXVS",
+      "title": "Lululemon Never Lost Keychain Deep Luxe/gold/bone Logo Bag Charm Clip O/S",
+      "price_usd": 29.99,
       "total_for_target_usd": null,
       "currency_approx_fx": null,
       "condition": "",
-      "seller_name": "eBay - fashionella",
+      "seller_name": "eBay",
       "is_kit": false,
       "kit_module_count": 1,
       "badges": [],
       "seller_rating_pct": null,
       "seller_feedback_count": null,
-      "rating": null,
-      "rating_count": null,
+      "rating": 4.6,
+      "rating_count": 5000,
       "ship_from_country": null,
       "quantity_available": null,
       "flags": [],
       "brand": null,
       "mpn": null,
       "attrs": {
-        "serper_product_id": "15031732163681515071",
-        "color": "Vapor Gold"
+        "serper_product_id": "9420328261069175610",
+        "color": "Deep Luxe/gold/bone"
       }
     },
     {
-<<<<<<< Updated upstream
       "rank": 42,
-=======
-      "rank": 36,
->>>>>>> Stashed changes
       "source": "serper_shopping",
       "vendor_host": "ebay.com",
-      "url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Keychain&prds=localAnnotatedOfferId:1,productid:1998517365201533547,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
-      "buy_url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Keychain&prds=localAnnotatedOfferId:1,productid:1998517365201533547,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
+      "url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Key+Tag&prds=localAnnotatedOfferId:1,catalogid:1789922101432972502,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
+      "buy_url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Key+Tag&prds=localAnnotatedOfferId:1,catalogid:1789922101432972502,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
       "image_url": null,
+      "title": "lululemon Never Lost Keychain",
+      "price_usd": 29.99,
+      "total_for_target_usd": null,
+      "currency_approx_fx": null,
+      "condition": "",
+      "seller_name": "eBay",
+      "is_kit": false,
+      "kit_module_count": 1,
+      "badges": [],
+      "seller_rating_pct": null,
+      "seller_feedback_count": null,
+      "rating": 4.6,
+      "rating_count": 5300,
+      "ship_from_country": null,
+      "quantity_available": null,
+      "flags": [],
+      "brand": null,
+      "mpn": null,
+      "attrs": {
+        "serper_product_id": "1789922101432972502"
+      }
+    },
+    {
+      "rank": 43,
+      "source": "serper_shopping",
+      "vendor_host": "ebay.com",
+      "url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Key+Tag&prds=localAnnotatedOfferId:1,productid:1998517365201533547,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
+      "buy_url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Key+Tag&prds=localAnnotatedOfferId:1,productid:1998517365201533547,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
+      "image_url": "https://encrypted-tbn0.gstatic.com/shopping?q=tbn:ANd9GcQkeBazW2Yz5Vs8bH3zFXePEYul87neyVZEVN3qyaA6vcngopTHX7v-8U6R238adTk4HK_2rAymtm_5vfGVC6LiRlZLeS_tPvLIsj5naO-Msqt1Ksy6R6zyZA",
       "title": "Lululemon Never Lost Keychain in Riverside/Faint Lavender",
       "price_usd": 29.99,
       "total_for_target_usd": null,
@@ -2697,11 +1886,7 @@
       }
     },
     {
-<<<<<<< Updated upstream
-      "rank": 43,
-=======
-      "rank": 37,
->>>>>>> Stashed changes
+      "rank": 44,
       "source": "serper_shopping",
       "vendor_host": "poshmark.com",
       "url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Keychain&prds=localAnnotatedOfferId:1,productid:4665236818116541178,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
@@ -2730,22 +1915,18 @@
       }
     },
     {
-<<<<<<< Updated upstream
-      "rank": 44,
-=======
-      "rank": 38,
->>>>>>> Stashed changes
+      "rank": 45,
       "source": "serper_shopping",
-      "vendor_host": "poshmark.com",
-      "url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Keychain&prds=localAnnotatedOfferId:1,productid:17059715184783601157,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
-      "buy_url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Keychain&prds=localAnnotatedOfferId:1,productid:17059715184783601157,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
-      "image_url": null,
-      "title": "Lululemon Never Lost Keychain in Sonic Blue. Sold out rare color!",
+      "vendor_host": "ebay.com",
+      "url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Keychain&prds=localAnnotatedOfferId:1,productid:15360232386755725600,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
+      "buy_url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Keychain&prds=localAnnotatedOfferId:1,productid:15360232386755725600,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
+      "image_url": "https://encrypted-tbn1.gstatic.com/shopping?q=tbn:ANd9GcTCtt60BoR3nivxnC6c9B7qDblut2y4H1SmkVohKwWsNvaI_PT8vkPxPMdouyRfVsRBgZQSWGvJKCfzHu5jSE6sb5XmcUQ6UcGAi5pX9FE",
+      "title": "Lululemon Never Lost Keychain Black White Silver Authentic",
       "price_usd": 30.0,
       "total_for_target_usd": null,
       "currency_approx_fx": null,
       "condition": "",
-      "seller_name": "Poshmark",
+      "seller_name": "eBay",
       "is_kit": false,
       "kit_module_count": 1,
       "badges": [],
@@ -2759,20 +1940,16 @@
       "brand": null,
       "mpn": null,
       "attrs": {
-        "serper_product_id": "17059715184783601157",
-        "color": "Sonic Blue"
+        "serper_product_id": "15360232386755725600",
+        "color": "Black White Silver"
       }
     },
     {
-<<<<<<< Updated upstream
-      "rank": 45,
-=======
-      "rank": 39,
->>>>>>> Stashed changes
+      "rank": 46,
       "source": "serper_shopping",
       "vendor_host": "ebay.com",
-      "url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Keychain&prds=localAnnotatedOfferId:1,productid:4727308413923092831,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
-      "buy_url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Keychain&prds=localAnnotatedOfferId:1,productid:4727308413923092831,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
+      "url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Key+Tag&prds=localAnnotatedOfferId:1,productid:4727308413923092831,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
+      "buy_url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Key+Tag&prds=localAnnotatedOfferId:1,productid:4727308413923092831,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
       "image_url": null,
       "title": "Lululemon Never Lost Keychain (raspberry Cream/wine Berry) Lu9b20s",
       "price_usd": 30.0,
@@ -2798,20 +1975,12 @@
       }
     },
     {
-<<<<<<< Updated upstream
-      "rank": 46,
-      "source": "serper_shopping",
-      "vendor_host": "whatnot.com",
-      "url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Key+Tag&prds=localAnnotatedOfferId:1,productid:705011591085170219,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
-      "buy_url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Key+Tag&prds=localAnnotatedOfferId:1,productid:705011591085170219,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
-=======
-      "rank": 40,
+      "rank": 47,
       "source": "serper_shopping",
       "vendor_host": "whatnot.com",
       "url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Key+Finder+Keychain&prds=localAnnotatedOfferId:1,productid:705011591085170219,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
       "buy_url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Key+Finder+Keychain&prds=localAnnotatedOfferId:1,productid:705011591085170219,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
->>>>>>> Stashed changes
-      "image_url": "https://encrypted-tbn3.gstatic.com/shopping?q=tbn:ANd9GcTTKPo4Y2ZRgM19wNRd8O2l-HHn5Dv9cCZ1GBnvoMM_nPBQf-dNFdfNJn1wtZPbWwqwYA6pbMgJJTBdZijT3EiceoiguEQ7ESiKv327WEs2wSQ1u4bFhZBf",
+      "image_url": null,
       "title": "Lulu lemon never lost keychain1",
       "price_usd": 30.0,
       "total_for_target_usd": null,
@@ -2835,75 +2004,11 @@
       }
     },
     {
-<<<<<<< Updated upstream
-      "rank": 47,
-      "source": "serper_shopping",
-      "vendor_host": "ebay.com",
-      "url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Keychain&prds=localAnnotatedOfferId:1,productid:4137466533783314159,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
-      "buy_url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Keychain&prds=localAnnotatedOfferId:1,productid:4137466533783314159,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
-      "image_url": "https://encrypted-tbn0.gstatic.com/shopping?q=tbn:ANd9GcT4Q13UUHb4LBhxNz-Bw48bQAy0op682S-c7RtR9TaL9PdB9GDmlv0CX1OeoLVbcwl3enSo58iD-qezQneiJvjxjXTyA5jRdLDEkxfehh68",
-      "title": "Lululemon Never Lost Keychain In Gold Pink Savannah / Soleil",
-      "price_usd": 32.0,
-      "total_for_target_usd": null,
-      "currency_approx_fx": null,
-      "condition": "",
-      "seller_name": "eBay",
-      "is_kit": false,
-      "kit_module_count": 1,
-      "badges": [],
-      "seller_rating_pct": null,
-      "seller_feedback_count": null,
-      "rating": 4.8,
-      "rating_count": 733,
-      "ship_from_country": null,
-      "quantity_available": null,
-      "flags": [],
-      "brand": null,
-      "mpn": null,
-      "attrs": {
-        "serper_product_id": "4137466533783314159",
-        "color": "Gold Pink Savannah / Soleil"
-      }
-    },
-    {
       "rank": 48,
-=======
-      "rank": 41,
->>>>>>> Stashed changes
       "source": "serper_shopping",
       "vendor_host": "ebay.com",
-      "url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Keychain&prds=localAnnotatedOfferId:1,productid:4137466533783314159,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
-      "buy_url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Keychain&prds=localAnnotatedOfferId:1,productid:4137466533783314159,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
-      "image_url": "https://encrypted-tbn0.gstatic.com/shopping?q=tbn:ANd9GcT4Q13UUHb4LBhxNz-Bw48bQAy0op682S-c7RtR9TaL9PdB9GDmlv0CX1OeoLVbcwl3enSo58iD-qezQneiJvjxjXTyA5jRdLDEkxfehh68",
-      "title": "Lululemon Never Lost Keychain In Gold Pink Savannah / Soleil",
-      "price_usd": 32.0,
-      "total_for_target_usd": null,
-      "currency_approx_fx": null,
-      "condition": "",
-      "seller_name": "eBay",
-      "is_kit": false,
-      "kit_module_count": 1,
-      "badges": [],
-      "seller_rating_pct": null,
-      "seller_feedback_count": null,
-      "rating": 4.8,
-      "rating_count": 733,
-      "ship_from_country": null,
-      "quantity_available": null,
-      "flags": [],
-      "brand": null,
-      "mpn": null,
-      "attrs": {
-        "serper_product_id": "4137466533783314159",
-        "color": "Gold Pink Savannah / Soleil"
-      }
-    },
-    {
-      "rank": 42,
-      "source": "serper_shopping",
-      "vendor_host": "ebay.com",
-      "url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Key+Finder+Keychain&prds=localAnnotatedOfferId:1,catalogid:16858475027559250684,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
-      "buy_url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Key+Finder+Keychain&prds=localAnnotatedOfferId:1,catalogid:16858475027559250684,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
+      "url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Keychain&prds=localAnnotatedOfferId:1,catalogid:16858475027559250684,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
+      "buy_url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Keychain&prds=localAnnotatedOfferId:1,catalogid:16858475027559250684,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
       "image_url": null,
       "title": "lululemon Never Lost Key Chain",
       "price_usd": 32.14,
@@ -2928,15 +2033,11 @@
       }
     },
     {
-<<<<<<< Updated upstream
       "rank": 49,
-=======
-      "rank": 43,
->>>>>>> Stashed changes
       "source": "serper_shopping",
       "vendor_host": "ebay.com",
-      "url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Keychain&prds=localAnnotatedOfferId:1,productid:14976843986139883533,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
-      "buy_url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Keychain&prds=localAnnotatedOfferId:1,productid:14976843986139883533,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
+      "url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Key+Tag&prds=localAnnotatedOfferId:1,productid:14976843986139883533,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
+      "buy_url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Key+Tag&prds=localAnnotatedOfferId:1,productid:14976843986139883533,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
       "image_url": "https://encrypted-tbn2.gstatic.com/shopping?q=tbn:ANd9GcQnnrwGvlTlAs-V7FlAZIWD08IRNu9cnuyF71eD0O67XsoljRgw31N2uNhMTGiToQwoApoBPrjO-gP5nb0cNUTNw_6u__hsje39_XyFvCPV-s_Jq_mXIOgHCA",
       "title": "Lululemon Never Lost Keychain Balf/ltiv Gold Hardware Authentic",
       "price_usd": 32.99,
@@ -2958,79 +2059,40 @@
       "mpn": null,
       "attrs": {
         "serper_product_id": "14976843986139883533",
-        "color": "Balf/ltiv Gold Hardware"
+        "color": "Balf/Ltiv Gold"
       }
     },
     {
-<<<<<<< Updated upstream
       "rank": 50,
-=======
-      "rank": 44,
->>>>>>> Stashed changes
       "source": "serper_shopping",
-      "vendor_host": "ebay.com",
-      "url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Keychain&prds=localAnnotatedOfferId:1,productid:6703637766992932893,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
-      "buy_url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Keychain&prds=localAnnotatedOfferId:1,productid:6703637766992932893,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
-      "image_url": "https://encrypted-tbn2.gstatic.com/shopping?q=tbn:ANd9GcTWsI5rKMjTA5iJXHYgbkTo8ZfKi1FhJaqbhJGO_SfZgWluzRUxWjd4Kauzd11xMEUeoLIWeex8l9lppJPqI95mn2DZC5bvobrq2GCVkmS4",
-      "title": "Lululemon Never Lost Keychain One Size Burnt Apricot/terra Orange",
-      "price_usd": 34.2,
+      "vendor_host": "whatnot.com",
+      "url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Keychain&prds=localAnnotatedOfferId:1,productid:17040016810443499606,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
+      "buy_url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Keychain&prds=localAnnotatedOfferId:1,productid:17040016810443499606,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
+      "image_url": null,
+      "title": "Lululemon Never lost Keychain1",
+      "price_usd": 34.0,
       "total_for_target_usd": null,
       "currency_approx_fx": null,
       "condition": "",
-      "seller_name": "eBay",
+      "seller_name": "Whatnot",
       "is_kit": false,
       "kit_module_count": 1,
       "badges": [],
       "seller_rating_pct": null,
       "seller_feedback_count": null,
       "rating": 4.6,
-      "rating_count": 6000,
+      "rating_count": 5200,
       "ship_from_country": null,
       "quantity_available": null,
       "flags": [],
       "brand": null,
       "mpn": null,
       "attrs": {
-        "serper_product_id": "6703637766992932893",
-        "color": "Burnt Apricot/Terra Orange"
+        "serper_product_id": "17040016810443499606"
       }
     },
     {
-<<<<<<< Updated upstream
       "rank": 51,
-=======
-      "rank": 45,
-      "source": "serper_shopping",
-      "vendor_host": "ebay.com",
-      "url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Key+Tag&prds=localAnnotatedOfferId:1,productid:4367786190752457472,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
-      "buy_url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Key+Tag&prds=localAnnotatedOfferId:1,productid:4367786190752457472,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
-      "image_url": "https://encrypted-tbn2.gstatic.com/shopping?q=tbn:ANd9GcTF1SMo5VQ7GZgTcPhiUpV5VSncz9LSTkX6pCdqOBCpC2yNWeBKwDnhBpogWOOc4NzwetIkv4JEQ4uvoR1hvTF6_HzppBUmf9pzB_d6SP-q_ONB-L4H56mV6g",
-      "title": "Lululemon Never Lost Key Chain Rhino Gray Electric Lemon",
-      "price_usd": 34.2,
-      "total_for_target_usd": null,
-      "currency_approx_fx": null,
-      "condition": "",
-      "seller_name": "eBay",
-      "is_kit": false,
-      "kit_module_count": 1,
-      "badges": [],
-      "seller_rating_pct": null,
-      "seller_feedback_count": null,
-      "rating": 4.6,
-      "rating_count": 6000,
-      "ship_from_country": null,
-      "quantity_available": null,
-      "flags": [],
-      "brand": null,
-      "mpn": null,
-      "attrs": {
-        "serper_product_id": "4367786190752457472",
-        "color": "Rhino Gray Electric Lemon"
-      }
-    },
-    {
-      "rank": 46,
->>>>>>> Stashed changes
       "source": "serper_shopping",
       "vendor_host": "ebay.com",
       "url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Keychain&prds=localAnnotatedOfferId:1,productid:10463017304812947105,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
@@ -3055,127 +2117,135 @@
       "brand": null,
       "mpn": null,
       "attrs": {
-        "serper_product_id": "10463017304812947105",
-        "color": "Gold Hardware"
+        "serper_product_id": "10463017304812947105"
       }
     },
     {
-<<<<<<< Updated upstream
       "rank": 52,
-=======
-      "rank": 47,
->>>>>>> Stashed changes
       "source": "serper_shopping",
-      "vendor_host": "poshmark.com",
-      "url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Keychain&prds=localAnnotatedOfferId:1,productid:4721951290029422559,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
-      "buy_url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Keychain&prds=localAnnotatedOfferId:1,productid:4721951290029422559,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
+      "vendor_host": "ebay.com",
+      "url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Keychain&prds=localAnnotatedOfferId:1,productid:11325666324817941698,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
+      "buy_url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Keychain&prds=localAnnotatedOfferId:1,productid:11325666324817941698,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
       "image_url": null,
-      "title": "Lululemon Nwts Never Lost Keychain *Metallic Wordmark! FTLV! Purple Sold Out!",
-<<<<<<< Updated upstream
-=======
+      "title": "Lululemon Never Lost Keychain Vapor/gold",
       "price_usd": 35.0,
       "total_for_target_usd": null,
       "currency_approx_fx": null,
       "condition": "",
-      "seller_name": "Poshmark",
+      "seller_name": "eBay",
       "is_kit": false,
       "kit_module_count": 1,
       "badges": [],
       "seller_rating_pct": null,
       "seller_feedback_count": null,
-      "rating": null,
-      "rating_count": null,
-      "ship_from_country": null,
-      "quantity_available": null,
-      "flags": [],
-      "brand": null,
-      "mpn": null,
-      "attrs": {
-        "serper_product_id": "4721951290029422559",
-        "color": "Metallic Wordmark Purple"
-      }
-    },
-    {
-      "rank": 48,
-      "source": "serper_shopping",
-      "vendor_host": "whatnot.com",
-      "url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Key+Tag&prds=localAnnotatedOfferId:1,productid:3447806368448687690,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
-      "buy_url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Key+Tag&prds=localAnnotatedOfferId:1,productid:3447806368448687690,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
-      "image_url": null,
-      "title": "Lululemon Never lost Keychain * Metallic Wordmark",
-      "price_usd": 35.0,
-      "total_for_target_usd": null,
-      "currency_approx_fx": null,
-      "condition": "",
-      "seller_name": "Whatnot",
-      "is_kit": false,
-      "kit_module_count": 1,
-      "badges": [],
-      "seller_rating_pct": null,
-      "seller_feedback_count": null,
-      "rating": null,
-      "rating_count": null,
-      "ship_from_country": null,
-      "quantity_available": null,
-      "flags": [],
-      "brand": null,
-      "mpn": null,
-      "attrs": {
-        "serper_product_id": "3447806368448687690"
-      }
-    },
-    {
-      "rank": 49,
-      "source": "serper_shopping",
-      "vendor_host": "poshmark.com",
-      "url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Key+Tag&prds=localAnnotatedOfferId:1,productid:4834374365919747669,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
-      "buy_url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Key+Tag&prds=localAnnotatedOfferId:1,productid:4834374365919747669,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
-      "image_url": "https://encrypted-tbn1.gstatic.com/shopping?q=tbn:ANd9GcRe93UJxdPpxC-kVU_nJX187OtTyGhgW5EKGp56ZCRhGxL_bgG8WxBqeuQG9cBZW0TZWYl8VWaORCb57Be-pRfuZ5f9TohroSttLtOKBb0",
-      "title": "Lululemon Athletica Accessories | Lululemon Never Lost Keychain - Willow Leaf/Meadow Haze/Silver | Color: Green | Size: Os | Pm-87763385's Closet",
->>>>>>> Stashed changes
-      "price_usd": 35.0,
-      "total_for_target_usd": null,
-      "currency_approx_fx": null,
-      "condition": "",
-      "seller_name": "Poshmark",
-      "is_kit": false,
-      "kit_module_count": 1,
-      "badges": [],
-      "seller_rating_pct": null,
-      "seller_feedback_count": null,
-<<<<<<< Updated upstream
-      "rating": null,
-      "rating_count": null,
-=======
       "rating": 4.6,
-      "rating_count": 6000,
->>>>>>> Stashed changes
+      "rating_count": 5000,
       "ship_from_country": null,
       "quantity_available": null,
       "flags": [],
       "brand": null,
       "mpn": null,
       "attrs": {
-<<<<<<< Updated upstream
+        "serper_product_id": "11325666324817941698",
+        "color": "Vapor/gold"
+      }
+    },
+    {
+      "rank": 53,
+      "source": "serper_shopping",
+      "vendor_host": "poshmark.com",
+      "url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Key+Tag&prds=localAnnotatedOfferId:1,productid:4721951290029422559,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
+      "buy_url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Key+Tag&prds=localAnnotatedOfferId:1,productid:4721951290029422559,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
+      "image_url": "https://encrypted-tbn3.gstatic.com/shopping?q=tbn:ANd9GcSzTTu7pIQgSjR12ncCobhPMPLo2k5zceOM3t1weV-NgM5m4lF59zp7y7aUKzjLKnXFeO0cM_ZrDSVJSJAN6r-yHQRNNIg7ug",
+      "title": "Lululemon Nwts Never Lost Keychain *Metallic Wordmark! FTLV! Purple Sold Out!",
+      "price_usd": 35.0,
+      "total_for_target_usd": null,
+      "currency_approx_fx": null,
+      "condition": "",
+      "seller_name": "Poshmark",
+      "is_kit": false,
+      "kit_module_count": 1,
+      "badges": [],
+      "seller_rating_pct": null,
+      "seller_feedback_count": null,
+      "rating": null,
+      "rating_count": null,
+      "ship_from_country": null,
+      "quantity_available": null,
+      "flags": [],
+      "brand": null,
+      "mpn": null,
+      "attrs": {
         "serper_product_id": "4721951290029422559",
         "color": "Purple"
       }
     },
     {
-      "rank": 53,
-=======
-        "serper_product_id": "4834374365919747669",
-        "color": "Willow Leaf/Meadow Haze/Silver"
+      "rank": 54,
+      "source": "serper_shopping",
+      "vendor_host": "ebay.com",
+      "url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Keychain&prds=localAnnotatedOfferId:1,productid:11015893458289638740,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
+      "buy_url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Keychain&prds=localAnnotatedOfferId:1,productid:11015893458289638740,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
+      "image_url": null,
+      "title": "LULULEMON NEVER LOST KEYCHAIN BLISSFUL PINK/ LIGHT IVORY",
+      "price_usd": 35.99,
+      "total_for_target_usd": null,
+      "currency_approx_fx": null,
+      "condition": "",
+      "seller_name": "eBay - avodari",
+      "is_kit": false,
+      "kit_module_count": 1,
+      "badges": [],
+      "seller_rating_pct": null,
+      "seller_feedback_count": null,
+      "rating": 4.6,
+      "rating_count": 5200,
+      "ship_from_country": null,
+      "quantity_available": null,
+      "flags": [],
+      "brand": null,
+      "mpn": null,
+      "attrs": {
+        "serper_product_id": "11015893458289638740",
+        "color": "Blissful Pink/Light Ivory"
       }
     },
     {
-      "rank": 50,
->>>>>>> Stashed changes
+      "rank": 55,
+      "source": "serper_shopping",
+      "vendor_host": "reversible.com",
+      "url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Keychain&prds=localAnnotatedOfferId:1,catalogid:11270236938561537552,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
+      "buy_url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Keychain&prds=localAnnotatedOfferId:1,catalogid:11270236938561537552,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
+      "image_url": null,
+      "title": "Lululemon Never Lost Keychain",
+      "price_usd": 36.0,
+      "total_for_target_usd": null,
+      "currency_approx_fx": null,
+      "condition": "",
+      "seller_name": "Reversible",
+      "is_kit": false,
+      "kit_module_count": 1,
+      "badges": [],
+      "seller_rating_pct": null,
+      "seller_feedback_count": null,
+      "rating": 4.6,
+      "rating_count": 6000,
+      "ship_from_country": null,
+      "quantity_available": null,
+      "flags": [],
+      "brand": null,
+      "mpn": null,
+      "attrs": {
+        "serper_product_id": "11270236938561537552"
+      }
+    },
+    {
+      "rank": 56,
       "source": "serper_shopping",
       "vendor_host": "poshmark.com",
-      "url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Key+Finder+Keychain&prds=localAnnotatedOfferId:1,productid:5816364496208475656,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
-      "buy_url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Key+Finder+Keychain&prds=localAnnotatedOfferId:1,productid:5816364496208475656,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
-      "image_url": null,
+      "url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Keychain&prds=localAnnotatedOfferId:1,productid:5816364496208475656,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
+      "buy_url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Keychain&prds=localAnnotatedOfferId:1,productid:5816364496208475656,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
+      "image_url": "https://encrypted-tbn3.gstatic.com/shopping?q=tbn:ANd9GcT6r3e_eo5z8d8USztfdbNZf4RQMrmwBV5BF6P-b3hAoWdDSQ-6hgNbMbbfafleJeTQNJIp66fnRUibq0EsB7jFbbQ3HFpx2g",
       "title": "Lululemon Never Lost Keychain Trench/Pistachio",
       "price_usd": 39.0,
       "total_for_target_usd": null,
@@ -3200,20 +2270,12 @@
       }
     },
     {
-<<<<<<< Updated upstream
-      "rank": 54,
-=======
-      "rank": 51,
->>>>>>> Stashed changes
+      "rank": 57,
       "source": "serper_shopping",
       "vendor_host": "ebay.com",
       "url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Key+Finder+Keychain&prds=localAnnotatedOfferId:1,productid:8279691326709424264,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
       "buy_url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Key+Finder+Keychain&prds=localAnnotatedOfferId:1,productid:8279691326709424264,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
-<<<<<<< Updated upstream
       "image_url": "https://encrypted-tbn0.gstatic.com/shopping?q=tbn:ANd9GcSyuXXMj2lw1P6PHQk8m8l5tbirgo598aXSR-G-n98SXQGlDp71fg6XAJlZNm_eV3SG1q7pqa8Abv5Aj8fCSaFNsucFUG3p7-Yq3xoS8A-lP6rl3D_Nfucq",
-=======
-      "image_url": null,
->>>>>>> Stashed changes
       "title": "Lululemon Never Lost Keychain - Pomegranate/Oceanic",
       "price_usd": 39.95,
       "total_for_target_usd": null,
@@ -3238,11 +2300,7 @@
       }
     },
     {
-<<<<<<< Updated upstream
-      "rank": 55,
-=======
-      "rank": 52,
->>>>>>> Stashed changes
+      "rank": 58,
       "source": "serper_shopping",
       "vendor_host": "ebay.com",
       "url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Keychain&prds=localAnnotatedOfferId:1,productid:13189697562180807250,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
@@ -3268,206 +2326,82 @@
       "mpn": null,
       "attrs": {
         "serper_product_id": "13189697562180807250",
-        "color": "Black and Gold"
-      }
-    },
-    {
-<<<<<<< Updated upstream
-      "rank": 56,
-=======
-      "rank": 53,
->>>>>>> Stashed changes
-      "source": "serper_shopping",
-      "vendor_host": "ebay.com",
-      "url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Key+Finder+Keychain&prds=localAnnotatedOfferId:1,productid:144400778255535847,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
-      "buy_url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Key+Finder+Keychain&prds=localAnnotatedOfferId:1,productid:144400778255535847,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
-      "image_url": "https://encrypted-tbn2.gstatic.com/shopping?q=tbn:ANd9GcTIByaVNGyHtMJvvPcpgosYPrIwXWVW6I-CU_RB0DlnHOnqWh9GrQWGh9mXX48PIBVSql-U3J-CcPd8gZFhw8y7crGtzB90kA",
-      "title": "Lululemon Never Lost Keychain NWT In Faint Lavender *Wordmark*",
-      "price_usd": 40.0,
-      "total_for_target_usd": null,
-      "currency_approx_fx": null,
-      "condition": "",
-      "seller_name": "eBay",
-      "is_kit": false,
-      "kit_module_count": 1,
-      "badges": [],
-      "seller_rating_pct": null,
-      "seller_feedback_count": null,
-      "rating": null,
-      "rating_count": null,
-      "ship_from_country": null,
-      "quantity_available": null,
-      "flags": [],
-      "brand": null,
-      "mpn": null,
-      "attrs": {
-        "serper_product_id": "144400778255535847",
-        "color": "Faint Lavender"
-      }
-    },
-    {
-<<<<<<< Updated upstream
-=======
-      "rank": 54,
-      "source": "serper_shopping",
-      "vendor_host": "ebay.com",
-      "url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Keychain&prds=localAnnotatedOfferId:1,productid:13518635632085913405,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
-      "buy_url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Keychain&prds=localAnnotatedOfferId:1,productid:13518635632085913405,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
-      "image_url": null,
-      "title": "LULULEMON Never Lost Keychain Rhino Grey / Electric Lemon",
-      "price_usd": 40.5,
-      "total_for_target_usd": null,
-      "currency_approx_fx": null,
-      "condition": "",
-      "seller_name": "eBay",
-      "is_kit": false,
-      "kit_module_count": 1,
-      "badges": [],
-      "seller_rating_pct": null,
-      "seller_feedback_count": null,
-      "rating": 4.6,
-      "rating_count": 6000,
-      "ship_from_country": null,
-      "quantity_available": null,
-      "flags": [],
-      "brand": null,
-      "mpn": null,
-      "attrs": {
-        "serper_product_id": "13518635632085913405",
-        "color": "Rhino Grey / Electric Lemon"
-      }
-    },
-    {
-      "rank": 55,
-      "source": "serper_shopping",
-      "vendor_host": "ebay.com",
-      "url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Key+Finder+Keychain&prds=localAnnotatedOfferId:1,catalogid:3009919425547261323,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
-      "buy_url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Key+Finder+Keychain&prds=localAnnotatedOfferId:1,catalogid:3009919425547261323,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
-      "image_url": null,
-      "title": "Lululemon Never Lost Keychain",
-      "price_usd": 42.95,
-      "total_for_target_usd": null,
-      "currency_approx_fx": null,
-      "condition": "",
-      "seller_name": "eBay - barbsbigdeals**",
-      "is_kit": false,
-      "kit_module_count": 1,
-      "badges": [],
-      "seller_rating_pct": null,
-      "seller_feedback_count": null,
-      "rating": 4.6,
-      "rating_count": 6000,
-      "ship_from_country": null,
-      "quantity_available": null,
-      "flags": [],
-      "brand": null,
-      "mpn": null,
-      "attrs": {
-        "serper_product_id": "3009919425547261323"
-      }
-    },
-    {
-      "rank": 56,
-      "source": "serper_shopping",
-      "vendor_host": "ebay.com",
-      "url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Key+Finder+Keychain&prds=localAnnotatedOfferId:1,productid:12781670006119461837,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
-      "buy_url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Key+Finder+Keychain&prds=localAnnotatedOfferId:1,productid:12781670006119461837,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
-      "image_url": "https://encrypted-tbn0.gstatic.com/shopping?q=tbn:ANd9GcQR6a4hIPzFTORJy9_la7P4xd242Nv43Q8RD7bZsf30RT7WdmUmw1L9_oOCi4eOIjPoyMEKCVx1G8_Q1Y3DrbkK70OxjdHW8nHMfp7nRWLAc_xwMwxp5ubedg",
-      "title": "Lululemon Athletica Never Lost Keychain With Nano Pouch",
-      "price_usd": 45.0,
-      "total_for_target_usd": null,
-      "currency_approx_fx": null,
-      "condition": "",
-      "seller_name": "eBay - knopina",
-      "is_kit": false,
-      "kit_module_count": 1,
-      "badges": [],
-      "seller_rating_pct": null,
-      "seller_feedback_count": null,
-      "rating": null,
-      "rating_count": null,
-      "ship_from_country": null,
-      "quantity_available": null,
-      "flags": [],
-      "brand": null,
-      "mpn": null,
-      "attrs": {
-        "serper_product_id": "12781670006119461837"
-      }
-    },
-    {
->>>>>>> Stashed changes
-      "rank": 57,
-      "source": "serper_shopping",
-      "vendor_host": "ebay.com",
-      "url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Keychain&prds=localAnnotatedOfferId:1,productid:13518635632085913405,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
-      "buy_url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Keychain&prds=localAnnotatedOfferId:1,productid:13518635632085913405,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
-      "image_url": null,
-      "title": "LULULEMON Never Lost Keychain Rhino Grey / Electric Lemon",
-      "price_usd": 40.5,
-      "total_for_target_usd": null,
-      "currency_approx_fx": null,
-      "condition": "",
-      "seller_name": "eBay",
-      "is_kit": false,
-      "kit_module_count": 1,
-      "badges": [],
-      "seller_rating_pct": null,
-      "seller_feedback_count": null,
-      "rating": 4.6,
-      "rating_count": 6000,
-      "ship_from_country": null,
-      "quantity_available": null,
-      "flags": [],
-      "brand": null,
-      "mpn": null,
-      "attrs": {
-        "serper_product_id": "13518635632085913405",
-        "color": "Rhino Grey / Electric Lemon"
-      }
-    },
-    {
-      "rank": 58,
-      "source": "serper_shopping",
-      "vendor_host": "clarityrx.com",
-      "url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Key+Tag&prds=localAnnotatedOfferId:1,catalogid:6948290458814405572,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
-      "buy_url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Key+Tag&prds=localAnnotatedOfferId:1,catalogid:6948290458814405572,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
-      "image_url": null,
-      "title": "lululemon Never Lost Keychain",
-      "price_usd": 44.0,
-      "total_for_target_usd": null,
-      "currency_approx_fx": null,
-      "condition": "",
-      "seller_name": "ClarityRx",
-      "is_kit": false,
-      "kit_module_count": 1,
-      "badges": [],
-      "seller_rating_pct": null,
-      "seller_feedback_count": null,
-      "rating": 4.9,
-      "rating_count": 23,
-      "ship_from_country": null,
-      "quantity_available": null,
-      "flags": [],
-      "brand": null,
-      "mpn": null,
-      "attrs": {
-        "serper_product_id": "6948290458814405572"
+        "color": "Black And Gold"
       }
     },
     {
       "rank": 59,
       "source": "serper_shopping",
-      "vendor_host": "clarityrx.com",
-      "url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Key+Tag&prds=localAnnotatedOfferId:1,productid:13298353773302458844,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
-      "buy_url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Key+Tag&prds=localAnnotatedOfferId:1,productid:13298353773302458844,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
-      "image_url": "https://encrypted-tbn1.gstatic.com/shopping?q=tbn:ANd9GcSFEWiCAt7yyog0yJB7fYvdvBJeTeE5YNZ4eMErlCVN2hqA9rTs5WEAfnhUFKDkCeyrXxOQMRXMx3R4qDFKiAXq1ZAUaFv0FIa4bQd65EE",
-      "title": "Lululemon Never Lost Keychain Accessory NWT",
-      "price_usd": 45.0,
+      "vendor_host": "ebay.com",
+      "url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Keychain&prds=localAnnotatedOfferId:1,productid:14654750075255256754,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
+      "buy_url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Keychain&prds=localAnnotatedOfferId:1,productid:14654750075255256754,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
+      "image_url": null,
+      "title": "Lululemon Never Lost Keychain Raspberry Cream/wine Berry",
+      "price_usd": 40.5,
       "total_for_target_usd": null,
       "currency_approx_fx": null,
       "condition": "",
-      "seller_name": "ClarityRx",
+      "seller_name": "eBay",
+      "is_kit": false,
+      "kit_module_count": 1,
+      "badges": [],
+      "seller_rating_pct": null,
+      "seller_feedback_count": null,
+      "rating": 4.6,
+      "rating_count": 6000,
+      "ship_from_country": null,
+      "quantity_available": null,
+      "flags": [],
+      "brand": null,
+      "mpn": null,
+      "attrs": {
+        "serper_product_id": "14654750075255256754",
+        "color": "Raspberry Cream/wine Berry"
+      }
+    },
+    {
+      "rank": 60,
+      "source": "serper_shopping",
+      "vendor_host": "ebay.com",
+      "url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Keychain&prds=localAnnotatedOfferId:1,productid:13518635632085913405,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
+      "buy_url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Keychain&prds=localAnnotatedOfferId:1,productid:13518635632085913405,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
+      "image_url": "https://encrypted-tbn2.gstatic.com/shopping?q=tbn:ANd9GcRt9m87xZ9ZyQM8zGw8bn4J-K9LfIenyAhGRoROwGf_cZ-eXPu26XpfdJOOXKcmKnl_lGLzIrwyFpTd1_VrzVe1O7dxQu7zebAvJFzhCWc",
+      "title": "LULULEMON Never Lost Keychain Rhino Grey / Electric Lemon",
+      "price_usd": 40.5,
+      "total_for_target_usd": null,
+      "currency_approx_fx": null,
+      "condition": "",
+      "seller_name": "eBay",
+      "is_kit": false,
+      "kit_module_count": 1,
+      "badges": [],
+      "seller_rating_pct": null,
+      "seller_feedback_count": null,
+      "rating": 4.6,
+      "rating_count": 6000,
+      "ship_from_country": null,
+      "quantity_available": null,
+      "flags": [],
+      "brand": null,
+      "mpn": null,
+      "attrs": {
+        "serper_product_id": "13518635632085913405",
+        "color": "Rhino Grey/Electric Lemon"
+      }
+    },
+    {
+      "rank": 61,
+      "source": "serper_shopping",
+      "vendor_host": "poshmark.com",
+      "url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Key+Tag&prds=localAnnotatedOfferId:1,productid:1526851733371147966,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
+      "buy_url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Key+Tag&prds=localAnnotatedOfferId:1,productid:1526851733371147966,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
+      "image_url": "https://encrypted-tbn3.gstatic.com/shopping?q=tbn:ANd9GcQmyXmTpTQ5PcsDDrGbfmLnfIO8-deOXReY4oiKNo4FmpicQFfUrh7QKYqO2OegLCfAU6sQy3rfSxZ5VHmQM3BNYwdxtLSuq2D1zLtjepYZCtZST-yDExp_Fw",
+      "title": "Lululemon Athletica Accessories | Lululemon Never Lost Key Chain 8.8 | Color: Orange/Pink | Size: Os | Erika613's Closet",
+      "price_usd": 47.0,
+      "total_for_target_usd": null,
+      "currency_approx_fx": null,
+      "condition": "",
+      "seller_name": "Poshmark",
       "is_kit": false,
       "kit_module_count": 1,
       "badges": [],
@@ -3481,19 +2415,16 @@
       "brand": null,
       "mpn": null,
       "attrs": {
-        "serper_product_id": "13298353773302458844"
+        "serper_product_id": "1526851733371147966",
+        "color": "Orange/Pink"
       }
     },
     {
-<<<<<<< Updated upstream
-      "rank": 60,
-=======
-      "rank": 58,
->>>>>>> Stashed changes
+      "rank": 62,
       "source": "serper_shopping",
       "vendor_host": "ebay.com",
-      "url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Keychain&prds=localAnnotatedOfferId:1,productid:3719161045386185267,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
-      "buy_url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Keychain&prds=localAnnotatedOfferId:1,productid:3719161045386185267,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
+      "url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Key+Tag&prds=localAnnotatedOfferId:1,productid:3719161045386185267,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
+      "buy_url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Key+Tag&prds=localAnnotatedOfferId:1,productid:3719161045386185267,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
       "image_url": null,
       "title": "Lululemon Never Lost Keychain Vapor/gold",
       "price_usd": 48.0,
@@ -3515,45 +2446,11 @@
       "mpn": null,
       "attrs": {
         "serper_product_id": "3719161045386185267",
-        "color": "Vapor/gold"
+        "color": "Vapor/Gold"
       }
     },
     {
-<<<<<<< Updated upstream
-      "rank": 61,
-      "source": "serper_shopping",
-      "vendor_host": "poshmark.com",
-      "url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Key+Tag&prds=localAnnotatedOfferId:1,productid:12242346019866587731,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
-      "buy_url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Key+Tag&prds=localAnnotatedOfferId:1,productid:12242346019866587731,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
-      "image_url": "https://encrypted-tbn1.gstatic.com/shopping?q=tbn:ANd9GcTy9GSmmEU8E5Ia8wN0MGB5haEwC0Zbqf2myQ0aMXo80EZngGpDUlTInaYpD7B762s9IBxZ1wNtRQemAjQh8iCMsonLsR1mFvyEQjKV7HKU",
-      "title": "Lululemon Athletica Accessories | Burgundy Lululemon Never Lost The Key Strap With Gold Hardware | Color: Gold/Red | Size: Os | Kellzkellz40's Closet",
-      "price_usd": 48.0,
-      "total_for_target_usd": null,
-      "currency_approx_fx": null,
-      "condition": "",
-      "seller_name": "Poshmark",
-      "is_kit": false,
-      "kit_module_count": 1,
-      "badges": [],
-      "seller_rating_pct": null,
-      "seller_feedback_count": null,
-      "rating": null,
-      "rating_count": null,
-      "ship_from_country": null,
-      "quantity_available": null,
-      "flags": [],
-      "brand": null,
-      "mpn": null,
-      "attrs": {
-        "serper_product_id": "12242346019866587731",
-        "color": "Gold/Red"
-      }
-    },
-    {
-      "rank": 62,
-=======
-      "rank": 59,
->>>>>>> Stashed changes
+      "rank": 63,
       "source": "serper_shopping",
       "vendor_host": "whatnot.com",
       "url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Key+Finder+Keychain&prds=localAnnotatedOfferId:1,productid:15544147814997234543,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
@@ -3582,11 +2479,7 @@
       }
     },
     {
-<<<<<<< Updated upstream
-      "rank": 63,
-=======
-      "rank": 60,
->>>>>>> Stashed changes
+      "rank": 64,
       "source": "serper_shopping",
       "vendor_host": "poshmark.com",
       "url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Keychain&prds=localAnnotatedOfferId:1,productid:7654716595317772579,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
@@ -3612,19 +2505,15 @@
       "mpn": null,
       "attrs": {
         "serper_product_id": "7654716595317772579",
-        "color": "Rhino Gray / Electric Lemon"
+        "color": "Rhino Gray/Electric Lemon"
       }
     },
     {
-<<<<<<< Updated upstream
-      "rank": 64,
-=======
-      "rank": 61,
->>>>>>> Stashed changes
+      "rank": 65,
       "source": "serper_shopping",
       "vendor_host": "poshmark.com",
-      "url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Keychain&prds=localAnnotatedOfferId:1,productid:10130745137521724286,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
-      "buy_url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Keychain&prds=localAnnotatedOfferId:1,productid:10130745137521724286,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
+      "url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Key+Finder+Keychain&prds=localAnnotatedOfferId:1,productid:10130745137521724286,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
+      "buy_url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Key+Finder+Keychain&prds=localAnnotatedOfferId:1,productid:10130745137521724286,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
       "image_url": null,
       "title": "NWT Lululemon Athletica Never Lost Keychain in Rhino Grey/Electric Lemon",
       "price_usd": 52.0,
@@ -3650,83 +2539,11 @@
       }
     },
     {
-<<<<<<< Updated upstream
-      "rank": 65,
-      "source": "serper_shopping",
-      "vendor_host": "clarityrx.com",
-      "url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Keychain&prds=localAnnotatedOfferId:1,productid:4572587868692557974,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
-      "buy_url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Keychain&prds=localAnnotatedOfferId:1,productid:4572587868692557974,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
-      "image_url": "https://encrypted-tbn1.gstatic.com/shopping?q=tbn:ANd9GcQ6-nCAJpq0ekWFRikeBadM8jI-ormWzjhrdbNyVlPsqdcR7_dFJ7dlFG7xj0OrZh9fFy2wcFBRHbGwc7DN0jdPm8DBRr3NC1hrXz9xRF79HqgiKtxOF8tUzA",
-      "title": "NWT Lululemon Athletica Never Lost Keychain in Raspberry Cream / Wine Berry",
-      "price_usd": 52.0,
-      "total_for_target_usd": null,
-      "currency_approx_fx": null,
-      "condition": "",
-      "seller_name": "ClarityRx",
-      "is_kit": false,
-      "kit_module_count": 1,
-      "badges": [],
-      "seller_rating_pct": null,
-      "seller_feedback_count": null,
-      "rating": null,
-      "rating_count": null,
-      "ship_from_country": null,
-      "quantity_available": null,
-      "flags": [],
-      "brand": null,
-      "mpn": null,
-      "attrs": {
-        "serper_product_id": "4572587868692557974",
-        "color": "Raspberry Cream / Wine Berry"
-      }
-    },
-    {
       "rank": 66,
-=======
-      "rank": 62,
->>>>>>> Stashed changes
-      "source": "serper_shopping",
-      "vendor_host": "clarityrx.com",
-      "url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Keychain&prds=localAnnotatedOfferId:1,productid:4572587868692557974,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
-      "buy_url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Keychain&prds=localAnnotatedOfferId:1,productid:4572587868692557974,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
-      "image_url": "https://encrypted-tbn1.gstatic.com/shopping?q=tbn:ANd9GcQ6-nCAJpq0ekWFRikeBadM8jI-ormWzjhrdbNyVlPsqdcR7_dFJ7dlFG7xj0OrZh9fFy2wcFBRHbGwc7DN0jdPm8DBRr3NC1hrXz9xRF79HqgiKtxOF8tUzA",
-      "title": "NWT Lululemon Athletica Never Lost Keychain in Raspberry Cream / Wine Berry",
-      "price_usd": 52.0,
-      "total_for_target_usd": null,
-      "currency_approx_fx": null,
-      "condition": "",
-      "seller_name": "ClarityRx",
-      "is_kit": false,
-      "kit_module_count": 1,
-      "badges": [],
-      "seller_rating_pct": null,
-      "seller_feedback_count": null,
-      "rating": null,
-      "rating_count": null,
-      "ship_from_country": null,
-      "quantity_available": null,
-      "flags": [],
-      "brand": null,
-      "mpn": null,
-      "attrs": {
-<<<<<<< Updated upstream
-        "serper_product_id": "11270236938561537552"
-      }
-    },
-    {
-      "rank": 67,
-=======
-        "serper_product_id": "4572587868692557974",
-        "color": "Raspberry Cream / Wine Berry"
-      }
-    },
-    {
-      "rank": 63,
->>>>>>> Stashed changes
       "source": "serper_shopping",
       "vendor_host": "poshmark.com",
-      "url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Keychain&prds=localAnnotatedOfferId:1,productid:2793784110280485396,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
-      "buy_url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Keychain&prds=localAnnotatedOfferId:1,productid:2793784110280485396,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
+      "url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Key+Tag&prds=localAnnotatedOfferId:1,productid:2793784110280485396,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
+      "buy_url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Key+Tag&prds=localAnnotatedOfferId:1,productid:2793784110280485396,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
       "image_url": null,
       "title": "Lululemon Never Lost Key Chain 9\"",
       "price_usd": 55.0,
@@ -3751,16 +2568,12 @@
       }
     },
     {
-<<<<<<< Updated upstream
-      "rank": 68,
-=======
-      "rank": 64,
->>>>>>> Stashed changes
+      "rank": 67,
       "source": "serper_shopping",
       "vendor_host": "poshmark.com",
-      "url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Keychain&prds=localAnnotatedOfferId:1,productid:12360986947251343918,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
-      "buy_url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Keychain&prds=localAnnotatedOfferId:1,productid:12360986947251343918,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
-      "image_url": "https://encrypted-tbn2.gstatic.com/shopping?q=tbn:ANd9GcQdix6eLAfDoBcaIddYI0MYYhqqW1JbyuemSpkEBdpaHKqpovRjkamRZW2_W83n_BQTSrM9o-rybRxBWNND6YI0U9ZFC-JMNg",
+      "url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Key+Finder+Keychain&prds=localAnnotatedOfferId:1,productid:12360986947251343918,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
+      "buy_url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Key+Finder+Keychain&prds=localAnnotatedOfferId:1,productid:12360986947251343918,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
+      "image_url": null,
       "title": "\ufe0f Lululemon Never Lost Keychain Rhino Grey/ Electric Lemon NWT",
       "price_usd": 58.0,
       "total_for_target_usd": null,
@@ -3785,19 +2598,11 @@
       }
     },
     {
-<<<<<<< Updated upstream
-      "rank": 69,
+      "rank": 68,
       "source": "serper_shopping",
       "vendor_host": "ebay.com",
       "url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Key+Finder+Keychain&prds=localAnnotatedOfferId:1,productid:1616532647634956685,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
       "buy_url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Key+Finder+Keychain&prds=localAnnotatedOfferId:1,productid:1616532647634956685,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
-=======
-      "rank": 65,
-      "source": "serper_shopping",
-      "vendor_host": "ebay.com",
-      "url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Key+Tag&prds=localAnnotatedOfferId:1,productid:1616532647634956685,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
-      "buy_url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Key+Tag&prds=localAnnotatedOfferId:1,productid:1616532647634956685,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
->>>>>>> Stashed changes
       "image_url": null,
       "title": "Lululemon Never Lost Keychain One Size Buar/trao 75688",
       "price_usd": 58.0,
@@ -3819,19 +2624,105 @@
       "mpn": null,
       "attrs": {
         "serper_product_id": "1616532647634956685",
-        "color": "Buar/trao"
+        "color": "Buar/Trao"
       }
     },
     {
-<<<<<<< Updated upstream
-      "rank": 70,
-=======
-      "rank": 66,
->>>>>>> Stashed changes
+      "rank": 69,
       "source": "serper_shopping",
       "vendor_host": "ebay.com",
-      "url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Key+Finder+Keychain&prds=localAnnotatedOfferId:1,productid:17660302299298377951,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
-      "buy_url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Key+Finder+Keychain&prds=localAnnotatedOfferId:1,productid:17660302299298377951,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
+      "url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Keychain&prds=localAnnotatedOfferId:1,productid:12970173886074285152,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
+      "buy_url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Keychain&prds=localAnnotatedOfferId:1,productid:12970173886074285152,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
+      "image_url": null,
+      "title": "Lululemon Never Lost Keychain- Lavender Frost/galactic Cobalt",
+      "price_usd": 60.0,
+      "total_for_target_usd": null,
+      "currency_approx_fx": null,
+      "condition": "",
+      "seller_name": "eBay",
+      "is_kit": false,
+      "kit_module_count": 1,
+      "badges": [],
+      "seller_rating_pct": null,
+      "seller_feedback_count": null,
+      "rating": 4.6,
+      "rating_count": 6000,
+      "ship_from_country": null,
+      "quantity_available": null,
+      "flags": [],
+      "brand": null,
+      "mpn": null,
+      "attrs": {
+        "serper_product_id": "12970173886074285152",
+        "color": "Lavender Frost/galactic Cobalt"
+      }
+    },
+    {
+      "rank": 70,
+      "source": "serper_shopping",
+      "vendor_host": "ebay.com",
+      "url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Keychain&prds=localAnnotatedOfferId:1,productid:8948905978176502071,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
+      "buy_url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Keychain&prds=localAnnotatedOfferId:1,productid:8948905978176502071,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
+      "image_url": null,
+      "title": "Lululemon Never Lost Keychain- Pink Pearl/white/rose Gold",
+      "price_usd": 60.0,
+      "total_for_target_usd": null,
+      "currency_approx_fx": null,
+      "condition": "",
+      "seller_name": "eBay",
+      "is_kit": false,
+      "kit_module_count": 1,
+      "badges": [],
+      "seller_rating_pct": null,
+      "seller_feedback_count": null,
+      "rating": 4.6,
+      "rating_count": 5200,
+      "ship_from_country": null,
+      "quantity_available": null,
+      "flags": [],
+      "brand": null,
+      "mpn": null,
+      "attrs": {
+        "serper_product_id": "8948905978176502071",
+        "color": "Pink Pearl/white/rose Gold"
+      }
+    },
+    {
+      "rank": 71,
+      "source": "serper_shopping",
+      "vendor_host": "ebay.com",
+      "url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Keychain&prds=localAnnotatedOfferId:1,productid:1122797873126684057,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
+      "buy_url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Keychain&prds=localAnnotatedOfferId:1,productid:1122797873126684057,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
+      "image_url": "https://encrypted-tbn3.gstatic.com/shopping?q=tbn:ANd9GcS2_JoA0thl_7q3njSX7EKcKzHRSvCrQd_7pgt0bJel_M5Js7i2h-KYvQUxrEwnsRjz-2YKlvfra1xGH9tdtZ2l0R5l77Te7AsRRvRSCpquVFqjC-nrXWNa",
+      "title": "Lululemon Never Lost Keychain- Oil Grey/black Night",
+      "price_usd": 60.0,
+      "total_for_target_usd": null,
+      "currency_approx_fx": null,
+      "condition": "",
+      "seller_name": "eBay",
+      "is_kit": false,
+      "kit_module_count": 1,
+      "badges": [],
+      "seller_rating_pct": null,
+      "seller_feedback_count": null,
+      "rating": 4.6,
+      "rating_count": 6000,
+      "ship_from_country": null,
+      "quantity_available": null,
+      "flags": [],
+      "brand": null,
+      "mpn": null,
+      "attrs": {
+        "serper_product_id": "1122797873126684057",
+        "color": "Oil Grey/black Night"
+      }
+    },
+    {
+      "rank": 72,
+      "source": "serper_shopping",
+      "vendor_host": "ebay.com",
+      "url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Keychain&prds=localAnnotatedOfferId:1,productid:17660302299298377951,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
+      "buy_url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Keychain&prds=localAnnotatedOfferId:1,productid:17660302299298377951,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
       "image_url": null,
       "title": "Lululemon Never Lost Key Chain 9\" (Black/Super Dark)",
       "price_usd": 65.0,
@@ -3857,16 +2748,12 @@
       }
     },
     {
-<<<<<<< Updated upstream
-      "rank": 71,
-=======
-      "rank": 67,
->>>>>>> Stashed changes
+      "rank": 73,
       "source": "serper_shopping",
       "vendor_host": "whatnot.com",
       "url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Keychain&prds=localAnnotatedOfferId:1,productid:3971968690376179118,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
       "buy_url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Keychain&prds=localAnnotatedOfferId:1,productid:3971968690376179118,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
-      "image_url": null,
+      "image_url": "https://encrypted-tbn3.gstatic.com/shopping?q=tbn:ANd9GcS-KKX2ir2ZNjJpbxR85iyU5tQBCKl_sHWTn06-tQ8_CZ-xqBiYrDojmCWDkBOCjqGB1GmZT03Gl1dYvAfE9mWrAiQeFyo8hj1kplaubJQaVYe1HG3novbI1A",
       "title": "Lululemon Never Lost Keychain in Calypso/Blissful Pink *NWT*",
       "price_usd": 100.0,
       "total_for_target_usd": null,
@@ -3899,11 +2786,7 @@
       }
     },
     {
-<<<<<<< Updated upstream
-      "rank": 72,
-=======
-      "rank": 68,
->>>>>>> Stashed changes
+      "rank": 74,
       "source": "serper_shopping",
       "vendor_host": "imprint.com",
       "url": "https://www.google.com/search?ibp=oshop&q=Lululemon+Never+Lost+Key+Tag&prds=localAnnotatedOfferId:1,catalogid:3464417893160071738,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
@@ -3941,22 +2824,13 @@
     }
   ],
   "overflow": {
-    "ebay": 17,
-<<<<<<< Updated upstream
-    "whatnot": 12,
-    "poshmark": 13
+    "ebay": 23,
+    "whatnot": 13,
+    "poshmark": 12
   },
   "hidden_anomalies": 0,
-  "recall_count": 79,
-  "survivor_count": 72,
-=======
-    "whatnot": 14,
-    "poshmark": 11
-  },
-  "hidden_anomalies": 0,
-  "recall_count": 77,
-  "survivor_count": 68,
->>>>>>> Stashed changes
+  "recall_count": 86,
+  "survivor_count": 74,
   "displayed_count": 20,
   "outcome": {
     "class": "ok",
@@ -3969,21 +2843,12 @@
         "step": "ai_filter",
         "provider": "anthropic",
         "model": "claude-haiku-4-5",
-<<<<<<< Updated upstream
-        "input_tokens": 21851,
-        "output_tokens": 5661,
-        "cost_usd": 0.050156
+        "input_tokens": 23583,
+        "output_tokens": 6018,
+        "cost_usd": 0.053673
       }
     ],
-    "total_usd": 0.050156,
-=======
-        "input_tokens": 21453,
-        "output_tokens": 5388,
-        "cost_usd": 0.048393
-      }
-    ],
-    "total_usd": 0.048393,
->>>>>>> Stashed changes
+    "total_usd": 0.053673,
     "any_unpriced": false
   }
 }
