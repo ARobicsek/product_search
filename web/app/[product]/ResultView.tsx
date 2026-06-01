@@ -95,9 +95,22 @@ function BadgeRow({ badges }: { badges: Badge[] }) {
   if (!badges?.length) return null;
   return (
     <div className="flex flex-wrap gap-1.5 mt-2">
-      {badges.map((b) => (
-        <Pill key={b.key} label={b.label} className={SEVERITY_PILL[b.severity]} />
-      ))}
+      {badges.map((b) => {
+        let label = b.label;
+        let severity = b.severity;
+
+        if (b.key === 'price_anomaly_low' || label === 'price_anomaly_low') {
+          label = 'Suspiciously low price';
+          severity = 'warning';
+        } else if (b.key === 'price_anomaly_high' || label === 'price_anomaly_high') {
+          label = 'Suspiciously high price';
+          severity = 'warning';
+        }
+
+        return (
+          <Pill key={b.key} label={label} className={SEVERITY_PILL[severity]} />
+        );
+      })}
     </div>
   );
 }
