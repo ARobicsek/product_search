@@ -400,8 +400,8 @@ export function ResultView({ data }: { data: ReportSidecar }) {
               )}
               <p className="text-xs text-gray-500 dark:text-gray-400 text-center">
                 {visibleListings.length === v2.survivor_count
-                  ? `Showing all ${v2.survivor_count} matched listings (${v2.recall_count} found).`
-                  : `Showing ${visibleListings.length} of ${v2.survivor_count} matched listings (${v2.recall_count} found).`}
+                  ? `Showing all ${v2.survivor_count} listings that passed filters (${v2.recall_count - v2.survivor_count} of ${v2.recall_count} raw results were rejected).`
+                  : `Showing ${visibleListings.length} of ${v2.survivor_count} listings that passed filters (${v2.recall_count - v2.survivor_count} of ${v2.recall_count} raw results were rejected).`}
               </p>
             </div>
           )}
