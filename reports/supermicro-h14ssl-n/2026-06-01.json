@@ -1,0 +1,27 @@
+{
+  "schema_version": 2,
+  "slug": "supermicro-h14ssl-n",
+  "display_name": "Supermicro H14SSL-N Motherboard",
+  "product_type": "motherboard",
+  "snapshot_date": "2026-06-01",
+  "generated_at": "2026-06-01T01:43:54.075023+00:00",
+  "columns": [
+    "price"
+  ],
+  "listings": [],
+  "overflow": {},
+  "hidden_anomalies": 0,
+  "recall_count": 0,
+  "survivor_count": 0,
+  "displayed_count": 0,
+  "outcome": {
+    "class": "index_unavailable",
+    "message": "Couldn't reach the shopping index this run; the next scheduled run retries automatically.",
+    "notes": []
+  },
+  "run_cost": {
+    "calls": [],
+    "total_usd": 0.0,
+    "any_unpriced": false
+  }
+}
