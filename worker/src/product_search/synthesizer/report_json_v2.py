@@ -16,24 +16,53 @@ from __future__ import annotations
 
 from datetime import UTC, date, datetime
 from typing import Any
+from urllib.parse import urlparse
 
 from product_search.models import Listing
 from product_search.profile_v2 import ProfileV2
 from product_search.run_outcome import RunOutcome
 from product_search.selection import SelectionResult
+from product_search.synthesizer.flag_labels import _coerce_entry, _load_registry
+
+
+def _vendor_host(lst: Listing) -> str | None:
+    parsed = urlparse(lst.url).netloc.lower()
+    return parsed or None
+
+
+def _flags_to_badges(flags: list[str]) -> list[dict[str, Any]]:
+    registry = _load_registry()
+    seen: set[str] = set()
+    out: list[dict[str, Any]] = []
+    for f in flags:
+        if f in seen:
+            continue
+        seen.add(f)
+        if f in registry:
+            out.append(_coerce_entry(registry[f], f))
+        else:
+            out.append({"key": f, "label": f, "severity": "info"})
+    return out
 
 
 def _listing_to_display(listing: Listing, rank: int) -> dict[str, Any]:
     """Map a Listing to the v2 UI display shape (generic, RAM-free)."""
     return {
         "rank": rank,
-        "title": listing.title,
+        "source": listing.source,
+        "vendor_host": _vendor_host(listing),
         "url": listing.url,
         "buy_url": listing.buy_url,
         "image_url": listing.image_url,
+        "title": listing.title,
         "price_usd": listing.price_usd,
+        "total_for_target_usd": listing.total_for_target_usd,
+        "currency_approx_fx": listing.attrs.get("price_approx_fx") if listing.attrs else None,
         "condition": listing.condition,
         "seller_name": listing.seller_name,
+        "is_kit": listing.is_kit,
+        "kit_module_count": listing.kit_module_count,
+        "badges": _flags_to_badges(list(listing.flags)),
         "seller_rating_pct": listing.seller_rating_pct,
         "seller_feedback_count": listing.seller_feedback_count,
         "rating": listing.rating,
@@ -44,7 +73,6 @@ def _listing_to_display(listing: Listing, rank: int) -> dict[str, Any]:
         "brand": listing.brand,
         "mpn": listing.mpn,
         "attrs": listing.attrs,
-        "source": listing.source,
     }
 
 
