@@ -10,7 +10,7 @@ import {
 } from '@/lib/github';
 import { getActiveRuns } from '@/lib/dispatch';
 import { readScheduleFromYaml } from '@/lib/schedule';
-import { parseSidecar, type ReportSidecar } from '@/app/[product]/result-types';
+import { parseSidecar, type ReportSidecar, type ReportSidecarV1, type ReportSidecarV2 } from '@/app/[product]/result-types';
 import { DeleteProductModal } from '@/components/DeleteProductModal';
 import { CardRunStatus } from './CardRunStatus';
 import AlertsBell from './AlertsBell';
@@ -119,7 +119,7 @@ export default async function Home() {
 
       const isV1 = sidecar?.schema_version === 1;
       const title =
-        (isV1 ? (sidecar as any).product.display_name : (sidecar as any).display_name) ||
+        (isV1 ? (sidecar as ReportSidecarV1).product.display_name : (sidecar as ReportSidecarV2).display_name) ||
         displayNameFromProfile(profile) ||
         prettifySlug(product);
 
@@ -127,7 +127,7 @@ export default async function Home() {
       // option. total_passed is the full count (listings[] may be capped).
       const cheapest = sidecar?.listings?.[0] ?? null;
       const priceLabel = cheapest ? fmtPrice(cheapest.price_usd) : null;
-      const listingCount = sidecar ? (isV1 ? (sidecar as any).listings_meta.total_passed : (sidecar as any).survivor_count) : null;
+      const listingCount = sidecar ? (isV1 ? (sidecar as ReportSidecarV1).listings_meta.total_passed : (sidecar as ReportSidecarV2).survivor_count) : null;
 
       // Run duration = report build time (sidecar.generated_at) minus run
       // start (the data-CSV instant). Both UTC. A hand-built or stale sidecar

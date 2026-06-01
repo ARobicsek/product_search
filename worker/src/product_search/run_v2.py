@@ -341,6 +341,7 @@ def _write_report(
     snapshot_date: date,
     alerts_md: str = "",
 ) -> None:
+    from product_search.selection import price_sort_key
     from product_search.synthesizer import default_report_path, write_report
     from product_search.synthesizer.report_json import (
         default_json_path,
@@ -352,8 +353,6 @@ def _write_report(
     )
 
     # Price-sort survivors for the all_listings progressive-disclosure array.
-    from product_search.selection import price_sort_key
-
     all_survivors_sorted = sorted(result.survivors, key=price_sort_key)
 
     payload = build_v2_payload(
