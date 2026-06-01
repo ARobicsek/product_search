@@ -18,9 +18,11 @@ match:
   title_excludes:
     - used
     - refurbished
+    - H14SU
+    - H14S-TNR
     - H14SSL-NHR
     - H15SSL-N
-  variant_strict: true
+  variant_strict: false
 filters:
   condition_in:
     - new

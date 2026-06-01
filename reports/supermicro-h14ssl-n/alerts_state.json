@@ -1,0 +1,5 @@
+{
+  "armed": {
+    "price_below|is_below|700.0||unit": false
+  }
+}
