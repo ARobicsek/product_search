@@ -1094,7 +1094,12 @@ def _cmd_scheduler_tick() -> None:
 
         slug = path.name
         try:
-            profile = load_profile(slug)
+            from product_search.profile_v2 import peek_schema_version
+            if peek_schema_version(slug) == 2:
+                from product_search.profile_v2 import load_profile_v2
+                profile = load_profile_v2(slug)
+            else:
+                profile = load_profile(slug)
         except Exception as exc:
             print(f"Skipping {slug} (invalid profile): {exc}", file=sys.stderr)
             continue
