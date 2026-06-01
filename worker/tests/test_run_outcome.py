@@ -35,6 +35,12 @@ def test_ebay_note_is_additive_not_headline() -> None:
     assert any(c == "ebay_unavailable" for c, _ in o.notes)
 
 
+def test_amazon_note_is_additive_not_headline() -> None:
+    o = classify_run_outcome(recall_count=40, survivor_count=5, amazon_error=True)
+    assert o.klass is RunOutcomeClass.OK
+    assert any(c == "amazon_unavailable" for c, _ in o.notes)
+
+
 def test_degraded_attr_note() -> None:
     o = classify_run_outcome(recall_count=40, survivor_count=5, degraded_attrs=True)
     assert o.klass is RunOutcomeClass.OK

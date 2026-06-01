@@ -230,6 +230,81 @@ def test_default_recall_captures_ebay_error(monkeypatch: pytest.MonkeyPatch) -> 
     assert len(outcome.listings) == 1  # Serper still came back
 
 
+def _amazon_profile() -> ProfileV2:
+    return ProfileV2.model_validate(
+        {
+            "schema_version": 2,
+            "slug": "x-prod",
+            "display_name": "X Prod",
+            "target": {"unit": "count", "amount": 1},
+            "queries": ["x prod"],
+            "sources": {
+                "serper": {"enabled": True},
+                "amazon": {"enabled": True},
+            },
+        }
+    )
+
+
+def test_default_recall_includes_amazon(monkeypatch: pytest.MonkeyPatch) -> None:
+    from product_search.adapters import amazon, serper
+
+    s = _listing(100.0, seller="Walmart")
+    s.url = "https://google.com/search?q=a"
+    a = _listing(90.0, seller="Amazon", source="amazon_dataforseo")
+    a.url = "https://www.amazon.com/dp/B0TEST"
+    monkeypatch.setattr(serper, "fetch", lambda _q: [s])
+    monkeypatch.setattr(amazon, "fetch", lambda _q: [a])
+    monkeypatch.setattr(amazon, "LAST_RUN_COST_USD", 0.005)
+
+    outcome = _default_recall(_amazon_profile())
+    assert len(outcome.listings) == 2
+    assert outcome.amazon_error is False
+    assert outcome.amazon_cost_usd == 0.005
+
+
+def test_default_recall_skips_disabled_amazon(monkeypatch: pytest.MonkeyPatch) -> None:
+    from product_search.adapters import amazon, serper
+
+    called = {"amazon": False}
+
+    def _amazon_fetch(_q: object) -> list[Listing]:
+        called["amazon"] = True
+        return []
+
+    monkeypatch.setattr(serper, "fetch", lambda _q: [_listing(100.0)])
+    monkeypatch.setattr(amazon, "fetch", _amazon_fetch)
+
+    # _both_sources_profile leaves amazon at its default (disabled).
+    outcome = _default_recall(_both_sources_profile())
+    assert called["amazon"] is False
+    assert outcome.amazon_cost_usd is None
+
+
+def test_default_recall_captures_amazon_error(monkeypatch: pytest.MonkeyPatch) -> None:
+    from product_search.adapters import amazon, serper
+    from product_search.adapters.amazon import AmazonAPIError
+
+    def _amazon_fetch(_q: object) -> list[Listing]:
+        raise AmazonAPIError("40104 verify your account")
+
+    monkeypatch.setattr(serper, "fetch", lambda _q: [_listing(100.0)])
+    monkeypatch.setattr(amazon, "fetch", _amazon_fetch)
+
+    outcome = _default_recall(_amazon_profile())
+    assert outcome.amazon_error is True
+    assert outcome.serper_error is False
+    assert len(outcome.listings) == 1  # Serper still came back
+
+
+def test_pipeline_threads_amazon_error_to_note() -> None:
+    profile = load_profile_v2_from_path(FIXTURE)
+    result = run_v2_pipeline(
+        profile, _recall_set(), ai_filter_fn=_passthrough, amazon_error=True
+    )
+    assert any(c == "amazon_unavailable" for c, _ in result.outcome.notes)
+
+
 def test_default_recall_captures_serper_error(monkeypatch: pytest.MonkeyPatch) -> None:
     from product_search.adapters import ebay, serper
     from product_search.adapters.serper import SerperAPIError

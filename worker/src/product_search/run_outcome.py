@@ -26,6 +26,7 @@ class RunOutcomeClass(StrEnum):
 # describe the whole run — e.g. eBay failing while Serper succeeded).
 class RunOutcomeNote(StrEnum):
     EBAY_UNAVAILABLE = "ebay_unavailable"
+    AMAZON_UNAVAILABLE = "amazon_unavailable"
     DEGRADED_ATTR = "degraded_attr"
 
 
@@ -48,6 +49,9 @@ _PRIMARY_MESSAGES: dict[RunOutcomeClass, str] = {
 _NOTE_MESSAGES: dict[RunOutcomeNote, str] = {
     RunOutcomeNote.EBAY_UNAVAILABLE: (
         "eBay was unavailable this run; other sources still ran."
+    ),
+    RunOutcomeNote.AMAZON_UNAVAILABLE: (
+        "Amazon was unavailable this run; other sources still ran."
     ),
     RunOutcomeNote.DEGRADED_ATTR: (
         "Stock count isn't available from the shopping index; showing offers "
@@ -80,19 +84,27 @@ def classify_run_outcome(
     survivor_count: int,
     serper_error: bool = False,
     ebay_error: bool = False,
+    amazon_error: bool = False,
     degraded_attrs: bool = False,
 ) -> RunOutcome:
     """Classify a v2 run into one primary outcome + any additive notes.
 
     Primary precedence: index unavailable (the recall layer itself failed) →
-    no recall (0 offers) → all filtered (offers but 0 survivors) → ok. eBay
-    failure and degraded attributes are additive notes, never the headline,
-    because Serper alone can still produce a good run.
+    no recall (0 offers) → all filtered (offers but 0 survivors) → ok. eBay /
+    Amazon failure and degraded attributes are additive notes, never the
+    headline, because Serper alone can still produce a good run.
     """
     notes: list[tuple[str, str]] = []
     if ebay_error:
         notes.append(
             (RunOutcomeNote.EBAY_UNAVAILABLE.value, _NOTE_MESSAGES[RunOutcomeNote.EBAY_UNAVAILABLE])
+        )
+    if amazon_error:
+        notes.append(
+            (
+                RunOutcomeNote.AMAZON_UNAVAILABLE.value,
+                _NOTE_MESSAGES[RunOutcomeNote.AMAZON_UNAVAILABLE],
+            )
         )
     if degraded_attrs:
         notes.append(

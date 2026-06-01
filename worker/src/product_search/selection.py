@@ -48,7 +48,12 @@ def vendor_key(listing: Listing) -> str:
 # list. An eBay listing's ``seller_name`` is an individual username, so "never
 # eBay" must match the *marketplace*, not the username. (Serper merchants surface
 # their real name in ``seller_name``, so they need no extra label.)
-_MARKETPLACE_LABEL: dict[str, str] = {"ebay_search": "ebay"}
+_MARKETPLACE_LABEL: dict[str, str] = {
+    "ebay_search": "ebay",
+    # Amazon search rows default seller_name to "Amazon", but a third-party
+    # seller string would hide the marketplace from a "never amazon" blocklist.
+    "amazon_dataforseo": "amazon",
+}
 
 
 def _vendor_match_tokens(listing: Listing) -> list[str]:

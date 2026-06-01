@@ -5,6 +5,8 @@ from __future__ import annotations
 from datetime import UTC, date, datetime
 from pathlib import Path
 
+import pytest
+
 from product_search.models import Listing
 from product_search.profile_v2 import load_profile_v2_from_path
 from product_search.run_outcome import classify_run_outcome
@@ -83,6 +85,36 @@ def test_payload_shape() -> None:
     assert p["all_listings"][0]["rank"] == 1
     assert p["outcome"]["class"] == "ok"
     assert "total_usd" in p["run_cost"]
+
+
+def test_run_cost_honors_flat_amazon_fee() -> None:
+    """A flat-fee recall call (Amazon) carries an explicit real ``cost_usd``;
+    the panel uses it directly instead of token-estimating (Phase 38 Step 5)."""
+    from product_search.synthesizer.report_json_v2 import _build_run_cost
+
+    run_calls = [
+        {  # token-priced LLM call
+            "step": "ai_filter",
+            "provider": "anthropic",
+            "model": "claude-haiku-4-5",
+            "input_tokens": 1000,
+            "output_tokens": 200,
+        },
+        {  # flat-fee Amazon recall
+            "step": "amazon_recall",
+            "provider": "dataforseo",
+            "model": "amazon_products",
+            "input_tokens": 0,
+            "output_tokens": 0,
+            "cost_usd": 0.0048,
+        },
+    ]
+    rc = _build_run_cost(run_calls)
+    amazon_step = next(s for s in rc["steps"] if s["step"] == "amazon_recall")
+    assert amazon_step["cost_usd"] == 0.0048
+    assert rc["any_unpriced"] is False
+    # Total folds the flat fee in with the estimated LLM cost.
+    assert rc["total_usd"] == pytest.approx(0.0048 + (1000 * 1.0 + 200 * 5.0) / 1_000_000)
 
 
 def test_markdown_renders_table_and_overflow() -> None:

@@ -101,12 +101,18 @@ def _build_run_cost(run_calls: list[dict[str, Any]]) -> dict[str, Any]:
     any_unpriced = False
     calls_out: list[dict[str, Any]] = []
     for c in run_calls:
-        cost = estimate_cost_usd(
-            str(c.get("provider", "")),
-            str(c.get("model", "")),
-            c.get("input_tokens"),
-            c.get("output_tokens"),
-        )
+        # A flat-fee API call (e.g. Amazon recall) carries an explicit real
+        # ``cost_usd``; token-priced LLM calls don't, so estimate from tokens.
+        explicit = c.get("cost_usd")
+        if explicit is not None:
+            cost: float | None = float(explicit)
+        else:
+            cost = estimate_cost_usd(
+                str(c.get("provider", "")),
+                str(c.get("model", "")),
+                c.get("input_tokens"),
+                c.get("output_tokens"),
+            )
         if cost is None:
             any_unpriced = True
         else:

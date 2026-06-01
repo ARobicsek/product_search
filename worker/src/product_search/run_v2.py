@@ -68,6 +68,7 @@ def run_v2_pipeline(
     ai_filter_fn: AiFilterFn = ai_filter,
     serper_error: bool = False,
     ebay_error: bool = False,
+    amazon_error: bool = False,
 ) -> RunV2Result:
     """Pure pipeline core: recall listings → survivors → display selection.
 
@@ -123,6 +124,7 @@ def run_v2_pipeline(
         survivor_count=len(survivors),
         serper_error=serper_error,
         ebay_error=ebay_error,
+        amazon_error=amazon_error,
         degraded_attrs=degraded,
     )
 
@@ -138,16 +140,21 @@ def run_v2_pipeline(
 
 @dataclass
 class RecallOutcome:
-    """Recall listings plus per-source error flags (Phase 33).
+    """Recall listings plus per-source error flags (Phase 33; Amazon Phase 38).
 
-    Each source fails independently: Serper failing does not stop eBay and vice
-    versa. The booleans feed the honest run-outcome (``index_unavailable`` /
-    ``ebay_unavailable``), so a failure is reported, never silently dropped.
+    Each source fails independently: Serper failing does not stop eBay/Amazon
+    and vice versa. The booleans feed the honest run-outcome
+    (``index_unavailable`` / ``ebay_unavailable`` / ``amazon_unavailable``), so a
+    failure is reported, never silently dropped. ``amazon_cost_usd`` carries the
+    real DataForSEO spend for the run-cost panel (``None`` when Amazon was off or
+    made no priced call).
     """
 
     listings: list[Listing]
     serper_error: bool = False
     ebay_error: bool = False
+    amazon_error: bool = False
+    amazon_cost_usd: float | None = None
 
 
 def _dedup_union(listings: list[Listing]) -> list[Listing]:
@@ -177,13 +184,16 @@ def _default_recall(profile: ProfileV2) -> RecallOutcome:
     as a per-source flag rather than aborting the run — the other source's
     results still come back.
     """
-    from product_search.adapters import ebay, serper
+    from product_search.adapters import amazon, ebay, serper
+    from product_search.adapters.amazon import AmazonAPIError, AmazonAuthError
     from product_search.adapters.ebay import EbayAPIError, EbayAuthError
     from product_search.adapters.serper import SerperAPIError, SerperAuthError
 
     listings: list[Listing] = []
     serper_error = False
     ebay_error = False
+    amazon_error = False
+    amazon_cost_usd: float | None = None
 
     if profile.sources.serper.enabled:
         try:
@@ -216,10 +226,32 @@ def _default_recall(profile: ProfileV2) -> RecallOutcome:
             ebay_error = True
             print(f"ERROR (eBay recall): {exc}", file=sys.stderr)
 
+    if profile.sources.amazon.enabled:
+        try:
+            listings.extend(
+                amazon.fetch(
+                    AdapterQuery(
+                        source_id="amazon_dataforseo",
+                        queries=list(profile.queries),
+                        extra={
+                            "depth": profile.sources.amazon.depth,
+                            "priority": profile.sources.amazon.priority,
+                        },
+                    )
+                )
+            )
+            # Real DataForSEO spend for the run-cost panel (no fabrication).
+            amazon_cost_usd = amazon.LAST_RUN_COST_USD
+        except (AmazonAuthError, AmazonAPIError) as exc:
+            amazon_error = True
+            print(f"ERROR (Amazon recall): {exc}", file=sys.stderr)
+
     return RecallOutcome(
         listings=_dedup_union(listings),
         serper_error=serper_error,
         ebay_error=ebay_error,
+        amazon_error=amazon_error,
+        amazon_cost_usd=amazon_cost_usd,
     )
 
 
@@ -240,6 +272,8 @@ def run_v2(
     # the default network recall returns a RecallOutcome carrying per-source flags.
     serper_error = False
     ebay_error = False
+    amazon_error = False
+    amazon_cost_usd: float | None = None
     if recall_fn is not None:
         recall_listings = recall_fn(profile)
     else:
@@ -247,9 +281,15 @@ def run_v2(
         recall_listings = outcome.listings
         serper_error = outcome.serper_error
         ebay_error = outcome.ebay_error
+        amazon_error = outcome.amazon_error
+        amazon_cost_usd = outcome.amazon_cost_usd
 
     result = run_v2_pipeline(
-        profile, recall_listings, serper_error=serper_error, ebay_error=ebay_error
+        profile,
+        recall_listings,
+        serper_error=serper_error,
+        ebay_error=ebay_error,
+        amazon_error=amazon_error,
     )
 
     print(
@@ -265,6 +305,19 @@ def run_v2(
     run_calls: list[dict[str, Any]] = []
     if ai_filter_mod.LAST_RUN_USAGE:
         run_calls.append(ai_filter_mod.LAST_RUN_USAGE)
+    # Amazon recall is a flat-fee API call — surface its real spend in the panel
+    # (honest cost accounting; ADR-141 / Phase 38 Step 5).
+    if amazon_cost_usd is not None:
+        run_calls.append(
+            {
+                "step": "amazon_recall",
+                "provider": "dataforseo",
+                "model": "amazon_products",
+                "input_tokens": 0,
+                "output_tokens": 0,
+                "cost_usd": amazon_cost_usd,
+            }
+        )
 
     snapshot_date: date = datetime.now(tz=UTC).date()
 

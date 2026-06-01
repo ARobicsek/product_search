@@ -102,9 +102,26 @@ class EbaySource(BaseModel):
     enabled: bool = False
 
 
+class AmazonSource(BaseModel):
+    """DataForSEO Amazon Products recall — off by default; the onboarder enables
+    it for physical goods sold on Amazon (off for subscriptions/services/
+    groceries — mirrors eBay). Amazon US is absent from Serper's Google Shopping
+    (ADR-130/131), so it is a dedicated recall source (Phase 38, ADR-141).
+
+    ``depth`` caps result rows below Serper's 100 (~1 Amazon page ≈ 48);
+    ``priority`` selects the DataForSEO queue: ``"standard"`` (task-queue, ~half
+    the cost, default) or ``"live"`` (synchronous).
+    """
+
+    enabled: bool = False
+    depth: int = Field(default=48, gt=0)
+    priority: Literal["standard", "live"] = "standard"
+
+
 class SourcesV2(BaseModel):
     serper: SerperSource = Field(default_factory=SerperSource)
     ebay: EbaySource = Field(default_factory=EbaySource)
+    amazon: AmazonSource = Field(default_factory=AmazonSource)
 
 
 class DisplaySpec(BaseModel):

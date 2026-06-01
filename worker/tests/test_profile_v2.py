@@ -61,9 +61,35 @@ def test_minimal_profile_uses_defaults() -> None:
     assert p.match.variant_strict is True  # global default strict (§11 decision 1)
     assert p.sources.serper.enabled is True
     assert p.sources.ebay.enabled is False  # off by default (§11 decision 2)
+    assert p.sources.amazon.enabled is False  # off by default (ADR-141)
+    assert p.sources.amazon.depth == 48
+    assert p.sources.amazon.priority == "standard"
     assert p.display.max_listings == 20
     assert p.filters.condition_in is None
     assert p.description == ""
+
+
+def test_amazon_source_can_be_enabled_and_tuned() -> None:
+    raw = _minimal()
+    raw["sources"] = {"amazon": {"enabled": True, "depth": 30, "priority": "live"}}
+    p = ProfileV2.model_validate(raw)
+    assert p.sources.amazon.enabled is True
+    assert p.sources.amazon.depth == 30
+    assert p.sources.amazon.priority == "live"
+
+
+def test_amazon_depth_must_be_positive() -> None:
+    raw = _minimal()
+    raw["sources"] = {"amazon": {"enabled": True, "depth": 0}}
+    with pytest.raises(ValidationError):
+        ProfileV2.model_validate(raw)
+
+
+def test_amazon_priority_rejects_unknown_value() -> None:
+    raw = _minimal()
+    raw["sources"] = {"amazon": {"enabled": True, "priority": "express"}}
+    with pytest.raises(ValidationError):
+        ProfileV2.model_validate(raw)
 
 
 def test_wrong_schema_version_rejected() -> None:
