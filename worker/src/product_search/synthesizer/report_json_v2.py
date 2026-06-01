@@ -82,6 +82,7 @@ def build_v2_payload(
     *,
     profile: ProfileV2,
     selection: SelectionResult,
+    all_survivors: list[Listing],
     columns: list[str],
     outcome: RunOutcome,
     recall_count: int,
@@ -89,9 +90,18 @@ def build_v2_payload(
     run_calls: list[dict[str, Any]],
     snapshot_date: date,
 ) -> dict[str, Any]:
-    """Build the full v2 JSON sidecar payload."""
+    """Build the full v2 JSON sidecar payload.
+
+    ``all_survivors`` is the complete ranked list (price-sorted, no vendor cap).
+    The UI ships both ``listings`` (the capped display set) and ``all_listings``
+    (every survivor) so it can offer progressive disclosure ("Show all N")
+    without a round-trip.
+    """
     listings_json = [
         _listing_to_display(lst, i + 1) for i, lst in enumerate(selection.displayed)
+    ]
+    all_listings_json = [
+        _listing_to_display(lst, i + 1) for i, lst in enumerate(all_survivors)
     ]
     return {
         "schema_version": 2,
@@ -102,6 +112,7 @@ def build_v2_payload(
         "generated_at": datetime.now(tz=UTC).isoformat(),
         "columns": columns,
         "listings": listings_json,
+        "all_listings": all_listings_json,
         "overflow": selection.overflow,
         "hidden_anomalies": selection.hidden_anomalies,
         "recall_count": recall_count,

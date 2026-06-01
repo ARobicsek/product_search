@@ -98,7 +98,8 @@ def apply_vendor_filter(
     return out
 
 
-def _price_sort_key(listing: Listing) -> tuple[int, float]:
+def price_sort_key(listing: Listing) -> tuple[int, float]:
+    """Sort key: anomalies last, then cheapest first. Unpriced → bottom."""
     p = listing.price_usd
     price_val = p if p and p > 0 else _PRICE_FLOOR
     is_anomalous = 1 if FLAG_PRICE_ANOMALY_LOW in listing.flags else 0
@@ -119,7 +120,7 @@ def select_for_display(
     """
     hidden = 0
 
-    ranked = sorted(listings, key=_price_sort_key)
+    ranked = sorted(listings, key=price_sort_key)
 
     per_vendor_seen: dict[str, int] = {}
     capped: list[Listing] = []

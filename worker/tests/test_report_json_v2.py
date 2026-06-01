@@ -45,8 +45,9 @@ def _listing(price: float, seller: str) -> Listing:
 
 def _payload() -> dict:
     profile = load_profile_v2_from_path(FIXTURE)
+    displayed = [_listing(599.0, "B&H"), _listing(610.0, "Walmart")]
     selection = SelectionResult(
-        displayed=[_listing(599.0, "B&H"), _listing(610.0, "Walmart")],
+        displayed=displayed,
         overflow={"b&h": 1},
         hidden_anomalies=1,
     )
@@ -54,6 +55,7 @@ def _payload() -> dict:
     return build_v2_payload(
         profile=profile,
         selection=selection,
+        all_survivors=displayed + [_listing(620.0, "B&H")],
         columns=["price", "seller"],
         outcome=outcome,
         recall_count=40,
@@ -77,6 +79,8 @@ def test_payload_shape() -> None:
     assert p["recall_count"] == 40
     assert p["survivor_count"] == 3
     assert p["displayed_count"] == 2
+    assert len(p["all_listings"]) == 3  # displayed + 1 overflow B&H listing
+    assert p["all_listings"][0]["rank"] == 1
     assert p["outcome"]["class"] == "ok"
     assert "total_usd" in p["run_cost"]
 
@@ -95,6 +99,7 @@ def test_markdown_shows_outcome_note_when_not_ok() -> None:
     payload = build_v2_payload(
         profile=profile,
         selection=selection,
+        all_survivors=[],
         columns=["price"],
         outcome=outcome,
         recall_count=0,

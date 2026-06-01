@@ -351,9 +351,15 @@ def _write_report(
         build_v2_payload,
     )
 
+    # Price-sort survivors for the all_listings progressive-disclosure array.
+    from product_search.selection import price_sort_key
+
+    all_survivors_sorted = sorted(result.survivors, key=price_sort_key)
+
     payload = build_v2_payload(
         profile=profile,
         selection=result.selection,
+        all_survivors=all_survivors_sorted,
         columns=result.columns,
         outcome=result.outcome,
         recall_count=result.recall_count,

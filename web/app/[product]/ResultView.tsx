@@ -1,3 +1,5 @@
+'use client';
+
 /**
  * The post-run report view (ADR-096).
  *
@@ -8,6 +10,7 @@
  * used for historical reports that pre-date this commit.
  */
 
+import { useState } from 'react';
 import type {
   Badge,
   PendingSource,
@@ -17,6 +20,8 @@ import type {
   RunCost,
   Severity,
   SourceStatus,
+  ReportSidecarV1,
+  ReportSidecarV2,
 } from './result-types';
 
 const SEVERITY_PILL: Record<Severity, string> = {
@@ -191,14 +196,14 @@ function SourcesPanel({
   sources: ResultSource[];
   pending: PendingSource[];
 }) {
-  if (!sources.length && !pending.length) return null;
+  if (!sources?.length && !pending?.length) return null;
   return (
     <section className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-950 p-4 sm:p-5">
       <h2 className="text-base font-semibold mb-3 text-gray-900 dark:text-gray-100">
         Sources searched
       </h2>
       <ul className="divide-y divide-gray-100 dark:divide-gray-800">
-        {sources.map((s) => (
+        {sources?.map((s) => (
           <li key={s.label} className="py-2.5 first:pt-0 last:pb-0">
             <div className="flex items-center justify-between gap-3 flex-wrap">
               <span className="text-sm font-medium text-gray-900 dark:text-gray-100 break-all">
@@ -239,12 +244,46 @@ function SourcesPanel({
           </li>
         ))}
       </ul>
-      {pending.length > 0 && (
+      {pending?.length > 0 && (
         <p className="text-xs text-gray-500 dark:text-gray-400 mt-3 pt-3 border-t border-gray-100 dark:border-gray-800">
           <span className="font-medium">Pending (not yet wired):</span>{' '}
           {pending.map((p) => p.label).join(', ')}
         </p>
       )}
+    </section>
+  );
+}
+
+function OutcomePanel({ outcome }: { outcome: ReportSidecarV2['outcome'] }) {
+  const isOk = outcome.class === 'ok';
+  const pillColor = isOk
+    ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-300 ring-1 ring-emerald-200 dark:ring-emerald-900'
+    : 'bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 ring-1 ring-amber-200 dark:ring-amber-900';
+  
+  return (
+    <section className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-950 p-4 sm:p-5">
+      <h2 className="text-base font-semibold mb-3 text-gray-900 dark:text-gray-100">
+        Run Outcome
+      </h2>
+      <div className="space-y-3">
+        <div className="flex items-center gap-2 text-xs">
+          <Pill label={outcome.class} className={pillColor} />
+          {outcome.message && (
+            <span className="text-gray-700 dark:text-gray-300">
+              {outcome.message}
+            </span>
+          )}
+        </div>
+        {outcome.notes?.length > 0 && (
+          <ul className="text-xs text-gray-500 dark:text-gray-400 space-y-1">
+            {outcome.notes.map((note, i) => (
+              <li key={i}>
+                <span className="font-medium">{note.class}:</span> {note.message}
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
     </section>
   );
 }
@@ -313,32 +352,69 @@ function RunCostTable({ runCost }: { runCost: RunCost }) {
 }
 
 export function ResultView({ data }: { data: ReportSidecar }) {
+  const [showAll, setShowAll] = useState(false);
   const hasListings = data.listings.length > 0;
+  const isV1 = data.schema_version === 1;
+  const v1 = data as ReportSidecarV1;
+  const v2 = data as ReportSidecarV2;
+
+  // Progressive disclosure: if all_listings is available and larger than
+  // the capped display set, let the user expand to see every survivor.
+  const allListings = !isV1 && v2.all_listings?.length ? v2.all_listings : null;
+  const hasMore = allListings !== null && allListings.length > data.listings.length;
+  const visibleListings = showAll && allListings ? allListings : data.listings;
 
   return (
     <div className="space-y-4">
       {hasListings ? (
         <section className="space-y-3">
-          {data.listings.map((lst) => (
+          {visibleListings.map((lst) => (
             <ListingCard key={`${lst.rank}-${lst.url}`} listing={lst} />
           ))}
-          {data.listings_meta.total_passed > data.listings_meta.shown && (
+          {isV1 && v1.listings_meta.total_passed > v1.listings_meta.shown && (
             <p className="text-xs text-gray-500 dark:text-gray-400 text-center">
-              Showing the top {data.listings_meta.shown} of{' '}
-              {data.listings_meta.total_passed} passing listings.
+              Showing the top {v1.listings_meta.shown} of{' '}
+              {v1.listings_meta.total_passed} passing listings.
+            </p>
+          )}
+          {!isV1 && hasMore && !showAll && (
+            <button
+              onClick={() => setShowAll(true)}
+              className="w-full py-2.5 text-sm font-medium text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 bg-blue-50/50 dark:bg-blue-950/20 hover:bg-blue-50 dark:hover:bg-blue-950/40 border border-blue-200 dark:border-blue-900 rounded-xl transition-colors cursor-pointer"
+            >
+              Show all {allListings!.length} listings
+              <span className="text-gray-500 dark:text-gray-400 font-normal">
+                {' '}(showing top {data.listings.length})
+              </span>
+            </button>
+          )}
+          {!isV1 && showAll && hasMore && (
+            <button
+              onClick={() => setShowAll(false)}
+              className="w-full py-2.5 text-sm font-medium text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 bg-gray-50/50 dark:bg-gray-900/20 hover:bg-gray-100 dark:hover:bg-gray-800/40 border border-gray-200 dark:border-gray-800 rounded-xl transition-colors cursor-pointer"
+            >
+              Show top {data.listings.length} only
+            </button>
+          )}
+          {!isV1 && !hasMore && v2.survivor_count > v2.displayed_count && (
+            <p className="text-xs text-gray-500 dark:text-gray-400 text-center">
+              Showing {v2.displayed_count} of {v2.survivor_count} matched listings ({v2.recall_count} found).
             </p>
           )}
         </section>
       ) : (
         <section className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-950 p-6 text-center">
           <p className="text-sm text-gray-600 dark:text-gray-400">
-            No listings passed the filter this run. The Sources panel below
-            shows what was tried and why each came back empty.
+            No listings passed the filter this run. {isV1 ? "The Sources panel below shows what was tried and why each came back empty." : ""}
           </p>
         </section>
       )}
 
-      <SourcesPanel sources={data.sources} pending={data.sources_pending} />
+      {isV1 ? (
+        <SourcesPanel sources={v1.sources} pending={v1.sources_pending} />
+      ) : (
+        <OutcomePanel outcome={v2.outcome} />
+      )}
       <RunCostTable runCost={data.run_cost} />
     </div>
   );

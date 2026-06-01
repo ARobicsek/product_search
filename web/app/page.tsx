@@ -117,8 +117,9 @@ export default async function Home() {
           : 'No summary available.';
       }
 
+      const isV1 = sidecar?.schema_version === 1;
       const title =
-        sidecar?.product.display_name ||
+        (isV1 ? (sidecar as any).product.display_name : (sidecar as any).display_name) ||
         displayNameFromProfile(profile) ||
         prettifySlug(product);
 
@@ -126,7 +127,7 @@ export default async function Home() {
       // option. total_passed is the full count (listings[] may be capped).
       const cheapest = sidecar?.listings?.[0] ?? null;
       const priceLabel = cheapest ? fmtPrice(cheapest.price_usd) : null;
-      const listingCount = sidecar ? sidecar.listings_meta.total_passed : null;
+      const listingCount = sidecar ? (isV1 ? (sidecar as any).listings_meta.total_passed : (sidecar as any).survivor_count) : null;
 
       // Run duration = report build time (sidecar.generated_at) minus run
       // start (the data-CSV instant). Both UTC. A hand-built or stale sidecar

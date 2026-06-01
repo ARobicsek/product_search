@@ -83,8 +83,8 @@ export interface RunCost {
   any_unpriced: boolean;
 }
 
-export interface ReportSidecar {
-  schema_version: number;
+export interface ReportSidecarV1 {
+  schema_version: 1;
   generated_at: string;
   snapshot_date: string | null;
   product: { slug: string; display_name: string };
@@ -94,6 +94,34 @@ export interface ReportSidecar {
   sources_pending: PendingSource[];
   run_cost: RunCost;
 }
+
+export interface ReportSidecarV2 {
+  schema_version: 2;
+  generated_at: string;
+  snapshot_date: string | null;
+  slug: string;
+  display_name: string;
+  product_type: string | null;
+  columns: string[];
+  listings: ResultListing[];
+  /** Full ranked survivor set (price-sorted, no vendor cap). Present in
+   *  sidecars built after the progressive-disclosure change; older sidecars
+   *  may omit it, in which case the UI falls back to `listings`. */
+  all_listings?: ResultListing[];
+  overflow: Record<string, number>;
+  hidden_anomalies: number;
+  recall_count: number;
+  survivor_count: number;
+  displayed_count: number;
+  outcome: {
+    class: string;
+    message: string;
+    notes: { class: string; message: string }[];
+  };
+  run_cost: RunCost;
+}
+
+export type ReportSidecar = ReportSidecarV1 | ReportSidecarV2;
 
 /**
  * Best-effort validator. The JSON sidecar is internal data we produce,
@@ -105,7 +133,7 @@ export interface ReportSidecar {
 export function parseSidecar(raw: unknown): ReportSidecar | null {
   if (!raw || typeof raw !== 'object') return null;
   const r = raw as Record<string, unknown>;
-  if (r.schema_version !== 1) return null;
-  if (!Array.isArray(r.listings) || !Array.isArray(r.sources)) return null;
+  if (r.schema_version !== 1 && r.schema_version !== 2) return null;
+  if (!Array.isArray(r.listings)) return null;
   return r as unknown as ReportSidecar;
 }
