@@ -48,6 +48,3 @@ alerts:
     mode: is_below
     price_basis: unit
 
-schedule:
-  cron: "0 * * * *"
-  timezone: UTC
