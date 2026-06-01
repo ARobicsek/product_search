@@ -117,6 +117,40 @@ def test_run_cost_honors_flat_amazon_fee() -> None:
     assert rc["total_usd"] == pytest.approx(0.0048 + (1000 * 1.0 + 200 * 5.0) / 1_000_000)
 
 
+def test_run_cost_prices_cached_filter_below_uncached() -> None:
+    """ADR-142: an ai_filter step whose system block was cache-read is priced
+    off real per-call cache usage (0.10x read, 1.25x write), well below the
+    same tokens billed as fresh input. The split is surfaced on the step."""
+    from product_search.synthesizer.report_json_v2 import _build_run_cost
+
+    cached = _build_run_cost([
+        {
+            "step": "ai_filter",
+            "provider": "anthropic",
+            "model": "claude-haiku-4-5",
+            "input_tokens": 2_000,
+            "output_tokens": 1_000,
+            "cache_creation_input_tokens": 16_000,
+            "cache_read_input_tokens": 96_000,
+        },
+    ])
+    uncached = _build_run_cost([
+        {  # the same total input billed entirely as fresh tokens
+            "step": "ai_filter",
+            "provider": "anthropic",
+            "model": "claude-haiku-4-5",
+            "input_tokens": 2_000 + 16_000 + 96_000,
+            "output_tokens": 1_000,
+        },
+    ])
+    assert cached["total_usd"] < uncached["total_usd"]
+    step = cached["steps"][0]
+    # The split is surfaced honestly on the step (not hidden inside cost_usd).
+    assert step["cache_read_input_tokens"] == 96_000
+    assert step["cache_creation_input_tokens"] == 16_000
+    assert cached["any_unpriced"] is False
+
+
 def test_markdown_renders_table_and_overflow() -> None:
     md = build_v2_markdown(_payload())
     assert "DJI Neo 2 Motion Fly More Combo" in md

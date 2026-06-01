@@ -21,6 +21,7 @@ def call(
     response_format: Literal["text", "json"] = "text",
     max_tokens: int = 2048,
     temperature: float | None = None,
+    cache_system: bool = False,
 ) -> LLMResponse:
     try:
         import anthropic
@@ -40,10 +41,26 @@ def call(
         temperature if temperature is not None else anthropic.omit
     )
 
+    # ADR-142: when caching is requested, send ``system`` as a content-block
+    # list carrying ``cache_control: ephemeral`` so the (stable) system prompt
+    # is cached for ~5 min and re-sent at the cache-read rate. Otherwise send
+    # the bare string (unchanged behaviour for every other caller).
+    system_arg: str | list[anthropic.types.TextBlockParam]
+    if cache_system:
+        system_arg = [
+            {
+                "type": "text",
+                "text": system,
+                "cache_control": {"type": "ephemeral"},
+            }
+        ]
+    else:
+        system_arg = system
+
     try:
         resp = client.messages.create(
             model=model,
-            system=system,
+            system=system_arg,
             messages=sdk_messages,
             max_tokens=max_tokens,
             temperature=temperature_arg,
@@ -60,10 +77,19 @@ def call(
             text = block.text
             break
 
+    # Cache token counts are present on the usage object only when caching was
+    # exercised; ``getattr`` keeps this resilient across SDK versions.
+    usage = resp.usage
     return LLMResponse(
         provider=provider,
         model=model,
         text=text,
-        input_tokens=resp.usage.input_tokens if resp.usage else None,
-        output_tokens=resp.usage.output_tokens if resp.usage else None,
+        input_tokens=usage.input_tokens if usage else None,
+        output_tokens=usage.output_tokens if usage else None,
+        cache_read_input_tokens=(
+            getattr(usage, "cache_read_input_tokens", None) if usage else None
+        ),
+        cache_creation_input_tokens=(
+            getattr(usage, "cache_creation_input_tokens", None) if usage else None
+        ),
     )

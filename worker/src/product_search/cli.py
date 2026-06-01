@@ -742,6 +742,8 @@ def _build_run_cost_md(calls: list[dict[str, Any]]) -> str:
             str(c.get("model", "")),
             c.get("input_tokens"),
             c.get("output_tokens"),
+            cache_read_input_tokens=c.get("cache_read_input_tokens"),
+            cache_creation_input_tokens=c.get("cache_creation_input_tokens"),
         )
         if cost is None:
             any_unpriced = True

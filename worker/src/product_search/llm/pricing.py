@@ -19,6 +19,13 @@ class Pricing:
     output_per_mtok_usd: float
 
 
+# Anthropic ephemeral prompt-cache multipliers vs. the base input rate
+# (ADR-142): a 5-min cache *write* is billed at 1.25x input, a cache *read*
+# at 0.10x input. These are the public Anthropic rates as of January 2026.
+_CACHE_WRITE_MULTIPLIER = 1.25
+_CACHE_READ_MULTIPLIER = 0.10
+
+
 # Keep in sync with `web/lib/llm-prices.ts`.
 PRICING: dict[tuple[str, str], Pricing] = {
     # Anthropic — public list pricing
@@ -44,20 +51,32 @@ def estimate_cost_usd(
     model: str,
     input_tokens: int | None,
     output_tokens: int | None,
+    cache_read_input_tokens: int | None = None,
+    cache_creation_input_tokens: int | None = None,
 ) -> float | None:
     """Return the dollar cost for one call, or ``None`` if pricing is unknown.
 
     Tokens of ``None`` are treated as zero. A ``(provider, model)`` not in
     :data:`PRICING` returns ``None`` so the caller can show "(unpriced)"
     instead of misleadingly displaying $0.0000.
+
+    ``cache_read_input_tokens`` / ``cache_creation_input_tokens`` (ADR-142) are
+    priced off the same base input rate at the Anthropic cache multipliers
+    (read 0.10x, write 1.25x). When the provider reports cache usage,
+    ``input_tokens`` already *excludes* those buckets, so the three are summed —
+    never double-counted.
     """
     pricing = PRICING.get((provider, model))
     if pricing is None:
         return None
     in_tok = input_tokens or 0
     out_tok = output_tokens or 0
+    cache_read = cache_read_input_tokens or 0
+    cache_write = cache_creation_input_tokens or 0
     return (
         in_tok * pricing.input_per_mtok_usd / 1_000_000
+        + cache_write * pricing.input_per_mtok_usd * _CACHE_WRITE_MULTIPLIER / 1_000_000
+        + cache_read * pricing.input_per_mtok_usd * _CACHE_READ_MULTIPLIER / 1_000_000
         + out_tok * pricing.output_per_mtok_usd / 1_000_000
     )
 

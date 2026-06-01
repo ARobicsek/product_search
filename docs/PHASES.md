@@ -1100,7 +1100,9 @@ Amazon US is **absent from Serper's Google Shopping** (ADR-130/131), so it's the
 ### Cost note
 Standard queue ~$0.0006–0.001/search × search-only + ~3–5-query cap ≈ **$0.002–0.005/run** when Amazon is enabled (negligible; Scrappey-level, but structured). Live mode (~$0.002) only for any future sync preview. DataForSEO is prepaid PAYG — no subscription, balance never expires.
 
-## Phase 39 — AI-filter cost reduction: prompt-cache the rules prompt + trim verdict output (PROPOSED 2026-06-01 — ADR-142)
+## Phase 39 — AI-filter cost reduction: prompt-cache the rules prompt + trim verdict output (LANDED 2026-06-01 — ADR-142 + ADR-143)
+
+> **STATUS: DONE, with the caching premise measurement-corrected (read [ADR-143](DECISIONS.md)).** The brief below assumed a "~16–17K-token system prompt" re-sent per batch. **That was wrong by ~10×:** the ai_filter system block is **~1,861 tokens** (measured via `count_tokens` on the heaviest committed profile, `ddr5-rdimm-256gb`) — *below* Haiku 4.5's ~2048-token minimum cacheable prefix. So `cache_control` is a graceful **no-op** (two real 2-batch runs: `cache_creation=0, cache_read=0`), and the per-batch input is dominated by the **listing payload** (each listing sent exactly once → inherently uncacheable). The caching plumbing (Steps 1–3) is correct, tested, and harmless (verified: a synthetic ≥2048-token system writes on batch 1 / reads on batch 2), and was **kept as future-proofing** (owner call, 2026-06-01) — but it saves ~$0 for today's prompt. Only Step 4 (drop pass-reasons) has real effect (~$0.004/run). The genuine dominant lever is the recall-net/payload size, which this brief scoped OUT. Repro: `worker/scripts/filter_cache_livecheck.py`.
 
 > **Read [ADR-142](DECISIONS.md) first.** Worker-only; no recall/onboarder behavior change. *(Numbered 39; a parallel session may take a number — renumber if it collides, like 37→38 did.)*
 

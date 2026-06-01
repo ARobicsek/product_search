@@ -202,6 +202,106 @@ def test_system_prompt_falls_back_to_display_name_when_description_empty(
     assert "Description: \n" not in captured["system"]
 
 
+def test_filter_opts_into_prompt_caching(profile: Profile, monkeypatch: pytest.MonkeyPatch) -> None:
+    """ADR-142: the filter passes ``cache_system=True`` so the stable rules
+    system block is cached across batches."""
+    captured: dict[str, object] = {}
+
+    def stubbed(**kw: object) -> LLMResponse:
+        captured.update(kw)
+        return LLMResponse(
+            provider="anthropic", model="claude-haiku-4-5",
+            text='{"evaluations": [{"index": 0, "pass": true}]}',
+            input_tokens=1, output_tokens=1,
+        )
+
+    monkeypatch.setattr(ai_filter_mod, "call_llm", stubbed)
+    ai_filter_mod.ai_filter([_make_listing()], profile)
+    assert captured["cache_system"] is True
+
+
+def test_cache_tokens_summed_into_last_run_usage(profile: Profile, monkeypatch: pytest.MonkeyPatch) -> None:
+    """ADR-142: real per-batch cache read/write counts are summed into
+    LAST_RUN_USAGE so the cost panel can price the split honestly."""
+    listings = [_make_listing(title=f"listing-{i}") for i in range(60)]  # 2 batches
+
+    def stubbed(**kw: object) -> LLMResponse:
+        import json as _json
+        batch = _json.loads(kw["messages"][0].content)  # type: ignore[index, attr-defined]
+        evals = [{"index": item["index"], "pass": True} for item in batch]
+        return LLMResponse(
+            provider="anthropic", model="claude-haiku-4-5",
+            text=_json.dumps({"evaluations": evals}),
+            input_tokens=10, output_tokens=20,
+            cache_read_input_tokens=500, cache_creation_input_tokens=300,
+        )
+
+    monkeypatch.setattr(ai_filter_mod, "call_llm", stubbed)
+    ai_filter_mod.ai_filter(listings, profile)
+
+    assert ai_filter_mod.LAST_RUN_USAGE is not None
+    # Two batches → cache counts summed.
+    assert ai_filter_mod.LAST_RUN_USAGE["cache_read_input_tokens"] == 1000
+    assert ai_filter_mod.LAST_RUN_USAGE["cache_creation_input_tokens"] == 600
+
+
+def test_prompt_no_longer_requests_pass_reasons(profile: Profile, monkeypatch: pytest.MonkeyPatch) -> None:
+    """ADR-142 Step 4: pass-reasons are logged but never surfaced, so the
+    prompt now asks the model to omit ``reason`` for passing items."""
+    captured: dict[str, str] = {}
+
+    def stubbed(**kw: object) -> LLMResponse:
+        captured["system"] = str(kw.get("system", ""))
+        return LLMResponse(
+            provider="anthropic", model="claude-haiku-4-5",
+            text='{"evaluations": [{"index": 0, "pass": true}]}',
+            input_tokens=1, output_tokens=1,
+        )
+
+    monkeypatch.setattr(ai_filter_mod, "call_llm", stubbed)
+    ai_filter_mod.ai_filter([_make_listing()], profile)
+    sys_prompt = captured["system"]
+    assert 'OMIT "reason"' in sys_prompt
+    assert "false" in sys_prompt  # "REQUIRED ONLY when \"pass\" is false"
+
+
+def test_survivor_set_identical_with_or_without_pass_reasons(
+    profile: Profile, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """ADR-142 determinism guardrail: dropping pass-reasons must not change
+    which listings survive. The verdict is decided by the ``pass`` boolean;
+    the parser tolerates a missing ``reason`` on passing entries."""
+    listings = [_make_listing(title=f"listing-{i}") for i in range(5)]
+
+    # Same pass/fail pattern, two output shapes: with and without pass-reasons.
+    with_reasons = (
+        '{"evaluations": ['
+        '{"index": 0, "pass": true, "reason": "matches base model"},'
+        '{"index": 1, "pass": false, "reason": "relevance_check: accessory"},'
+        '{"index": 2, "pass": true, "reason": "matches base model"},'
+        '{"index": 3, "pass": false, "reason": "title_excludes: refurbished"},'
+        '{"index": 4, "pass": true, "reason": "matches base model"}'
+        ']}'
+    )
+    without_reasons = (
+        '{"evaluations": ['
+        '{"index": 0, "pass": true},'
+        '{"index": 1, "pass": false, "reason": "relevance_check: accessory"},'
+        '{"index": 2, "pass": true},'
+        '{"index": 3, "pass": false, "reason": "title_excludes: refurbished"},'
+        '{"index": 4, "pass": true}'
+        ']}'
+    )
+
+    monkeypatch.setattr(ai_filter_mod, "call_llm", _stub_response(with_reasons))
+    before = [lst.title for lst in ai_filter_mod.ai_filter(list(listings), profile)]
+
+    monkeypatch.setattr(ai_filter_mod, "call_llm", _stub_response(without_reasons))
+    after = [lst.title for lst in ai_filter_mod.ai_filter(list(listings), profile)]
+
+    assert before == after == ["listing-0", "listing-2", "listing-4"]
+
+
 def test_tolerates_prose_preamble_before_json(profile: Profile, monkeypatch: pytest.MonkeyPatch) -> None:
     """A prose preamble before the JSON object must not zero out the run.
 

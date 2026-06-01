@@ -134,11 +134,15 @@ def _run_cost_payload(calls: list[dict[str, Any]]) -> dict[str, Any]:
     total_cost = 0.0
     any_unpriced = False
     for c in calls:
+        cache_read = int(c.get("cache_read_input_tokens") or 0)
+        cache_write = int(c.get("cache_creation_input_tokens") or 0)
         cost = estimate_cost_usd(
             str(c.get("provider", "")),
             str(c.get("model", "")),
             c.get("input_tokens"),
             c.get("output_tokens"),
+            cache_read_input_tokens=cache_read,
+            cache_creation_input_tokens=cache_write,
         )
         if cost is None:
             any_unpriced = True
@@ -150,6 +154,8 @@ def _run_cost_payload(calls: list[dict[str, Any]]) -> dict[str, Any]:
             "model": c.get("model", ""),
             "input_tokens": int(c.get("input_tokens") or 0),
             "output_tokens": int(c.get("output_tokens") or 0),
+            "cache_read_input_tokens": cache_read,
+            "cache_creation_input_tokens": cache_write,
             "cost_usd": cost,
         })
     return {

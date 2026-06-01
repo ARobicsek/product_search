@@ -287,11 +287,12 @@ If any of these attributes can be clearly extracted, add them to a new
 
 You will receive a JSON list of products. Output a JSON object with a single key
 "evaluations" containing an array with one entry PER PRODUCT, in input order. Each
-entry must have these exact keys:
+entry must have these keys:
   - "index": integer, matching the input index
   - "pass": boolean
-  - "reason": short string (1 sentence) — for failures, name the specific rule that
-    failed and quote the offending word from attrs/title/url.
+  - "reason": short string (1 sentence) — REQUIRED ONLY when "pass" is false: name
+    the specific rule that failed and quote the offending word from attrs/title/url.
+    OMIT "reason" entirely for passing items (pass:true) — do not explain passes.
   - "extracted_features": (optional) object, only if display attributes were requested and found.
 
 Every input product must appear exactly once in "evaluations". Do not omit any.
@@ -324,6 +325,12 @@ ONLY output the JSON object.
     raw_responses: list[str] = []
     total_in = 0
     total_out = 0
+    # ADR-142: the ~16K-token system block is identical across batches, so
+    # batch 1 writes the ephemeral cache (1.25x input) and batches 2..N read it
+    # (0.1x input) inside the 5-min TTL. Sum the real per-batch cache counts so
+    # the cost panel prices the split honestly (never a hardcoded discount).
+    total_cache_read = 0
+    total_cache_write = 0
 
     for batch_no, batch in enumerate(batches, start=1):
         payload_for_llm = []
@@ -358,6 +365,10 @@ ONLY output the JSON object.
                 # Haiku's pass-count swung 35/28/19 on identical input; temp=0
                 # makes it near-deterministic (det 1.00 on 3/4 bake-off products).
                 temperature=0,
+                # ADR-142: cache the stable system block across batches. The
+                # cache_control marker doesn't change the prompt the model sees,
+                # so the survivor set is byte-identical to the uncached path.
+                cache_system=True,
             )
         except Exception as e:
             _loud(f"Filtering LLM call failed (batch {batch_no}/{len(batches)}): {e!r}")
@@ -373,12 +384,16 @@ ONLY output the JSON object.
                 "model": "claude-haiku-4-5",
                 "input_tokens": total_in,
                 "output_tokens": total_out,
+                "cache_read_input_tokens": total_cache_read,
+                "cache_creation_input_tokens": total_cache_write,
             }
             return []
 
         raw_responses.append(resp.text or "")
         total_in += resp.input_tokens or 0
         total_out += resp.output_tokens or 0
+        total_cache_read += resp.cache_read_input_tokens or 0
+        total_cache_write += resp.cache_creation_input_tokens or 0
 
         raw_text = (resp.text or "").strip()
         if raw_text.startswith("```"):
@@ -407,6 +422,8 @@ ONLY output the JSON object.
                 "model": "claude-haiku-4-5",
                 "input_tokens": total_in,
                 "output_tokens": total_out,
+                "cache_read_input_tokens": total_cache_read,
+                "cache_creation_input_tokens": total_cache_write,
             }
             return []
 
@@ -443,6 +460,8 @@ ONLY output the JSON object.
                 "model": "claude-haiku-4-5",
                 "input_tokens": total_in,
                 "output_tokens": total_out,
+                "cache_read_input_tokens": total_cache_read,
+                "cache_creation_input_tokens": total_cache_write,
             }
             return []
 
@@ -482,6 +501,8 @@ ONLY output the JSON object.
         "model": "claude-haiku-4-5",
         "input_tokens": total_in,
         "output_tokens": total_out,
+        "cache_read_input_tokens": total_cache_read,
+        "cache_creation_input_tokens": total_cache_write,
     }
 
     # Build log entries (one per listing the model evaluated) and pick the survivors.

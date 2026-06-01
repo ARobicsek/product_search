@@ -28,6 +28,69 @@ def test_estimate_cost_treats_none_tokens_as_zero() -> None:
     assert cost == 0.0
 
 
+# ---------------------------------------------------------------------------
+# Cache-aware pricing (ADR-142)
+# ---------------------------------------------------------------------------
+
+
+def test_cache_read_priced_below_uncached_input() -> None:
+    """A cache *read* is billed at 0.10x the base input rate — far below the
+    same tokens charged as fresh input."""
+    uncached = estimate_cost_usd("anthropic", "claude-haiku-4-5", 16_000, 0)
+    cached = estimate_cost_usd(
+        "anthropic", "claude-haiku-4-5", 0, 0, cache_read_input_tokens=16_000
+    )
+    assert uncached is not None and cached is not None
+    assert cached == pytest.approx(uncached * 0.10)
+    assert cached < uncached
+
+
+def test_cache_write_priced_above_uncached_input() -> None:
+    """A cache *write* is billed at 1.25x the base input rate."""
+    uncached = estimate_cost_usd("anthropic", "claude-haiku-4-5", 16_000, 0)
+    written = estimate_cost_usd(
+        "anthropic", "claude-haiku-4-5", 0, 0, cache_creation_input_tokens=16_000
+    )
+    assert uncached is not None and written is not None
+    assert written == pytest.approx(uncached * 1.25)
+
+
+def test_estimate_cost_sums_all_token_buckets() -> None:
+    """Uncached input, cache write, cache read, and output are summed — the
+    API reports them as disjoint buckets, so no double counting."""
+    cost = estimate_cost_usd(
+        "anthropic", "claude-haiku-4-5",
+        1_000, 2_000,
+        cache_read_input_tokens=16_000,
+        cache_creation_input_tokens=16_000,
+    )
+    expected = (
+        1_000 * 1.0 / 1_000_000
+        + 16_000 * 1.0 * 1.25 / 1_000_000
+        + 16_000 * 1.0 * 0.10 / 1_000_000
+        + 2_000 * 5.0 / 1_000_000
+    )
+    assert cost == pytest.approx(expected)
+
+
+def test_run_cost_panel_prices_cache_read_step_cheaply() -> None:
+    """A multi-batch filter run where most input is a cache read costs less
+    than if every token had been billed as fresh input."""
+    cached_md = _build_run_cost_md([
+        {
+            "step": "ai_filter",
+            "provider": "anthropic",
+            "model": "claude-haiku-4-5",
+            "input_tokens": 2_000,
+            "output_tokens": 1_000,
+            "cache_creation_input_tokens": 16_000,
+            "cache_read_input_tokens": 96_000,
+        },
+    ])
+    assert "ai_filter" in cached_md
+    assert "**Run cost.**" in cached_md
+
+
 def test_format_cost_usd_handles_unpriced() -> None:
     assert format_cost_usd(None) == "(unpriced)"
 

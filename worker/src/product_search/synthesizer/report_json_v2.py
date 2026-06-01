@@ -104,14 +104,20 @@ def _build_run_cost(run_calls: list[dict[str, Any]]) -> dict[str, Any]:
         # A flat-fee API call (e.g. Amazon recall) carries an explicit real
         # ``cost_usd``; token-priced LLM calls don't, so estimate from tokens.
         explicit = c.get("cost_usd")
+        cache_read = c.get("cache_read_input_tokens") or 0
+        cache_write = c.get("cache_creation_input_tokens") or 0
         if explicit is not None:
             cost: float | None = float(explicit)
         else:
+            # ADR-142: price cached input off real per-call usage (read 0.10x,
+            # write 1.25x) — never a hardcoded discount.
             cost = estimate_cost_usd(
                 str(c.get("provider", "")),
                 str(c.get("model", "")),
                 c.get("input_tokens"),
                 c.get("output_tokens"),
+                cache_read_input_tokens=cache_read,
+                cache_creation_input_tokens=cache_write,
             )
         if cost is None:
             any_unpriced = True
@@ -124,6 +130,8 @@ def _build_run_cost(run_calls: list[dict[str, Any]]) -> dict[str, Any]:
                 "model": c.get("model", "?"),
                 "input_tokens": c.get("input_tokens") or 0,
                 "output_tokens": c.get("output_tokens") or 0,
+                "cache_read_input_tokens": cache_read,
+                "cache_creation_input_tokens": cache_write,
                 "cost_usd": cost,
             }
         )

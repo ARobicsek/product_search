@@ -86,6 +86,11 @@ export interface RunCostStep {
   model: string;
   input_tokens: number;
   output_tokens: number;
+  // ADR-142: Anthropic prompt-cache usage. Optional — only LLM steps that
+  // cache (the ai_filter) carry non-zero values; cost_usd already reflects
+  // the cache-priced split, so the table renders unchanged from these.
+  cache_read_input_tokens?: number;
+  cache_creation_input_tokens?: number;
   cost_usd: number | null;
 }
 

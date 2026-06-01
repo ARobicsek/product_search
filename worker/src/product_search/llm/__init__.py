@@ -45,6 +45,12 @@ class LLMResponse:
     text: str
     input_tokens: int | None
     output_tokens: int | None
+    # Prompt-cache usage (Anthropic ephemeral caching; ADR-142). ``None`` for
+    # providers/calls that don't cache. ``input_tokens`` excludes these — the
+    # SDK reports cache reads/writes separately — so the cost panel must price
+    # all three buckets to be honest.
+    cache_read_input_tokens: int | None = None
+    cache_creation_input_tokens: int | None = None
 
 
 class LLMError(RuntimeError):
@@ -60,6 +66,7 @@ def call_llm(
     response_format: Literal["text", "json"] = "text",
     max_tokens: int = 2048,
     temperature: float | None = None,
+    cache_system: bool = False,
 ) -> LLMResponse:
     """Call the specified LLM provider.
 
@@ -74,6 +81,11 @@ def call_llm(
             provider default. ``ai_filter`` passes ``0`` so the filter is
             deterministic run-to-run (ADR-132 — at provider-default ~1.0 Haiku's
             pass-count swung 35/28/19 on identical input).
+        cache_system: When ``True`` (Anthropic only), mark the ``system`` block
+            with ``cache_control: ephemeral`` so a repeated system prompt across
+            calls in the same 5-min window is billed at the cache-read rate
+            (ADR-142). Ignored by non-Anthropic providers. The returned
+            ``LLMResponse`` carries the real cache token counts.
 
     Returns:
         ``LLMResponse`` with the text reply and token-usage info.
@@ -92,15 +104,20 @@ def call_llm(
     else:
         raise LLMError(f"Unknown provider: {provider!r}")
 
-    resp = _call(
-        provider=provider,
-        model=model,
-        system=system,
-        messages=messages,
-        response_format=response_format,
-        max_tokens=max_tokens,
-        temperature=temperature,
-    )
+    call_kwargs: dict[str, object] = {
+        "provider": provider,
+        "model": model,
+        "system": system,
+        "messages": messages,
+        "response_format": response_format,
+        "max_tokens": max_tokens,
+        "temperature": temperature,
+    }
+    # ``cache_system`` is Anthropic-only; don't widen the other providers'
+    # signatures with a kwarg they'd have to ignore.
+    if provider == "anthropic":
+        call_kwargs["cache_system"] = cache_system
+    resp = _call(**call_kwargs)
 
     # Dump trace for debugging
     try:
