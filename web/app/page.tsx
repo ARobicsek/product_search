@@ -119,7 +119,7 @@ export default async function Home() {
 
       const isV1 = sidecar?.schema_version === 1;
       const title =
-        (isV1 ? (sidecar as ReportSidecarV1).product.display_name : (sidecar as ReportSidecarV2).display_name) ||
+        (sidecar ? (isV1 ? (sidecar as ReportSidecarV1).product.display_name : (sidecar as ReportSidecarV2).display_name) : null) ||
         displayNameFromProfile(profile) ||
         prettifySlug(product);
 
