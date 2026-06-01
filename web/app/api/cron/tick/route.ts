@@ -13,18 +13,25 @@ import { dispatchScheduledTick } from '@/lib/dispatch';
 // /api/dispatch for consistency.
 
 async function handle(request: NextRequest): Promise<Response> {
-  const expected = process.env.CRON_TRIGGER_SECRET;
-  if (!expected) {
+  const legacySecret = process.env.CRON_TRIGGER_SECRET;
+  const vercelSecret = process.env.CRON_SECRET;
+
+  if (!legacySecret && !vercelSecret) {
     return Response.json(
-      { ok: false, error: 'CRON_TRIGGER_SECRET not configured on server' },
+      { ok: false, error: 'Cron secret not configured' },
       { status: 500 },
     );
   }
 
-  const provided = request.headers.get('x-cron-secret');
-  if (!provided || provided !== expected) {
+  const legacyProvided = request.headers.get('x-cron-secret');
+  const authHeader = request.headers.get('authorization');
+  
+  const isLegacyAuth = legacySecret && legacyProvided === legacySecret;
+  const isVercelAuth = vercelSecret && authHeader === `Bearer ${vercelSecret}`;
+
+  if (!isLegacyAuth && !isVercelAuth) {
     return Response.json(
-      { ok: false, error: 'invalid or missing x-cron-secret header' },
+      { ok: false, error: 'invalid or missing cron secret' },
       { status: 401 },
     );
   }
