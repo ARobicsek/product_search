@@ -1,0 +1,1567 @@
+{
+  "version": "0.1.20260525",
+  "status_code": 20000,
+  "status_message": "Ok.",
+  "time": "6.0948 sec.",
+  "cost": 0.0033,
+  "tasks_count": 1,
+  "tasks_error": 0,
+  "tasks": [
+    {
+      "id": "06011918-1861-0644-0000-e60dbd3cd9f9",
+      "status_code": 20000,
+      "status_message": "Ok.",
+      "time": "6.0336 sec.",
+      "cost": 0.0033,
+      "result_count": 1,
+      "path": [
+        "v3",
+        "merchant",
+        "amazon",
+        "products",
+        "live",
+        "advanced"
+      ],
+      "data": {
+        "api": "merchant",
+        "function": "products",
+        "se": "amazon",
+        "keyword": "The Week magazine subscription",
+        "location_name": "United States",
+        "language_name": "English (United States)",
+        "se_domain": "amazon.com",
+        "depth": 100,
+        "se_type": "products",
+        "device": "desktop",
+        "os": "windows"
+      },
+      "result": [
+        {
+          "keyword": "The Week magazine subscription",
+          "type": "organic",
+          "se_domain": "amazon.com",
+          "location_code": 2840,
+          "language_code": "en_US",
+          "check_url": "https://www.amazon.com/s?k=The+Week+magazine+subscription&crid=KQ4R97IVHJCL&sprefix=The%2BWeek%2Bmagazine%2Bsubscription%2Caps%2C210&language=en_US&ref=nb_sb_noss",
+          "datetime": "2026-06-01 16:18:49 +00:00",
+          "spell": null,
+          "item_types": [
+            "amazon_serp",
+            "related_searches"
+          ],
+          "se_results_count": 41,
+          "categories": [
+            "Books",
+            "Books/Almanacs & Yearbooks"
+          ],
+          "items_count": 44,
+          "items": [
+            {
+              "type": "amazon_serp",
+              "rank_group": 1,
+              "rank_absolute": 1,
+              "xpath": "/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/div[1]/span[1]/div[1]/div[2]",
+              "domain": "www.amazon.com",
+              "title": "PEOPLE Magazine Subscription",
+              "url": "https://www.amazon.com/PEOPLE-Magazine-Subscription-People/dp/B0FQKM98GR/ref=sr_1_1?crid=KQ4R97IVHJCL&dib=eyJ2IjoiMSJ9.tXtUtDAVkTEYmVnqGRzyfG6VqMepHIozEBuEcQfOOjVikw-5UmyGX3WxFhIudEFeT47_4MXUoqibRZnZ0F-k9V_db_i6met6fLjfpCA-j9DVdB4W6KNUTKxlcnGIqj7REqUGnbZOZvD1ytVJl7Fpu0zW0xNytwastKS27dHSdnAAxMUDW6auvCIn8qxl_dgKHp3_A4o2zji6iCKcLX13RxVTKYm-8-kw0IS0gwCG8lQ.j39bY2cxXEASD2LeGwmeH2tDTtYdrd1mGtTsKG8pFI8&dib_tag=se&keywords=The+Week+magazine+subscription&qid=1780330726&sprefix=The%2BWeek%2Bmagazine%2Bsubscription%2Caps%2C210&sr=8-1",
+              "image_url": "https://m.media-amazon.com/images/I/71ngplYT1gL._AC_UY218_.jpg",
+              "bought_past_month": null,
+              "price_from": 9.99,
+              "price_to": null,
+              "currency": "USD",
+              "special_offers": null,
+              "data_asin": "B0FQKM98GR",
+              "rating": {
+                "type": "rating_element",
+                "position": "left",
+                "rating_type": "Max5",
+                "value": 4.2,
+                "votes_count": 24,
+                "rating_max": 5
+              },
+              "is_amazon_choice": false,
+              "is_best_seller": false,
+              "delivery_info": {
+                "delivery_message": "FREE delivery Jun 14 - 16",
+                "delivery_price": null
+              },
+              "labels": [
+                {
+                  "type": "amazon_label_element",
+                  "title": "Print Magazine",
+                  "url": "https://amazon.com/PEOPLE-Magazine-Subscription-People/dp/B0FQKM98GR/ref=sr_1_1?crid=KQ4R97IVHJCL&dib=eyJ2IjoiMSJ9.tXtUtDAVkTEYmVnqGRzyfG6VqMepHIozEBuEcQfOOjVikw-5UmyGX3WxFhIudEFeT47_4MXUoqibRZnZ0F-k9V_db_i6met6fLjfpCA-j9DVdB4W6KNUTKxlcnGIqj7REqUGnbZOZvD1ytVJl7Fpu0zW0xNytwastKS27dHSdnAAxMUDW6auvCIn8qxl_dgKHp3_A4o2zji6iCKcLX13RxVTKYm-8-kw0IS0gwCG8lQ.j39bY2cxXEASD2LeGwmeH2tDTtYdrd1mGtTsKG8pFI8&dib_tag=se&keywords=The+Week+magazine+subscription&qid=1780330726&sprefix=The%2BWeek%2Bmagazine%2Bsubscription%2Caps%2C210&sr=8-1",
+                  "domain": null
+                }
+              ]
+            },
+            {
+              "type": "amazon_serp",
+              "rank_group": 2,
+              "rank_absolute": 2,
+              "xpath": "/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/div[1]/span[1]/div[1]/div[3]",
+              "domain": "www.amazon.com",
+              "title": "Real Simple Magazine Subscription",
+              "url": "https://www.amazon.com/Real-Simple-Magazine-Subscription-Editors/dp/B0FQK47M2W/ref=sr_1_2?crid=KQ4R97IVHJCL&dib=eyJ2IjoiMSJ9.tXtUtDAVkTEYmVnqGRzyfG6VqMepHIozEBuEcQfOOjVikw-5UmyGX3WxFhIudEFeT47_4MXUoqibRZnZ0F-k9V_db_i6met6fLjfpCA-j9DVdB4W6KNUTKxlcnGIqj7REqUGnbZOZvD1ytVJl7Fpu0zW0xNytwastKS27dHSdnAAxMUDW6auvCIn8qxl_dgKHp3_A4o2zji6iCKcLX13RxVTKYm-8-kw0IS0gwCG8lQ.j39bY2cxXEASD2LeGwmeH2tDTtYdrd1mGtTsKG8pFI8&dib_tag=se&keywords=The+Week+magazine+subscription&qid=1780330726&sprefix=The%2BWeek%2Bmagazine%2Bsubscription%2Caps%2C210&sr=8-2",
+              "image_url": "https://m.media-amazon.com/images/I/61BAwGht8ML._AC_UY218_.jpg",
+              "bought_past_month": null,
+              "price_from": 9.99,
+              "price_to": null,
+              "currency": "USD",
+              "special_offers": null,
+              "data_asin": "B0FQK47M2W",
+              "rating": {
+                "type": "rating_element",
+                "position": "left",
+                "rating_type": "Max5",
+                "value": 4.4,
+                "votes_count": 14,
+                "rating_max": 5
+              },
+              "is_amazon_choice": false,
+              "is_best_seller": false,
+              "delivery_info": {
+                "delivery_message": "FREE delivery Jun 14 - 16",
+                "delivery_price": null
+              },
+              "labels": [
+                {
+                  "type": "amazon_label_element",
+                  "title": "Print Magazine",
+                  "url": "https://amazon.com/Real-Simple-Magazine-Subscription-Editors/dp/B0FQK47M2W/ref=sr_1_2?crid=KQ4R97IVHJCL&dib=eyJ2IjoiMSJ9.tXtUtDAVkTEYmVnqGRzyfG6VqMepHIozEBuEcQfOOjVikw-5UmyGX3WxFhIudEFeT47_4MXUoqibRZnZ0F-k9V_db_i6met6fLjfpCA-j9DVdB4W6KNUTKxlcnGIqj7REqUGnbZOZvD1ytVJl7Fpu0zW0xNytwastKS27dHSdnAAxMUDW6auvCIn8qxl_dgKHp3_A4o2zji6iCKcLX13RxVTKYm-8-kw0IS0gwCG8lQ.j39bY2cxXEASD2LeGwmeH2tDTtYdrd1mGtTsKG8pFI8&dib_tag=se&keywords=The+Week+magazine+subscription&qid=1780330726&sprefix=The%2BWeek%2Bmagazine%2Bsubscription%2Caps%2C210&sr=8-2",
+                  "domain": null
+                }
+              ]
+            },
+            {
+              "type": "amazon_serp",
+              "rank_group": 3,
+              "rank_absolute": 3,
+              "xpath": "/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/div[1]/span[1]/div[1]/div[4]",
+              "domain": "www.amazon.com",
+              "title": "The Week Magazine - December 26, 2014 - The last laugh",
+              "url": "https://www.amazon.com/Week-Magazine-December-2014-laugh/dp/B00S3XAU42/ref=sr_1_3?crid=KQ4R97IVHJCL&dib=eyJ2IjoiMSJ9.tXtUtDAVkTEYmVnqGRzyfG6VqMepHIozEBuEcQfOOjVikw-5UmyGX3WxFhIudEFeT47_4MXUoqibRZnZ0F-k9V_db_i6met6fLjfpCA-j9DVdB4W6KNUTKxlcnGIqj7REqUGnbZOZvD1ytVJl7Fpu0zW0xNytwastKS27dHSdnAAxMUDW6auvCIn8qxl_dgKHp3_A4o2zji6iCKcLX13RxVTKYm-8-kw0IS0gwCG8lQ.j39bY2cxXEASD2LeGwmeH2tDTtYdrd1mGtTsKG8pFI8&dib_tag=se&keywords=The+Week+magazine+subscription&qid=1780330726&sprefix=The%2BWeek%2Bmagazine%2Bsubscription%2Caps%2C210&sr=8-3",
+              "image_url": "https://m.media-amazon.com/images/I/51gn-+uoH1L._AC_UY218_.jpg",
+              "bought_past_month": null,
+              "price_from": null,
+              "price_to": null,
+              "currency": null,
+              "special_offers": null,
+              "data_asin": "B00S3XAU42",
+              "rating": null,
+              "is_amazon_choice": false,
+              "is_best_seller": false,
+              "delivery_info": null,
+              "labels": [
+                {
+                  "type": "amazon_label_element",
+                  "title": "Single Issue Magazine",
+                  "url": "https://amazon.com/Week-Magazine-December-2014-laugh/dp/B00S3XAU42/ref=sr_1_3?crid=KQ4R97IVHJCL&dib=eyJ2IjoiMSJ9.tXtUtDAVkTEYmVnqGRzyfG6VqMepHIozEBuEcQfOOjVikw-5UmyGX3WxFhIudEFeT47_4MXUoqibRZnZ0F-k9V_db_i6met6fLjfpCA-j9DVdB4W6KNUTKxlcnGIqj7REqUGnbZOZvD1ytVJl7Fpu0zW0xNytwastKS27dHSdnAAxMUDW6auvCIn8qxl_dgKHp3_A4o2zji6iCKcLX13RxVTKYm-8-kw0IS0gwCG8lQ.j39bY2cxXEASD2LeGwmeH2tDTtYdrd1mGtTsKG8pFI8&dib_tag=se&keywords=The+Week+magazine+subscription&qid=1780330726&sprefix=The%2BWeek%2Bmagazine%2Bsubscription%2Caps%2C210&sr=8-3",
+                  "domain": null
+                }
+              ]
+            },
+            {
+              "type": "amazon_serp",
+              "rank_group": 4,
+              "rank_absolute": 4,
+              "xpath": "/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/div[1]/span[1]/div[1]/div[6]",
+              "domain": "www.amazon.com",
+              "title": "The Week Magazine January 11, 2019 | Boxed In government shutdown",
+              "url": "https://www.amazon.com/Magazine-January-Boxed-government-shutdown/dp/B07MJ8B4JC/ref=sr_1_4?crid=KQ4R97IVHJCL&dib=eyJ2IjoiMSJ9.tXtUtDAVkTEYmVnqGRzyfG6VqMepHIozEBuEcQfOOjVikw-5UmyGX3WxFhIudEFeT47_4MXUoqibRZnZ0F-k9V_db_i6met6fLjfpCA-j9DVdB4W6KNUTKxlcnGIqj7REqUGnbZOZvD1ytVJl7Fpu0zW0xNytwastKS27dHSdnAAxMUDW6auvCIn8qxl_dgKHp3_A4o2zji6iCKcLX13RxVTKYm-8-kw0IS0gwCG8lQ.j39bY2cxXEASD2LeGwmeH2tDTtYdrd1mGtTsKG8pFI8&dib_tag=se&keywords=The+Week+magazine+subscription&qid=1780330726&sprefix=The%2BWeek%2Bmagazine%2Bsubscription%2Caps%2C210&sr=8-4",
+              "image_url": "https://m.media-amazon.com/images/I/91ebATr5r+L._AC_UY218_.jpg",
+              "bought_past_month": null,
+              "price_from": null,
+              "price_to": null,
+              "currency": null,
+              "special_offers": null,
+              "data_asin": "B07MJ8B4JC",
+              "rating": {
+                "type": "rating_element",
+                "position": "left",
+                "rating_type": "Max5",
+                "value": 5,
+                "votes_count": 1,
+                "rating_max": 5
+              },
+              "is_amazon_choice": false,
+              "is_best_seller": false,
+              "delivery_info": null,
+              "labels": [
+                {
+                  "type": "amazon_label_element",
+                  "title": "Unknown Binding",
+                  "url": "https://amazon.com/Magazine-January-Boxed-government-shutdown/dp/B07MJ8B4JC/ref=sr_1_4?crid=KQ4R97IVHJCL&dib=eyJ2IjoiMSJ9.tXtUtDAVkTEYmVnqGRzyfG6VqMepHIozEBuEcQfOOjVikw-5UmyGX3WxFhIudEFeT47_4MXUoqibRZnZ0F-k9V_db_i6met6fLjfpCA-j9DVdB4W6KNUTKxlcnGIqj7REqUGnbZOZvD1ytVJl7Fpu0zW0xNytwastKS27dHSdnAAxMUDW6auvCIn8qxl_dgKHp3_A4o2zji6iCKcLX13RxVTKYm-8-kw0IS0gwCG8lQ.j39bY2cxXEASD2LeGwmeH2tDTtYdrd1mGtTsKG8pFI8&dib_tag=se&keywords=The+Week+magazine+subscription&qid=1780330726&sprefix=The%2BWeek%2Bmagazine%2Bsubscription%2Caps%2C210&sr=8-4",
+                  "domain": null
+                }
+              ]
+            },
+            {
+              "type": "amazon_serp",
+              "rank_group": 5,
+              "rank_absolute": 5,
+              "xpath": "/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/div[1]/span[1]/div[1]/div[7]",
+              "domain": "www.amazon.com",
+              "title": "The Week Junior Annual 2019",
+              "url": "https://www.amazon.com/The-Week-Junior/e/B0FKGQMV6T?ref=sr_ntt_srch_lnk_5&qid=1780330726&sr=8-5",
+              "image_url": "https://m.media-amazon.com/images/I/91ojoSJkUQL._AC_UY218_.jpg",
+              "bought_past_month": null,
+              "price_from": 101.9,
+              "price_to": null,
+              "currency": "USD",
+              "special_offers": null,
+              "data_asin": "1781066698",
+              "rating": {
+                "type": "rating_element",
+                "position": "left",
+                "rating_type": "Max5",
+                "value": 4.1,
+                "votes_count": 27,
+                "rating_max": 5
+              },
+              "is_amazon_choice": false,
+              "is_best_seller": false,
+              "delivery_info": {
+                "delivery_message": "$6.75 delivery Jun 25 - 30",
+                "delivery_price": {
+                  "current": 6.75,
+                  "regular": null,
+                  "max_value": null,
+                  "currency": "USD",
+                  "is_price_range": false,
+                  "displayed_price": "$6.75"
+                }
+              },
+              "labels": [
+                {
+                  "type": "amazon_label_element",
+                  "title": "Paperback",
+                  "url": "https://amazon.com/Week-Junior-Annual-2019/dp/1781066698/ref=sr_1_5?crid=KQ4R97IVHJCL&dib=eyJ2IjoiMSJ9.tXtUtDAVkTEYmVnqGRzyfG6VqMepHIozEBuEcQfOOjVikw-5UmyGX3WxFhIudEFeT47_4MXUoqibRZnZ0F-k9V_db_i6met6fLjfpCA-j9DVdB4W6KNUTKxlcnGIqj7REqUGnbZOZvD1ytVJl7Fpu0zW0xNytwastKS27dHSdnAAxMUDW6auvCIn8qxl_dgKHp3_A4o2zji6iCKcLX13RxVTKYm-8-kw0IS0gwCG8lQ.j39bY2cxXEASD2LeGwmeH2tDTtYdrd1mGtTsKG8pFI8&dib_tag=se&keywords=The+Week+magazine+subscription&qid=1780330726&sprefix=The%2BWeek%2Bmagazine%2Bsubscription%2Caps%2C210&sr=8-5",
+                  "domain": null
+                }
+              ]
+            },
+            {
+              "type": "amazon_serp",
+              "rank_group": 6,
+              "rank_absolute": 6,
+              "xpath": "/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/div[1]/span[1]/div[1]/div[8]",
+              "domain": "www.amazon.com",
+              "title": "Subscription Manager: An Easy way to manage all your different subscriptions, Magazine Subscription, Newspaper Subscription, Streaming Subscription and More all in one place!",
+              "url": "https://www.amazon.com/Harrys-Media/e/B0C94C52V4?ref=sr_ntt_srch_lnk_6&qid=1780330726&sr=8-6",
+              "image_url": "https://m.media-amazon.com/images/I/61NYy7F1b-L._AC_UY218_.jpg",
+              "bought_past_month": null,
+              "price_from": 6.49,
+              "price_to": null,
+              "currency": "USD",
+              "special_offers": null,
+              "data_asin": "B0CN4Y9ZY7",
+              "rating": {
+                "type": "rating_element",
+                "position": "left",
+                "rating_type": "Max5",
+                "value": 5,
+                "votes_count": 2,
+                "rating_max": 5
+              },
+              "is_amazon_choice": false,
+              "is_best_seller": false,
+              "delivery_info": {
+                "delivery_message": ".prime-brand-color {color: #0064f9; } Join Prime (function(f){var _np=(window.P._namespace(\"udm-kata-inline-prime-signup-ingress-script\"));if(_np.guardFatal){_np.guardFatal(f)(_np);}else{f(_np);}}(function(P){P.when('ready').execute(\"udm-npa-prime-signup-ingress\",()=>{P.load.js(\"https://d1nruqhae353qc.cloudfront.net/primesignup/widget.js\");});})); to get FREE delivery Thu, Jun 4 Or Non-members get FREE delivery Sat, Jun 6 on $35 of items shipped by Amazon",
+                "delivery_price": null
+              },
+              "labels": [
+                {
+                  "type": "amazon_label_element",
+                  "title": "Paperback",
+                  "url": "https://amazon.com/Subscription-Manager-different-subscriptions-Newspaper/dp/B0CN4Y9ZY7/ref=sr_1_6?crid=KQ4R97IVHJCL&dib=eyJ2IjoiMSJ9.tXtUtDAVkTEYmVnqGRzyfG6VqMepHIozEBuEcQfOOjVikw-5UmyGX3WxFhIudEFeT47_4MXUoqibRZnZ0F-k9V_db_i6met6fLjfpCA-j9DVdB4W6KNUTKxlcnGIqj7REqUGnbZOZvD1ytVJl7Fpu0zW0xNytwastKS27dHSdnAAxMUDW6auvCIn8qxl_dgKHp3_A4o2zji6iCKcLX13RxVTKYm-8-kw0IS0gwCG8lQ.j39bY2cxXEASD2LeGwmeH2tDTtYdrd1mGtTsKG8pFI8&dib_tag=se&keywords=The+Week+magazine+subscription&qid=1780330726&sprefix=The%2BWeek%2Bmagazine%2Bsubscription%2Caps%2C210&sr=8-6",
+                  "domain": null
+                }
+              ]
+            },
+            {
+              "type": "amazon_serp",
+              "rank_group": 7,
+              "rank_absolute": 7,
+              "xpath": "/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/div[1]/span[1]/div[1]/div[9]",
+              "domain": "www.amazon.com",
+              "title": "The Week Magazine - November 27, 2020 (Volume 20, Issue 1003) - \"Worst-case scenario - A massive winter wave of COVID spreads across the U.S. just in time for Thanksgiving\"\"",
+              "url": "https://www.amazon.com/Week-Magazine-November-Worst-case-Thanksgiving/dp/B08TVZXTK7/ref=sr_1_7?crid=KQ4R97IVHJCL&dib=eyJ2IjoiMSJ9.tXtUtDAVkTEYmVnqGRzyfG6VqMepHIozEBuEcQfOOjVikw-5UmyGX3WxFhIudEFeT47_4MXUoqibRZnZ0F-k9V_db_i6met6fLjfpCA-j9DVdB4W6KNUTKxlcnGIqj7REqUGnbZOZvD1ytVJl7Fpu0zW0xNytwastKS27dHSdnAAxMUDW6auvCIn8qxl_dgKHp3_A4o2zji6iCKcLX13RxVTKYm-8-kw0IS0gwCG8lQ.j39bY2cxXEASD2LeGwmeH2tDTtYdrd1mGtTsKG8pFI8&dib_tag=se&keywords=The+Week+magazine+subscription&qid=1780330726&sprefix=The%2BWeek%2Bmagazine%2Bsubscription%2Caps%2C210&sr=8-7",
+              "image_url": "https://m.media-amazon.com/images/I/61SuX9tDeXL._AC_UY218_.jpg",
+              "bought_past_month": null,
+              "price_from": null,
+              "price_to": null,
+              "currency": null,
+              "special_offers": null,
+              "data_asin": "B08TVZXTK7",
+              "rating": null,
+              "is_amazon_choice": false,
+              "is_best_seller": false,
+              "delivery_info": null,
+              "labels": [
+                {
+                  "type": "amazon_label_element",
+                  "title": "Single Issue Magazine",
+                  "url": "https://amazon.com/Week-Magazine-November-Worst-case-Thanksgiving/dp/B08TVZXTK7/ref=sr_1_7?crid=KQ4R97IVHJCL&dib=eyJ2IjoiMSJ9.tXtUtDAVkTEYmVnqGRzyfG6VqMepHIozEBuEcQfOOjVikw-5UmyGX3WxFhIudEFeT47_4MXUoqibRZnZ0F-k9V_db_i6met6fLjfpCA-j9DVdB4W6KNUTKxlcnGIqj7REqUGnbZOZvD1ytVJl7Fpu0zW0xNytwastKS27dHSdnAAxMUDW6auvCIn8qxl_dgKHp3_A4o2zji6iCKcLX13RxVTKYm-8-kw0IS0gwCG8lQ.j39bY2cxXEASD2LeGwmeH2tDTtYdrd1mGtTsKG8pFI8&dib_tag=se&keywords=The+Week+magazine+subscription&qid=1780330726&sprefix=The%2BWeek%2Bmagazine%2Bsubscription%2Caps%2C210&sr=8-7",
+                  "domain": null
+                }
+              ]
+            },
+            {
+              "type": "amazon_serp",
+              "rank_group": 8,
+              "rank_absolute": 8,
+              "xpath": "/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/div[1]/span[1]/div[1]/div[10]",
+              "domain": "www.amazon.com",
+              "title": "Memory Activities Book for Seniors",
+              "url": "https://www.amazon.com/Renee-Phillippi/e/B0BRDJR7LB?ref=sr_ntt_srch_lnk_8&qid=1780330726&sr=8-8",
+              "image_url": "https://m.media-amazon.com/images/I/61sJwMzuIhL._AC_UY218_.jpg",
+              "bought_past_month": null,
+              "price_from": 9.99,
+              "price_to": null,
+              "currency": "USD",
+              "special_offers": null,
+              "data_asin": "1960687123",
+              "rating": {
+                "type": "rating_element",
+                "position": "left",
+                "rating_type": "Max5",
+                "value": 4.3,
+                "votes_count": 146,
+                "rating_max": 5
+              },
+              "is_amazon_choice": false,
+              "is_best_seller": false,
+              "delivery_info": {
+                "delivery_message": ".prime-brand-color {color: #0064f9; } Join Prime (function(f){var _np=(window.P._namespace(\"udm-kata-inline-prime-signup-ingress-script\"));if(_np.guardFatal){_np.guardFatal(f)(_np);}else{f(_np);}}(function(P){P.when('ready').execute(\"udm-npa-prime-signup-ingress\",()=>{P.load.js(\"https://d1nruqhae353qc.cloudfront.net/primesignup/widget.js\");});})); to get FREE delivery Thu, Jun 4 Or Non-members get FREE delivery Sat, Jun 6 on $35 of items shipped by Amazon",
+                "delivery_price": null
+              },
+              "labels": [
+                {
+                  "type": "amazon_label_element",
+                  "title": "Paperback",
+                  "url": "https://amazon.com/Memory-Activities-Seniors-Renee-Phillippi/dp/1960687123/ref=sr_1_8?crid=KQ4R97IVHJCL&dib=eyJ2IjoiMSJ9.tXtUtDAVkTEYmVnqGRzyfG6VqMepHIozEBuEcQfOOjVikw-5UmyGX3WxFhIudEFeT47_4MXUoqibRZnZ0F-k9V_db_i6met6fLjfpCA-j9DVdB4W6KNUTKxlcnGIqj7REqUGnbZOZvD1ytVJl7Fpu0zW0xNytwastKS27dHSdnAAxMUDW6auvCIn8qxl_dgKHp3_A4o2zji6iCKcLX13RxVTKYm-8-kw0IS0gwCG8lQ.j39bY2cxXEASD2LeGwmeH2tDTtYdrd1mGtTsKG8pFI8&dib_tag=se&keywords=The+Week+magazine+subscription&qid=1780330726&sprefix=The%2BWeek%2Bmagazine%2Bsubscription%2Caps%2C210&sr=8-8",
+                  "domain": null
+                }
+              ]
+            },
+            {
+              "type": "amazon_serp",
+              "rank_group": 9,
+              "rank_absolute": 9,
+              "xpath": "/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/div[1]/span[1]/div[1]/div[11]",
+              "domain": "www.amazon.com",
+              "title": "The Week Magazine - January 22, 2021 - \"Insurrection - How Trumpism devolved into domestic terrorism\" (Volume 20, Issue 1010))",
+              "url": "https://www.amazon.com/Week-Magazine-Insurrection-Trumpism-terrorism/dp/B08TW1LKV9/ref=sr_1_9?crid=KQ4R97IVHJCL&dib=eyJ2IjoiMSJ9.tXtUtDAVkTEYmVnqGRzyfG6VqMepHIozEBuEcQfOOjVikw-5UmyGX3WxFhIudEFeT47_4MXUoqibRZnZ0F-k9V_db_i6met6fLjfpCA-j9DVdB4W6KNUTKxlcnGIqj7REqUGnbZOZvD1ytVJl7Fpu0zW0xNytwastKS27dHSdnAAxMUDW6auvCIn8qxl_dgKHp3_A4o2zji6iCKcLX13RxVTKYm-8-kw0IS0gwCG8lQ.j39bY2cxXEASD2LeGwmeH2tDTtYdrd1mGtTsKG8pFI8&dib_tag=se&keywords=The+Week+magazine+subscription&qid=1780330726&sprefix=The%2BWeek%2Bmagazine%2Bsubscription%2Caps%2C210&sr=8-9",
+              "image_url": "https://m.media-amazon.com/images/I/719gbnyPVPL._AC_UY218_.jpg",
+              "bought_past_month": null,
+              "price_from": null,
+              "price_to": null,
+              "currency": null,
+              "special_offers": null,
+              "data_asin": "B08TW1LKV9",
+              "rating": null,
+              "is_amazon_choice": false,
+              "is_best_seller": false,
+              "delivery_info": null,
+              "labels": [
+                {
+                  "type": "amazon_label_element",
+                  "title": "Unknown Binding",
+                  "url": "https://amazon.com/Week-Magazine-Insurrection-Trumpism-terrorism/dp/B08TW1LKV9/ref=sr_1_9?crid=KQ4R97IVHJCL&dib=eyJ2IjoiMSJ9.tXtUtDAVkTEYmVnqGRzyfG6VqMepHIozEBuEcQfOOjVikw-5UmyGX3WxFhIudEFeT47_4MXUoqibRZnZ0F-k9V_db_i6met6fLjfpCA-j9DVdB4W6KNUTKxlcnGIqj7REqUGnbZOZvD1ytVJl7Fpu0zW0xNytwastKS27dHSdnAAxMUDW6auvCIn8qxl_dgKHp3_A4o2zji6iCKcLX13RxVTKYm-8-kw0IS0gwCG8lQ.j39bY2cxXEASD2LeGwmeH2tDTtYdrd1mGtTsKG8pFI8&dib_tag=se&keywords=The+Week+magazine+subscription&qid=1780330726&sprefix=The%2BWeek%2Bmagazine%2Bsubscription%2Caps%2C210&sr=8-9",
+                  "domain": null
+                }
+              ]
+            },
+            {
+              "type": "amazon_serp",
+              "rank_group": 10,
+              "rank_absolute": 10,
+              "xpath": "/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/div[1]/span[1]/div[1]/div[12]",
+              "domain": "www.amazon.com",
+              "title": "The Week Magazine November 29, 2019 | Contortions",
+              "url": "https://www.amazon.com/Week-Magazine-November-2019-Contortions/dp/B081ZMTF9C/ref=sr_1_10?crid=KQ4R97IVHJCL&dib=eyJ2IjoiMSJ9.tXtUtDAVkTEYmVnqGRzyfG6VqMepHIozEBuEcQfOOjVikw-5UmyGX3WxFhIudEFeT47_4MXUoqibRZnZ0F-k9V_db_i6met6fLjfpCA-j9DVdB4W6KNUTKxlcnGIqj7REqUGnbZOZvD1ytVJl7Fpu0zW0xNytwastKS27dHSdnAAxMUDW6auvCIn8qxl_dgKHp3_A4o2zji6iCKcLX13RxVTKYm-8-kw0IS0gwCG8lQ.j39bY2cxXEASD2LeGwmeH2tDTtYdrd1mGtTsKG8pFI8&dib_tag=se&keywords=The+Week+magazine+subscription&qid=1780330726&sprefix=The%2BWeek%2Bmagazine%2Bsubscription%2Caps%2C210&sr=8-10",
+              "image_url": "https://m.media-amazon.com/images/I/91dzDh4FzPL._AC_UY218_.jpg",
+              "bought_past_month": null,
+              "price_from": null,
+              "price_to": null,
+              "currency": null,
+              "special_offers": null,
+              "data_asin": "B081ZMTF9C",
+              "rating": null,
+              "is_amazon_choice": false,
+              "is_best_seller": false,
+              "delivery_info": null,
+              "labels": [
+                {
+                  "type": "amazon_label_element",
+                  "title": "Single Issue Magazine",
+                  "url": "https://amazon.com/Week-Magazine-November-2019-Contortions/dp/B081ZMTF9C/ref=sr_1_10?crid=KQ4R97IVHJCL&dib=eyJ2IjoiMSJ9.tXtUtDAVkTEYmVnqGRzyfG6VqMepHIozEBuEcQfOOjVikw-5UmyGX3WxFhIudEFeT47_4MXUoqibRZnZ0F-k9V_db_i6met6fLjfpCA-j9DVdB4W6KNUTKxlcnGIqj7REqUGnbZOZvD1ytVJl7Fpu0zW0xNytwastKS27dHSdnAAxMUDW6auvCIn8qxl_dgKHp3_A4o2zji6iCKcLX13RxVTKYm-8-kw0IS0gwCG8lQ.j39bY2cxXEASD2LeGwmeH2tDTtYdrd1mGtTsKG8pFI8&dib_tag=se&keywords=The+Week+magazine+subscription&qid=1780330726&sprefix=The%2BWeek%2Bmagazine%2Bsubscription%2Caps%2C210&sr=8-10",
+                  "domain": null
+                }
+              ]
+            },
+            {
+              "type": "amazon_serp",
+              "rank_group": 11,
+              "rank_absolute": 11,
+              "xpath": "/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/div[1]/span[1]/div[1]/div[13]",
+              "domain": "www.amazon.com",
+              "title": "The Week Magazine - June 29, 2018 (Vol. 18, No. 879) - \"Is this America? Why Trump backed down on child-separation policy\"",
+              "url": "https://www.amazon.com/Week-Magazine-America-backed-child-separation/dp/B07Q25KG8D/ref=sr_1_11?crid=KQ4R97IVHJCL&dib=eyJ2IjoiMSJ9.tXtUtDAVkTEYmVnqGRzyfG6VqMepHIozEBuEcQfOOjVikw-5UmyGX3WxFhIudEFeT47_4MXUoqibRZnZ0F-k9V_db_i6met6fLjfpCA-j9DVdB4W6KNUTKxlcnGIqj7REqUGnbZOZvD1ytVJl7Fpu0zW0xNytwastKS27dHSdnAAxMUDW6auvCIn8qxl_dgKHp3_A4o2zji6iCKcLX13RxVTKYm-8-kw0IS0gwCG8lQ.j39bY2cxXEASD2LeGwmeH2tDTtYdrd1mGtTsKG8pFI8&dib_tag=se&keywords=The+Week+magazine+subscription&qid=1780330726&sprefix=The%2BWeek%2Bmagazine%2Bsubscription%2Caps%2C210&sr=8-11",
+              "image_url": "https://m.media-amazon.com/images/I/71QH-+KOUOL._AC_UY218_.jpg",
+              "bought_past_month": null,
+              "price_from": null,
+              "price_to": null,
+              "currency": null,
+              "special_offers": null,
+              "data_asin": "B07Q25KG8D",
+              "rating": null,
+              "is_amazon_choice": false,
+              "is_best_seller": false,
+              "delivery_info": null,
+              "labels": [
+                {
+                  "type": "amazon_label_element",
+                  "title": "Single Issue Magazine",
+                  "url": "https://amazon.com/Week-Magazine-America-backed-child-separation/dp/B07Q25KG8D/ref=sr_1_11?crid=KQ4R97IVHJCL&dib=eyJ2IjoiMSJ9.tXtUtDAVkTEYmVnqGRzyfG6VqMepHIozEBuEcQfOOjVikw-5UmyGX3WxFhIudEFeT47_4MXUoqibRZnZ0F-k9V_db_i6met6fLjfpCA-j9DVdB4W6KNUTKxlcnGIqj7REqUGnbZOZvD1ytVJl7Fpu0zW0xNytwastKS27dHSdnAAxMUDW6auvCIn8qxl_dgKHp3_A4o2zji6iCKcLX13RxVTKYm-8-kw0IS0gwCG8lQ.j39bY2cxXEASD2LeGwmeH2tDTtYdrd1mGtTsKG8pFI8&dib_tag=se&keywords=The+Week+magazine+subscription&qid=1780330726&sprefix=The%2BWeek%2Bmagazine%2Bsubscription%2Caps%2C210&sr=8-11",
+                  "domain": null
+                }
+              ]
+            },
+            {
+              "type": "amazon_serp",
+              "rank_group": 12,
+              "rank_absolute": 12,
+              "xpath": "/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/div[1]/span[1]/div[1]/div[14]",
+              "domain": "www.amazon.com",
+              "title": "The Week Magazine - July 6 / July 13, 2018 (Vol. 18, Issue 880-881) - \"Shunning Sarah: Is the Left justified in treating Trump aides like pariahs?\"",
+              "url": "https://www.amazon.com/Week-Magazine-Shunning-justified-treating/dp/B07PY5DKHD/ref=sr_1_12?crid=KQ4R97IVHJCL&dib=eyJ2IjoiMSJ9.tXtUtDAVkTEYmVnqGRzyfG6VqMepHIozEBuEcQfOOjVikw-5UmyGX3WxFhIudEFeT47_4MXUoqibRZnZ0F-k9V_db_i6met6fLjfpCA-j9DVdB4W6KNUTKxlcnGIqj7REqUGnbZOZvD1ytVJl7Fpu0zW0xNytwastKS27dHSdnAAxMUDW6auvCIn8qxl_dgKHp3_A4o2zji6iCKcLX13RxVTKYm-8-kw0IS0gwCG8lQ.j39bY2cxXEASD2LeGwmeH2tDTtYdrd1mGtTsKG8pFI8&dib_tag=se&keywords=The+Week+magazine+subscription&qid=1780330726&sprefix=The%2BWeek%2Bmagazine%2Bsubscription%2Caps%2C210&sr=8-12",
+              "image_url": "https://m.media-amazon.com/images/I/81sO0bmA2ZL._AC_UY218_.jpg",
+              "bought_past_month": null,
+              "price_from": null,
+              "price_to": null,
+              "currency": null,
+              "special_offers": null,
+              "data_asin": "B07PY5DKHD",
+              "rating": null,
+              "is_amazon_choice": false,
+              "is_best_seller": false,
+              "delivery_info": null,
+              "labels": [
+                {
+                  "type": "amazon_label_element",
+                  "title": "Single Issue Magazine",
+                  "url": "https://amazon.com/Week-Magazine-Shunning-justified-treating/dp/B07PY5DKHD/ref=sr_1_12?crid=KQ4R97IVHJCL&dib=eyJ2IjoiMSJ9.tXtUtDAVkTEYmVnqGRzyfG6VqMepHIozEBuEcQfOOjVikw-5UmyGX3WxFhIudEFeT47_4MXUoqibRZnZ0F-k9V_db_i6met6fLjfpCA-j9DVdB4W6KNUTKxlcnGIqj7REqUGnbZOZvD1ytVJl7Fpu0zW0xNytwastKS27dHSdnAAxMUDW6auvCIn8qxl_dgKHp3_A4o2zji6iCKcLX13RxVTKYm-8-kw0IS0gwCG8lQ.j39bY2cxXEASD2LeGwmeH2tDTtYdrd1mGtTsKG8pFI8&dib_tag=se&keywords=The+Week+magazine+subscription&qid=1780330726&sprefix=The%2BWeek%2Bmagazine%2Bsubscription%2Caps%2C210&sr=8-12",
+                  "domain": null
+                }
+              ]
+            },
+            {
+              "type": "amazon_serp",
+              "rank_group": 13,
+              "rank_absolute": 13,
+              "xpath": "/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/div[1]/span[1]/div[1]/div[15]",
+              "domain": "www.amazon.com",
+              "title": "The Week Magazine - November 11, 2016 - \"Surprise! Could Comey's last-minute email announcement cost Clinton the election?\"",
+              "url": "https://www.amazon.com/Week-Magazine-November-last-minute-announcement/dp/B01MZIMEJ3/ref=sr_1_13?crid=KQ4R97IVHJCL&dib=eyJ2IjoiMSJ9.tXtUtDAVkTEYmVnqGRzyfG6VqMepHIozEBuEcQfOOjVikw-5UmyGX3WxFhIudEFeT47_4MXUoqibRZnZ0F-k9V_db_i6met6fLjfpCA-j9DVdB4W6KNUTKxlcnGIqj7REqUGnbZOZvD1ytVJl7Fpu0zW0xNytwastKS27dHSdnAAxMUDW6auvCIn8qxl_dgKHp3_A4o2zji6iCKcLX13RxVTKYm-8-kw0IS0gwCG8lQ.j39bY2cxXEASD2LeGwmeH2tDTtYdrd1mGtTsKG8pFI8&dib_tag=se&keywords=The+Week+magazine+subscription&qid=1780330726&sprefix=The%2BWeek%2Bmagazine%2Bsubscription%2Caps%2C210&sr=8-13",
+              "image_url": "https://m.media-amazon.com/images/I/41Zkgqj-3nL._AC_UY218_.jpg",
+              "bought_past_month": null,
+              "price_from": 6.99,
+              "price_to": null,
+              "currency": "USD",
+              "special_offers": null,
+              "data_asin": "B01MZIMEJ3",
+              "rating": null,
+              "is_amazon_choice": false,
+              "is_best_seller": false,
+              "delivery_info": {
+                "delivery_message": "$3.99 delivery Jun 6 - 8",
+                "delivery_price": {
+                  "current": 3.99,
+                  "regular": null,
+                  "max_value": null,
+                  "currency": "USD",
+                  "is_price_range": false,
+                  "displayed_price": "$3.99"
+                }
+              },
+              "labels": [
+                {
+                  "type": "amazon_label_element",
+                  "title": "Single Issue Magazine",
+                  "url": "https://amazon.com/Week-Magazine-November-last-minute-announcement/dp/B01MZIMEJ3/ref=sr_1_13?crid=KQ4R97IVHJCL&dib=eyJ2IjoiMSJ9.tXtUtDAVkTEYmVnqGRzyfG6VqMepHIozEBuEcQfOOjVikw-5UmyGX3WxFhIudEFeT47_4MXUoqibRZnZ0F-k9V_db_i6met6fLjfpCA-j9DVdB4W6KNUTKxlcnGIqj7REqUGnbZOZvD1ytVJl7Fpu0zW0xNytwastKS27dHSdnAAxMUDW6auvCIn8qxl_dgKHp3_A4o2zji6iCKcLX13RxVTKYm-8-kw0IS0gwCG8lQ.j39bY2cxXEASD2LeGwmeH2tDTtYdrd1mGtTsKG8pFI8&dib_tag=se&keywords=The+Week+magazine+subscription&qid=1780330726&sprefix=The%2BWeek%2Bmagazine%2Bsubscription%2Caps%2C210&sr=8-13",
+                  "domain": null
+                }
+              ]
+            },
+            {
+              "type": "amazon_serp",
+              "rank_group": 14,
+              "rank_absolute": 14,
+              "xpath": "/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/div[1]/span[1]/div[1]/div[16]",
+              "domain": "www.amazon.com",
+              "title": "The Week Magazine Subscription Gift Pack ( 26 issues)",
+              "url": "https://www.amazon.com/Week-Magazine-Subscription-Gift-issues/dp/1906372063/ref=sr_1_14?crid=KQ4R97IVHJCL&dib=eyJ2IjoiMSJ9.tXtUtDAVkTEYmVnqGRzyfG6VqMepHIozEBuEcQfOOjVikw-5UmyGX3WxFhIudEFeT47_4MXUoqibRZnZ0F-k9V_db_i6met6fLjfpCA-j9DVdB4W6KNUTKxlcnGIqj7REqUGnbZOZvD1ytVJl7Fpu0zW0xNytwastKS27dHSdnAAxMUDW6auvCIn8qxl_dgKHp3_A4o2zji6iCKcLX13RxVTKYm-8-kw0IS0gwCG8lQ.j39bY2cxXEASD2LeGwmeH2tDTtYdrd1mGtTsKG8pFI8&dib_tag=se&keywords=The+Week+magazine+subscription&qid=1780330726&sprefix=The%2BWeek%2Bmagazine%2Bsubscription%2Caps%2C210&sr=8-14",
+              "image_url": "https://m.media-amazon.com/images/I/51n6GRZ7RzL._AC_UY218_.jpg",
+              "bought_past_month": null,
+              "price_from": null,
+              "price_to": null,
+              "currency": null,
+              "special_offers": null,
+              "data_asin": "1906372063",
+              "rating": {
+                "type": "rating_element",
+                "position": "left",
+                "rating_type": "Max5",
+                "value": 4.5,
+                "votes_count": 2,
+                "rating_max": 5
+              },
+              "is_amazon_choice": false,
+              "is_best_seller": false,
+              "delivery_info": null,
+              "labels": [
+                {
+                  "type": "amazon_label_element",
+                  "title": "Unbound",
+                  "url": "https://amazon.com/Week-Magazine-Subscription-Gift-issues/dp/1906372063/ref=sr_1_14?crid=KQ4R97IVHJCL&dib=eyJ2IjoiMSJ9.tXtUtDAVkTEYmVnqGRzyfG6VqMepHIozEBuEcQfOOjVikw-5UmyGX3WxFhIudEFeT47_4MXUoqibRZnZ0F-k9V_db_i6met6fLjfpCA-j9DVdB4W6KNUTKxlcnGIqj7REqUGnbZOZvD1ytVJl7Fpu0zW0xNytwastKS27dHSdnAAxMUDW6auvCIn8qxl_dgKHp3_A4o2zji6iCKcLX13RxVTKYm-8-kw0IS0gwCG8lQ.j39bY2cxXEASD2LeGwmeH2tDTtYdrd1mGtTsKG8pFI8&dib_tag=se&keywords=The+Week+magazine+subscription&qid=1780330726&sprefix=The%2BWeek%2Bmagazine%2Bsubscription%2Caps%2C210&sr=8-14",
+                  "domain": null
+                }
+              ]
+            },
+            {
+              "type": "amazon_serp",
+              "rank_group": 15,
+              "rank_absolute": 15,
+              "xpath": "/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/div[1]/span[1]/div[1]/div[17]",
+              "domain": "www.amazon.com",
+              "title": "The Week - Magazine Subscription from MagazineLine (Save 66%)",
+              "url": "https://www.amazon.com/Week-Magazine-Subscription-MagazineLine-Save/dp/B0133G5MWI/ref=sr_1_15?crid=KQ4R97IVHJCL&dib=eyJ2IjoiMSJ9.tXtUtDAVkTEYmVnqGRzyfG6VqMepHIozEBuEcQfOOjVikw-5UmyGX3WxFhIudEFeT47_4MXUoqibRZnZ0F-k9V_db_i6met6fLjfpCA-j9DVdB4W6KNUTKxlcnGIqj7REqUGnbZOZvD1ytVJl7Fpu0zW0xNytwastKS27dHSdnAAxMUDW6auvCIn8qxl_dgKHp3_A4o2zji6iCKcLX13RxVTKYm-8-kw0IS0gwCG8lQ.j39bY2cxXEASD2LeGwmeH2tDTtYdrd1mGtTsKG8pFI8&dib_tag=se&keywords=The+Week+magazine+subscription&qid=1780330726&sprefix=The%2BWeek%2Bmagazine%2Bsubscription%2Caps%2C210&sr=8-15",
+              "image_url": "https://m.media-amazon.com/images/I/51Gv2TyKuAL._AC_UY218_.jpg",
+              "bought_past_month": null,
+              "price_from": null,
+              "price_to": null,
+              "currency": null,
+              "special_offers": null,
+              "data_asin": "B0133G5MWI",
+              "rating": null,
+              "is_amazon_choice": false,
+              "is_best_seller": false,
+              "delivery_info": null,
+              "labels": [
+                {
+                  "type": "amazon_label_element",
+                  "title": "Print Magazine",
+                  "url": "https://amazon.com/Week-Magazine-Subscription-MagazineLine-Save/dp/B0133G5MWI/ref=sr_1_15?crid=KQ4R97IVHJCL&dib=eyJ2IjoiMSJ9.tXtUtDAVkTEYmVnqGRzyfG6VqMepHIozEBuEcQfOOjVikw-5UmyGX3WxFhIudEFeT47_4MXUoqibRZnZ0F-k9V_db_i6met6fLjfpCA-j9DVdB4W6KNUTKxlcnGIqj7REqUGnbZOZvD1ytVJl7Fpu0zW0xNytwastKS27dHSdnAAxMUDW6auvCIn8qxl_dgKHp3_A4o2zji6iCKcLX13RxVTKYm-8-kw0IS0gwCG8lQ.j39bY2cxXEASD2LeGwmeH2tDTtYdrd1mGtTsKG8pFI8&dib_tag=se&keywords=The+Week+magazine+subscription&qid=1780330726&sprefix=The%2BWeek%2Bmagazine%2Bsubscription%2Caps%2C210&sr=8-15",
+                  "domain": null
+                }
+              ]
+            },
+            {
+              "type": "amazon_serp",
+              "rank_group": 16,
+              "rank_absolute": 16,
+              "xpath": "/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/div[1]/span[1]/div[1]/div[18]",
+              "domain": "www.amazon.com",
+              "title": "Business Week magazine, July 31, 2000",
+              "url": "https://www.amazon.com/Steve-Jobs-Apple-Business-magazine-2000-APPLE-Yes-Congrats/dp/B005U5IUI4/ref=sr_1_16?crid=KQ4R97IVHJCL&dib=eyJ2IjoiMSJ9.tXtUtDAVkTEYmVnqGRzyfG6VqMepHIozEBuEcQfOOjVikw-5UmyGX3WxFhIudEFeT47_4MXUoqibRZnZ0F-k9V_db_i6met6fLjfpCA-j9DVdB4W6KNUTKxlcnGIqj7REqUGnbZOZvD1ytVJl7Fpu0zW0xNytwastKS27dHSdnAAxMUDW6auvCIn8qxl_dgKHp3_A4o2zji6iCKcLX13RxVTKYm-8-kw0IS0gwCG8lQ.j39bY2cxXEASD2LeGwmeH2tDTtYdrd1mGtTsKG8pFI8&dib_tag=se&keywords=The+Week+magazine+subscription&qid=1780330726&sprefix=The%2BWeek%2Bmagazine%2Bsubscription%2Caps%2C210&sr=8-16",
+              "image_url": "https://m.media-amazon.com/images/I/91nS52heOTL._AC_UY218_.jpg",
+              "bought_past_month": null,
+              "price_from": null,
+              "price_to": null,
+              "currency": null,
+              "special_offers": null,
+              "data_asin": "B005U5IUI4",
+              "rating": {
+                "type": "rating_element",
+                "position": "left",
+                "rating_type": "Max5",
+                "value": 4.4,
+                "votes_count": 15,
+                "rating_max": 5
+              },
+              "is_amazon_choice": false,
+              "is_best_seller": false,
+              "delivery_info": null,
+              "labels": [
+                {
+                  "type": "amazon_label_element",
+                  "title": "Paperback",
+                  "url": "https://amazon.com/Steve-Jobs-Apple-Business-magazine-2000-APPLE-Yes-Congrats/dp/B005U5IUI4/ref=sr_1_16?crid=KQ4R97IVHJCL&dib=eyJ2IjoiMSJ9.tXtUtDAVkTEYmVnqGRzyfG6VqMepHIozEBuEcQfOOjVikw-5UmyGX3WxFhIudEFeT47_4MXUoqibRZnZ0F-k9V_db_i6met6fLjfpCA-j9DVdB4W6KNUTKxlcnGIqj7REqUGnbZOZvD1ytVJl7Fpu0zW0xNytwastKS27dHSdnAAxMUDW6auvCIn8qxl_dgKHp3_A4o2zji6iCKcLX13RxVTKYm-8-kw0IS0gwCG8lQ.j39bY2cxXEASD2LeGwmeH2tDTtYdrd1mGtTsKG8pFI8&dib_tag=se&keywords=The+Week+magazine+subscription&qid=1780330726&sprefix=The%2BWeek%2Bmagazine%2Bsubscription%2Caps%2C210&sr=8-16",
+                  "domain": null
+                }
+              ]
+            },
+            {
+              "type": "related_searches",
+              "rank_group": 1,
+              "rank_absolute": 17,
+              "position": "left",
+              "xpath": "/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/div[1]/span[1]/div[1]/div[19]/div[1]/div[1]/div[1]/div[1]/div[1]/div[2]/span[1]/div[1]/div[1]/div[1]/a[1]",
+              "items": [
+                {
+                  "type": "related_searches_element",
+                  "title": "the week magazine",
+                  "url": "https://www.amazon.com/s?k=the+week+magazine&ref=rsl_sug_0_0&pd_rd_w=6mmcn&content-id=amzn1.sym.3be64970-3b95-4a6d-a45d-78077a3ff871:amzn1.sym.3be64970-3b95-4a6d-a45d-78077a3ff871&pf_rd_p=3be64970-3b95-4a6d-a45d-78077a3ff871&pf_rd_r=WBBB8VPAWFHADBWMHG11&pd_rd_wg=xYcpF&pd_rd_r=280654eb-923d-4a44-9af4-035b09f7bacc&qid=1780330726",
+                  "image_alt": null,
+                  "image_url": null
+                },
+                {
+                  "type": "related_searches_element",
+                  "title": "the week magazine discount subscription",
+                  "url": "https://www.amazon.com/s?k=the+week+magazine+discount+subscription&ref=rsl_sug_0_3&pd_rd_w=6mmcn&content-id=amzn1.sym.3be64970-3b95-4a6d-a45d-78077a3ff871:amzn1.sym.3be64970-3b95-4a6d-a45d-78077a3ff871&pf_rd_p=3be64970-3b95-4a6d-a45d-78077a3ff871&pf_rd_r=WBBB8VPAWFHADBWMHG11&pd_rd_wg=xYcpF&pd_rd_r=280654eb-923d-4a44-9af4-035b09f7bacc&qid=1780330726",
+                  "image_alt": null,
+                  "image_url": null
+                },
+                {
+                  "type": "related_searches_element",
+                  "title": "the week magazine print subscription",
+                  "url": "https://www.amazon.com/s?k=the+week+magazine+print+subscription&ref=rsl_sug_0_1&pd_rd_w=6mmcn&content-id=amzn1.sym.3be64970-3b95-4a6d-a45d-78077a3ff871:amzn1.sym.3be64970-3b95-4a6d-a45d-78077a3ff871&pf_rd_p=3be64970-3b95-4a6d-a45d-78077a3ff871&pf_rd_r=WBBB8VPAWFHADBWMHG11&pd_rd_wg=xYcpF&pd_rd_r=280654eb-923d-4a44-9af4-035b09f7bacc&qid=1780330726",
+                  "image_alt": null,
+                  "image_url": null
+                },
+                {
+                  "type": "related_searches_element",
+                  "title": "magazines subscriptions",
+                  "url": "https://www.amazon.com/s?k=magazines+subscriptions&ref=rsl_sug_0_4&pd_rd_w=6mmcn&content-id=amzn1.sym.3be64970-3b95-4a6d-a45d-78077a3ff871:amzn1.sym.3be64970-3b95-4a6d-a45d-78077a3ff871&pf_rd_p=3be64970-3b95-4a6d-a45d-78077a3ff871&pf_rd_r=WBBB8VPAWFHADBWMHG11&pd_rd_wg=xYcpF&pd_rd_r=280654eb-923d-4a44-9af4-035b09f7bacc&qid=1780330726",
+                  "image_alt": null,
+                  "image_url": null
+                },
+                {
+                  "type": "related_searches_element",
+                  "title": "the week magazine subscriptions print",
+                  "url": "https://www.amazon.com/s?k=the+week+magazine+subscriptions+print&ref=rsl_sug_0_2&pd_rd_w=6mmcn&content-id=amzn1.sym.3be64970-3b95-4a6d-a45d-78077a3ff871:amzn1.sym.3be64970-3b95-4a6d-a45d-78077a3ff871&pf_rd_p=3be64970-3b95-4a6d-a45d-78077a3ff871&pf_rd_r=WBBB8VPAWFHADBWMHG11&pd_rd_wg=xYcpF&pd_rd_r=280654eb-923d-4a44-9af4-035b09f7bacc&qid=1780330726",
+                  "image_alt": null,
+                  "image_url": null
+                },
+                {
+                  "type": "related_searches_element",
+                  "title": "magazine print subscription",
+                  "url": "https://www.amazon.com/s?k=magazine+print+subscription&ref=rsl_sug_0_5&pd_rd_w=6mmcn&content-id=amzn1.sym.3be64970-3b95-4a6d-a45d-78077a3ff871:amzn1.sym.3be64970-3b95-4a6d-a45d-78077a3ff871&pf_rd_p=3be64970-3b95-4a6d-a45d-78077a3ff871&pf_rd_r=WBBB8VPAWFHADBWMHG11&pd_rd_wg=xYcpF&pd_rd_r=280654eb-923d-4a44-9af4-035b09f7bacc&qid=1780330726",
+                  "image_alt": null,
+                  "image_url": null
+                }
+              ]
+            },
+            {
+              "type": "amazon_serp",
+              "rank_group": 17,
+              "rank_absolute": 18,
+              "xpath": "/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/div[1]/span[1]/div[1]/div[2]",
+              "domain": "www.amazon.com",
+              "title": "The Week Magazine - January 12, 2018 (Vol. 18, No. 855) -\"Sweet surrender. Why mainstream Republicans are now fawning over President Trump",
+              "url": "https://www.amazon.com/Week-Magazine-surrender-mainstream-Republicans/dp/B079Q518ZX/ref=sr_1_17?crid=KQ4R97IVHJCL&dib=eyJ2IjoiMSJ9.95A2osZ6owW7iXq-osEfOMdNjzCiwnU4C-mWyGV8SeOgu5Am5FzO8D4DaqZrsyMHMRAs2eDt-wQmlEzZ3A-dbJH6w72HtLpJylLGRyeN8t__xAyXWFZU4zK00o0p5q9NA25qe3opeDYlprvw4JJOMeK677PXw1W6iQ1gY5YiYXQ-SPE3ChjyX8w3R7srwa6EwkLHrOC_rUSdIftXETVS-FegNFYThYO4KcUyCaBS1GM.iDnC9v8-WHgEL4Bl4JINeAEqZZgQut1Dkrk9qodP5ZI&dib_tag=se&keywords=The+Week+magazine+subscription&qid=1780330727&sprefix=The%2BWeek%2Bmagazine%2Bsubscription%2Caps%2C210&xpid=bbwn7pDrUhV_Z",
+              "image_url": "https://m.media-amazon.com/images/I/61eLhGQtsAL._AC_UY218_.jpg",
+              "bought_past_month": null,
+              "price_from": null,
+              "price_to": null,
+              "currency": null,
+              "special_offers": null,
+              "data_asin": "B079Q518ZX",
+              "rating": {
+                "type": "rating_element",
+                "position": "left",
+                "rating_type": "Max5",
+                "value": 3.5,
+                "votes_count": 2,
+                "rating_max": 5
+              },
+              "is_amazon_choice": false,
+              "is_best_seller": false,
+              "delivery_info": null,
+              "labels": [
+                {
+                  "type": "amazon_label_element",
+                  "title": "Single Issue Magazine",
+                  "url": "https://amazon.com/Week-Magazine-surrender-mainstream-Republicans/dp/B079Q518ZX/ref=sr_1_17?crid=KQ4R97IVHJCL&dib=eyJ2IjoiMSJ9.95A2osZ6owW7iXq-osEfOMdNjzCiwnU4C-mWyGV8SeOgu5Am5FzO8D4DaqZrsyMHMRAs2eDt-wQmlEzZ3A-dbJH6w72HtLpJylLGRyeN8t__xAyXWFZU4zK00o0p5q9NA25qe3opeDYlprvw4JJOMeK677PXw1W6iQ1gY5YiYXQ-SPE3ChjyX8w3R7srwa6EwkLHrOC_rUSdIftXETVS-FegNFYThYO4KcUyCaBS1GM.iDnC9v8-WHgEL4Bl4JINeAEqZZgQut1Dkrk9qodP5ZI&dib_tag=se&keywords=The+Week+magazine+subscription&qid=1780330727&sprefix=The%2BWeek%2Bmagazine%2Bsubscription%2Caps%2C210&xpid=bbwn7pDrUhV_Z",
+                  "domain": null
+                }
+              ]
+            },
+            {
+              "type": "amazon_serp",
+              "rank_group": 18,
+              "rank_absolute": 19,
+              "xpath": "/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/div[1]/span[1]/div[1]/div[3]",
+              "domain": "www.amazon.com",
+              "title": "The Week Magazine - June 17, 2022: Biden's Burdens",
+              "url": "https://www.amazon.com/Week-Magazine-June-Bidens-Burdens/dp/B0CM4BTJYK/ref=sr_1_18?crid=KQ4R97IVHJCL&dib=eyJ2IjoiMSJ9.95A2osZ6owW7iXq-osEfOMdNjzCiwnU4C-mWyGV8SeOgu5Am5FzO8D4DaqZrsyMHMRAs2eDt-wQmlEzZ3A-dbJH6w72HtLpJylLGRyeN8t__xAyXWFZU4zK00o0p5q9NA25qe3opeDYlprvw4JJOMeK677PXw1W6iQ1gY5YiYXQ-SPE3ChjyX8w3R7srwa6EwkLHrOC_rUSdIftXETVS-FegNFYThYO4KcUyCaBS1GM.iDnC9v8-WHgEL4Bl4JINeAEqZZgQut1Dkrk9qodP5ZI&dib_tag=se&keywords=The+Week+magazine+subscription&qid=1780330727&sprefix=The%2BWeek%2Bmagazine%2Bsubscription%2Caps%2C210&xpid=bbwn7pDrUhV_Z",
+              "image_url": "https://m.media-amazon.com/images/I/616sZwyJUYL._AC_UY218_.jpg",
+              "bought_past_month": null,
+              "price_from": null,
+              "price_to": null,
+              "currency": null,
+              "special_offers": null,
+              "data_asin": "B0CM4BTJYK",
+              "rating": null,
+              "is_amazon_choice": false,
+              "is_best_seller": false,
+              "delivery_info": null,
+              "labels": [
+                {
+                  "type": "amazon_label_element",
+                  "title": "Staple Bound",
+                  "url": "https://amazon.com/Week-Magazine-June-Bidens-Burdens/dp/B0CM4BTJYK/ref=sr_1_18?crid=KQ4R97IVHJCL&dib=eyJ2IjoiMSJ9.95A2osZ6owW7iXq-osEfOMdNjzCiwnU4C-mWyGV8SeOgu5Am5FzO8D4DaqZrsyMHMRAs2eDt-wQmlEzZ3A-dbJH6w72HtLpJylLGRyeN8t__xAyXWFZU4zK00o0p5q9NA25qe3opeDYlprvw4JJOMeK677PXw1W6iQ1gY5YiYXQ-SPE3ChjyX8w3R7srwa6EwkLHrOC_rUSdIftXETVS-FegNFYThYO4KcUyCaBS1GM.iDnC9v8-WHgEL4Bl4JINeAEqZZgQut1Dkrk9qodP5ZI&dib_tag=se&keywords=The+Week+magazine+subscription&qid=1780330727&sprefix=The%2BWeek%2Bmagazine%2Bsubscription%2Caps%2C210&xpid=bbwn7pDrUhV_Z",
+                  "domain": null
+                }
+              ]
+            },
+            {
+              "type": "amazon_serp",
+              "rank_group": 19,
+              "rank_absolute": 20,
+              "xpath": "/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/div[1]/span[1]/div[1]/div[4]",
+              "domain": "www.amazon.com",
+              "title": "The Week Magazine April 3, 2020 | How Long will it Last?",
+              "url": "https://www.amazon.com/Week-Magazine-April-2020-Long/dp/B086JNQC6B/ref=sr_1_19?crid=KQ4R97IVHJCL&dib=eyJ2IjoiMSJ9.95A2osZ6owW7iXq-osEfOMdNjzCiwnU4C-mWyGV8SeOgu5Am5FzO8D4DaqZrsyMHMRAs2eDt-wQmlEzZ3A-dbJH6w72HtLpJylLGRyeN8t__xAyXWFZU4zK00o0p5q9NA25qe3opeDYlprvw4JJOMeK677PXw1W6iQ1gY5YiYXQ-SPE3ChjyX8w3R7srwa6EwkLHrOC_rUSdIftXETVS-FegNFYThYO4KcUyCaBS1GM.iDnC9v8-WHgEL4Bl4JINeAEqZZgQut1Dkrk9qodP5ZI&dib_tag=se&keywords=The+Week+magazine+subscription&qid=1780330727&sprefix=The%2BWeek%2Bmagazine%2Bsubscription%2Caps%2C210&xpid=bbwn7pDrUhV_Z",
+              "image_url": "https://m.media-amazon.com/images/I/91XuaWxw4SL._AC_UY218_.jpg",
+              "bought_past_month": null,
+              "price_from": null,
+              "price_to": null,
+              "currency": null,
+              "special_offers": null,
+              "data_asin": "B086JNQC6B",
+              "rating": {
+                "type": "rating_element",
+                "position": "left",
+                "rating_type": "Max5",
+                "value": 5,
+                "votes_count": 1,
+                "rating_max": 5
+              },
+              "is_amazon_choice": false,
+              "is_best_seller": false,
+              "delivery_info": null,
+              "labels": [
+                {
+                  "type": "amazon_label_element",
+                  "title": "Single Issue Magazine",
+                  "url": "https://amazon.com/Week-Magazine-April-2020-Long/dp/B086JNQC6B/ref=sr_1_19?crid=KQ4R97IVHJCL&dib=eyJ2IjoiMSJ9.95A2osZ6owW7iXq-osEfOMdNjzCiwnU4C-mWyGV8SeOgu5Am5FzO8D4DaqZrsyMHMRAs2eDt-wQmlEzZ3A-dbJH6w72HtLpJylLGRyeN8t__xAyXWFZU4zK00o0p5q9NA25qe3opeDYlprvw4JJOMeK677PXw1W6iQ1gY5YiYXQ-SPE3ChjyX8w3R7srwa6EwkLHrOC_rUSdIftXETVS-FegNFYThYO4KcUyCaBS1GM.iDnC9v8-WHgEL4Bl4JINeAEqZZgQut1Dkrk9qodP5ZI&dib_tag=se&keywords=The+Week+magazine+subscription&qid=1780330727&sprefix=The%2BWeek%2Bmagazine%2Bsubscription%2Caps%2C210&xpid=bbwn7pDrUhV_Z",
+                  "domain": null
+                }
+              ]
+            },
+            {
+              "type": "amazon_serp",
+              "rank_group": 20,
+              "rank_absolute": 21,
+              "xpath": "/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/div[1]/span[1]/div[1]/div[6]",
+              "domain": "www.amazon.com",
+              "title": "The Week Magazine July 26 2019 | Arsonist in Chief",
+              "url": "https://www.amazon.com/Week-Magazine-July-Arsonist-Chief/dp/B07VHFFQ9M/ref=sr_1_20?crid=KQ4R97IVHJCL&dib=eyJ2IjoiMSJ9.95A2osZ6owW7iXq-osEfOMdNjzCiwnU4C-mWyGV8SeOgu5Am5FzO8D4DaqZrsyMHMRAs2eDt-wQmlEzZ3A-dbJH6w72HtLpJylLGRyeN8t__xAyXWFZU4zK00o0p5q9NA25qe3opeDYlprvw4JJOMeK677PXw1W6iQ1gY5YiYXQ-SPE3ChjyX8w3R7srwa6EwkLHrOC_rUSdIftXETVS-FegNFYThYO4KcUyCaBS1GM.iDnC9v8-WHgEL4Bl4JINeAEqZZgQut1Dkrk9qodP5ZI&dib_tag=se&keywords=The+Week+magazine+subscription&qid=1780330727&sprefix=The%2BWeek%2Bmagazine%2Bsubscription%2Caps%2C210&xpid=bbwn7pDrUhV_Z",
+              "image_url": "https://m.media-amazon.com/images/I/81mJclYhDdL._AC_UY218_.jpg",
+              "bought_past_month": null,
+              "price_from": null,
+              "price_to": null,
+              "currency": null,
+              "special_offers": null,
+              "data_asin": "B07VHFFQ9M",
+              "rating": {
+                "type": "rating_element",
+                "position": "left",
+                "rating_type": "Max5",
+                "value": 5,
+                "votes_count": 1,
+                "rating_max": 5
+              },
+              "is_amazon_choice": false,
+              "is_best_seller": false,
+              "delivery_info": null,
+              "labels": [
+                {
+                  "type": "amazon_label_element",
+                  "title": "Single Issue Magazine",
+                  "url": "https://amazon.com/Week-Magazine-July-Arsonist-Chief/dp/B07VHFFQ9M/ref=sr_1_20?crid=KQ4R97IVHJCL&dib=eyJ2IjoiMSJ9.95A2osZ6owW7iXq-osEfOMdNjzCiwnU4C-mWyGV8SeOgu5Am5FzO8D4DaqZrsyMHMRAs2eDt-wQmlEzZ3A-dbJH6w72HtLpJylLGRyeN8t__xAyXWFZU4zK00o0p5q9NA25qe3opeDYlprvw4JJOMeK677PXw1W6iQ1gY5YiYXQ-SPE3ChjyX8w3R7srwa6EwkLHrOC_rUSdIftXETVS-FegNFYThYO4KcUyCaBS1GM.iDnC9v8-WHgEL4Bl4JINeAEqZZgQut1Dkrk9qodP5ZI&dib_tag=se&keywords=The+Week+magazine+subscription&qid=1780330727&sprefix=The%2BWeek%2Bmagazine%2Bsubscription%2Caps%2C210&xpid=bbwn7pDrUhV_Z",
+                  "domain": null
+                }
+              ]
+            },
+            {
+              "type": "amazon_serp",
+              "rank_group": 21,
+              "rank_absolute": 22,
+              "xpath": "/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/div[1]/span[1]/div[1]/div[7]",
+              "domain": "www.amazon.com",
+              "title": "The Week Junior Annual 2017",
+              "url": "https://www.amazon.com/The-Week-Junior-Annual-2017/dp/1781065551/ref=sr_1_21?crid=KQ4R97IVHJCL&dib=eyJ2IjoiMSJ9.95A2osZ6owW7iXq-osEfOMdNjzCiwnU4C-mWyGV8SeOgu5Am5FzO8D4DaqZrsyMHMRAs2eDt-wQmlEzZ3A-dbJH6w72HtLpJylLGRyeN8t__xAyXWFZU4zK00o0p5q9NA25qe3opeDYlprvw4JJOMeK677PXw1W6iQ1gY5YiYXQ-SPE3ChjyX8w3R7srwa6EwkLHrOC_rUSdIftXETVS-FegNFYThYO4KcUyCaBS1GM.iDnC9v8-WHgEL4Bl4JINeAEqZZgQut1Dkrk9qodP5ZI&dib_tag=se&keywords=The+Week+magazine+subscription&qid=1780330727&sprefix=The%2BWeek%2Bmagazine%2Bsubscription%2Caps%2C210&xpid=bbwn7pDrUhV_Z",
+              "image_url": "https://m.media-amazon.com/images/I/91cKMfzvnBL._AC_UY218_.jpg",
+              "bought_past_month": null,
+              "price_from": null,
+              "price_to": null,
+              "currency": null,
+              "special_offers": null,
+              "data_asin": "1781065551",
+              "rating": {
+                "type": "rating_element",
+                "position": "left",
+                "rating_type": "Max5",
+                "value": 4.4,
+                "votes_count": 21,
+                "rating_max": 5
+              },
+              "is_amazon_choice": false,
+              "is_best_seller": false,
+              "delivery_info": null,
+              "labels": [
+                {
+                  "type": "amazon_label_element",
+                  "title": "Paperback",
+                  "url": "https://amazon.com/The-Week-Junior-Annual-2017/dp/1781065551/ref=sr_1_21?crid=KQ4R97IVHJCL&dib=eyJ2IjoiMSJ9.95A2osZ6owW7iXq-osEfOMdNjzCiwnU4C-mWyGV8SeOgu5Am5FzO8D4DaqZrsyMHMRAs2eDt-wQmlEzZ3A-dbJH6w72HtLpJylLGRyeN8t__xAyXWFZU4zK00o0p5q9NA25qe3opeDYlprvw4JJOMeK677PXw1W6iQ1gY5YiYXQ-SPE3ChjyX8w3R7srwa6EwkLHrOC_rUSdIftXETVS-FegNFYThYO4KcUyCaBS1GM.iDnC9v8-WHgEL4Bl4JINeAEqZZgQut1Dkrk9qodP5ZI&dib_tag=se&keywords=The+Week+magazine+subscription&qid=1780330727&sprefix=The%2BWeek%2Bmagazine%2Bsubscription%2Caps%2C210&xpid=bbwn7pDrUhV_Z",
+                  "domain": null
+                }
+              ]
+            },
+            {
+              "type": "amazon_serp",
+              "rank_group": 22,
+              "rank_absolute": 23,
+              "xpath": "/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/div[1]/span[1]/div[1]/div[8]",
+              "domain": "www.amazon.com",
+              "title": "The Week Magazine - October 21, 2016 - \"A Sinking Ship: Can the Republican lawmakers save themselves by abandoning Trump?\"",
+              "url": "https://www.amazon.com/Week-Magazine-Republican-themselves-abandoning/dp/B01MV0ZWKW/ref=sr_1_22?crid=KQ4R97IVHJCL&dib=eyJ2IjoiMSJ9.95A2osZ6owW7iXq-osEfOMdNjzCiwnU4C-mWyGV8SeOgu5Am5FzO8D4DaqZrsyMHMRAs2eDt-wQmlEzZ3A-dbJH6w72HtLpJylLGRyeN8t__xAyXWFZU4zK00o0p5q9NA25qe3opeDYlprvw4JJOMeK677PXw1W6iQ1gY5YiYXQ-SPE3ChjyX8w3R7srwa6EwkLHrOC_rUSdIftXETVS-FegNFYThYO4KcUyCaBS1GM.iDnC9v8-WHgEL4Bl4JINeAEqZZgQut1Dkrk9qodP5ZI&dib_tag=se&keywords=The+Week+magazine+subscription&qid=1780330727&sprefix=The%2BWeek%2Bmagazine%2Bsubscription%2Caps%2C210&xpid=bbwn7pDrUhV_Z",
+              "image_url": "https://m.media-amazon.com/images/I/41Rmtiu-F+L._AC_UY218_.jpg",
+              "bought_past_month": null,
+              "price_from": null,
+              "price_to": null,
+              "currency": null,
+              "special_offers": null,
+              "data_asin": "B01MV0ZWKW",
+              "rating": null,
+              "is_amazon_choice": false,
+              "is_best_seller": false,
+              "delivery_info": null,
+              "labels": [
+                {
+                  "type": "amazon_label_element",
+                  "title": "Single Issue Magazine",
+                  "url": "https://amazon.com/Week-Magazine-Republican-themselves-abandoning/dp/B01MV0ZWKW/ref=sr_1_22?crid=KQ4R97IVHJCL&dib=eyJ2IjoiMSJ9.95A2osZ6owW7iXq-osEfOMdNjzCiwnU4C-mWyGV8SeOgu5Am5FzO8D4DaqZrsyMHMRAs2eDt-wQmlEzZ3A-dbJH6w72HtLpJylLGRyeN8t__xAyXWFZU4zK00o0p5q9NA25qe3opeDYlprvw4JJOMeK677PXw1W6iQ1gY5YiYXQ-SPE3ChjyX8w3R7srwa6EwkLHrOC_rUSdIftXETVS-FegNFYThYO4KcUyCaBS1GM.iDnC9v8-WHgEL4Bl4JINeAEqZZgQut1Dkrk9qodP5ZI&dib_tag=se&keywords=The+Week+magazine+subscription&qid=1780330727&sprefix=The%2BWeek%2Bmagazine%2Bsubscription%2Caps%2C210&xpid=bbwn7pDrUhV_Z",
+                  "domain": null
+                }
+              ]
+            },
+            {
+              "type": "amazon_serp",
+              "rank_group": 23,
+              "rank_absolute": 24,
+              "xpath": "/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/div[1]/span[1]/div[1]/div[9]",
+              "domain": "www.amazon.com",
+              "title": "Week Junior Annual 2018",
+              "url": "https://www.amazon.com/The-Week-Junior-Annual-2018/dp/1781065594/ref=sr_1_23?crid=KQ4R97IVHJCL&dib=eyJ2IjoiMSJ9.95A2osZ6owW7iXq-osEfOMdNjzCiwnU4C-mWyGV8SeOgu5Am5FzO8D4DaqZrsyMHMRAs2eDt-wQmlEzZ3A-dbJH6w72HtLpJylLGRyeN8t__xAyXWFZU4zK00o0p5q9NA25qe3opeDYlprvw4JJOMeK677PXw1W6iQ1gY5YiYXQ-SPE3ChjyX8w3R7srwa6EwkLHrOC_rUSdIftXETVS-FegNFYThYO4KcUyCaBS1GM.iDnC9v8-WHgEL4Bl4JINeAEqZZgQut1Dkrk9qodP5ZI&dib_tag=se&keywords=The+Week+magazine+subscription&qid=1780330727&sprefix=The%2BWeek%2Bmagazine%2Bsubscription%2Caps%2C210&xpid=bbwn7pDrUhV_Z",
+              "image_url": "https://m.media-amazon.com/images/I/81DEVg0iqqL._AC_UY218_.jpg",
+              "bought_past_month": null,
+              "price_from": null,
+              "price_to": null,
+              "currency": null,
+              "special_offers": null,
+              "data_asin": "1781065594",
+              "rating": {
+                "type": "rating_element",
+                "position": "left",
+                "rating_type": "Max5",
+                "value": 4.7,
+                "votes_count": 27,
+                "rating_max": 5
+              },
+              "is_amazon_choice": false,
+              "is_best_seller": false,
+              "delivery_info": null,
+              "labels": [
+                {
+                  "type": "amazon_label_element",
+                  "title": "Paperback",
+                  "url": "https://amazon.com/The-Week-Junior-Annual-2018/dp/1781065594/ref=sr_1_23?crid=KQ4R97IVHJCL&dib=eyJ2IjoiMSJ9.95A2osZ6owW7iXq-osEfOMdNjzCiwnU4C-mWyGV8SeOgu5Am5FzO8D4DaqZrsyMHMRAs2eDt-wQmlEzZ3A-dbJH6w72HtLpJylLGRyeN8t__xAyXWFZU4zK00o0p5q9NA25qe3opeDYlprvw4JJOMeK677PXw1W6iQ1gY5YiYXQ-SPE3ChjyX8w3R7srwa6EwkLHrOC_rUSdIftXETVS-FegNFYThYO4KcUyCaBS1GM.iDnC9v8-WHgEL4Bl4JINeAEqZZgQut1Dkrk9qodP5ZI&dib_tag=se&keywords=The+Week+magazine+subscription&qid=1780330727&sprefix=The%2BWeek%2Bmagazine%2Bsubscription%2Caps%2C210&xpid=bbwn7pDrUhV_Z",
+                  "domain": null
+                }
+              ]
+            },
+            {
+              "type": "amazon_serp",
+              "rank_group": 24,
+              "rank_absolute": 25,
+              "xpath": "/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/div[1]/span[1]/div[1]/div[10]",
+              "domain": "www.amazon.com",
+              "title": "The Week Magazine February 21, 2020 | A Party Divided",
+              "url": "https://www.amazon.com/Week-Magazine-February-Party-Divided/dp/B084X641M2/ref=sr_1_24?crid=KQ4R97IVHJCL&dib=eyJ2IjoiMSJ9.95A2osZ6owW7iXq-osEfOMdNjzCiwnU4C-mWyGV8SeOgu5Am5FzO8D4DaqZrsyMHMRAs2eDt-wQmlEzZ3A-dbJH6w72HtLpJylLGRyeN8t__xAyXWFZU4zK00o0p5q9NA25qe3opeDYlprvw4JJOMeK677PXw1W6iQ1gY5YiYXQ-SPE3ChjyX8w3R7srwa6EwkLHrOC_rUSdIftXETVS-FegNFYThYO4KcUyCaBS1GM.iDnC9v8-WHgEL4Bl4JINeAEqZZgQut1Dkrk9qodP5ZI&dib_tag=se&keywords=The+Week+magazine+subscription&qid=1780330727&sprefix=The%2BWeek%2Bmagazine%2Bsubscription%2Caps%2C210&xpid=bbwn7pDrUhV_Z",
+              "image_url": "https://m.media-amazon.com/images/I/91ftJEJOFWL._AC_UY218_.jpg",
+              "bought_past_month": null,
+              "price_from": null,
+              "price_to": null,
+              "currency": null,
+              "special_offers": null,
+              "data_asin": "B084X641M2",
+              "rating": {
+                "type": "rating_element",
+                "position": "left",
+                "rating_type": "Max5",
+                "value": 5,
+                "votes_count": 1,
+                "rating_max": 5
+              },
+              "is_amazon_choice": false,
+              "is_best_seller": false,
+              "delivery_info": null,
+              "labels": [
+                {
+                  "type": "amazon_label_element",
+                  "title": "Single Issue Magazine",
+                  "url": "https://amazon.com/Week-Magazine-February-Party-Divided/dp/B084X641M2/ref=sr_1_24?crid=KQ4R97IVHJCL&dib=eyJ2IjoiMSJ9.95A2osZ6owW7iXq-osEfOMdNjzCiwnU4C-mWyGV8SeOgu5Am5FzO8D4DaqZrsyMHMRAs2eDt-wQmlEzZ3A-dbJH6w72HtLpJylLGRyeN8t__xAyXWFZU4zK00o0p5q9NA25qe3opeDYlprvw4JJOMeK677PXw1W6iQ1gY5YiYXQ-SPE3ChjyX8w3R7srwa6EwkLHrOC_rUSdIftXETVS-FegNFYThYO4KcUyCaBS1GM.iDnC9v8-WHgEL4Bl4JINeAEqZZgQut1Dkrk9qodP5ZI&dib_tag=se&keywords=The+Week+magazine+subscription&qid=1780330727&sprefix=The%2BWeek%2Bmagazine%2Bsubscription%2Caps%2C210&xpid=bbwn7pDrUhV_Z",
+                  "domain": null
+                }
+              ]
+            },
+            {
+              "type": "amazon_serp",
+              "rank_group": 25,
+              "rank_absolute": 26,
+              "xpath": "/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/div[1]/span[1]/div[1]/div[11]",
+              "domain": "www.amazon.com",
+              "title": "The Week Magazine June 14, 2019 | Taking UFOs seriously",
+              "url": "https://www.amazon.com/Week-Magazine-June-Taking-seriously/dp/B07SY6R62N/ref=sr_1_25?crid=KQ4R97IVHJCL&dib=eyJ2IjoiMSJ9.95A2osZ6owW7iXq-osEfOMdNjzCiwnU4C-mWyGV8SeOgu5Am5FzO8D4DaqZrsyMHMRAs2eDt-wQmlEzZ3A-dbJH6w72HtLpJylLGRyeN8t__xAyXWFZU4zK00o0p5q9NA25qe3opeDYlprvw4JJOMeK677PXw1W6iQ1gY5YiYXQ-SPE3ChjyX8w3R7srwa6EwkLHrOC_rUSdIftXETVS-FegNFYThYO4KcUyCaBS1GM.iDnC9v8-WHgEL4Bl4JINeAEqZZgQut1Dkrk9qodP5ZI&dib_tag=se&keywords=The+Week+magazine+subscription&qid=1780330727&sprefix=The%2BWeek%2Bmagazine%2Bsubscription%2Caps%2C210&xpid=bbwn7pDrUhV_Z",
+              "image_url": "https://m.media-amazon.com/images/I/81WMDCsde7L._AC_UY218_.jpg",
+              "bought_past_month": null,
+              "price_from": 8.98,
+              "price_to": null,
+              "currency": "USD",
+              "special_offers": null,
+              "data_asin": "B07SY6R62N",
+              "rating": {
+                "type": "rating_element",
+                "position": "left",
+                "rating_type": "Max5",
+                "value": 5,
+                "votes_count": 1,
+                "rating_max": 5
+              },
+              "is_amazon_choice": false,
+              "is_best_seller": false,
+              "delivery_info": {
+                "delivery_message": "$3.99 delivery Jun 8 - 23",
+                "delivery_price": {
+                  "current": 3.99,
+                  "regular": null,
+                  "max_value": null,
+                  "currency": "USD",
+                  "is_price_range": false,
+                  "displayed_price": "$3.99"
+                }
+              },
+              "labels": [
+                {
+                  "type": "amazon_label_element",
+                  "title": "Unknown Binding",
+                  "url": "https://amazon.com/Week-Magazine-June-Taking-seriously/dp/B07SY6R62N/ref=sr_1_25?crid=KQ4R97IVHJCL&dib=eyJ2IjoiMSJ9.95A2osZ6owW7iXq-osEfOMdNjzCiwnU4C-mWyGV8SeOgu5Am5FzO8D4DaqZrsyMHMRAs2eDt-wQmlEzZ3A-dbJH6w72HtLpJylLGRyeN8t__xAyXWFZU4zK00o0p5q9NA25qe3opeDYlprvw4JJOMeK677PXw1W6iQ1gY5YiYXQ-SPE3ChjyX8w3R7srwa6EwkLHrOC_rUSdIftXETVS-FegNFYThYO4KcUyCaBS1GM.iDnC9v8-WHgEL4Bl4JINeAEqZZgQut1Dkrk9qodP5ZI&dib_tag=se&keywords=The+Week+magazine+subscription&qid=1780330727&sprefix=The%2BWeek%2Bmagazine%2Bsubscription%2Caps%2C210&xpid=bbwn7pDrUhV_Z",
+                  "domain": null
+                }
+              ]
+            },
+            {
+              "type": "amazon_serp",
+              "rank_group": 26,
+              "rank_absolute": 27,
+              "xpath": "/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/div[1]/span[1]/div[1]/div[12]",
+              "domain": "www.amazon.com",
+              "title": "The Week Magazine - July 3, 2020 - \"Deflated: A failed rally, the pandemic, and disastrous polls leave Trump's campaign telling\" (Vol. 20, Issue 982)",
+              "url": "https://www.amazon.com/Week-Magazine-Deflated-pandemic-disastrous/dp/B08D8JVF58/ref=sr_1_26?crid=KQ4R97IVHJCL&dib=eyJ2IjoiMSJ9.95A2osZ6owW7iXq-osEfOMdNjzCiwnU4C-mWyGV8SeOgu5Am5FzO8D4DaqZrsyMHMRAs2eDt-wQmlEzZ3A-dbJH6w72HtLpJylLGRyeN8t__xAyXWFZU4zK00o0p5q9NA25qe3opeDYlprvw4JJOMeK677PXw1W6iQ1gY5YiYXQ-SPE3ChjyX8w3R7srwa6EwkLHrOC_rUSdIftXETVS-FegNFYThYO4KcUyCaBS1GM.iDnC9v8-WHgEL4Bl4JINeAEqZZgQut1Dkrk9qodP5ZI&dib_tag=se&keywords=The+Week+magazine+subscription&qid=1780330727&sprefix=The%2BWeek%2Bmagazine%2Bsubscription%2Caps%2C210&xpid=bbwn7pDrUhV_Z",
+              "image_url": "https://m.media-amazon.com/images/I/81fEr1h4WYL._AC_UY218_.jpg",
+              "bought_past_month": null,
+              "price_from": null,
+              "price_to": null,
+              "currency": null,
+              "special_offers": null,
+              "data_asin": "B08D8JVF58",
+              "rating": null,
+              "is_amazon_choice": false,
+              "is_best_seller": false,
+              "delivery_info": null,
+              "labels": [
+                {
+                  "type": "amazon_label_element",
+                  "title": "Magazine",
+                  "url": "https://amazon.com/Week-Magazine-Deflated-pandemic-disastrous/dp/B08D8JVF58/ref=sr_1_26?crid=KQ4R97IVHJCL&dib=eyJ2IjoiMSJ9.95A2osZ6owW7iXq-osEfOMdNjzCiwnU4C-mWyGV8SeOgu5Am5FzO8D4DaqZrsyMHMRAs2eDt-wQmlEzZ3A-dbJH6w72HtLpJylLGRyeN8t__xAyXWFZU4zK00o0p5q9NA25qe3opeDYlprvw4JJOMeK677PXw1W6iQ1gY5YiYXQ-SPE3ChjyX8w3R7srwa6EwkLHrOC_rUSdIftXETVS-FegNFYThYO4KcUyCaBS1GM.iDnC9v8-WHgEL4Bl4JINeAEqZZgQut1Dkrk9qodP5ZI&dib_tag=se&keywords=The+Week+magazine+subscription&qid=1780330727&sprefix=The%2BWeek%2Bmagazine%2Bsubscription%2Caps%2C210&xpid=bbwn7pDrUhV_Z",
+                  "domain": null
+                }
+              ]
+            },
+            {
+              "type": "amazon_serp",
+              "rank_group": 27,
+              "rank_absolute": 28,
+              "xpath": "/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/div[1]/span[1]/div[1]/div[13]",
+              "domain": "www.amazon.com",
+              "title": "The Week Magazine, December 23 / December 30, 2016: The Faces of 2016",
+              "url": "https://www.amazon.com/Week-Magazine-December-23-2016/dp/B0761WHM9J/ref=sr_1_27?crid=KQ4R97IVHJCL&dib=eyJ2IjoiMSJ9.95A2osZ6owW7iXq-osEfOMdNjzCiwnU4C-mWyGV8SeOgu5Am5FzO8D4DaqZrsyMHMRAs2eDt-wQmlEzZ3A-dbJH6w72HtLpJylLGRyeN8t__xAyXWFZU4zK00o0p5q9NA25qe3opeDYlprvw4JJOMeK677PXw1W6iQ1gY5YiYXQ-SPE3ChjyX8w3R7srwa6EwkLHrOC_rUSdIftXETVS-FegNFYThYO4KcUyCaBS1GM.iDnC9v8-WHgEL4Bl4JINeAEqZZgQut1Dkrk9qodP5ZI&dib_tag=se&keywords=The+Week+magazine+subscription&qid=1780330727&sprefix=The%2BWeek%2Bmagazine%2Bsubscription%2Caps%2C210&xpid=bbwn7pDrUhV_Z",
+              "image_url": "https://m.media-amazon.com/images/I/91VwhV-t7PL._AC_UY218_.jpg",
+              "bought_past_month": null,
+              "price_from": null,
+              "price_to": null,
+              "currency": null,
+              "special_offers": null,
+              "data_asin": "B0761WHM9J",
+              "rating": null,
+              "is_amazon_choice": false,
+              "is_best_seller": false,
+              "delivery_info": null,
+              "labels": [
+                {
+                  "type": "amazon_label_element",
+                  "title": "Single Issue Magazine",
+                  "url": "https://amazon.com/Week-Magazine-December-23-2016/dp/B0761WHM9J/ref=sr_1_27?crid=KQ4R97IVHJCL&dib=eyJ2IjoiMSJ9.95A2osZ6owW7iXq-osEfOMdNjzCiwnU4C-mWyGV8SeOgu5Am5FzO8D4DaqZrsyMHMRAs2eDt-wQmlEzZ3A-dbJH6w72HtLpJylLGRyeN8t__xAyXWFZU4zK00o0p5q9NA25qe3opeDYlprvw4JJOMeK677PXw1W6iQ1gY5YiYXQ-SPE3ChjyX8w3R7srwa6EwkLHrOC_rUSdIftXETVS-FegNFYThYO4KcUyCaBS1GM.iDnC9v8-WHgEL4Bl4JINeAEqZZgQut1Dkrk9qodP5ZI&dib_tag=se&keywords=The+Week+magazine+subscription&qid=1780330727&sprefix=The%2BWeek%2Bmagazine%2Bsubscription%2Caps%2C210&xpid=bbwn7pDrUhV_Z",
+                  "domain": null
+                }
+              ]
+            },
+            {
+              "type": "amazon_serp",
+              "rank_group": 28,
+              "rank_absolute": 29,
+              "xpath": "/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/div[1]/span[1]/div[1]/div[14]",
+              "domain": "www.amazon.com",
+              "title": "Prima Magazine [10 issue subscription]",
+              "url": "https://www.amazon.com/Prima-Magazine-10-issue-subscription/dp/B000BKVYL8/ref=sr_1_28?crid=KQ4R97IVHJCL&dib=eyJ2IjoiMSJ9.95A2osZ6owW7iXq-osEfOMdNjzCiwnU4C-mWyGV8SeOgu5Am5FzO8D4DaqZrsyMHMRAs2eDt-wQmlEzZ3A-dbJH6w72HtLpJylLGRyeN8t__xAyXWFZU4zK00o0p5q9NA25qe3opeDYlprvw4JJOMeK677PXw1W6iQ1gY5YiYXQ-SPE3ChjyX8w3R7srwa6EwkLHrOC_rUSdIftXETVS-FegNFYThYO4KcUyCaBS1GM.iDnC9v8-WHgEL4Bl4JINeAEqZZgQut1Dkrk9qodP5ZI&dib_tag=se&keywords=The+Week+magazine+subscription&qid=1780330727&sprefix=The%2BWeek%2Bmagazine%2Bsubscription%2Caps%2C210&xpid=bbwn7pDrUhV_Z",
+              "image_url": "https://m.media-amazon.com/images/I/51J5ZDKGVBL._AC_UY218_.jpg",
+              "bought_past_month": null,
+              "price_from": null,
+              "price_to": null,
+              "currency": null,
+              "special_offers": null,
+              "data_asin": "B000BKVYL8",
+              "rating": {
+                "type": "rating_element",
+                "position": "left",
+                "rating_type": "Max5",
+                "value": 5,
+                "votes_count": 1,
+                "rating_max": 5
+              },
+              "is_amazon_choice": false,
+              "is_best_seller": false,
+              "delivery_info": null,
+              "labels": [
+                {
+                  "type": "amazon_label_element",
+                  "title": "Unbound",
+                  "url": "https://amazon.com/Prima-Magazine-10-issue-subscription/dp/B000BKVYL8/ref=sr_1_28?crid=KQ4R97IVHJCL&dib=eyJ2IjoiMSJ9.95A2osZ6owW7iXq-osEfOMdNjzCiwnU4C-mWyGV8SeOgu5Am5FzO8D4DaqZrsyMHMRAs2eDt-wQmlEzZ3A-dbJH6w72HtLpJylLGRyeN8t__xAyXWFZU4zK00o0p5q9NA25qe3opeDYlprvw4JJOMeK677PXw1W6iQ1gY5YiYXQ-SPE3ChjyX8w3R7srwa6EwkLHrOC_rUSdIftXETVS-FegNFYThYO4KcUyCaBS1GM.iDnC9v8-WHgEL4Bl4JINeAEqZZgQut1Dkrk9qodP5ZI&dib_tag=se&keywords=The+Week+magazine+subscription&qid=1780330727&sprefix=The%2BWeek%2Bmagazine%2Bsubscription%2Caps%2C210&xpid=bbwn7pDrUhV_Z",
+                  "domain": null
+                }
+              ]
+            },
+            {
+              "type": "amazon_serp",
+              "rank_group": 29,
+              "rank_absolute": 30,
+              "xpath": "/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/div[1]/span[1]/div[1]/div[15]",
+              "domain": "www.amazon.com",
+              "title": "Newsweek US Magazine : November 15, 2024 : Home Truths",
+              "url": "https://www.amazon.com/Newsweek-US-Magazine-November-Truths/dp/B0DMFFBLMK/ref=sr_1_29?crid=KQ4R97IVHJCL&dib=eyJ2IjoiMSJ9.95A2osZ6owW7iXq-osEfOMdNjzCiwnU4C-mWyGV8SeOgu5Am5FzO8D4DaqZrsyMHMRAs2eDt-wQmlEzZ3A-dbJH6w72HtLpJylLGRyeN8t__xAyXWFZU4zK00o0p5q9NA25qe3opeDYlprvw4JJOMeK677PXw1W6iQ1gY5YiYXQ-SPE3ChjyX8w3R7srwa6EwkLHrOC_rUSdIftXETVS-FegNFYThYO4KcUyCaBS1GM.iDnC9v8-WHgEL4Bl4JINeAEqZZgQut1Dkrk9qodP5ZI&dib_tag=se&keywords=The+Week+magazine+subscription&qid=1780330727&sprefix=The%2BWeek%2Bmagazine%2Bsubscription%2Caps%2C210&xpid=bbwn7pDrUhV_Z",
+              "image_url": "https://m.media-amazon.com/images/I/61X3NXCkU-L._AC_UY218_.jpg",
+              "bought_past_month": null,
+              "price_from": 9.55,
+              "price_to": null,
+              "currency": "USD",
+              "special_offers": null,
+              "data_asin": "B0DMFFBLMK",
+              "rating": null,
+              "is_amazon_choice": false,
+              "is_best_seller": false,
+              "delivery_info": {
+                "delivery_message": "$3.99 delivery Jun 7 - 9 Or fastest delivery Jun 4 - 8",
+                "delivery_price": {
+                  "current": 3.99,
+                  "regular": null,
+                  "max_value": null,
+                  "currency": "USD",
+                  "is_price_range": false,
+                  "displayed_price": "$3.99"
+                }
+              },
+              "labels": [
+                {
+                  "type": "amazon_label_element",
+                  "title": "Single Issue Magazine",
+                  "url": "https://amazon.com/Newsweek-US-Magazine-November-Truths/dp/B0DMFFBLMK/ref=sr_1_29?crid=KQ4R97IVHJCL&dib=eyJ2IjoiMSJ9.95A2osZ6owW7iXq-osEfOMdNjzCiwnU4C-mWyGV8SeOgu5Am5FzO8D4DaqZrsyMHMRAs2eDt-wQmlEzZ3A-dbJH6w72HtLpJylLGRyeN8t__xAyXWFZU4zK00o0p5q9NA25qe3opeDYlprvw4JJOMeK677PXw1W6iQ1gY5YiYXQ-SPE3ChjyX8w3R7srwa6EwkLHrOC_rUSdIftXETVS-FegNFYThYO4KcUyCaBS1GM.iDnC9v8-WHgEL4Bl4JINeAEqZZgQut1Dkrk9qodP5ZI&dib_tag=se&keywords=The+Week+magazine+subscription&qid=1780330727&sprefix=The%2BWeek%2Bmagazine%2Bsubscription%2Caps%2C210&xpid=bbwn7pDrUhV_Z",
+                  "domain": null
+                }
+              ]
+            },
+            {
+              "type": "amazon_serp",
+              "rank_group": 30,
+              "rank_absolute": 31,
+              "xpath": "/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/div[1]/span[1]/div[1]/div[16]",
+              "domain": "www.amazon.com",
+              "title": "Trient Press Magazine April 2021: April 2021 (Trientrepreneur)",
+              "url": "https://www.amazon.com/Trient-Press/e/B094FGF447?ref=sr_ntt_srch_lnk_30&qid=1780330727",
+              "image_url": "https://m.media-amazon.com/images/I/61jqvkbr76L._AC_UY218_.jpg",
+              "bought_past_month": null,
+              "price_from": 12.99,
+              "price_to": null,
+              "currency": "USD",
+              "special_offers": null,
+              "data_asin": "1087862337",
+              "rating": {
+                "type": "rating_element",
+                "position": "left",
+                "rating_type": "Max5",
+                "value": 5,
+                "votes_count": 2,
+                "rating_max": 5
+              },
+              "is_amazon_choice": false,
+              "is_best_seller": false,
+              "delivery_info": {
+                "delivery_message": "FREE delivery Mon, Jun 8 on $35 of items shipped by Amazon",
+                "delivery_price": null
+              },
+              "labels": [
+                {
+                  "type": "amazon_label_element",
+                  "title": "Paperback",
+                  "url": "https://amazon.com/Trient-Press-Magazine-April-2021/dp/1087862337/ref=sr_1_30?crid=KQ4R97IVHJCL&dib=eyJ2IjoiMSJ9.95A2osZ6owW7iXq-osEfOMdNjzCiwnU4C-mWyGV8SeOgu5Am5FzO8D4DaqZrsyMHMRAs2eDt-wQmlEzZ3A-dbJH6w72HtLpJylLGRyeN8t__xAyXWFZU4zK00o0p5q9NA25qe3opeDYlprvw4JJOMeK677PXw1W6iQ1gY5YiYXQ-SPE3ChjyX8w3R7srwa6EwkLHrOC_rUSdIftXETVS-FegNFYThYO4KcUyCaBS1GM.iDnC9v8-WHgEL4Bl4JINeAEqZZgQut1Dkrk9qodP5ZI&dib_tag=se&keywords=The+Week+magazine+subscription&qid=1780330727&sprefix=The%2BWeek%2Bmagazine%2Bsubscription%2Caps%2C210&xpid=bbwn7pDrUhV_Z",
+                  "domain": null
+                }
+              ]
+            },
+            {
+              "type": "amazon_serp",
+              "rank_group": 31,
+              "rank_absolute": 32,
+              "xpath": "/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/div[1]/span[1]/div[1]/div[17]",
+              "domain": "www.amazon.com",
+              "title": "Life Magazine, April 1, 1966",
+              "url": "https://www.amazon.com/Life-Magazine-April-1-1966/dp/B008JG5732/ref=sr_1_31?crid=KQ4R97IVHJCL&dib=eyJ2IjoiMSJ9.95A2osZ6owW7iXq-osEfOMdNjzCiwnU4C-mWyGV8SeOgu5Am5FzO8D4DaqZrsyMHMRAs2eDt-wQmlEzZ3A-dbJH6w72HtLpJylLGRyeN8t__xAyXWFZU4zK00o0p5q9NA25qe3opeDYlprvw4JJOMeK677PXw1W6iQ1gY5YiYXQ-SPE3ChjyX8w3R7srwa6EwkLHrOC_rUSdIftXETVS-FegNFYThYO4KcUyCaBS1GM.iDnC9v8-WHgEL4Bl4JINeAEqZZgQut1Dkrk9qodP5ZI&dib_tag=se&keywords=The+Week+magazine+subscription&qid=1780330727&sprefix=The%2BWeek%2Bmagazine%2Bsubscription%2Caps%2C210&xpid=bbwn7pDrUhV_Z",
+              "image_url": "https://m.media-amazon.com/images/I/91-Ln3myswL._AC_UY218_.jpg",
+              "bought_past_month": null,
+              "price_from": null,
+              "price_to": null,
+              "currency": null,
+              "special_offers": null,
+              "data_asin": "B008JG5732",
+              "rating": {
+                "type": "rating_element",
+                "position": "left",
+                "rating_type": "Max5",
+                "value": 4,
+                "votes_count": 1,
+                "rating_max": 5
+              },
+              "is_amazon_choice": false,
+              "is_best_seller": false,
+              "delivery_info": null,
+              "labels": [
+                {
+                  "type": "amazon_label_element",
+                  "title": "Single Issue Magazine",
+                  "url": "https://amazon.com/Life-Magazine-April-1-1966/dp/B008JG5732/ref=sr_1_31?crid=KQ4R97IVHJCL&dib=eyJ2IjoiMSJ9.95A2osZ6owW7iXq-osEfOMdNjzCiwnU4C-mWyGV8SeOgu5Am5FzO8D4DaqZrsyMHMRAs2eDt-wQmlEzZ3A-dbJH6w72HtLpJylLGRyeN8t__xAyXWFZU4zK00o0p5q9NA25qe3opeDYlprvw4JJOMeK677PXw1W6iQ1gY5YiYXQ-SPE3ChjyX8w3R7srwa6EwkLHrOC_rUSdIftXETVS-FegNFYThYO4KcUyCaBS1GM.iDnC9v8-WHgEL4Bl4JINeAEqZZgQut1Dkrk9qodP5ZI&dib_tag=se&keywords=The+Week+magazine+subscription&qid=1780330727&sprefix=The%2BWeek%2Bmagazine%2Bsubscription%2Caps%2C210&xpid=bbwn7pDrUhV_Z",
+                  "domain": null
+                }
+              ]
+            },
+            {
+              "type": "amazon_serp",
+              "rank_group": 32,
+              "rank_absolute": 33,
+              "xpath": "/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/div[1]/span[1]/div[1]/div[18]",
+              "domain": "www.amazon.com",
+              "title": "The Week Magazine - January 19, 2018 (Vol. 18, No. 856) - \"Is Trump unfit? A new book's explosive claim that the president is mentally unstable",
+              "url": "https://www.amazon.com/Week-Magazine-explosive-president-mentally/dp/B079PKHKJ6/ref=sr_1_32?crid=KQ4R97IVHJCL&dib=eyJ2IjoiMSJ9.95A2osZ6owW7iXq-osEfOMdNjzCiwnU4C-mWyGV8SeOgu5Am5FzO8D4DaqZrsyMHMRAs2eDt-wQmlEzZ3A-dbJH6w72HtLpJylLGRyeN8t__xAyXWFZU4zK00o0p5q9NA25qe3opeDYlprvw4JJOMeK677PXw1W6iQ1gY5YiYXQ-SPE3ChjyX8w3R7srwa6EwkLHrOC_rUSdIftXETVS-FegNFYThYO4KcUyCaBS1GM.iDnC9v8-WHgEL4Bl4JINeAEqZZgQut1Dkrk9qodP5ZI&dib_tag=se&keywords=The+Week+magazine+subscription&qid=1780330727&sprefix=The%2BWeek%2Bmagazine%2Bsubscription%2Caps%2C210&xpid=bbwn7pDrUhV_Z",
+              "image_url": "https://m.media-amazon.com/images/I/61xvGsC9qpL._AC_UY218_.jpg",
+              "bought_past_month": null,
+              "price_from": null,
+              "price_to": null,
+              "currency": null,
+              "special_offers": null,
+              "data_asin": "B079PKHKJ6",
+              "rating": null,
+              "is_amazon_choice": false,
+              "is_best_seller": false,
+              "delivery_info": null,
+              "labels": [
+                {
+                  "type": "amazon_label_element",
+                  "title": "Single Issue Magazine",
+                  "url": "https://amazon.com/Week-Magazine-explosive-president-mentally/dp/B079PKHKJ6/ref=sr_1_32?crid=KQ4R97IVHJCL&dib=eyJ2IjoiMSJ9.95A2osZ6owW7iXq-osEfOMdNjzCiwnU4C-mWyGV8SeOgu5Am5FzO8D4DaqZrsyMHMRAs2eDt-wQmlEzZ3A-dbJH6w72HtLpJylLGRyeN8t__xAyXWFZU4zK00o0p5q9NA25qe3opeDYlprvw4JJOMeK677PXw1W6iQ1gY5YiYXQ-SPE3ChjyX8w3R7srwa6EwkLHrOC_rUSdIftXETVS-FegNFYThYO4KcUyCaBS1GM.iDnC9v8-WHgEL4Bl4JINeAEqZZgQut1Dkrk9qodP5ZI&dib_tag=se&keywords=The+Week+magazine+subscription&qid=1780330727&sprefix=The%2BWeek%2Bmagazine%2Bsubscription%2Caps%2C210&xpid=bbwn7pDrUhV_Z",
+                  "domain": null
+                }
+              ]
+            },
+            {
+              "type": "related_searches",
+              "rank_group": 2,
+              "rank_absolute": 34,
+              "position": "left",
+              "xpath": "/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/div[1]/span[1]/div[1]/div[19]/div[1]/div[1]/div[1]/div[1]/div[1]/div[2]/span[1]/div[1]/div[1]/div[1]/a[1]",
+              "items": [
+                {
+                  "type": "related_searches_element",
+                  "title": "the week magazine",
+                  "url": "https://www.amazon.com/s?k=the+week+magazine&ref=rsl_sug_0_0&pd_rd_w=3Us8N&content-id=amzn1.sym.3be64970-3b95-4a6d-a45d-78077a3ff871:amzn1.sym.3be64970-3b95-4a6d-a45d-78077a3ff871&pf_rd_p=3be64970-3b95-4a6d-a45d-78077a3ff871&pf_rd_r=GNEBAYXV4V4M80Y50YQM&pd_rd_wg=EHXoo&pd_rd_r=f05fe44b-20a3-46df-ab11-2b66beb27de1&qid=1780330727",
+                  "image_alt": null,
+                  "image_url": null
+                },
+                {
+                  "type": "related_searches_element",
+                  "title": "the week magazine discount subscription",
+                  "url": "https://www.amazon.com/s?k=the+week+magazine+discount+subscription&ref=rsl_sug_0_3&pd_rd_w=3Us8N&content-id=amzn1.sym.3be64970-3b95-4a6d-a45d-78077a3ff871:amzn1.sym.3be64970-3b95-4a6d-a45d-78077a3ff871&pf_rd_p=3be64970-3b95-4a6d-a45d-78077a3ff871&pf_rd_r=GNEBAYXV4V4M80Y50YQM&pd_rd_wg=EHXoo&pd_rd_r=f05fe44b-20a3-46df-ab11-2b66beb27de1&qid=1780330727",
+                  "image_alt": null,
+                  "image_url": null
+                },
+                {
+                  "type": "related_searches_element",
+                  "title": "the week magazine print subscription",
+                  "url": "https://www.amazon.com/s?k=the+week+magazine+print+subscription&ref=rsl_sug_0_1&pd_rd_w=3Us8N&content-id=amzn1.sym.3be64970-3b95-4a6d-a45d-78077a3ff871:amzn1.sym.3be64970-3b95-4a6d-a45d-78077a3ff871&pf_rd_p=3be64970-3b95-4a6d-a45d-78077a3ff871&pf_rd_r=GNEBAYXV4V4M80Y50YQM&pd_rd_wg=EHXoo&pd_rd_r=f05fe44b-20a3-46df-ab11-2b66beb27de1&qid=1780330727",
+                  "image_alt": null,
+                  "image_url": null
+                },
+                {
+                  "type": "related_searches_element",
+                  "title": "magazines subscriptions",
+                  "url": "https://www.amazon.com/s?k=magazines+subscriptions&ref=rsl_sug_0_4&pd_rd_w=3Us8N&content-id=amzn1.sym.3be64970-3b95-4a6d-a45d-78077a3ff871:amzn1.sym.3be64970-3b95-4a6d-a45d-78077a3ff871&pf_rd_p=3be64970-3b95-4a6d-a45d-78077a3ff871&pf_rd_r=GNEBAYXV4V4M80Y50YQM&pd_rd_wg=EHXoo&pd_rd_r=f05fe44b-20a3-46df-ab11-2b66beb27de1&qid=1780330727",
+                  "image_alt": null,
+                  "image_url": null
+                },
+                {
+                  "type": "related_searches_element",
+                  "title": "the week magazine subscriptions print",
+                  "url": "https://www.amazon.com/s?k=the+week+magazine+subscriptions+print&ref=rsl_sug_0_2&pd_rd_w=3Us8N&content-id=amzn1.sym.3be64970-3b95-4a6d-a45d-78077a3ff871:amzn1.sym.3be64970-3b95-4a6d-a45d-78077a3ff871&pf_rd_p=3be64970-3b95-4a6d-a45d-78077a3ff871&pf_rd_r=GNEBAYXV4V4M80Y50YQM&pd_rd_wg=EHXoo&pd_rd_r=f05fe44b-20a3-46df-ab11-2b66beb27de1&qid=1780330727",
+                  "image_alt": null,
+                  "image_url": null
+                },
+                {
+                  "type": "related_searches_element",
+                  "title": "magazine print subscription",
+                  "url": "https://www.amazon.com/s?k=magazine+print+subscription&ref=rsl_sug_0_5&pd_rd_w=3Us8N&content-id=amzn1.sym.3be64970-3b95-4a6d-a45d-78077a3ff871:amzn1.sym.3be64970-3b95-4a6d-a45d-78077a3ff871&pf_rd_p=3be64970-3b95-4a6d-a45d-78077a3ff871&pf_rd_r=GNEBAYXV4V4M80Y50YQM&pd_rd_wg=EHXoo&pd_rd_r=f05fe44b-20a3-46df-ab11-2b66beb27de1&qid=1780330727",
+                  "image_alt": null,
+                  "image_url": null
+                }
+              ]
+            },
+            {
+              "type": "amazon_serp",
+              "rank_group": 33,
+              "rank_absolute": 35,
+              "xpath": "/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/div[1]/span[1]/div[1]/div[2]",
+              "domain": "www.amazon.com",
+              "title": "Time Magazine October 4, 2010 (How the first nine months shape the rest of your life)",
+              "url": "https://www.amazon.com/Magazine-October-first-months-shape/dp/B0045RST1G/ref=sr_1_33?crid=KQ4R97IVHJCL&dib=eyJ2IjoiMSJ9.U6gXd0SKWoTQUG3AFqputmOsQYoztZ4D1xchDjqfSJQx5gpzXD1HBGuDyW1icpOyZ6CR1fmzOAlWIS4U67zAarfteJuWEERPENP57-1G7x0heF8nUoeuZFZQbL4kWQ_Y4D9Nj1HfKiJx56RK_MwEUw.71STkE1nT93hu8qzGwHUc-oBniqKdSMjkFwpze1yQ7w&dib_tag=se&keywords=The+Week+magazine+subscription&qid=1780330728&sprefix=The%2BWeek%2Bmagazine%2Bsubscription%2Caps%2C210&xpid=bbwn7pDrUhV_Z",
+              "image_url": "https://m.media-amazon.com/images/I/91rPVFzdwlL._AC_UY218_.jpg",
+              "bought_past_month": null,
+              "price_from": null,
+              "price_to": null,
+              "currency": null,
+              "special_offers": null,
+              "data_asin": "B0045RST1G",
+              "rating": null,
+              "is_amazon_choice": false,
+              "is_best_seller": false,
+              "delivery_info": null,
+              "labels": [
+                {
+                  "type": "amazon_label_element",
+                  "title": "Magazine",
+                  "url": "https://amazon.com/Magazine-October-first-months-shape/dp/B0045RST1G/ref=sr_1_33?crid=KQ4R97IVHJCL&dib=eyJ2IjoiMSJ9.U6gXd0SKWoTQUG3AFqputmOsQYoztZ4D1xchDjqfSJQx5gpzXD1HBGuDyW1icpOyZ6CR1fmzOAlWIS4U67zAarfteJuWEERPENP57-1G7x0heF8nUoeuZFZQbL4kWQ_Y4D9Nj1HfKiJx56RK_MwEUw.71STkE1nT93hu8qzGwHUc-oBniqKdSMjkFwpze1yQ7w&dib_tag=se&keywords=The+Week+magazine+subscription&qid=1780330728&sprefix=The%2BWeek%2Bmagazine%2Bsubscription%2Caps%2C210&xpid=bbwn7pDrUhV_Z",
+                  "domain": null
+                }
+              ]
+            },
+            {
+              "type": "amazon_serp",
+              "rank_group": 34,
+              "rank_absolute": 36,
+              "xpath": "/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/div[1]/span[1]/div[1]/div[3]",
+              "domain": "www.amazon.com",
+              "title": "The Week Junior Magazine Issue 81",
+              "url": "https://www.amazon.com/Week-Junior-Magazine-Issue-81/dp/B074P9RF64/ref=sr_1_34?crid=KQ4R97IVHJCL&dib=eyJ2IjoiMSJ9.U6gXd0SKWoTQUG3AFqputmOsQYoztZ4D1xchDjqfSJQx5gpzXD1HBGuDyW1icpOyZ6CR1fmzOAlWIS4U67zAarfteJuWEERPENP57-1G7x0heF8nUoeuZFZQbL4kWQ_Y4D9Nj1HfKiJx56RK_MwEUw.71STkE1nT93hu8qzGwHUc-oBniqKdSMjkFwpze1yQ7w&dib_tag=se&keywords=The+Week+magazine+subscription&qid=1780330728&sprefix=The%2BWeek%2Bmagazine%2Bsubscription%2Caps%2C210&xpid=bbwn7pDrUhV_Z",
+              "image_url": "https://m.media-amazon.com/images/I/A1AwAF7iTcL._AC_UY218_.jpg",
+              "bought_past_month": null,
+              "price_from": null,
+              "price_to": null,
+              "currency": null,
+              "special_offers": null,
+              "data_asin": "B074P9RF64",
+              "rating": {
+                "type": "rating_element",
+                "position": "left",
+                "rating_type": "Max5",
+                "value": 1,
+                "votes_count": 1,
+                "rating_max": 5
+              },
+              "is_amazon_choice": false,
+              "is_best_seller": false,
+              "delivery_info": null,
+              "labels": [
+                {
+                  "type": "amazon_label_element",
+                  "title": "Single Issue Magazine",
+                  "url": "https://amazon.com/Week-Junior-Magazine-Issue-81/dp/B074P9RF64/ref=sr_1_34?crid=KQ4R97IVHJCL&dib=eyJ2IjoiMSJ9.U6gXd0SKWoTQUG3AFqputmOsQYoztZ4D1xchDjqfSJQx5gpzXD1HBGuDyW1icpOyZ6CR1fmzOAlWIS4U67zAarfteJuWEERPENP57-1G7x0heF8nUoeuZFZQbL4kWQ_Y4D9Nj1HfKiJx56RK_MwEUw.71STkE1nT93hu8qzGwHUc-oBniqKdSMjkFwpze1yQ7w&dib_tag=se&keywords=The+Week+magazine+subscription&qid=1780330728&sprefix=The%2BWeek%2Bmagazine%2Bsubscription%2Caps%2C210&xpid=bbwn7pDrUhV_Z",
+                  "domain": null
+                }
+              ]
+            },
+            {
+              "type": "amazon_serp",
+              "rank_group": 35,
+              "rank_absolute": 37,
+              "xpath": "/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/div[1]/span[1]/div[1]/div[4]",
+              "domain": "www.amazon.com",
+              "title": "The Week Magazine August 20, 2021 | The Orban Option",
+              "url": "https://www.amazon.com/Week-Magazine-August-Orban-Option/dp/B09CTHYNPP/ref=sr_1_35?crid=KQ4R97IVHJCL&dib=eyJ2IjoiMSJ9.U6gXd0SKWoTQUG3AFqputmOsQYoztZ4D1xchDjqfSJQx5gpzXD1HBGuDyW1icpOyZ6CR1fmzOAlWIS4U67zAarfteJuWEERPENP57-1G7x0heF8nUoeuZFZQbL4kWQ_Y4D9Nj1HfKiJx56RK_MwEUw.71STkE1nT93hu8qzGwHUc-oBniqKdSMjkFwpze1yQ7w&dib_tag=se&keywords=The+Week+magazine+subscription&qid=1780330728&sprefix=The%2BWeek%2Bmagazine%2Bsubscription%2Caps%2C210&xpid=bbwn7pDrUhV_Z",
+              "image_url": "https://m.media-amazon.com/images/I/91b3sj0xSfL._AC_UY218_.jpg",
+              "bought_past_month": null,
+              "price_from": null,
+              "price_to": null,
+              "currency": null,
+              "special_offers": null,
+              "data_asin": "B09CTHYNPP",
+              "rating": {
+                "type": "rating_element",
+                "position": "left",
+                "rating_type": "Max5",
+                "value": 5,
+                "votes_count": 1,
+                "rating_max": 5
+              },
+              "is_amazon_choice": false,
+              "is_best_seller": false,
+              "delivery_info": null,
+              "labels": [
+                {
+                  "type": "amazon_label_element",
+                  "title": "Single Issue Magazine",
+                  "url": "https://amazon.com/Week-Magazine-August-Orban-Option/dp/B09CTHYNPP/ref=sr_1_35?crid=KQ4R97IVHJCL&dib=eyJ2IjoiMSJ9.U6gXd0SKWoTQUG3AFqputmOsQYoztZ4D1xchDjqfSJQx5gpzXD1HBGuDyW1icpOyZ6CR1fmzOAlWIS4U67zAarfteJuWEERPENP57-1G7x0heF8nUoeuZFZQbL4kWQ_Y4D9Nj1HfKiJx56RK_MwEUw.71STkE1nT93hu8qzGwHUc-oBniqKdSMjkFwpze1yQ7w&dib_tag=se&keywords=The+Week+magazine+subscription&qid=1780330728&sprefix=The%2BWeek%2Bmagazine%2Bsubscription%2Caps%2C210&xpid=bbwn7pDrUhV_Z",
+                  "domain": null
+                }
+              ]
+            },
+            {
+              "type": "amazon_serp",
+              "rank_group": 36,
+              "rank_absolute": 38,
+              "xpath": "/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/div[1]/span[1]/div[1]/div[6]",
+              "domain": "www.amazon.com",
+              "title": "Soap Opera Digest magazine August 7, 2023 - The Week That Changes Days",
+              "url": "https://www.amazon.com/Soap-Opera-Digest-magazine-2019/dp/B0DGWV8M9V/ref=sr_1_36?crid=KQ4R97IVHJCL&dib=eyJ2IjoiMSJ9.U6gXd0SKWoTQUG3AFqputmOsQYoztZ4D1xchDjqfSJQx5gpzXD1HBGuDyW1icpOyZ6CR1fmzOAlWIS4U67zAarfteJuWEERPENP57-1G7x0heF8nUoeuZFZQbL4kWQ_Y4D9Nj1HfKiJx56RK_MwEUw.71STkE1nT93hu8qzGwHUc-oBniqKdSMjkFwpze1yQ7w&dib_tag=se&keywords=The+Week+magazine+subscription&qid=1780330728&sprefix=The%2BWeek%2Bmagazine%2Bsubscription%2Caps%2C210&xpid=bbwn7pDrUhV_Z",
+              "image_url": "https://m.media-amazon.com/images/I/81YIazWrftL._AC_UY218_.jpg",
+              "bought_past_month": null,
+              "price_from": null,
+              "price_to": null,
+              "currency": null,
+              "special_offers": null,
+              "data_asin": "B0DGWV8M9V",
+              "rating": null,
+              "is_amazon_choice": false,
+              "is_best_seller": false,
+              "delivery_info": null,
+              "labels": [
+                {
+                  "type": "amazon_label_element",
+                  "title": "Staple Bound",
+                  "url": "https://amazon.com/Soap-Opera-Digest-magazine-2019/dp/B0DGWV8M9V/ref=sr_1_36?crid=KQ4R97IVHJCL&dib=eyJ2IjoiMSJ9.U6gXd0SKWoTQUG3AFqputmOsQYoztZ4D1xchDjqfSJQx5gpzXD1HBGuDyW1icpOyZ6CR1fmzOAlWIS4U67zAarfteJuWEERPENP57-1G7x0heF8nUoeuZFZQbL4kWQ_Y4D9Nj1HfKiJx56RK_MwEUw.71STkE1nT93hu8qzGwHUc-oBniqKdSMjkFwpze1yQ7w&dib_tag=se&keywords=The+Week+magazine+subscription&qid=1780330728&sprefix=The%2BWeek%2Bmagazine%2Bsubscription%2Caps%2C210&xpid=bbwn7pDrUhV_Z",
+                  "domain": null
+                }
+              ]
+            },
+            {
+              "type": "amazon_serp",
+              "rank_group": 37,
+              "rank_absolute": 39,
+              "xpath": "/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/div[1]/span[1]/div[1]/div[7]",
+              "domain": "www.amazon.com",
+              "title": "THE WEEK Magazine February 3, 2017 - Cover Story: VIRTUAL REALITY The White House\u2019s Preference for \u2018Alternative Facts\u2019",
+              "url": "https://www.amazon.com/WEEK-Magazine-February-2017-Alternative/dp/B06X9WCV76/ref=sr_1_37?crid=KQ4R97IVHJCL&dib=eyJ2IjoiMSJ9.U6gXd0SKWoTQUG3AFqputmOsQYoztZ4D1xchDjqfSJQx5gpzXD1HBGuDyW1icpOyZ6CR1fmzOAlWIS4U67zAarfteJuWEERPENP57-1G7x0heF8nUoeuZFZQbL4kWQ_Y4D9Nj1HfKiJx56RK_MwEUw.71STkE1nT93hu8qzGwHUc-oBniqKdSMjkFwpze1yQ7w&dib_tag=se&keywords=The+Week+magazine+subscription&qid=1780330728&sprefix=The%2BWeek%2Bmagazine%2Bsubscription%2Caps%2C210&xpid=bbwn7pDrUhV_Z",
+              "image_url": "https://m.media-amazon.com/images/I/A1LHxF84TAL._AC_UY218_.jpg",
+              "bought_past_month": null,
+              "price_from": null,
+              "price_to": null,
+              "currency": null,
+              "special_offers": null,
+              "data_asin": "B06X9WCV76",
+              "rating": {
+                "type": "rating_element",
+                "position": "left",
+                "rating_type": "Max5",
+                "value": 5,
+                "votes_count": 1,
+                "rating_max": 5
+              },
+              "is_amazon_choice": false,
+              "is_best_seller": false,
+              "delivery_info": null,
+              "labels": [
+                {
+                  "type": "amazon_label_element",
+                  "title": "Single Issue Magazine",
+                  "url": "https://amazon.com/WEEK-Magazine-February-2017-Alternative/dp/B06X9WCV76/ref=sr_1_37?crid=KQ4R97IVHJCL&dib=eyJ2IjoiMSJ9.U6gXd0SKWoTQUG3AFqputmOsQYoztZ4D1xchDjqfSJQx5gpzXD1HBGuDyW1icpOyZ6CR1fmzOAlWIS4U67zAarfteJuWEERPENP57-1G7x0heF8nUoeuZFZQbL4kWQ_Y4D9Nj1HfKiJx56RK_MwEUw.71STkE1nT93hu8qzGwHUc-oBniqKdSMjkFwpze1yQ7w&dib_tag=se&keywords=The+Week+magazine+subscription&qid=1780330728&sprefix=The%2BWeek%2Bmagazine%2Bsubscription%2Caps%2C210&xpid=bbwn7pDrUhV_Z",
+                  "domain": null
+                }
+              ]
+            },
+            {
+              "type": "amazon_serp",
+              "rank_group": 38,
+              "rank_absolute": 40,
+              "xpath": "/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/div[1]/span[1]/div[1]/div[8]",
+              "domain": "www.amazon.com",
+              "title": "TIME MAGAZINE WEEKLY - ISSUE 47 / NOV. 25, 2019 - THE NEXT 100 MOST INFLUENTIAL PEOPLE - AWKWAFINA",
+              "url": "https://www.amazon.com/TIME-MAGAZINE-WEEKLY-INFLUENTIAL-AWKWAFINA/dp/B081K834HS/ref=sr_1_38?crid=KQ4R97IVHJCL&dib=eyJ2IjoiMSJ9.U6gXd0SKWoTQUG3AFqputmOsQYoztZ4D1xchDjqfSJQx5gpzXD1HBGuDyW1icpOyZ6CR1fmzOAlWIS4U67zAarfteJuWEERPENP57-1G7x0heF8nUoeuZFZQbL4kWQ_Y4D9Nj1HfKiJx56RK_MwEUw.71STkE1nT93hu8qzGwHUc-oBniqKdSMjkFwpze1yQ7w&dib_tag=se&keywords=The+Week+magazine+subscription&qid=1780330728&sprefix=The%2BWeek%2Bmagazine%2Bsubscription%2Caps%2C210&xpid=bbwn7pDrUhV_Z",
+              "image_url": "https://m.media-amazon.com/images/I/81k0p62SsaL._AC_UY218_.jpg",
+              "bought_past_month": null,
+              "price_from": null,
+              "price_to": null,
+              "currency": null,
+              "special_offers": null,
+              "data_asin": "B081K834HS",
+              "rating": null,
+              "is_amazon_choice": false,
+              "is_best_seller": false,
+              "delivery_info": null,
+              "labels": [
+                {
+                  "type": "amazon_label_element",
+                  "title": "Single Issue Magazine",
+                  "url": "https://amazon.com/TIME-MAGAZINE-WEEKLY-INFLUENTIAL-AWKWAFINA/dp/B081K834HS/ref=sr_1_38?crid=KQ4R97IVHJCL&dib=eyJ2IjoiMSJ9.U6gXd0SKWoTQUG3AFqputmOsQYoztZ4D1xchDjqfSJQx5gpzXD1HBGuDyW1icpOyZ6CR1fmzOAlWIS4U67zAarfteJuWEERPENP57-1G7x0heF8nUoeuZFZQbL4kWQ_Y4D9Nj1HfKiJx56RK_MwEUw.71STkE1nT93hu8qzGwHUc-oBniqKdSMjkFwpze1yQ7w&dib_tag=se&keywords=The+Week+magazine+subscription&qid=1780330728&sprefix=The%2BWeek%2Bmagazine%2Bsubscription%2Caps%2C210&xpid=bbwn7pDrUhV_Z",
+                  "domain": null
+                }
+              ]
+            },
+            {
+              "type": "amazon_serp",
+              "rank_group": 39,
+              "rank_absolute": 41,
+              "xpath": "/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/div[1]/span[1]/div[1]/div[9]",
+              "domain": "www.amazon.com",
+              "title": "Education Week - Magazine Subscription from MagazineLine",
+              "url": "https://www.amazon.com/Education-Week-Magazine-Subscription-MagazineLine/dp/B0133FUAZI/ref=sr_1_39?crid=KQ4R97IVHJCL&dib=eyJ2IjoiMSJ9.U6gXd0SKWoTQUG3AFqputmOsQYoztZ4D1xchDjqfSJQx5gpzXD1HBGuDyW1icpOyZ6CR1fmzOAlWIS4U67zAarfteJuWEERPENP57-1G7x0heF8nUoeuZFZQbL4kWQ_Y4D9Nj1HfKiJx56RK_MwEUw.71STkE1nT93hu8qzGwHUc-oBniqKdSMjkFwpze1yQ7w&dib_tag=se&keywords=The+Week+magazine+subscription&qid=1780330728&sprefix=The%2BWeek%2Bmagazine%2Bsubscription%2Caps%2C210&xpid=bbwn7pDrUhV_Z",
+              "image_url": "https://m.media-amazon.com/images/I/51KQMdik18L._AC_UY218_.jpg",
+              "bought_past_month": null,
+              "price_from": null,
+              "price_to": null,
+              "currency": null,
+              "special_offers": null,
+              "data_asin": "B0133FUAZI",
+              "rating": null,
+              "is_amazon_choice": false,
+              "is_best_seller": false,
+              "delivery_info": null,
+              "labels": [
+                {
+                  "type": "amazon_label_element",
+                  "title": "Print Magazine",
+                  "url": "https://amazon.com/Education-Week-Magazine-Subscription-MagazineLine/dp/B0133FUAZI/ref=sr_1_39?crid=KQ4R97IVHJCL&dib=eyJ2IjoiMSJ9.U6gXd0SKWoTQUG3AFqputmOsQYoztZ4D1xchDjqfSJQx5gpzXD1HBGuDyW1icpOyZ6CR1fmzOAlWIS4U67zAarfteJuWEERPENP57-1G7x0heF8nUoeuZFZQbL4kWQ_Y4D9Nj1HfKiJx56RK_MwEUw.71STkE1nT93hu8qzGwHUc-oBniqKdSMjkFwpze1yQ7w&dib_tag=se&keywords=The+Week+magazine+subscription&qid=1780330728&sprefix=The%2BWeek%2Bmagazine%2Bsubscription%2Caps%2C210&xpid=bbwn7pDrUhV_Z",
+                  "domain": null
+                }
+              ]
+            },
+            {
+              "type": "amazon_serp",
+              "rank_group": 40,
+              "rank_absolute": 42,
+              "xpath": "/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/div[1]/span[1]/div[1]/div[10]",
+              "domain": "www.amazon.com",
+              "title": "Entertainment Weekly Subscription",
+              "url": "https://www.amazon.com/Entertainment-Weekly-Subscription-2yr/dp/B001I9YFGC/ref=sr_1_40?crid=KQ4R97IVHJCL&dib=eyJ2IjoiMSJ9.U6gXd0SKWoTQUG3AFqputmOsQYoztZ4D1xchDjqfSJQx5gpzXD1HBGuDyW1icpOyZ6CR1fmzOAlWIS4U67zAarfteJuWEERPENP57-1G7x0heF8nUoeuZFZQbL4kWQ_Y4D9Nj1HfKiJx56RK_MwEUw.71STkE1nT93hu8qzGwHUc-oBniqKdSMjkFwpze1yQ7w&dib_tag=se&keywords=The+Week+magazine+subscription&qid=1780330728&sprefix=The%2BWeek%2Bmagazine%2Bsubscription%2Caps%2C210&xpid=bbwn7pDrUhV_Z",
+              "image_url": "https://m.media-amazon.com/images/I/51ru9NCjD2L._AC_UY218_.jpg",
+              "bought_past_month": null,
+              "price_from": null,
+              "price_to": null,
+              "currency": null,
+              "special_offers": null,
+              "data_asin": "B001I9YFGC",
+              "rating": null,
+              "is_amazon_choice": false,
+              "is_best_seller": false,
+              "delivery_info": null,
+              "labels": [
+                {
+                  "type": "amazon_label_element",
+                  "title": "Paperback",
+                  "url": "https://amazon.com/Entertainment-Weekly-Subscription-2yr/dp/B001I9YFGC/ref=sr_1_40?crid=KQ4R97IVHJCL&dib=eyJ2IjoiMSJ9.U6gXd0SKWoTQUG3AFqputmOsQYoztZ4D1xchDjqfSJQx5gpzXD1HBGuDyW1icpOyZ6CR1fmzOAlWIS4U67zAarfteJuWEERPENP57-1G7x0heF8nUoeuZFZQbL4kWQ_Y4D9Nj1HfKiJx56RK_MwEUw.71STkE1nT93hu8qzGwHUc-oBniqKdSMjkFwpze1yQ7w&dib_tag=se&keywords=The+Week+magazine+subscription&qid=1780330728&sprefix=The%2BWeek%2Bmagazine%2Bsubscription%2Caps%2C210&xpid=bbwn7pDrUhV_Z",
+                  "domain": null
+                }
+              ]
+            },
+            {
+              "type": "amazon_serp",
+              "rank_group": 41,
+              "rank_absolute": 43,
+              "xpath": "/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/div[1]/span[1]/div[1]/div[11]",
+              "domain": "www.amazon.com",
+              "title": "First For Women Magazine May 27,2024 Drop 2 Lbs Every Week Walk Off 2 Sizes",
+              "url": "https://www.amazon.com/First-Women-Magazine-Every-Sizes/dp/B0D4VLDCWY/ref=sr_1_41?crid=KQ4R97IVHJCL&dib=eyJ2IjoiMSJ9.U6gXd0SKWoTQUG3AFqputmOsQYoztZ4D1xchDjqfSJQx5gpzXD1HBGuDyW1icpOyZ6CR1fmzOAlWIS4U67zAarfteJuWEERPENP57-1G7x0heF8nUoeuZFZQbL4kWQ_Y4D9Nj1HfKiJx56RK_MwEUw.71STkE1nT93hu8qzGwHUc-oBniqKdSMjkFwpze1yQ7w&dib_tag=se&keywords=The+Week+magazine+subscription&qid=1780330728&sprefix=The%2BWeek%2Bmagazine%2Bsubscription%2Caps%2C210&xpid=bbwn7pDrUhV_Z",
+              "image_url": "https://m.media-amazon.com/images/I/812DIUEi-OL._AC_UY218_.jpg",
+              "bought_past_month": null,
+              "price_from": null,
+              "price_to": null,
+              "currency": null,
+              "special_offers": null,
+              "data_asin": "B0D4VLDCWY",
+              "rating": null,
+              "is_amazon_choice": false,
+              "is_best_seller": false,
+              "delivery_info": null,
+              "labels": [
+                {
+                  "type": "amazon_label_element",
+                  "title": "Single Issue Magazine",
+                  "url": "https://amazon.com/First-Women-Magazine-Every-Sizes/dp/B0D4VLDCWY/ref=sr_1_41?crid=KQ4R97IVHJCL&dib=eyJ2IjoiMSJ9.U6gXd0SKWoTQUG3AFqputmOsQYoztZ4D1xchDjqfSJQx5gpzXD1HBGuDyW1icpOyZ6CR1fmzOAlWIS4U67zAarfteJuWEERPENP57-1G7x0heF8nUoeuZFZQbL4kWQ_Y4D9Nj1HfKiJx56RK_MwEUw.71STkE1nT93hu8qzGwHUc-oBniqKdSMjkFwpze1yQ7w&dib_tag=se&keywords=The+Week+magazine+subscription&qid=1780330728&sprefix=The%2BWeek%2Bmagazine%2Bsubscription%2Caps%2C210&xpid=bbwn7pDrUhV_Z",
+                  "domain": null
+                }
+              ]
+            },
+            {
+              "type": "related_searches",
+              "rank_group": 3,
+              "rank_absolute": 44,
+              "position": "left",
+              "xpath": "/html[1]/body[1]/div[1]/div[1]/div[1]/div[1]/div[1]/span[1]/div[1]/div[12]/div[1]/div[1]/div[1]/div[1]/div[1]/div[2]/span[1]/div[1]/div[1]/div[1]/a[1]",
+              "items": [
+                {
+                  "type": "related_searches_element",
+                  "title": "the week magazine",
+                  "url": "https://www.amazon.com/s?k=the+week+magazine&ref=rsl_sug_0_0&pd_rd_w=ZBJeF&content-id=amzn1.sym.3be64970-3b95-4a6d-a45d-78077a3ff871:amzn1.sym.3be64970-3b95-4a6d-a45d-78077a3ff871&pf_rd_p=3be64970-3b95-4a6d-a45d-78077a3ff871&pf_rd_r=S2CRB05R55ZMTAWJ4WJR&pd_rd_wg=44NPq&pd_rd_r=85914143-5821-4731-b2d0-5b20a1dfdb5d&qid=1780330728",
+                  "image_alt": null,
+                  "image_url": null
+                },
+                {
+                  "type": "related_searches_element",
+                  "title": "the week magazine discount subscription",
+                  "url": "https://www.amazon.com/s?k=the+week+magazine+discount+subscription&ref=rsl_sug_0_3&pd_rd_w=ZBJeF&content-id=amzn1.sym.3be64970-3b95-4a6d-a45d-78077a3ff871:amzn1.sym.3be64970-3b95-4a6d-a45d-78077a3ff871&pf_rd_p=3be64970-3b95-4a6d-a45d-78077a3ff871&pf_rd_r=S2CRB05R55ZMTAWJ4WJR&pd_rd_wg=44NPq&pd_rd_r=85914143-5821-4731-b2d0-5b20a1dfdb5d&qid=1780330728",
+                  "image_alt": null,
+                  "image_url": null
+                },
+                {
+                  "type": "related_searches_element",
+                  "title": "the week magazine print subscription",
+                  "url": "https://www.amazon.com/s?k=the+week+magazine+print+subscription&ref=rsl_sug_0_1&pd_rd_w=ZBJeF&content-id=amzn1.sym.3be64970-3b95-4a6d-a45d-78077a3ff871:amzn1.sym.3be64970-3b95-4a6d-a45d-78077a3ff871&pf_rd_p=3be64970-3b95-4a6d-a45d-78077a3ff871&pf_rd_r=S2CRB05R55ZMTAWJ4WJR&pd_rd_wg=44NPq&pd_rd_r=85914143-5821-4731-b2d0-5b20a1dfdb5d&qid=1780330728",
+                  "image_alt": null,
+                  "image_url": null
+                },
+                {
+                  "type": "related_searches_element",
+                  "title": "magazines subscriptions",
+                  "url": "https://www.amazon.com/s?k=magazines+subscriptions&ref=rsl_sug_0_4&pd_rd_w=ZBJeF&content-id=amzn1.sym.3be64970-3b95-4a6d-a45d-78077a3ff871:amzn1.sym.3be64970-3b95-4a6d-a45d-78077a3ff871&pf_rd_p=3be64970-3b95-4a6d-a45d-78077a3ff871&pf_rd_r=S2CRB05R55ZMTAWJ4WJR&pd_rd_wg=44NPq&pd_rd_r=85914143-5821-4731-b2d0-5b20a1dfdb5d&qid=1780330728",
+                  "image_alt": null,
+                  "image_url": null
+                },
+                {
+                  "type": "related_searches_element",
+                  "title": "the week magazine subscriptions print",
+                  "url": "https://www.amazon.com/s?k=the+week+magazine+subscriptions+print&ref=rsl_sug_0_2&pd_rd_w=ZBJeF&content-id=amzn1.sym.3be64970-3b95-4a6d-a45d-78077a3ff871:amzn1.sym.3be64970-3b95-4a6d-a45d-78077a3ff871&pf_rd_p=3be64970-3b95-4a6d-a45d-78077a3ff871&pf_rd_r=S2CRB05R55ZMTAWJ4WJR&pd_rd_wg=44NPq&pd_rd_r=85914143-5821-4731-b2d0-5b20a1dfdb5d&qid=1780330728",
+                  "image_alt": null,
+                  "image_url": null
+                },
+                {
+                  "type": "related_searches_element",
+                  "title": "magazine print subscription",
+                  "url": "https://www.amazon.com/s?k=magazine+print+subscription&ref=rsl_sug_0_5&pd_rd_w=ZBJeF&content-id=amzn1.sym.3be64970-3b95-4a6d-a45d-78077a3ff871:amzn1.sym.3be64970-3b95-4a6d-a45d-78077a3ff871&pf_rd_p=3be64970-3b95-4a6d-a45d-78077a3ff871&pf_rd_r=S2CRB05R55ZMTAWJ4WJR&pd_rd_wg=44NPq&pd_rd_r=85914143-5821-4731-b2d0-5b20a1dfdb5d&qid=1780330728",
+                  "image_alt": null,
+                  "image_url": null
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
