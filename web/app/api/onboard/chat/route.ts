@@ -192,6 +192,10 @@ export async function POST(request: NextRequest) {
               },
             ];
 
+          if (loopCount > 1 && !forceFinalize) {
+            send({ type: 'delta', text: '\n\n' });
+          }
+
           const messageStream = client.messages.stream({
             model: MODEL,
             max_tokens: MAX_TOKENS,

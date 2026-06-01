@@ -8,8 +8,8 @@
 // to compress the sliding window and <draft> to render YAML at save time;
 // client uses <draft> to render the live YAML preview pane.
 
-const STATE_RE = /<state>([\s\S]*?)<\/state>/i;
-const DRAFT_RE = /<draft>([\s\S]*?)<\/draft>/i;
+const STATE_RE = /<state>([\s\S]*?)<\/state>/gi;
+const DRAFT_RE = /<draft>([\s\S]*?)<\/draft>/gi;
 
 export function extractStateRaw(text: string): string | null {
   const m = STATE_RE.exec(text);

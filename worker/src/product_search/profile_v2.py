@@ -91,7 +91,7 @@ class SerperSource(BaseModel):
 
     enabled: bool = True
     gl: str = "us"        # Google country code
-    num: int = Field(default=40, gt=0)
+    num: int = Field(default=100, gt=0)
 
 
 class EbaySource(BaseModel):
