@@ -121,7 +121,7 @@ def _build_run_cost(run_calls: list[dict[str, Any]]) -> dict[str, Any]:
                 "cost_usd": cost,
             }
         )
-    return {"calls": calls_out, "total_usd": total, "any_unpriced": any_unpriced}
+    return {"steps": calls_out, "total_usd": total, "any_unpriced": any_unpriced}
 
 
 def build_v2_payload(
