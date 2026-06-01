@@ -1,0 +1,39 @@
+schema_version: 2
+slug: lululemon-never-lost-keychain
+display_name: Lululemon Never Lost Keychain
+description: Lululemon Never Lost Keychain in any color, new condition only.
+product_type: accessories
+target:
+  unit: count
+  amount: 1
+queries:
+  - Lululemon Never Lost Keychain
+  - Lululemon Never Lost Key Tag
+  - Lululemon Key Finder Keychain
+match:
+  aliases:
+    - Never Lost Keychain
+    - Never Lost Key Tag
+    - Lululemon keychain tracker
+  title_excludes:
+    - used
+    - refurbished
+  variant_strict: false
+filters:
+  condition_in:
+    - new
+  in_stock: true
+sources:
+  serper:
+    enabled: true
+    gl: us
+  ebay:
+    enabled: false
+display:
+  max_listings: 20
+  per_vendor_cap: 3
+  attrs:
+    - price
+    - condition
+    - seller
+    - color
