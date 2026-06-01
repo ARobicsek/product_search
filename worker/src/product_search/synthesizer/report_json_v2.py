@@ -22,7 +22,7 @@ from product_search.models import Listing
 from product_search.profile_v2 import ProfileV2
 from product_search.run_outcome import RunOutcome
 from product_search.selection import SelectionResult
-from product_search.synthesizer.flag_labels import _coerce_entry, _load_registry
+from product_search.synthesizer.flag_labels import Badge, _coerce_entry, _load_registry
 
 
 def _vendor_host(lst: Listing) -> str | None:
@@ -30,10 +30,10 @@ def _vendor_host(lst: Listing) -> str | None:
     return parsed or None
 
 
-def _flags_to_badges(flags: list[str]) -> list[dict[str, Any]]:
+def _flags_to_badges(flags: list[str]) -> list[Badge]:
     registry = _load_registry()
     seen: set[str] = set()
-    out: list[dict[str, Any]] = []
+    out: list[Badge] = []
     for f in flags:
         if f in seen:
             continue
