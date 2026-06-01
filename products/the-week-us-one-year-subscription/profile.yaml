@@ -1,0 +1,34 @@
+schema_version: 2
+slug: the-week-us-one-year-subscription
+display_name: The Week US – One Year Subscription
+description: One year subscription to The Week magazine, US edition.
+product_type: subscription
+target:
+  unit: count
+  amount: 1
+queries:
+  - The Week magazine US one year subscription
+  - The Week US annual subscription
+  - The Week magazine subscription one year
+match:
+  aliases:
+    - The Week US
+    - The Week one year
+  title_excludes:
+    - bundle
+    - gift card
+    - back issue
+  variant_strict: false
+filters: {}
+sources:
+  serper:
+    enabled: true
+    gl: us
+  ebay:
+    enabled: false
+display:
+  max_listings: 20
+  per_vendor_cap: 3
+  attrs:
+    - price
+    - seller
