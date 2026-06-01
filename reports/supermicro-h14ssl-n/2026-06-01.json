@@ -4,10 +4,12 @@
   "display_name": "Supermicro H14SSL-N Motherboard",
   "product_type": "motherboard",
   "snapshot_date": "2026-06-01",
-  "generated_at": "2026-06-01T03:35:41.265828+00:00",
+  "generated_at": "2026-06-01T04:46:40.710331+00:00",
   "columns": [
     "price",
-    "seller"
+    "condition",
+    "seller",
+    "seller_rating"
   ],
   "listings": [
     {
@@ -70,6 +72,44 @@
     },
     {
       "rank": 3,
+      "source": "ebay_search",
+      "vendor_host": "www.ebay.com",
+      "url": "https://www.ebay.com/itm/366435742108?_skw=Supermicro+H14SSL-N&hash=item555145b19c:g:PZsAAeSwSdhqFslB",
+      "buy_url": "https://www.ebay.com/itm/366435742108?_skw=Supermicro+H14SSL-N&hash=item555145b19c:g:PZsAAeSwSdhqFslB",
+      "image_url": null,
+      "title": "Supermicro Motherboard H14SSL-N - ATX - Mainboard - Mainboard - ATX",
+      "price_usd": 916.0,
+      "total_for_target_usd": null,
+      "currency_approx_fx": null,
+      "condition": "new",
+      "seller_name": "digi-techx",
+      "is_kit": false,
+      "kit_module_count": 1,
+      "badges": [
+        {
+          "key": "ship_from_de",
+          "label": "ship_from_de",
+          "severity": "info"
+        }
+      ],
+      "seller_rating_pct": 100.0,
+      "seller_feedback_count": 16914,
+      "rating": null,
+      "rating_count": null,
+      "ship_from_country": "DE",
+      "quantity_available": null,
+      "flags": [
+        "ship_from_de"
+      ],
+      "brand": null,
+      "mpn": null,
+      "attrs": {
+        "condition": "new",
+        "price": "916.0"
+      }
+    },
+    {
+      "rank": 4,
       "source": "serper_shopping",
       "vendor_host": "ebay.com",
       "url": "https://www.google.com/search?ibp=oshop&q=Supermicro+H14SSL-N&prds=localAnnotatedOfferId:1,productid:7034165794189287005,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
@@ -98,7 +138,159 @@
       }
     },
     {
-      "rank": 4,
+      "rank": 5,
+      "source": "ebay_search",
+      "vendor_host": "www.ebay.com",
+      "url": "https://www.ebay.com/itm/137294609790?_skw=Supermicro+H14SSL-N&hash=item1ff7657d7e:g:6hgAAOSw6cNkQStg",
+      "buy_url": "https://www.ebay.com/itm/137294609790?_skw=Supermicro+H14SSL-N&hash=item1ff7657d7e:g:6hgAAOSw6cNkQStg",
+      "image_url": null,
+      "title": "Supermicro H14SSL-N Support AMD EPYC 9004/9005 Series Processors ",
+      "price_usd": 1188.0,
+      "total_for_target_usd": null,
+      "currency_approx_fx": null,
+      "condition": "new",
+      "seller_name": "inwm9492",
+      "is_kit": false,
+      "kit_module_count": 1,
+      "badges": [
+        {
+          "key": "ship_from_cn",
+          "label": "ship_from_cn",
+          "severity": "info"
+        }
+      ],
+      "seller_rating_pct": 100.0,
+      "seller_feedback_count": 6142,
+      "rating": null,
+      "rating_count": null,
+      "ship_from_country": "CN",
+      "quantity_available": null,
+      "flags": [
+        "ship_from_cn"
+      ],
+      "brand": null,
+      "mpn": null,
+      "attrs": {
+        "condition": "new",
+        "price": "1188.0"
+      }
+    },
+    {
+      "rank": 6,
+      "source": "ebay_search",
+      "vendor_host": "www.ebay.com",
+      "url": "https://www.ebay.com/itm/178118733225?_skw=Supermicro+H14SSL-N&hash=item2978b42da9:g:6hgAAOSw6cNkQStg",
+      "buy_url": "https://www.ebay.com/itm/178118733225?_skw=Supermicro+H14SSL-N&hash=item2978b42da9:g:6hgAAOSw6cNkQStg",
+      "image_url": null,
+      "title": "Supermicro H14SSL-N Support AMD EPYC 9004/9005 Series Processors",
+      "price_usd": 1188.0,
+      "total_for_target_usd": null,
+      "currency_approx_fx": null,
+      "condition": "new",
+      "seller_name": "tugm4470",
+      "is_kit": false,
+      "kit_module_count": 1,
+      "badges": [
+        {
+          "key": "ship_from_cn",
+          "label": "ship_from_cn",
+          "severity": "info"
+        }
+      ],
+      "seller_rating_pct": 99.0,
+      "seller_feedback_count": 5613,
+      "rating": null,
+      "rating_count": null,
+      "ship_from_country": "CN",
+      "quantity_available": null,
+      "flags": [
+        "ship_from_cn"
+      ],
+      "brand": null,
+      "mpn": null,
+      "attrs": {
+        "condition": "new",
+        "price": "1188.0"
+      }
+    },
+    {
+      "rank": 7,
+      "source": "ebay_search",
+      "vendor_host": "www.ebay.com",
+      "url": "https://www.ebay.com/itm/236807103826?_skw=Supermicro+H14SSL-N&hash=item3722cda552:g:6hgAAOSw6cNkQStg",
+      "buy_url": "https://www.ebay.com/itm/236807103826?_skw=Supermicro+H14SSL-N&hash=item3722cda552:g:6hgAAOSw6cNkQStg",
+      "image_url": null,
+      "title": "Supermicro H14SSL-N Support AMD EPYC 9004/9005 Series Processors",
+      "price_usd": 1188.0,
+      "total_for_target_usd": null,
+      "currency_approx_fx": null,
+      "condition": "new",
+      "seller_name": "electronic-2018",
+      "is_kit": false,
+      "kit_module_count": 1,
+      "badges": [
+        {
+          "key": "ship_from_cn",
+          "label": "ship_from_cn",
+          "severity": "info"
+        }
+      ],
+      "seller_rating_pct": 100.0,
+      "seller_feedback_count": 235,
+      "rating": null,
+      "rating_count": null,
+      "ship_from_country": "CN",
+      "quantity_available": null,
+      "flags": [
+        "ship_from_cn"
+      ],
+      "brand": null,
+      "mpn": null,
+      "attrs": {
+        "condition": "new",
+        "price": "1188.0"
+      }
+    },
+    {
+      "rank": 8,
+      "source": "ebay_search",
+      "vendor_host": "www.ebay.com",
+      "url": "https://www.ebay.com/itm/137294609737?_skw=Supermicro+H14SSL-N&hash=item1ff7657d49:g:6hgAAOSw6cNkQStg",
+      "buy_url": "https://www.ebay.com/itm/137294609737?_skw=Supermicro+H14SSL-N&hash=item1ff7657d49:g:6hgAAOSw6cNkQStg",
+      "image_url": null,
+      "title": "Supermicro H14SSL-N Support AMD EPYC 9004/9005 Series Processors",
+      "price_usd": 1188.0,
+      "total_for_target_usd": null,
+      "currency_approx_fx": null,
+      "condition": "new",
+      "seller_name": "kgda_68",
+      "is_kit": false,
+      "kit_module_count": 1,
+      "badges": [
+        {
+          "key": "ship_from_cn",
+          "label": "ship_from_cn",
+          "severity": "info"
+        }
+      ],
+      "seller_rating_pct": 100.0,
+      "seller_feedback_count": 698,
+      "rating": null,
+      "rating_count": null,
+      "ship_from_country": "CN",
+      "quantity_available": null,
+      "flags": [
+        "ship_from_cn"
+      ],
+      "brand": null,
+      "mpn": null,
+      "attrs": {
+        "condition": "new",
+        "price": "1188.0"
+      }
+    },
+    {
+      "rank": 9,
       "source": "serper_shopping",
       "vendor_host": "ebay.com",
       "url": "https://www.google.com/search?ibp=oshop&q=Supermicro+H14SSL-N&prds=localAnnotatedOfferId:1,productid:6431425053535712637,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
@@ -127,7 +319,113 @@
       }
     },
     {
-      "rank": 5,
+      "rank": 10,
+      "source": "ebay_search",
+      "vendor_host": "www.ebay.com",
+      "url": "https://www.ebay.com/itm/198383501689?_skw=Supermicro+H14SSL-N&hash=item2e30940179:g:cCcAAeSwX9xqFtjD&amdata=enc%3AAQALAAAA8ACCtXRWQnOEpyOqnQQ8KGbpMHPSjpoHMIutRjtl6qbdYX%2B4CSayRD7Mdr0g4Pj6R2Oo5GJD6p%2BaVE4t%2BdjWvCHMiJBF8NiiGlyI8CVkxXijCL811sgLhbqbhPs%2B07vSr0%2FTADoyY3Gxj%2BTLjKfbyab1xCo7LpvPcizhjdLuWqYJLgUSpqnmzh6iu4xaBCgAzNWQSVQEaGnoyPY54ObkA1rXX4Ynwy%2BcHF%2F%2BIYc0mn8JxRPe6pLc%2FIOLiKXXGXpca%2FaUPhC5ZUI0wIl5k57q9zzgVFO7uEcw5CeiLh8msc1eb79pLxhWuv92Cz2TKXFNLA%3D%3D",
+      "buy_url": "https://www.ebay.com/itm/198383501689?_skw=Supermicro+H14SSL-N&hash=item2e30940179:g:cCcAAeSwX9xqFtjD&amdata=enc%3AAQALAAAA8ACCtXRWQnOEpyOqnQQ8KGbpMHPSjpoHMIutRjtl6qbdYX%2B4CSayRD7Mdr0g4Pj6R2Oo5GJD6p%2BaVE4t%2BdjWvCHMiJBF8NiiGlyI8CVkxXijCL811sgLhbqbhPs%2B07vSr0%2FTADoyY3Gxj%2BTLjKfbyab1xCo7LpvPcizhjdLuWqYJLgUSpqnmzh6iu4xaBCgAzNWQSVQEaGnoyPY54ObkA1rXX4Ynwy%2BcHF%2F%2BIYc0mn8JxRPe6pLc%2FIOLiKXXGXpca%2FaUPhC5ZUI0wIl5k57q9zzgVFO7uEcw5CeiLh8msc1eb79pLxhWuv92Cz2TKXFNLA%3D%3D",
+      "image_url": null,
+      "title": "Supermicro H14SSL-N SP5 Server Motherboard AMD EPYC 9005 9004 CPU ATX Board",
+      "price_usd": 1199.99,
+      "total_for_target_usd": null,
+      "currency_approx_fx": null,
+      "condition": "new",
+      "seller_name": "fuxindongli",
+      "is_kit": false,
+      "kit_module_count": 1,
+      "badges": [
+        {
+          "key": "ship_from_cn",
+          "label": "ship_from_cn",
+          "severity": "info"
+        }
+      ],
+      "seller_rating_pct": 98.5,
+      "seller_feedback_count": 126,
+      "rating": null,
+      "rating_count": null,
+      "ship_from_country": "CN",
+      "quantity_available": null,
+      "flags": [
+        "ship_from_cn"
+      ],
+      "brand": null,
+      "mpn": null,
+      "attrs": {
+        "condition": "new",
+        "price": "1199.99"
+      }
+    },
+    {
+      "rank": 11,
+      "source": "ebay_search",
+      "vendor_host": "www.ebay.com",
+      "url": "https://www.ebay.com/itm/336100974317?_skw=Supermicro+H14SSL-N&hash=item4e412ddeed:g:BsEAAeSwd31oi~r4",
+      "buy_url": "https://www.ebay.com/itm/336100974317?_skw=Supermicro+H14SSL-N&hash=item4e412ddeed:g:BsEAAeSwd31oi~r4",
+      "image_url": null,
+      "title": "SuperMicro H14SSL-N Motherboard - EPYC 9005 series",
+      "price_usd": 1199.99,
+      "total_for_target_usd": null,
+      "currency_approx_fx": null,
+      "condition": "new",
+      "seller_name": "tm_space",
+      "is_kit": false,
+      "kit_module_count": 1,
+      "badges": [],
+      "seller_rating_pct": 99.7,
+      "seller_feedback_count": 23352,
+      "rating": null,
+      "rating_count": null,
+      "ship_from_country": "US",
+      "quantity_available": null,
+      "flags": [],
+      "brand": null,
+      "mpn": null,
+      "attrs": {
+        "condition": "new",
+        "price": "1199.99"
+      }
+    },
+    {
+      "rank": 12,
+      "source": "ebay_search",
+      "vendor_host": "www.ebay.com",
+      "url": "https://www.ebay.com/itm/397995420593?_skw=Supermicro+H14SSL-N&hash=item5caa602bb1:g:CP0AAeSweINqFtlS&amdata=enc%3AAQALAAAA8ACCtXRWQnOEpyOqnQQ8KGbk71HbZypUpqdQhViKAd7Balhi%2FKCDEyabXi7xfIfzUP8FvNMW05UHFTzv%2BRZU4ypGFGY9EBDjHTnkDyDOeh%2Bt9YFAWAEZIG2n95jElD%2FX3xAww2tvat%2BeXM6SK4WUoyMX1a4x7XM5moHYNrDw4wQ6hnX2yeZxpSdzznyCho6SCx0TwSLKLBXKFXcav%2BxJQQXACEA9tKJidfONZjqp8F11R9UxYYB1ttW%2BgyioSJQuPIkCjNl%2BMCGO3gjJTz5tAvacvMd%2F43yL6fU%2BX%2Bdp5STffj8YWo3sR9katU8vbbQq3Q%3D%3D",
+      "buy_url": "https://www.ebay.com/itm/397995420593?_skw=Supermicro+H14SSL-N&hash=item5caa602bb1:g:CP0AAeSweINqFtlS&amdata=enc%3AAQALAAAA8ACCtXRWQnOEpyOqnQQ8KGbk71HbZypUpqdQhViKAd7Balhi%2FKCDEyabXi7xfIfzUP8FvNMW05UHFTzv%2BRZU4ypGFGY9EBDjHTnkDyDOeh%2Bt9YFAWAEZIG2n95jElD%2FX3xAww2tvat%2BeXM6SK4WUoyMX1a4x7XM5moHYNrDw4wQ6hnX2yeZxpSdzznyCho6SCx0TwSLKLBXKFXcav%2BxJQQXACEA9tKJidfONZjqp8F11R9UxYYB1ttW%2BgyioSJQuPIkCjNl%2BMCGO3gjJTz5tAvacvMd%2F43yL6fU%2BX%2Bdp5STffj8YWo3sR9katU8vbbQq3Q%3D%3D",
+      "image_url": null,
+      "title": "Supermicro H14SSL-N SP5 Server Motherboard AMD EPYC 9005 9004 CPU ATX Board",
+      "price_usd": 1250.0,
+      "total_for_target_usd": null,
+      "currency_approx_fx": null,
+      "condition": "new",
+      "seller_name": "fuxindongli01",
+      "is_kit": false,
+      "kit_module_count": 1,
+      "badges": [
+        {
+          "key": "ship_from_cn",
+          "label": "ship_from_cn",
+          "severity": "info"
+        }
+      ],
+      "seller_rating_pct": 98.7,
+      "seller_feedback_count": 296,
+      "rating": null,
+      "rating_count": null,
+      "ship_from_country": "CN",
+      "quantity_available": null,
+      "flags": [
+        "ship_from_cn"
+      ],
+      "brand": null,
+      "mpn": null,
+      "attrs": {
+        "condition": "new",
+        "price": "1250.0"
+      }
+    },
+    {
+      "rank": 13,
       "source": "serper_shopping",
       "vendor_host": "ebay.com",
       "url": "https://www.google.com/search?ibp=oshop&q=Supermicro+H14SSL-N&prds=localAnnotatedOfferId:1,productid:11183856075011959861,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
@@ -225,6 +523,44 @@
     },
     {
       "rank": 3,
+      "source": "ebay_search",
+      "vendor_host": "www.ebay.com",
+      "url": "https://www.ebay.com/itm/366435742108?_skw=Supermicro+H14SSL-N&hash=item555145b19c:g:PZsAAeSwSdhqFslB",
+      "buy_url": "https://www.ebay.com/itm/366435742108?_skw=Supermicro+H14SSL-N&hash=item555145b19c:g:PZsAAeSwSdhqFslB",
+      "image_url": null,
+      "title": "Supermicro Motherboard H14SSL-N - ATX - Mainboard - Mainboard - ATX",
+      "price_usd": 916.0,
+      "total_for_target_usd": null,
+      "currency_approx_fx": null,
+      "condition": "new",
+      "seller_name": "digi-techx",
+      "is_kit": false,
+      "kit_module_count": 1,
+      "badges": [
+        {
+          "key": "ship_from_de",
+          "label": "ship_from_de",
+          "severity": "info"
+        }
+      ],
+      "seller_rating_pct": 100.0,
+      "seller_feedback_count": 16914,
+      "rating": null,
+      "rating_count": null,
+      "ship_from_country": "DE",
+      "quantity_available": null,
+      "flags": [
+        "ship_from_de"
+      ],
+      "brand": null,
+      "mpn": null,
+      "attrs": {
+        "condition": "new",
+        "price": "916.0"
+      }
+    },
+    {
+      "rank": 4,
       "source": "serper_shopping",
       "vendor_host": "ebay.com",
       "url": "https://www.google.com/search?ibp=oshop&q=Supermicro+H14SSL-N&prds=localAnnotatedOfferId:1,productid:7034165794189287005,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
@@ -253,7 +589,159 @@
       }
     },
     {
-      "rank": 4,
+      "rank": 5,
+      "source": "ebay_search",
+      "vendor_host": "www.ebay.com",
+      "url": "https://www.ebay.com/itm/137294609790?_skw=Supermicro+H14SSL-N&hash=item1ff7657d7e:g:6hgAAOSw6cNkQStg",
+      "buy_url": "https://www.ebay.com/itm/137294609790?_skw=Supermicro+H14SSL-N&hash=item1ff7657d7e:g:6hgAAOSw6cNkQStg",
+      "image_url": null,
+      "title": "Supermicro H14SSL-N Support AMD EPYC 9004/9005 Series Processors ",
+      "price_usd": 1188.0,
+      "total_for_target_usd": null,
+      "currency_approx_fx": null,
+      "condition": "new",
+      "seller_name": "inwm9492",
+      "is_kit": false,
+      "kit_module_count": 1,
+      "badges": [
+        {
+          "key": "ship_from_cn",
+          "label": "ship_from_cn",
+          "severity": "info"
+        }
+      ],
+      "seller_rating_pct": 100.0,
+      "seller_feedback_count": 6142,
+      "rating": null,
+      "rating_count": null,
+      "ship_from_country": "CN",
+      "quantity_available": null,
+      "flags": [
+        "ship_from_cn"
+      ],
+      "brand": null,
+      "mpn": null,
+      "attrs": {
+        "condition": "new",
+        "price": "1188.0"
+      }
+    },
+    {
+      "rank": 6,
+      "source": "ebay_search",
+      "vendor_host": "www.ebay.com",
+      "url": "https://www.ebay.com/itm/178118733225?_skw=Supermicro+H14SSL-N&hash=item2978b42da9:g:6hgAAOSw6cNkQStg",
+      "buy_url": "https://www.ebay.com/itm/178118733225?_skw=Supermicro+H14SSL-N&hash=item2978b42da9:g:6hgAAOSw6cNkQStg",
+      "image_url": null,
+      "title": "Supermicro H14SSL-N Support AMD EPYC 9004/9005 Series Processors",
+      "price_usd": 1188.0,
+      "total_for_target_usd": null,
+      "currency_approx_fx": null,
+      "condition": "new",
+      "seller_name": "tugm4470",
+      "is_kit": false,
+      "kit_module_count": 1,
+      "badges": [
+        {
+          "key": "ship_from_cn",
+          "label": "ship_from_cn",
+          "severity": "info"
+        }
+      ],
+      "seller_rating_pct": 99.0,
+      "seller_feedback_count": 5613,
+      "rating": null,
+      "rating_count": null,
+      "ship_from_country": "CN",
+      "quantity_available": null,
+      "flags": [
+        "ship_from_cn"
+      ],
+      "brand": null,
+      "mpn": null,
+      "attrs": {
+        "condition": "new",
+        "price": "1188.0"
+      }
+    },
+    {
+      "rank": 7,
+      "source": "ebay_search",
+      "vendor_host": "www.ebay.com",
+      "url": "https://www.ebay.com/itm/236807103826?_skw=Supermicro+H14SSL-N&hash=item3722cda552:g:6hgAAOSw6cNkQStg",
+      "buy_url": "https://www.ebay.com/itm/236807103826?_skw=Supermicro+H14SSL-N&hash=item3722cda552:g:6hgAAOSw6cNkQStg",
+      "image_url": null,
+      "title": "Supermicro H14SSL-N Support AMD EPYC 9004/9005 Series Processors",
+      "price_usd": 1188.0,
+      "total_for_target_usd": null,
+      "currency_approx_fx": null,
+      "condition": "new",
+      "seller_name": "electronic-2018",
+      "is_kit": false,
+      "kit_module_count": 1,
+      "badges": [
+        {
+          "key": "ship_from_cn",
+          "label": "ship_from_cn",
+          "severity": "info"
+        }
+      ],
+      "seller_rating_pct": 100.0,
+      "seller_feedback_count": 235,
+      "rating": null,
+      "rating_count": null,
+      "ship_from_country": "CN",
+      "quantity_available": null,
+      "flags": [
+        "ship_from_cn"
+      ],
+      "brand": null,
+      "mpn": null,
+      "attrs": {
+        "condition": "new",
+        "price": "1188.0"
+      }
+    },
+    {
+      "rank": 8,
+      "source": "ebay_search",
+      "vendor_host": "www.ebay.com",
+      "url": "https://www.ebay.com/itm/137294609737?_skw=Supermicro+H14SSL-N&hash=item1ff7657d49:g:6hgAAOSw6cNkQStg",
+      "buy_url": "https://www.ebay.com/itm/137294609737?_skw=Supermicro+H14SSL-N&hash=item1ff7657d49:g:6hgAAOSw6cNkQStg",
+      "image_url": null,
+      "title": "Supermicro H14SSL-N Support AMD EPYC 9004/9005 Series Processors",
+      "price_usd": 1188.0,
+      "total_for_target_usd": null,
+      "currency_approx_fx": null,
+      "condition": "new",
+      "seller_name": "kgda_68",
+      "is_kit": false,
+      "kit_module_count": 1,
+      "badges": [
+        {
+          "key": "ship_from_cn",
+          "label": "ship_from_cn",
+          "severity": "info"
+        }
+      ],
+      "seller_rating_pct": 100.0,
+      "seller_feedback_count": 698,
+      "rating": null,
+      "rating_count": null,
+      "ship_from_country": "CN",
+      "quantity_available": null,
+      "flags": [
+        "ship_from_cn"
+      ],
+      "brand": null,
+      "mpn": null,
+      "attrs": {
+        "condition": "new",
+        "price": "1188.0"
+      }
+    },
+    {
+      "rank": 9,
       "source": "serper_shopping",
       "vendor_host": "ebay.com",
       "url": "https://www.google.com/search?ibp=oshop&q=Supermicro+H14SSL-N&prds=localAnnotatedOfferId:1,productid:6431425053535712637,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
@@ -282,7 +770,113 @@
       }
     },
     {
-      "rank": 5,
+      "rank": 10,
+      "source": "ebay_search",
+      "vendor_host": "www.ebay.com",
+      "url": "https://www.ebay.com/itm/198383501689?_skw=Supermicro+H14SSL-N&hash=item2e30940179:g:cCcAAeSwX9xqFtjD&amdata=enc%3AAQALAAAA8ACCtXRWQnOEpyOqnQQ8KGbpMHPSjpoHMIutRjtl6qbdYX%2B4CSayRD7Mdr0g4Pj6R2Oo5GJD6p%2BaVE4t%2BdjWvCHMiJBF8NiiGlyI8CVkxXijCL811sgLhbqbhPs%2B07vSr0%2FTADoyY3Gxj%2BTLjKfbyab1xCo7LpvPcizhjdLuWqYJLgUSpqnmzh6iu4xaBCgAzNWQSVQEaGnoyPY54ObkA1rXX4Ynwy%2BcHF%2F%2BIYc0mn8JxRPe6pLc%2FIOLiKXXGXpca%2FaUPhC5ZUI0wIl5k57q9zzgVFO7uEcw5CeiLh8msc1eb79pLxhWuv92Cz2TKXFNLA%3D%3D",
+      "buy_url": "https://www.ebay.com/itm/198383501689?_skw=Supermicro+H14SSL-N&hash=item2e30940179:g:cCcAAeSwX9xqFtjD&amdata=enc%3AAQALAAAA8ACCtXRWQnOEpyOqnQQ8KGbpMHPSjpoHMIutRjtl6qbdYX%2B4CSayRD7Mdr0g4Pj6R2Oo5GJD6p%2BaVE4t%2BdjWvCHMiJBF8NiiGlyI8CVkxXijCL811sgLhbqbhPs%2B07vSr0%2FTADoyY3Gxj%2BTLjKfbyab1xCo7LpvPcizhjdLuWqYJLgUSpqnmzh6iu4xaBCgAzNWQSVQEaGnoyPY54ObkA1rXX4Ynwy%2BcHF%2F%2BIYc0mn8JxRPe6pLc%2FIOLiKXXGXpca%2FaUPhC5ZUI0wIl5k57q9zzgVFO7uEcw5CeiLh8msc1eb79pLxhWuv92Cz2TKXFNLA%3D%3D",
+      "image_url": null,
+      "title": "Supermicro H14SSL-N SP5 Server Motherboard AMD EPYC 9005 9004 CPU ATX Board",
+      "price_usd": 1199.99,
+      "total_for_target_usd": null,
+      "currency_approx_fx": null,
+      "condition": "new",
+      "seller_name": "fuxindongli",
+      "is_kit": false,
+      "kit_module_count": 1,
+      "badges": [
+        {
+          "key": "ship_from_cn",
+          "label": "ship_from_cn",
+          "severity": "info"
+        }
+      ],
+      "seller_rating_pct": 98.5,
+      "seller_feedback_count": 126,
+      "rating": null,
+      "rating_count": null,
+      "ship_from_country": "CN",
+      "quantity_available": null,
+      "flags": [
+        "ship_from_cn"
+      ],
+      "brand": null,
+      "mpn": null,
+      "attrs": {
+        "condition": "new",
+        "price": "1199.99"
+      }
+    },
+    {
+      "rank": 11,
+      "source": "ebay_search",
+      "vendor_host": "www.ebay.com",
+      "url": "https://www.ebay.com/itm/336100974317?_skw=Supermicro+H14SSL-N&hash=item4e412ddeed:g:BsEAAeSwd31oi~r4",
+      "buy_url": "https://www.ebay.com/itm/336100974317?_skw=Supermicro+H14SSL-N&hash=item4e412ddeed:g:BsEAAeSwd31oi~r4",
+      "image_url": null,
+      "title": "SuperMicro H14SSL-N Motherboard - EPYC 9005 series",
+      "price_usd": 1199.99,
+      "total_for_target_usd": null,
+      "currency_approx_fx": null,
+      "condition": "new",
+      "seller_name": "tm_space",
+      "is_kit": false,
+      "kit_module_count": 1,
+      "badges": [],
+      "seller_rating_pct": 99.7,
+      "seller_feedback_count": 23352,
+      "rating": null,
+      "rating_count": null,
+      "ship_from_country": "US",
+      "quantity_available": null,
+      "flags": [],
+      "brand": null,
+      "mpn": null,
+      "attrs": {
+        "condition": "new",
+        "price": "1199.99"
+      }
+    },
+    {
+      "rank": 12,
+      "source": "ebay_search",
+      "vendor_host": "www.ebay.com",
+      "url": "https://www.ebay.com/itm/397995420593?_skw=Supermicro+H14SSL-N&hash=item5caa602bb1:g:CP0AAeSweINqFtlS&amdata=enc%3AAQALAAAA8ACCtXRWQnOEpyOqnQQ8KGbk71HbZypUpqdQhViKAd7Balhi%2FKCDEyabXi7xfIfzUP8FvNMW05UHFTzv%2BRZU4ypGFGY9EBDjHTnkDyDOeh%2Bt9YFAWAEZIG2n95jElD%2FX3xAww2tvat%2BeXM6SK4WUoyMX1a4x7XM5moHYNrDw4wQ6hnX2yeZxpSdzznyCho6SCx0TwSLKLBXKFXcav%2BxJQQXACEA9tKJidfONZjqp8F11R9UxYYB1ttW%2BgyioSJQuPIkCjNl%2BMCGO3gjJTz5tAvacvMd%2F43yL6fU%2BX%2Bdp5STffj8YWo3sR9katU8vbbQq3Q%3D%3D",
+      "buy_url": "https://www.ebay.com/itm/397995420593?_skw=Supermicro+H14SSL-N&hash=item5caa602bb1:g:CP0AAeSweINqFtlS&amdata=enc%3AAQALAAAA8ACCtXRWQnOEpyOqnQQ8KGbk71HbZypUpqdQhViKAd7Balhi%2FKCDEyabXi7xfIfzUP8FvNMW05UHFTzv%2BRZU4ypGFGY9EBDjHTnkDyDOeh%2Bt9YFAWAEZIG2n95jElD%2FX3xAww2tvat%2BeXM6SK4WUoyMX1a4x7XM5moHYNrDw4wQ6hnX2yeZxpSdzznyCho6SCx0TwSLKLBXKFXcav%2BxJQQXACEA9tKJidfONZjqp8F11R9UxYYB1ttW%2BgyioSJQuPIkCjNl%2BMCGO3gjJTz5tAvacvMd%2F43yL6fU%2BX%2Bdp5STffj8YWo3sR9katU8vbbQq3Q%3D%3D",
+      "image_url": null,
+      "title": "Supermicro H14SSL-N SP5 Server Motherboard AMD EPYC 9005 9004 CPU ATX Board",
+      "price_usd": 1250.0,
+      "total_for_target_usd": null,
+      "currency_approx_fx": null,
+      "condition": "new",
+      "seller_name": "fuxindongli01",
+      "is_kit": false,
+      "kit_module_count": 1,
+      "badges": [
+        {
+          "key": "ship_from_cn",
+          "label": "ship_from_cn",
+          "severity": "info"
+        }
+      ],
+      "seller_rating_pct": 98.7,
+      "seller_feedback_count": 296,
+      "rating": null,
+      "rating_count": null,
+      "ship_from_country": "CN",
+      "quantity_available": null,
+      "flags": [
+        "ship_from_cn"
+      ],
+      "brand": null,
+      "mpn": null,
+      "attrs": {
+        "condition": "new",
+        "price": "1250.0"
+      }
+    },
+    {
+      "rank": 13,
       "source": "serper_shopping",
       "vendor_host": "ebay.com",
       "url": "https://www.google.com/search?ibp=oshop&q=Supermicro+H14SSL-N&prds=localAnnotatedOfferId:1,productid:11183856075011959861,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
@@ -321,9 +915,9 @@
   ],
   "overflow": {},
   "hidden_anomalies": 0,
-  "recall_count": 90,
-  "survivor_count": 5,
-  "displayed_count": 5,
+  "recall_count": 183,
+  "survivor_count": 13,
+  "displayed_count": 13,
   "outcome": {
     "class": "ok",
     "message": "",
@@ -335,12 +929,12 @@
         "step": "ai_filter",
         "provider": "anthropic",
         "model": "claude-haiku-4-5",
-        "input_tokens": 25392,
-        "output_tokens": 5365,
-        "cost_usd": 0.052217
+        "input_tokens": 41593,
+        "output_tokens": 10646,
+        "cost_usd": 0.09482299999999999
       }
     ],
-    "total_usd": 0.052217,
+    "total_usd": 0.09482299999999999,
     "any_unpriced": false
   }
 }
