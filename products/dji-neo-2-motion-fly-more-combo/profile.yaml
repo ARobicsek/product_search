@@ -1,0 +1,44 @@
+schema_version: 2
+slug: dji-neo-2-motion-fly-more-combo
+display_name: DJI Neo 2 Motion Fly More Combo
+description: DJI Neo 2 Motion Fly More Combo in new condition
+product_type: drone
+target:
+  unit: count
+  amount: 1
+queries:
+  - DJI Neo 2 Motion Fly More Combo
+  - Neo 2 Motion Fly More Combo
+  - DJI Neo 2 Motion
+  - DJI Neo 2 Fly More
+  - DJI Neo Motion Fly More
+match:
+  aliases:
+    - Neo 2 Motion Fly More Combo
+    - Neo 2 Motion
+  title_excludes:
+    - used
+    - refurbished
+    - open box
+    - drone only
+  variant_strict: true
+filters:
+  condition_in:
+    - new
+  in_stock: true
+sources:
+  serper:
+    enabled: true
+    gl: us
+  ebay:
+    enabled: true
+  amazon:
+    enabled: true
+display:
+  max_listings: 20
+  per_vendor_cap: 3
+  attrs:
+    - price
+    - condition
+    - seller
+    - seller_rating
