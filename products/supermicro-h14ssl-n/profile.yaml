@@ -33,6 +33,8 @@ sources:
     gl: us
   ebay:
     enabled: true
+  amazon:
+    enabled: true
 display:
   max_listings: 20
   per_vendor_cap: 3
@@ -41,10 +43,8 @@ display:
     - condition
     - seller
     - seller_rating
-
 alerts:
   - kind: price_below
     threshold_usd: 700
     mode: is_below
     price_basis: unit
-
