@@ -1,0 +1,41 @@
+schema_version: 2
+slug: supermicro-h14ssl-n
+display_name: Supermicro H14SSL-N Motherboard
+description: Supermicro H14SSL-N motherboard, new condition only.
+product_type: motherboard
+target:
+  unit: count
+  amount: 1
+queries:
+  - Supermicro H14SSL-N
+  - H14SSL-N motherboard
+  - Supermicro H14SSL-N MBD-H14SSL-N
+  - Supermicro single socket EPYC H14SSL-N
+match:
+  aliases:
+    - H14SSL-N
+    - MBD-H14SSL-N
+  title_excludes:
+    - used
+    - refurbished
+    - H14SSL-NHR
+    - H15SSL-N
+  variant_strict: true
+filters:
+  condition_in:
+    - new
+  in_stock: true
+sources:
+  serper:
+    enabled: true
+    gl: us
+  ebay:
+    enabled: true
+display:
+  max_listings: 20
+  per_vendor_cap: 3
+  attrs:
+    - price
+    - condition
+    - seller
+    - seller_rating
