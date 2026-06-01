@@ -52,11 +52,12 @@ jobs:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           GLM_API_KEY: ${{ secrets.GLM_API_KEY }}
-          # Need eBay API credentials for Phase 2 eBay Browse API if configured
+          # Primary recall layer (v2). Without it, run_v2's Serper fetch raises
+          # SerperAuthError and the run reports index_unavailable / 0 listings.
+          SERPER_API_KEY: ${{ secrets.SERPER_API_KEY }}
+          # eBay Browse API credentials (secondary recall source).
           EBAY_CLIENT_ID: ${{ secrets.EBAY_CLIENT_ID }}
           EBAY_CLIENT_SECRET: ${{ secrets.EBAY_CLIENT_SECRET }}
-          ALTERLAB_API_KEY: ${{ secrets.ALTERLAB_API_KEY }}
-          SCRAPPEY_API_KEY: ${{ secrets.SCRAPPEY_API_KEY }}
           # Without these two, notify.py early-returns and NO alert push is
           # ever sent (the alert still fires + disarms in the state machine).
           # PUSH_NOTIFY_SECRET must equal the same-named value in Vercel.
