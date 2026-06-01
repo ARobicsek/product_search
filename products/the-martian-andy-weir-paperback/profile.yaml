@@ -36,3 +36,13 @@ display:
     - condition
     - seller
     - seller_rating
+
+alerts:
+  - kind: price_below
+    threshold_usd: 100
+    mode: is_below
+    price_basis: unit
+
+schedule:
+  run_at: 2026-06-01T04:04:00Z
+  timezone: UTC
