@@ -37,3 +37,13 @@ display:
     - condition
     - seller
     - color
+
+alerts:
+  - kind: price_below
+    threshold_usd: 20
+    mode: is_below
+    price_basis: unit
+
+schedule:
+  run_at: 2026-06-01T12:06:00Z
+  timezone: UTC
