@@ -242,7 +242,8 @@ def build_v2_markdown(payload: dict[str, Any]) -> str:
                 elif c == "seller" or c == "seller_name":
                     row.append(str(lst.get("seller_name") or "—").replace("|", "\\|"))
                 elif c == "condition":
-                    row.append(str(lst.get("condition") or "—"))
+                    cond = lst.get("condition") or (lst.get("attrs") or {}).get("condition")
+                    row.append(str(cond or "—"))
                 elif c == "seller_rating" or c == "seller_rating_pct":
                     rating = lst.get("seller_rating_pct")
                     row.append(f"{rating}%" if rating is not None else "—")

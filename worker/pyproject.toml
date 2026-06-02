@@ -26,6 +26,9 @@ dependencies = [
     "curl-cffi>=0.7",
     # cli.py loads worker/.env for local runs (ALTERLAB_API_KEY etc.)
     "python-dotenv>=1.0",
+    # Phase 40: downscale Serper's inline base64 Google-Shopping thumbnails so
+    # they fit under the 1MB report-sidecar limit (serper.py _shrink_data_uri).
+    "pillow>=11.0",
 ]
 
 [project.optional-dependencies]

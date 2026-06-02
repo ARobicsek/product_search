@@ -302,6 +302,59 @@ def test_survivor_set_identical_with_or_without_pass_reasons(
     assert before == after == ["listing-0", "listing-2", "listing-4"]
 
 
+def test_extracts_condition_into_attrs_when_unset(
+    profile: Profile, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Phase 40: Serper carries no condition (``condition=""``). When the model
+    extracts one from the title it lands in ``attrs.condition`` for display."""
+    lst = _make_listing(condition="", attrs={}, source="serper_shopping")
+    monkeypatch.setattr(ai_filter_mod, "call_llm", _stub_response(
+        '{"evaluations": [{"index": 0, "pass": true, '
+        '"extracted_features": {"condition": "new", "color": "blue"}}]}'
+    ))
+    out = ai_filter_mod.ai_filter([lst], profile)
+    assert len(out) == 1
+    assert out[0].attrs["condition"] == "new"
+    assert out[0].attrs["color"] == "blue"
+
+
+def test_structured_condition_not_overridden_by_extracted(
+    profile: Profile, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Phase 40: a real structured ``condition`` (e.g. from eBay) wins — a
+    title-derived guess never overwrites it (mirrors brand/quantity)."""
+    lst = _make_listing(condition="new", attrs={})
+    monkeypatch.setattr(ai_filter_mod, "call_llm", _stub_response(
+        '{"evaluations": [{"index": 0, "pass": true, '
+        '"extracted_features": {"condition": "used"}}]}'
+    ))
+    out = ai_filter_mod.ai_filter([lst], profile)
+    assert out[0].condition == "new"
+    assert "condition" not in out[0].attrs
+
+
+def test_prompt_requests_condition_extraction(
+    profile: Profile, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Phase 40: the extraction prompt now lists ``condition`` with normalize
+    guidance so resale items surface new/used/refurbished."""
+    captured: dict[str, str] = {}
+
+    def stubbed(**kw: object) -> LLMResponse:
+        captured["system"] = str(kw.get("system", ""))
+        return LLMResponse(
+            provider="anthropic", model="claude-haiku-4-5",
+            text='{"evaluations": [{"index": 0, "pass": true}]}',
+            input_tokens=1, output_tokens=1,
+        )
+
+    monkeypatch.setattr(ai_filter_mod, "call_llm", stubbed)
+    ai_filter_mod.ai_filter([_make_listing()], profile)
+    sys_prompt = captured["system"]
+    assert "condition" in sys_prompt
+    assert '"open box"' in sys_prompt  # the normalize vocabulary is present
+
+
 def test_tolerates_prose_preamble_before_json(profile: Profile, monkeypatch: pytest.MonkeyPatch) -> None:
     """A prose preamble before the JSON object must not zero out the run.
 

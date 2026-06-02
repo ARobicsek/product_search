@@ -24,7 +24,11 @@ from product_search.models import Listing
 # unpriced listing still occupies a row). Everything else must have real data.
 _POPULATED: dict[str, Callable[[Listing], bool]] = {
     "price": lambda lst: True,
-    "condition": lambda lst: bool((lst.condition or "").strip()),
+    # Serper carries no structured condition; the ai_filter may extract it from
+    # the title into ``attrs.condition`` (e.g. "Brand New" -> "new"). Show the
+    # column when either the structured field or the extracted attr is populated.
+    "condition": lambda lst: bool((lst.condition or "").strip())
+    or bool(str((lst.attrs or {}).get("condition", "")).strip()),
     "seller": lambda lst: bool((lst.seller_name or "").strip()),
     "seller_rating": lambda lst: lst.seller_rating_pct is not None,
     "rating": lambda lst: lst.rating is not None,

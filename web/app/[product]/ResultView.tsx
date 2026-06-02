@@ -247,8 +247,16 @@ function ListingCard({ listing, columns }: { listing: ResultListing; columns?: s
       </div>
 
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-500 dark:text-gray-400">
-        {listing.condition && (
-          <span className="capitalize">{listing.condition}</span>
+        {/* Structured condition wins; fall back to the title-extracted attr
+            (shown dimmer to signal it's title-derived, per Phase 37 design). */}
+        {(listing.condition || listing.attrs?.condition) && (
+          <span
+            className={
+              listing.condition ? 'capitalize' : 'capitalize opacity-60'
+            }
+          >
+            {listing.condition || listing.attrs?.condition}
+          </span>
         )}
         {listing.seller_name &&
           listing.seller_name.replace(/^www\./, '') !== cleanHost && (

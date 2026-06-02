@@ -279,11 +279,16 @@ Decision rules:
 The profile expects the following display attributes: {display_attrs or []}
 Additionally, if you can clearly identify any of these common product attributes
 from the title, extract them too: color, size, storage, material, edition,
-pack_size, term, flavor. Only extract when the value is UNAMBIGUOUSLY present
-in the title — never guess.
+pack_size, term, flavor, condition. Only extract when the value is UNAMBIGUOUSLY
+present in the title — never guess.
+For "condition", extract ONLY when the title explicitly states it, and normalize
+to one of: "new", "used", "refurbished", "open box". Examples: "Brand New" /
+"NWT" / "New with tags" / "Sealed" -> "new"; "Pre-owned" / "Gently used" -> "used";
+"Renewed" / "Refurbished" -> "refurbished"; "Open box" -> "open box". Do NOT infer
+condition from the absence of a cue — leave it out when the title is silent.
 If any of these attributes can be clearly extracted, add them to a new
 "extracted_features" dictionary in your evaluation object for that listing. For example:
-"extracted_features": {{"color": "black"}}.
+"extracted_features": {{"color": "black", "condition": "new"}}.
 
 You will receive a JSON list of products. Output a JSON object with a single key
 "evaluations" containing an array with one entry PER PRODUCT, in input order. Each

@@ -32,7 +32,10 @@ raises ``SerperAPIError`` — never a silent empty result.
 
 from __future__ import annotations
 
+import base64
+import io
 import json
+import logging
 import os
 import re
 from datetime import UTC, datetime
@@ -40,6 +43,8 @@ from pathlib import Path
 from typing import Any
 
 from product_search.models import AdapterQuery, Listing
+
+logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
 # Exceptions
@@ -60,6 +65,14 @@ class SerperAPIError(RuntimeError):
 
 SERPER_SHOPPING_URL = "https://google.serper.dev/shopping"
 _SOURCE_ID = "serper_shopping"  # the ADAPTER id (NOT the merchant)
+
+# Thumbnail downscale target. Google Shopping serves most thumbnails inline as
+# base64 ``data:`` URIs (often 10–65KB each). The report card renders them at
+# 48px, so 96px (2× retina) loses nothing visually while shrinking each URI
+# ~22× — keeping the JSON sidecar under GitHub's 1MB contents-API limit (the
+# bloat that the earlier "null all base64" hotfix avoided by losing the images).
+_THUMB_MAX_PX = 96
+_THUMB_WEBP_QUALITY = 70
 
 _FIXTURE_DIR = Path(__file__).parent.parent.parent.parent / "tests" / "fixtures" / "serper"
 
@@ -120,6 +133,38 @@ def parse_price(raw: Any) -> float | None:
     return float(m.group()) if m else None
 
 
+def _shrink_data_uri(data_uri: str) -> str | None:
+    """Downscale a base64 ``data:`` image URI to a tiny ``image/webp`` data URI.
+
+    Serper relays Google Shopping thumbnails: ~25% as real ``https://`` CDN URLs
+    (left untouched) and ~75% as inline base64 ``data:`` URIs that are far too
+    large to keep verbatim (they bloated the sidecar past GitHub's 1MB
+    contents-API limit, which is why a hotfix dropped them entirely). We instead
+    decode, downscale to ``_THUMB_MAX_PX``, and re-encode as low-quality webp —
+    ~22× smaller, so every card keeps a thumbnail and the sidecar stays small.
+
+    Returns the new data URI, or ``None`` if the input can't be decoded (corrupt
+    bytes, unsupported format, or Pillow unavailable) — recall never crashes on a
+    bad image; the listing just renders without a thumbnail.
+    """
+    try:
+        from PIL import Image  # lazy: a missing/broken Pillow degrades to no-image
+    except ImportError:
+        logger.warning("Pillow unavailable — Serper base64 thumbnails dropped")
+        return None
+    try:
+        _, b64 = data_uri.split(",", 1)
+        raw = base64.b64decode(b64)
+        img = Image.open(io.BytesIO(raw)).convert("RGB")
+        img.thumbnail((_THUMB_MAX_PX, _THUMB_MAX_PX))
+        buf = io.BytesIO()
+        img.save(buf, format="WEBP", quality=_THUMB_WEBP_QUALITY, method=6)
+        return "data:image/webp;base64," + base64.b64encode(buf.getvalue()).decode("ascii")
+    except Exception as exc:  # noqa: BLE001 — any decode failure → no thumbnail
+        logger.debug("Failed to shrink Serper thumbnail: %r", exc)
+        return None
+
+
 def _result_to_listing(result: dict[str, Any]) -> Listing:
     """Map one Serper shopping result to a ``Listing``.
 
@@ -145,7 +190,8 @@ def _result_to_listing(result: dict[str, Any]) -> Listing:
 
     image_url = result.get("imageUrl")
     if isinstance(image_url, str) and image_url.startswith("data:"):
-        image_url = None
+        # Inline base64 thumbnail — downscale so it fits the sidecar (was: dropped).
+        image_url = _shrink_data_uri(image_url)
 
     return Listing(
         source=_SOURCE_ID,

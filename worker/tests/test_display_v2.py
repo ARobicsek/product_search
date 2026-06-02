@@ -88,6 +88,26 @@ def test_dynamic_attr_column_resolution() -> None:
     assert cols_empty == ["price"]
 
 
+def test_condition_column_resolves_from_extracted_attr() -> None:
+    """Phase 40: Serper listings have no structured condition, but the ai_filter
+    may extract it into ``attrs.condition`` — the column must still appear."""
+    displayed = [_listing(condition="", attrs={"condition": "new"})]
+    cols = resolve_columns(
+        profile_attrs=["price", "condition", "seller"],
+        product_type="accessories",
+        displayed=displayed,
+    )
+    assert "condition" in cols
+
+    # Neither structured nor extracted → dropped.
+    cols_empty = resolve_columns(
+        profile_attrs=["price", "condition", "seller"],
+        product_type="accessories",
+        displayed=[_listing(condition="", attrs={})],
+    )
+    assert "condition" not in cols_empty
+
+
 def test_price_always_present() -> None:
     cols = resolve_columns(profile_attrs=[], product_type=None, displayed=[])
     assert "price" in cols

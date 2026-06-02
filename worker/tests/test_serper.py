@@ -70,6 +70,72 @@ def test_result_to_listing_maps_image_url() -> None:
     assert listing.rating_count == 12
 
 
+def _make_data_uri(px: int = 400) -> str:
+    """A real base64 PNG data URI to exercise the shrink path."""
+    import base64
+    import io
+
+    from PIL import Image
+
+    img = Image.new("RGB", (px, px), (200, 30, 30))
+    buf = io.BytesIO()
+    img.save(buf, format="PNG")
+    return "data:image/png;base64," + base64.b64encode(buf.getvalue()).decode("ascii")
+
+
+def test_shrink_data_uri_downscales_and_reencodes_to_webp() -> None:
+    import base64
+    import io
+
+    from PIL import Image
+
+    original = _make_data_uri(px=400)
+    shrunk = serper._shrink_data_uri(original)
+    assert shrunk is not None
+    # Re-encoded as webp, and much smaller than the original PNG data URI.
+    assert shrunk.startswith("data:image/webp;base64,")
+    assert len(shrunk) < len(original)
+    # The decoded image is capped at the thumbnail size.
+    raw = base64.b64decode(shrunk.split(",", 1)[1])
+    img = Image.open(io.BytesIO(raw))
+    assert max(img.size) <= serper._THUMB_MAX_PX
+
+
+def test_shrink_data_uri_returns_none_on_garbage() -> None:
+    assert serper._shrink_data_uri("data:image/webp;base64,not-valid-base64!!") is None
+    assert serper._shrink_data_uri("data:image/webp;base64,") is None
+
+
+def test_result_to_listing_shrinks_base64_image() -> None:
+    """A Serper inline base64 thumbnail is downscaled (not dropped) so the card
+    keeps an image while the sidecar stays small (Phase 40)."""
+    listing = serper._result_to_listing(
+        {
+            "title": "Widget",
+            "source": "shop.example",
+            "link": "https://www.google.com/search?q=widget",
+            "imageUrl": _make_data_uri(px=300),
+            "productId": "p1",
+        }
+    )
+    assert listing.image_url is not None
+    assert listing.image_url.startswith("data:image/webp;base64,")
+
+
+def test_result_to_listing_http_image_passes_through() -> None:
+    """A real CDN URL is left untouched — only base64 URIs are re-encoded."""
+    listing = serper._result_to_listing(
+        {
+            "title": "Widget",
+            "source": "shop.example",
+            "link": "https://www.google.com/search?q=widget",
+            "imageUrl": "https://encrypted-tbn0.gstatic.com/shopping?q=tbn:abc",
+            "productId": "p2",
+        }
+    )
+    assert listing.image_url == "https://encrypted-tbn0.gstatic.com/shopping?q=tbn:abc"
+
+
 def test_result_to_listing_missing_price_is_zero_sentinel() -> None:
     listing = serper._result_to_listing(
         {"title": "No price", "source": "x", "link": "https://x", "productId": "p1"}
