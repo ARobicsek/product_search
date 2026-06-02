@@ -197,6 +197,7 @@ function isExtractedAttr(listing: ResultListing, col: string): boolean {
 function ListingCard({ listing, columns }: { listing: ResultListing; columns?: string[] }) {
   const host = listing.vendor_host ?? listing.source;
   const cleanHost = host.replace(/^www\./, '');
+  const linkHref = listing.buy_url || listing.url;
   const showTotal =
     listing.total_for_target_usd !== null &&
     listing.total_for_target_usd !== listing.price_usd;
@@ -207,12 +208,20 @@ function ListingCard({ listing, columns }: { listing: ResultListing; columns?: s
       aria-label={`Listing rank ${listing.rank}: ${listing.title}`}
     >
       <header className="flex items-center justify-between gap-3 min-w-0">
-        <div className="flex items-center gap-2 min-w-0">
+        {/* The vendor name is the click-through (replaces the old footer link). */}
+        <a
+          href={linkHref}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="group flex items-center gap-2 min-w-0"
+          aria-label={`View this listing on ${cleanHost}`}
+        >
           <VendorFavicon host={listing.vendor_host} />
-          <span className="text-sm font-medium text-gray-700 dark:text-gray-300 truncate">
+          <span className="text-sm font-medium text-blue-600 dark:text-blue-400 group-hover:underline truncate">
             {cleanHost}
           </span>
-        </div>
+          <span aria-hidden className="text-xs text-blue-600 dark:text-blue-400 shrink-0">↗</span>
+        </a>
         <span className="text-xs text-gray-500 dark:text-gray-400 shrink-0">
           #{listing.rank}
         </span>
@@ -230,9 +239,14 @@ function ListingCard({ listing, columns }: { listing: ResultListing; columns?: s
             onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
           />
         )}
-        <h3 className="text-base font-semibold text-gray-900 dark:text-gray-100 break-words">
+        <a
+          href={linkHref}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-base font-semibold text-gray-900 dark:text-gray-100 break-words hover:text-blue-600 dark:hover:text-blue-400 hover:underline"
+        >
           {listing.title}
-        </h3>
+        </a>
       </div>
 
       <div className="flex items-baseline gap-3 flex-wrap">
@@ -280,18 +294,6 @@ function ListingCard({ listing, columns }: { listing: ResultListing; columns?: s
       </div>
 
       <BadgeRow badges={listing.badges} />
-
-      <div className="pt-2">
-        <a
-          href={listing.buy_url || listing.url}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="inline-flex items-center gap-1 text-sm font-medium text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 break-all"
-        >
-          View on {cleanHost}
-          <span aria-hidden>→</span>
-        </a>
-      </div>
     </article>
   );
 }
