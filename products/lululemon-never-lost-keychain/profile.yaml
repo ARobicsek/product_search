@@ -28,7 +28,7 @@ sources:
     enabled: true
     gl: us
   ebay:
-    enabled: false
+    enabled: true
 display:
   max_listings: 20
   per_vendor_cap: 3
