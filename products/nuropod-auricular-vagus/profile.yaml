@@ -1,0 +1,51 @@
+schema_version: 2
+slug: nuropod-auricular-vagus
+display_name: Nuropod Auricular Vagus Nerve Stimulation Device
+description: >-
+  Nuropod by Parasym non-invasive auricular vagal neuromodulation (AVNT™) device for at-home vagus nerve ear
+  stimulation.
+product_type: medical_device
+target:
+  unit: count
+  amount: 1
+queries:
+  - Nuropod by Parasym vagus nerve stimulator
+  - Neuropod auricular neuromodulation device
+  - neurosym vagus nerve stimulator
+  - EVANES ear stimulation device
+  - Neuropod AVNT earpiece
+match:
+  aliases:
+    - Neuropod by Parasym
+    - Parasym Neuropod
+    - neurosym vagus nerve
+    - EVANES ear stimulation
+  title_excludes:
+    - Pulsetto
+    - Vagustim
+    - Amofit
+    - Focus
+    - ZenBud
+    - VagusBiotics
+  variant_strict: false
+filters:
+  condition_in:
+    - new
+    - refurbished
+    - used
+sources:
+  serper:
+    enabled: true
+    gl: us
+  ebay:
+    enabled: true
+  amazon:
+    enabled: true
+display:
+  max_listings: 20
+  per_vendor_cap: 3
+  attrs:
+    - price
+    - condition
+    - seller
+    - seller_rating
