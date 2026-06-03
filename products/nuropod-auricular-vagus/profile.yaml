@@ -9,17 +9,16 @@ target:
   unit: count
   amount: 1
 queries:
-  - Nuropod by Parasym vagus nerve stimulator
-  - Neuropod auricular neuromodulation device
-  - neurosym vagus nerve stimulator
-  - EVANES ear stimulation device
-  - Neuropod AVNT earpiece
+  - Nuropod
+  - Nurosym
 match:
   aliases:
-    - Neuropod by Parasym
-    - Parasym Neuropod
-    - neurosym vagus nerve
-    - EVANES ear stimulation
+    - Nuropod vagus
+    - Nurosym vagus
+    - Nuropod by Parasym
+    - Nurosym by Parasym
+    - Nuropod auricular
+    - Nurosym auricular
   title_excludes:
     - Pulsetto
     - Vagustim
@@ -27,7 +26,7 @@ match:
     - Focus
     - ZenBud
     - VagusBiotics
-  variant_strict: false
+  variant_strict: true
 filters:
   condition_in:
     - new
