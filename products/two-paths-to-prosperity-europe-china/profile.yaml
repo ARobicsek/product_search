@@ -1,0 +1,37 @@
+schema_version: 2
+slug: two-paths-to-prosperity-europe-china
+display_name: 'Two Paths to Prosperity: Culture and Institutions in Europe and China, 1000–2000'
+description: Track new and used copies of this book across multiple sellers.
+product_type: book
+target:
+  unit: count
+  amount: 1
+queries:
+  - Two Paths to Prosperity Culture and Institutions Europe China 1000-2000
+  - Two Paths to Prosperity Pomeranz Topik
+  - Two Paths to Prosperity book 1000 2000
+  - Two Paths to Prosperity hardcover paperback
+  - Two Paths to Prosperity ISBN
+match:
+  aliases:
+    - Two Paths to Prosperity
+    - Culture and Institutions Europe China
+  title_excludes: []
+  variant_strict: false
+filters: {}
+sources:
+  serper:
+    enabled: true
+    gl: us
+  ebay:
+    enabled: true
+  amazon:
+    enabled: true
+display:
+  max_listings: 50
+  per_vendor_cap: 5
+  attrs:
+    - price
+    - condition
+    - seller
+    - seller_rating
