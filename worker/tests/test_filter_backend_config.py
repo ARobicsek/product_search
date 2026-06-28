@@ -11,9 +11,11 @@ _ENV_KEYS = (
     "LOCAL_LLM_BASE",
     "LOCAL_LLM_MODEL",
     "LOCAL_LLM_KEY",
+    "LOCAL_LLM_FALLBACK_MODEL",
     "LOCAL_LLM_IDLE_WAIT_SECS",
     "LOCAL_LLM_MAX_WAIT_SECS",
     "LOCAL_LLM_POLL_SECS",
+    "LOCAL_LLM_ALLOW_HAIKU_FALLBACK",
 )
 
 
@@ -65,3 +67,13 @@ def test_env_overrides(monkeypatch: pytest.MonkeyPatch) -> None:
 def test_bad_float_falls_back_to_default(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("LOCAL_LLM_IDLE_WAIT_SECS", "not-a-number")
     assert filter_backend_config().idle_wait_secs == 300.0
+
+
+def test_allow_haiku_fallback_defaults_on_and_is_overridable(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    assert filter_backend_config().allow_haiku_fallback is True
+    monkeypatch.setenv("LOCAL_LLM_ALLOW_HAIKU_FALLBACK", "0")
+    assert filter_backend_config().allow_haiku_fallback is False
+    monkeypatch.setenv("LOCAL_LLM_ALLOW_HAIKU_FALLBACK", "false")
+    assert filter_backend_config().allow_haiku_fallback is False

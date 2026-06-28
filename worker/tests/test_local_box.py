@@ -25,9 +25,11 @@ def _cfg(**over: object) -> FilterBackendConfig:
         local_base="http://box:8080/v1",
         local_model="qwen-coder",
         local_key="dummy",
+        local_fallback_model="qwen3.6-27b-mtp",
         idle_wait_secs=30.0,
         max_wait_secs=60.0,
         poll_secs=15.0,
+        allow_haiku_fallback=True,
     )
     base.update(over)
     return FilterBackendConfig(**base)  # type: ignore[arg-type]

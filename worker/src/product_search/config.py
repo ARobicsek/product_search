@@ -48,6 +48,11 @@ DEFAULT_AI_FILTER_BACKEND = "anthropic"
 DEFAULT_LOCAL_LLM_BASE = "http://100.68.68.101:8080/v1"
 DEFAULT_LOCAL_LLM_MODEL = "qwen-coder"  # ADR-146 recommended remainder judge
 DEFAULT_LOCAL_LLM_KEY = "dummy"  # llama.cpp ignores the key; any non-empty string
+# Secondary LOCAL model used if the primary local model fails a batch mid-run.
+# The owner's rule (ADR-147): on a local failure, fall back to ANOTHER LOCAL
+# model — not Haiku (too expensive). Schema-constrained decoding makes a primary
+# failure rare, so this is a safety net. Empty string disables it.
+DEFAULT_LOCAL_LLM_FALLBACK_MODEL = "qwen3.6-27b-mtp"
 
 # Polite-coordination defaults (seconds). The owner's rule (ADR-147): join an
 # already-loaded qwen-coder (or an idle box) immediately; if a DIFFERENT model
@@ -56,6 +61,15 @@ DEFAULT_LOCAL_LLM_KEY = "dummy"  # llama.cpp ignores the key; any non-empty stri
 DEFAULT_LOCAL_LLM_IDLE_WAIT_SECS = 300.0
 DEFAULT_LOCAL_LLM_MAX_WAIT_SECS = 600.0
 DEFAULT_LOCAL_LLM_POLL_SECS = 15.0
+
+# Whether Haiku may be used as the *reachability* fallback when the box is
+# unavailable/busy. Default ON for LOCAL/DEV (don't disrupt — fall back to Haiku
+# so a dev run never hangs). In PROD the owner wants cost ~0 per run with NO
+# Haiku of any kind (ADR-147): set ``LOCAL_LLM_ALLOW_HAIKU_FALLBACK=0`` so the
+# chain stays local-only (after the polite wait, proceed on the box), and a
+# total local failure fires an operational notification instead of paying for
+# Haiku. (The in-run quality fallback is already local-only — qwen3.6-27b-mtp.)
+DEFAULT_LOCAL_LLM_ALLOW_HAIKU_FALLBACK = True
 
 
 @dataclass(frozen=True)
@@ -66,9 +80,11 @@ class FilterBackendConfig:
     local_base: str
     local_model: str
     local_key: str
+    local_fallback_model: str
     idle_wait_secs: float
     max_wait_secs: float
     poll_secs: float
+    allow_haiku_fallback: bool
 
     @property
     def is_local(self) -> bool:
@@ -85,6 +101,13 @@ def _env_float(name: str, default: float) -> float:
         return default
 
 
+def _env_bool(name: str, default: bool) -> bool:
+    raw = os.environ.get(name, "").strip().lower()
+    if not raw:
+        return default
+    return raw in ("1", "true", "yes", "on")
+
+
 def filter_backend_config() -> FilterBackendConfig:
     """Resolve the ai_filter backend (and local-box coordination knobs) from env.
 
@@ -95,7 +118,13 @@ def filter_backend_config() -> FilterBackendConfig:
         local_base=os.environ.get("LOCAL_LLM_BASE", DEFAULT_LOCAL_LLM_BASE),
         local_model=os.environ.get("LOCAL_LLM_MODEL", DEFAULT_LOCAL_LLM_MODEL),
         local_key=os.environ.get("LOCAL_LLM_KEY", DEFAULT_LOCAL_LLM_KEY),
+        local_fallback_model=os.environ.get(
+            "LOCAL_LLM_FALLBACK_MODEL", DEFAULT_LOCAL_LLM_FALLBACK_MODEL
+        ),
         idle_wait_secs=_env_float("LOCAL_LLM_IDLE_WAIT_SECS", DEFAULT_LOCAL_LLM_IDLE_WAIT_SECS),
         max_wait_secs=_env_float("LOCAL_LLM_MAX_WAIT_SECS", DEFAULT_LOCAL_LLM_MAX_WAIT_SECS),
         poll_secs=_env_float("LOCAL_LLM_POLL_SECS", DEFAULT_LOCAL_LLM_POLL_SECS),
+        allow_haiku_fallback=_env_bool(
+            "LOCAL_LLM_ALLOW_HAIKU_FALLBACK", DEFAULT_LOCAL_LLM_ALLOW_HAIKU_FALLBACK
+        ),
     )

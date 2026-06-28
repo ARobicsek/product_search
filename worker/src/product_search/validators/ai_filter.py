@@ -31,6 +31,22 @@ def _loud(msg: str) -> None:
     print(f"[ai_filter] {msg}", file=sys.stderr, flush=True)
 
 
+def _notify_filter_failure(slug: str, reason: str) -> None:
+    """Best-effort operational alert when the local filter chain is exhausted.
+
+    The owner wants a message when the local models fail in prod so they can
+    investigate (ADR-147). Reuses the existing push bridge, which no-ops when
+    ``WEB_URL``/``PUSH_NOTIFY_SECRET`` are unset (i.e. in dev) — so this only
+    actually sends in prod. Wrapped so a notify failure never breaks a run.
+    """
+    try:
+        from product_search.notify import notify_material_change
+
+        notify_material_change(slug, f"Local AI filter failed ({slug}): {reason[:140]}")
+    except Exception as e:  # pragma: no cover - notify is best-effort
+        _loud(f"failed to send local-filter-failure notification: {e!r}")
+
+
 def _looks_like_inner_eval(obj: object) -> bool:
     """True when ``obj`` is a single evaluation entry, not an outer envelope.
 
@@ -363,29 +379,81 @@ ONLY output the JSON object.
 """
 
 
-def _resolve_filter_backend() -> tuple[str, str]:
-    """Return the ``(provider, model)`` the filter should use this run.
+# JSON schema for the filter response, used for schema-constrained decoding on
+# the local (llama.cpp) backend (ADR-147). Forcing this structure eliminates the
+# "reasoning model leaks chain-of-thought with raw newlines into a string field"
+# parse-failure class that made qwen-coder unreliable on the hard RAM batches.
+# ``reason`` + ``extracted_features`` stay optional so the model can omit a
+# pass-reason (ADR-142) and so the Phase-37/40 smart-card attributes survive.
+_EVAL_SCHEMA: dict[str, Any] = {
+    "type": "object",
+    "properties": {
+        "evaluations": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "index": {"type": "integer"},
+                    "pass": {"type": "boolean"},
+                    # The length bound is load-bearing on the local backend: the
+                    # grammar enforces it, capping the reason so the model can't
+                    # ramble an unbounded chain-of-thought that runs past
+                    # max_tokens and truncates the JSON (Phase 42 / ADR-147). It
+                    # also matches the prompt's "short string (1 sentence)".
+                    "reason": {"type": "string", "maxLength": 240},
+                    "extracted_features": {
+                        "type": "object",
+                        "additionalProperties": {"type": "string"},
+                    },
+                },
+                "required": ["index", "pass"],
+                "additionalProperties": False,
+            },
+        }
+    },
+    "required": ["evaluations"],
+    "additionalProperties": False,
+}
 
-    Honors ``AI_FILTER_BACKEND`` (config.py). For the default (``anthropic``)
-    this is just Haiku. For ``local`` it consults the polite shared-box
-    coordinator (ADR-147): join an already-loaded/idle box immediately, wait out
-    a different in-use model up to the bound, and **fall back to Haiku** if the
-    box is unreachable or stays busy — so a run never hangs on a busy box.
+
+def _resolve_filter_chain() -> list[tuple[str, str]]:
+    """Return the ordered ``(provider, model)`` fallback chain for this run.
+
+    Honors ``AI_FILTER_BACKEND`` (config.py). Default (``anthropic``) → just
+    Haiku. For ``local`` it consults the polite shared-box coordinator (ADR-147):
+    if it grants the box, the chain is the primary local model followed by the
+    secondary local model (``LOCAL_LLM_FALLBACK_MODEL``, default qwen3.6-27b-mtp)
+    — a same-box safety net for the rare batch the primary can't produce. If the
+    box is unreachable or stays busy, the chain is just Haiku (the reachability
+    fallback, so a run never hangs). Per the owner (ADR-147), the in-run quality
+    fallback is LOCAL-only — Haiku is reserved for the box-unavailable case.
     """
     cfg = filter_backend_config()
     if not cfg.is_local:
-        return (_HAIKU_PROVIDER, _HAIKU_MODEL)
+        return [(_HAIKU_PROVIDER, _HAIKU_MODEL)]
     from product_search.llm.local_box import coordinate_local_access
 
+    chain = [("local", cfg.local_model)]
+    if cfg.local_fallback_model and cfg.local_fallback_model != cfg.local_model:
+        chain.append(("local", cfg.local_fallback_model))
+
     if coordinate_local_access(cfg, log_fn=_loud):
-        return ("local", cfg.local_model)
-    return (_HAIKU_PROVIDER, _HAIKU_MODEL)
+        return chain
+    # Box unavailable/busy past the polite wait. In DEV (allow_haiku_fallback)
+    # fall back to Haiku so the run never hangs. In PROD (owner: cost ~0, no
+    # Haiku) stay local-only and proceed on the box anyway — a total failure
+    # then notifies instead of paying for Haiku (ADR-147).
+    if cfg.allow_haiku_fallback:
+        return [(_HAIKU_PROVIDER, _HAIKU_MODEL)]
+    _loud("local box unavailable but Haiku fallback disabled - proceeding local-only")
+    return chain
 
 
 def _call_filter_llm(
     provider: str, model: str, system_prompt: str, payload: list[dict[str, Any]]
 ) -> LLMResponse:
-    """One filter round-trip. ``cache_system`` is Anthropic-only (ADR-142)."""
+    """One filter round-trip. ``cache_system`` is Anthropic-only (ADR-142);
+    ``json_schema`` engages schema-constrained decoding on the local backend."""
     return call_llm(
         provider=provider,  # type: ignore[arg-type]
         model=model,
@@ -399,6 +467,73 @@ def _call_filter_llm(
         # at temp=0 (ADR-145).
         temperature=0,
         cache_system=(provider == _HAIKU_PROVIDER),
+        json_schema=_EVAL_SCHEMA,
+    )
+
+
+class _BatchError(Exception):
+    """A single filter batch failed (call error, JSON parse, or bad structure).
+
+    Carries a human ``reason`` for the sentinel/log. Raised by
+    ``_call_and_parse_batch`` so the caller can apply a single local->Haiku
+    fallback for ALL failure modes — not just call exceptions. The Phase-42 live
+    A/B (ADR-147) showed qwen-coder can emit a truncated/unparseable batch on the
+    larger inputs, which previously zeroed the whole run; routing parse failures
+    through the same Haiku fallback as connection errors closes that gap.
+    """
+
+    def __init__(self, reason: str) -> None:
+        super().__init__(reason)
+        self.reason = reason
+
+
+def _call_and_parse_batch(
+    provider: str, model: str, system_prompt: str, payload: list[dict[str, Any]], batch_len: int
+) -> tuple[list[dict[str, Any]], LLMResponse]:
+    """Call the model for one batch and return ``(batch_evals, response)``.
+
+    Normalizes the several accepted response shapes (``{"evaluations":[...]}``,
+    ``{"indices":[...]}``, a bare evaluation array, or a bare index array) into a
+    list of ``{"index","pass","reason"}`` dicts. Raises ``_BatchError`` on a call
+    exception, a JSON parse failure, or an unrecognized structure.
+    """
+    try:
+        resp = _call_filter_llm(provider, model, system_prompt, payload)
+    except Exception as e:
+        raise _BatchError(f"ai_filter exception: {e!r}") from e
+
+    raw_text = (resp.text or "").strip()
+    if raw_text.startswith("```"):
+        raw_text = raw_text.split("\n", 1)[-1]
+        if raw_text.endswith("```"):
+            raw_text = raw_text[:-3].strip()
+    raw_text = raw_text.removeprefix("json").strip()
+
+    parsed = _extract_json(raw_text)
+    if parsed is None:
+        raise _BatchError(f"ai_filter parse failure: {(resp.text or '')[:200]!r}")
+
+    # GLM-5.1 (and GLM 4.5 Flash before it) often emit a bare list even when the
+    # prompt asks for an object. Accept several shapes so we don't silently drop
+    # everything on a stylistic difference.
+    if isinstance(parsed, dict) and isinstance(parsed.get("evaluations"), list):
+        return parsed["evaluations"], resp
+    if isinstance(parsed, dict) and isinstance(parsed.get("indices"), list):
+        passed = {int(i) for i in parsed["indices"] if str(i).lstrip("-").isdigit()}
+    elif isinstance(parsed, list) and parsed and isinstance(parsed[0], dict):
+        return parsed, resp
+    elif isinstance(parsed, list):
+        passed = {int(i) for i in parsed if str(i).lstrip("-").isdigit()}
+    else:
+        raise _BatchError(f"ai_filter unexpected JSON structure: {str(parsed)[:200]!r}")
+
+    # Legacy indices-only response: expand into per-listing verdicts.
+    return (
+        [
+            {"index": i, "pass": i in passed, "reason": "(legacy indices-only response)"}
+            for i in range(batch_len)
+        ],
+        resp,
     )
 
 
@@ -433,8 +568,11 @@ def ai_filter(
     # chain-of-thought prose into `content` despite "JSON only" — Haiku honors
     # json mode reliably. ``AI_FILTER_BACKEND=local`` instead routes to the home
     # llama-swap box (qwen-coder; fully deterministic at temp=0, ADR-145) behind
-    # the polite coordinator, with Haiku as the fallback if the box can't be used.
-    provider, model = _resolve_filter_backend()
+    # the polite coordinator. ``chain`` is the ordered fallback: for local it's
+    # [primary local, secondary local]; if the box is unavailable it's just Haiku.
+    chain = _resolve_filter_chain()
+    chain_idx = 0
+    provider, model = chain[0]
 
     n = len(listings)
     batches = [
@@ -478,125 +616,64 @@ def ai_filter(
                 "attrs": lst.attrs,
             })
 
-        try:
-            resp = _call_filter_llm(provider, model, system_prompt, payload_for_llm)
-        except Exception as e:
-            err: Exception | None = e
-            # If the local box failed mid-run (unreachable / error), fall back to
-            # Haiku for this and all remaining batches rather than zeroing the run
-            # (ADR-147: a run never breaks because the box is unavailable).
-            if provider == "local":
-                _loud(
-                    f"local filter backend failed (batch {batch_no}/{len(batches)}): "
-                    f"{e!r} - falling back to Haiku for the rest of the run"
+        # Try the fallback chain in order, starting from the model that last
+        # worked (``chain_idx``). On a batch failure (call error, parse failure,
+        # bad structure), advance to the next model and stay there for the rest
+        # of the run, rather than zeroing the run (ADR-147 — for local that means
+        # primary local -> secondary local; Haiku only if the box was unavailable
+        # at resolve time, never as an in-run quality fallback).
+        err: _BatchError | None = None
+        batch_evals = None
+        resp = None
+        for k in range(chain_idx, len(chain)):
+            p, m = chain[k]
+            try:
+                batch_evals, resp = _call_and_parse_batch(
+                    p, m, system_prompt, payload_for_llm, len(batch)
                 )
-                provider, model = _HAIKU_PROVIDER, _HAIKU_MODEL
-                try:
-                    resp = _call_filter_llm(provider, model, system_prompt, payload_for_llm)
-                    err = None
-                except Exception as e2:
-                    err = e2
-            if err is not None:
-                _loud(f"Filtering LLM call failed (batch {batch_no}/{len(batches)}): {err!r}")
-                sentinel = [{
-                    "index": -1, "pass": False, "reason": f"ai_filter exception: {err!r}",
-                    "title": "(filter call failed)", "price": None, "url": None, "source": None,
-                }]
-                _write_filter_log(profile.slug, sentinel)
-                LAST_RUN_LOG = sentinel
-                LAST_RUN_USAGE = {
-                    "step": "ai_filter",
-                    "provider": provider,
-                    "model": model,
-                    "input_tokens": total_in,
-                    "output_tokens": total_out,
-                    "cache_read_input_tokens": total_cache_read,
-                    "cache_creation_input_tokens": total_cache_write,
-                }
-                return []
+            except _BatchError as be:
+                err = be
+                if k + 1 < len(chain):
+                    _loud(
+                        f"filter backend {p}/{m} failed (batch {batch_no}/{len(batches)}): "
+                        f"{be.reason} - falling back to {chain[k + 1][1]} for the rest of the run"
+                    )
+                continue
+            chain_idx = k
+            provider, model = p, m
+            err = None
+            break
+        if err is not None or resp is None or batch_evals is None:
+            # Every model in the chain failed this batch.
+            reason = err.reason if err is not None else "no model produced a result"
+            _loud(f"Filtering failed (batch {batch_no}/{len(batches)}): {reason}")
+            # Operational alert when a LOCAL chain is exhausted, so the owner can
+            # investigate (ADR-147). No-ops in dev (push bridge env unset).
+            if any(p == "local" for p, _ in chain):
+                _notify_filter_failure(profile.slug, reason)
+            sentinel = [{
+                "index": -1, "pass": False, "reason": f"{reason} (batch {batch_no})",
+                "title": "(filter call failed)", "price": None, "url": None, "source": None,
+            }]
+            _write_filter_log(profile.slug, sentinel)
+            LAST_RUN_LOG = sentinel
+            LAST_RUN_RAW_RESPONSE = "\n\n--- batch boundary ---\n\n".join(raw_responses)
+            LAST_RUN_USAGE = {
+                "step": "ai_filter",
+                "provider": chain[-1][0],
+                "model": chain[-1][1],
+                "input_tokens": total_in,
+                "output_tokens": total_out,
+                "cache_read_input_tokens": total_cache_read,
+                "cache_creation_input_tokens": total_cache_write,
+            }
+            return []
 
         raw_responses.append(resp.text or "")
         total_in += resp.input_tokens or 0
         total_out += resp.output_tokens or 0
         total_cache_read += resp.cache_read_input_tokens or 0
         total_cache_write += resp.cache_creation_input_tokens or 0
-
-        raw_text = (resp.text or "").strip()
-        if raw_text.startswith("```"):
-            raw_text = raw_text.split("\n", 1)[-1]
-            if raw_text.endswith("```"):
-                raw_text = raw_text[:-3].strip()
-        raw_text = raw_text.removeprefix("json").strip()
-
-        parsed = _extract_json(raw_text)
-        if parsed is None:
-            _loud(
-                f"JSON parse failed (batch {batch_no}/{len(batches)}). "
-                f"Raw response (first 1000 chars):\n{(resp.text or '')[:1000]}"
-            )
-            sentinel = [{
-                "index": -1, "pass": False,
-                "reason": f"ai_filter parse failure (batch {batch_no}): {(resp.text or '')[:200]!r}",
-                "title": "(filter call failed)", "price": None, "url": None, "source": None,
-            }]
-            _write_filter_log(profile.slug, sentinel)
-            LAST_RUN_LOG = sentinel
-            LAST_RUN_RAW_RESPONSE = "\n\n--- batch boundary ---\n\n".join(raw_responses)
-            LAST_RUN_USAGE = {
-                "step": "ai_filter",
-                "provider": provider,
-                "model": model,
-                "input_tokens": total_in,
-                "output_tokens": total_out,
-                "cache_read_input_tokens": total_cache_read,
-                "cache_creation_input_tokens": total_cache_write,
-            }
-            return []
-
-        # GLM-5.1 (and GLM 4.5 Flash before it) often emit a bare list even when the
-        # prompt asks for an object. Accept several shapes so we don't silently drop
-        # everything on a stylistic difference. Documented post-mortem: yesterday's
-        # local trace showed GLM returning `[0]` for an `{"indices": [...]}` prompt.
-        batch_evals: list[dict[str, Any]] = []
-        bare_indices: list[int] | None = None
-
-        if isinstance(parsed, dict) and isinstance(parsed.get("evaluations"), list):
-            batch_evals = parsed["evaluations"]
-        elif isinstance(parsed, dict) and isinstance(parsed.get("indices"), list):
-            bare_indices = [int(i) for i in parsed["indices"] if str(i).lstrip("-").isdigit()]
-        elif isinstance(parsed, list) and parsed and isinstance(parsed[0], dict):
-            # Bare array of evaluation objects.
-            batch_evals = parsed
-        elif isinstance(parsed, list):
-            # Bare array of integers (legacy indices-only).
-            bare_indices = [int(i) for i in parsed if str(i).lstrip("-").isdigit()]
-        else:
-            _loud(f"Unexpected JSON structure (batch {batch_no}): {str(parsed)[:500]}")
-            sentinel = [{
-                "index": -1, "pass": False,
-                "reason": f"ai_filter unexpected JSON structure (batch {batch_no}): {str(parsed)[:200]!r}",
-                "title": "(filter call failed)", "price": None, "url": None, "source": None,
-            }]
-            _write_filter_log(profile.slug, sentinel)
-            LAST_RUN_LOG = sentinel
-            LAST_RUN_RAW_RESPONSE = "\n\n--- batch boundary ---\n\n".join(raw_responses)
-            LAST_RUN_USAGE = {
-                "step": "ai_filter",
-                "provider": provider,
-                "model": model,
-                "input_tokens": total_in,
-                "output_tokens": total_out,
-                "cache_read_input_tokens": total_cache_read,
-                "cache_creation_input_tokens": total_cache_write,
-            }
-            return []
-
-        if bare_indices is not None:
-            passed_set = set(bare_indices)
-            batch_evals = [
-                {"index": local_i, "pass": local_i in passed_set, "reason": "(legacy indices-only response)"}
-                for local_i in range(len(batch))
-            ]
 
         # Map local indices back to global indices and merge.
         for ev in batch_evals:

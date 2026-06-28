@@ -57,6 +57,7 @@ def call(
     response_format: Literal["text", "json"] = "text",
     max_tokens: int = 2048,
     temperature: float | None = None,
+    json_schema: dict[str, object] | None = None,
 ) -> LLMResponse:
     try:
         import openai
@@ -107,7 +108,19 @@ def call(
 
     kwargs: dict[str, object] = {"max_tokens": max_tokens}
     if response_format == "json":
-        kwargs["response_format"] = {"type": "json_object"}
+        if json_schema is not None:
+            # Schema/grammar-constrained decoding. On llama.cpp (the local box)
+            # this FORCES structurally-valid, properly-escaped JSON, eliminating
+            # the "reasoning model leaks chain-of-thought (with raw newlines)
+            # into a string field" parse-failure class (Phase 42 / ADR-147 — it
+            # made qwen-coder reliable on the hard RAM batches). Falls back to
+            # loose json_object mode when no schema is supplied.
+            kwargs["response_format"] = {
+                "type": "json_schema",
+                "json_schema": {"name": "response", "strict": True, "schema": json_schema},
+            }
+        else:
+            kwargs["response_format"] = {"type": "json_object"}
     if temperature is not None:
         kwargs["temperature"] = temperature
 

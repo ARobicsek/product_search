@@ -67,6 +67,7 @@ def call_llm(
     max_tokens: int = 2048,
     temperature: float | None = None,
     cache_system: bool = False,
+    json_schema: dict[str, object] | None = None,
 ) -> LLMResponse:
     """Call the specified LLM provider.
 
@@ -120,6 +121,11 @@ def call_llm(
     # signatures with a kwarg they'd have to ignore.
     if provider == "anthropic":
         call_kwargs["cache_system"] = cache_system
+    # ``json_schema`` (schema-constrained decoding) is an OpenAI-family feature;
+    # forward it only to those providers (the local llama.cpp box uses it to
+    # guarantee valid JSON — ADR-147).
+    if provider in ("openai", "glm", "local"):
+        call_kwargs["json_schema"] = json_schema
     resp = _call(**call_kwargs)
 
     # Dump trace for debugging

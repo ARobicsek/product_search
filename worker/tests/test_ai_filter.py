@@ -169,6 +169,71 @@ def test_batches_large_listing_set(profile: Profile, monkeypatch: pytest.MonkeyP
     assert ai_filter_mod.LAST_RUN_USAGE["output_tokens"] == 40
 
 
+def test_local_parse_failure_falls_back_to_secondary_local(
+    profile: Profile, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A primary-local parse failure must degrade to the SECONDARY LOCAL model.
+
+    Phase 42 / ADR-147: schema-constrained decoding makes a primary failure rare,
+    but if it happens the in-run fallback is another local model (qwen3.6-27b-mtp)
+    — NOT Haiku (owner: too expensive). The run must still complete, not zero out.
+    """
+    from product_search.llm import local_box
+
+    monkeypatch.setenv("AI_FILTER_BACKEND", "local")
+    monkeypatch.setattr(local_box, "coordinate_local_access", lambda *a, **k: True)
+
+    listings = [_make_listing(), _make_listing(title="other")]
+
+    def stubbed(**kw: object) -> LLMResponse:
+        model = kw["model"]
+        if model == "qwen-coder":  # primary: truncated/garbage JSON
+            return LLMResponse(provider="local", model="qwen-coder",
+                               text='{"evaluations": [{"index": 0,', input_tokens=5, output_tokens=2)
+        # secondary local model produces a valid response
+        return LLMResponse(provider="local", model="qwen3.6-27b-mtp",
+                          text='{"evaluations": [{"index": 0, "pass": true, "reason": "ok"},'
+                               '{"index": 1, "pass": false, "reason": "no"}]}',
+                          input_tokens=10, output_tokens=20)
+
+    monkeypatch.setattr(ai_filter_mod, "call_llm", stubbed)
+    out = ai_filter_mod.ai_filter(listings, profile)
+
+    # Secondary local model's verdict is honored (1 survivor); no zeroed run, no Haiku.
+    assert len(out) == 1
+    assert out[0] is listings[0]
+    assert ai_filter_mod.LAST_RUN_USAGE is not None
+    assert ai_filter_mod.LAST_RUN_USAGE["provider"] == "local"
+    assert ai_filter_mod.LAST_RUN_USAGE["model"] == "qwen3.6-27b-mtp"
+
+
+def test_local_chain_exhaustion_fires_notification(
+    profile: Profile, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """When every LOCAL model in the chain fails, fire an operational alert so
+    the owner can investigate (ADR-147 prod requirement)."""
+    from product_search.llm import local_box
+    from product_search.validators import ai_filter as af
+
+    monkeypatch.setenv("AI_FILTER_BACKEND", "local")
+    monkeypatch.setattr(local_box, "coordinate_local_access", lambda *a, **k: True)
+
+    # Every local model returns unparseable JSON → chain exhausted.
+    def always_bad(**kw: object) -> LLMResponse:
+        return LLMResponse(provider="local", model=str(kw["model"]),
+                           text="not json", input_tokens=1, output_tokens=1)
+
+    monkeypatch.setattr(ai_filter_mod, "call_llm", always_bad)
+
+    sent: list[tuple[str, str]] = []
+    monkeypatch.setattr(af, "_notify_filter_failure", lambda slug, reason: sent.append((slug, reason)))
+
+    out = ai_filter_mod.ai_filter([_make_listing()], profile)
+    assert out == []  # zeroed (no Haiku in prod-style local-only chain)
+    assert len(sent) == 1
+    assert sent[0][0] == profile.slug
+
+
 def test_system_prompt_falls_back_to_display_name_when_description_empty(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
