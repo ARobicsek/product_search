@@ -74,6 +74,16 @@ function formatCost(usd: number): string {
   return `$${usd.toFixed(2)}`;
 }
 
+// Short, friendly label for the ai_filter step's model. Local models
+// (qwen-coder, qwen3.6-27b-mtp) show as-is; Anthropic Haiku is prettified.
+// Returns null when no LLM filter ran (e.g. variant_strict skips the filter,
+// so there's no ai_filter step in run_cost) — the card then shows nothing.
+function formatFilterModel(model: string | null | undefined): string | null {
+  if (!model) return null;
+  if (/haiku/i.test(model)) return 'Haiku 4.5';
+  return model;
+}
+
 // Later of two ISO instants (either may be null). Used to reconcile the
 // data-CSV run instant with the report sidecar's generated_at: a zero-pass
 // run writes a report (and sidecar) but no data CSV, so the CSV alone would
@@ -151,6 +161,11 @@ export default async function Home() {
         costUsd = sidecar.run_cost.total_usd;
       }
 
+      // Which LLM did the relevance filter this run (ai_filter step). Absent
+      // when no LLM ran (variant_strict skip) → no label on the card.
+      const filterStep = sidecar?.run_cost?.steps?.find((s) => s.step === 'ai_filter');
+      const filterModel = formatFilterModel(filterStep?.model);
+
       // An on-demand run carries the slug in its title (so we know its exact
       // start). A scheduler-tick has no per-product title, so it's attributed
       // to any product declaring a schedule block — best-effort, since one
@@ -184,6 +199,7 @@ export default async function Home() {
         listingCount,
         durationMs,
         costUsd,
+        filterModel,
         fallbackSummary,
       };
     })
@@ -246,6 +262,7 @@ export default async function Home() {
                     No passing listings
                     {data.durationMs !== null && ` · took ${formatDuration(data.durationMs)}`}
                     {data.costUsd !== null && ` · ${formatCost(data.costUsd)}`}
+                    {data.filterModel && ` · filter: ${data.filterModel}`}
                   </>
                 ) : data.listingCount !== null ? (
                   <>
@@ -258,6 +275,7 @@ export default async function Home() {
                     {data.listingCount} listing{data.listingCount === 1 ? '' : 's'}
                     {data.durationMs !== null && ` · took ${formatDuration(data.durationMs)}`}
                     {data.costUsd !== null && ` · ${formatCost(data.costUsd)}`}
+                    {data.filterModel && ` · filter: ${data.filterModel}`}
                   </>
                 ) : (
                   data.fallbackSummary
