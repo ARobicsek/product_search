@@ -1,7 +1,9 @@
 schema_version: 2
 slug: focal-clear-mg
 display_name: Focal Clear MG Headphones
-description: Both Focal Clear MG and Clear MG Professional variants, any condition.
+description: >-
+  Both Focal Clear MG and Clear MG Professional variants, any condition. Excludes accessory-only listings (ear pads,
+  cables, cases, stands sold alone).
 product_type: headphones
 target:
   unit: count
@@ -16,9 +18,22 @@ match:
     - Clear MG
     - Clear MG Professional
     - Clear Magnesium
-  title_excludes: []
+  title_excludes:
+    - ear pads only
+    - earpads only
+    - cable only
+    - case only
+    - stand only
+    - accessories only
+    - replacement ear pads
+    - replacement cable
   variant_strict: false
-filters: {}
+filters:
+  condition_in:
+    - new
+    - used
+    - refurbished
+    - open box
 sources:
   serper:
     enabled: true
