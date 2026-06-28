@@ -8,9 +8,16 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from product_search.llm import Message, call_llm
+from product_search.config import filter_backend_config
+from product_search.llm import LLMResponse, Message, call_llm
 from product_search.models import Listing
 from product_search.profile import Profile
+
+# The fallback/default filter backend. Haiku is deterministic-enough at temp=0
+# (ADR-132) and reachable from anywhere (incl. GitHub Actions), so it stays the
+# default AND the fallback when the local box can't be used (ADR-147).
+_HAIKU_PROVIDER = "anthropic"
+_HAIKU_MODEL = "claude-haiku-4-5"
 
 logger = logging.getLogger(__name__)
 
@@ -356,6 +363,45 @@ ONLY output the JSON object.
 """
 
 
+def _resolve_filter_backend() -> tuple[str, str]:
+    """Return the ``(provider, model)`` the filter should use this run.
+
+    Honors ``AI_FILTER_BACKEND`` (config.py). For the default (``anthropic``)
+    this is just Haiku. For ``local`` it consults the polite shared-box
+    coordinator (ADR-147): join an already-loaded/idle box immediately, wait out
+    a different in-use model up to the bound, and **fall back to Haiku** if the
+    box is unreachable or stays busy — so a run never hangs on a busy box.
+    """
+    cfg = filter_backend_config()
+    if not cfg.is_local:
+        return (_HAIKU_PROVIDER, _HAIKU_MODEL)
+    from product_search.llm.local_box import coordinate_local_access
+
+    if coordinate_local_access(cfg, log_fn=_loud):
+        return ("local", cfg.local_model)
+    return (_HAIKU_PROVIDER, _HAIKU_MODEL)
+
+
+def _call_filter_llm(
+    provider: str, model: str, system_prompt: str, payload: list[dict[str, Any]]
+) -> LLMResponse:
+    """One filter round-trip. ``cache_system`` is Anthropic-only (ADR-142)."""
+    return call_llm(
+        provider=provider,  # type: ignore[arg-type]
+        model=model,
+        system=system_prompt,
+        messages=[Message(role="user", content=json.dumps(payload, indent=2))],
+        max_tokens=_AI_FILTER_MAX_TOKENS,
+        response_format="json",
+        # ADR-132: deterministic filtering. At provider-default (~1.0) Haiku's
+        # pass-count swung 35/28/19 on identical input; temp=0 makes it
+        # near-deterministic, and the local models are fully deterministic
+        # at temp=0 (ADR-145).
+        temperature=0,
+        cache_system=(provider == _HAIKU_PROVIDER),
+    )
+
+
 def ai_filter(
     listings: list[Listing],
     profile: Profile,
@@ -382,24 +428,21 @@ def ai_filter(
 
     system_prompt = _build_system_prompt(profile, display_attrs)
 
-    # Use Anthropic Claude Haiku 4.5. Earlier revisions tried GLM-5.1 (a
-    # reasoning model that ignores response_format=json_object) and then
-    # GLM-4.5-Flash; both failed in prod by emitting chain-of-thought prose
-    # into `content` despite explicit "JSON only" instructions. The
-    # 2026-04-30 run after committing the diagnostic block confirmed
-    # GLM-4.5-Flash also dumps prose like "Let me analyze the products one
-    # by one according to the rules provided. First, let's review the
-    # rules: 1. form_factor_in {values:..."  — JSON parse fails on the
-    # first character. Haiku 4.5 honors json mode reliably (it's already
-    # the synth model per ADR-019). Cost is fine — ~$0.005/run for ~100
-    # listings vs essentially free for GLM, but correctness > cost here.
+    # Backend selection (ADR-147). Default = Anthropic Haiku 4.5. Earlier
+    # revisions tried GLM-5.1 / GLM-4.5-Flash; both failed in prod by emitting
+    # chain-of-thought prose into `content` despite "JSON only" — Haiku honors
+    # json mode reliably. ``AI_FILTER_BACKEND=local`` instead routes to the home
+    # llama-swap box (qwen-coder; fully deterministic at temp=0, ADR-145) behind
+    # the polite coordinator, with Haiku as the fallback if the box can't be used.
+    provider, model = _resolve_filter_backend()
+
     n = len(listings)
     batches = [
         list(range(start, min(start + _AI_FILTER_BATCH_SIZE, n)))
         for start in range(0, n, _AI_FILTER_BATCH_SIZE)
     ]
     logger.info(
-        f"Calling Claude Haiku 4.5 for filtering ({n} listings in "
+        f"Calling {provider}/{model} for filtering ({n} listings in "
         f"{len(batches)} batch(es) of up to {_AI_FILTER_BATCH_SIZE})..."
     )
 
@@ -436,40 +479,41 @@ def ai_filter(
             })
 
         try:
-            resp = call_llm(
-                provider="anthropic",
-                model="claude-haiku-4-5",
-                system=system_prompt,
-                messages=[Message(role="user", content=json.dumps(payload_for_llm, indent=2))],
-                max_tokens=_AI_FILTER_MAX_TOKENS,
-                response_format="json",
-                # ADR-132: deterministic filtering. At provider-default (~1.0)
-                # Haiku's pass-count swung 35/28/19 on identical input; temp=0
-                # makes it near-deterministic (det 1.00 on 3/4 bake-off products).
-                temperature=0,
-                # ADR-142: cache the stable system block across batches. The
-                # cache_control marker doesn't change the prompt the model sees,
-                # so the survivor set is byte-identical to the uncached path.
-                cache_system=True,
-            )
+            resp = _call_filter_llm(provider, model, system_prompt, payload_for_llm)
         except Exception as e:
-            _loud(f"Filtering LLM call failed (batch {batch_no}/{len(batches)}): {e!r}")
-            sentinel = [{
-                "index": -1, "pass": False, "reason": f"ai_filter exception: {e!r}",
-                "title": "(filter call failed)", "price": None, "url": None, "source": None,
-            }]
-            _write_filter_log(profile.slug, sentinel)
-            LAST_RUN_LOG = sentinel
-            LAST_RUN_USAGE = {
-                "step": "ai_filter",
-                "provider": "anthropic",
-                "model": "claude-haiku-4-5",
-                "input_tokens": total_in,
-                "output_tokens": total_out,
-                "cache_read_input_tokens": total_cache_read,
-                "cache_creation_input_tokens": total_cache_write,
-            }
-            return []
+            err: Exception | None = e
+            # If the local box failed mid-run (unreachable / error), fall back to
+            # Haiku for this and all remaining batches rather than zeroing the run
+            # (ADR-147: a run never breaks because the box is unavailable).
+            if provider == "local":
+                _loud(
+                    f"local filter backend failed (batch {batch_no}/{len(batches)}): "
+                    f"{e!r} - falling back to Haiku for the rest of the run"
+                )
+                provider, model = _HAIKU_PROVIDER, _HAIKU_MODEL
+                try:
+                    resp = _call_filter_llm(provider, model, system_prompt, payload_for_llm)
+                    err = None
+                except Exception as e2:
+                    err = e2
+            if err is not None:
+                _loud(f"Filtering LLM call failed (batch {batch_no}/{len(batches)}): {err!r}")
+                sentinel = [{
+                    "index": -1, "pass": False, "reason": f"ai_filter exception: {err!r}",
+                    "title": "(filter call failed)", "price": None, "url": None, "source": None,
+                }]
+                _write_filter_log(profile.slug, sentinel)
+                LAST_RUN_LOG = sentinel
+                LAST_RUN_USAGE = {
+                    "step": "ai_filter",
+                    "provider": provider,
+                    "model": model,
+                    "input_tokens": total_in,
+                    "output_tokens": total_out,
+                    "cache_read_input_tokens": total_cache_read,
+                    "cache_creation_input_tokens": total_cache_write,
+                }
+                return []
 
         raw_responses.append(resp.text or "")
         total_in += resp.input_tokens or 0
@@ -500,8 +544,8 @@ def ai_filter(
             LAST_RUN_RAW_RESPONSE = "\n\n--- batch boundary ---\n\n".join(raw_responses)
             LAST_RUN_USAGE = {
                 "step": "ai_filter",
-                "provider": "anthropic",
-                "model": "claude-haiku-4-5",
+                "provider": provider,
+                "model": model,
                 "input_tokens": total_in,
                 "output_tokens": total_out,
                 "cache_read_input_tokens": total_cache_read,
@@ -538,8 +582,8 @@ def ai_filter(
             LAST_RUN_RAW_RESPONSE = "\n\n--- batch boundary ---\n\n".join(raw_responses)
             LAST_RUN_USAGE = {
                 "step": "ai_filter",
-                "provider": "anthropic",
-                "model": "claude-haiku-4-5",
+                "provider": provider,
+                "model": model,
                 "input_tokens": total_in,
                 "output_tokens": total_out,
                 "cache_read_input_tokens": total_cache_read,
@@ -579,8 +623,8 @@ def ai_filter(
     LAST_RUN_RAW_RESPONSE = "\n\n--- batch boundary ---\n\n".join(raw_responses)
     LAST_RUN_USAGE = {
         "step": "ai_filter",
-        "provider": "anthropic",
-        "model": "claude-haiku-4-5",
+        "provider": provider,
+        "model": model,
         "input_tokens": total_in,
         "output_tokens": total_out,
         "cache_read_input_tokens": total_cache_read,

@@ -74,6 +74,16 @@ def call(
             api_key=api_key,
             base_url="https://open.bigmodel.cn/api/paas/v4/",
         )
+    elif provider == "local":
+        # The owner's home llama-swap box (OpenAI-compatible, Tailscale).
+        # llama.cpp ignores the key, so a dummy is fine. The first request to
+        # a not-yet-resident model pays a cold load (~16–55s), so use a
+        # generous timeout (the bake-off uses 600s) — far above the default.
+        from product_search.config import DEFAULT_LOCAL_LLM_BASE, DEFAULT_LOCAL_LLM_KEY
+
+        api_key = os.environ.get("LOCAL_LLM_KEY") or DEFAULT_LOCAL_LLM_KEY
+        base_url = os.environ.get("LOCAL_LLM_BASE", DEFAULT_LOCAL_LLM_BASE)
+        client = openai.OpenAI(api_key=api_key, base_url=base_url, timeout=600.0)
     else:
         api_key = os.environ.get("OPENAI_API_KEY")
         if not api_key:

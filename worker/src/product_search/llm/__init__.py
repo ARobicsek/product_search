@@ -27,7 +27,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Literal
 
-ProviderName = Literal["anthropic", "openai", "gemini", "glm"]
+ProviderName = Literal["anthropic", "openai", "gemini", "glm", "local"]
 
 _CallFn = Callable[..., "LLMResponse"]
 
@@ -97,7 +97,10 @@ def call_llm(
     _call: _CallFn
     if provider == "anthropic":
         from product_search.llm._anthropic import call as _call
-    elif provider in ("openai", "glm"):
+    elif provider in ("openai", "glm", "local"):
+        # ``local`` = the owner's home llama-swap box (OpenAI-compatible).
+        # Routed through the OpenAI provider with a base-URL + dummy-key
+        # override, exactly like ``glm`` (ADR-147 / Phase 42).
         from product_search.llm._openai import call as _call
     elif provider == "gemini":
         from product_search.llm._gemini import call as _call
