@@ -63,5 +63,5 @@ alerts:
     price_basis: unit
 
 schedule:
-  cron: "0 17 * * *"
+  cron: "0 14 * * *"
   timezone: UTC
