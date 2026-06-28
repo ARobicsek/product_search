@@ -1,0 +1,46 @@
+schema_version: 2
+slug: sk-hynix-hmcg84agbra191n-ddr5-32gb
+display_name: SK Hynix HMCG84AGBRA191N AA DDR5 32GB ECC RDIMM
+description: SK hynix DDR5-5600 32GB ECC Registered DIMM (HMCG84AGBRA191N AA) for enterprise/data center systems.
+product_type: ram
+target:
+  unit: count
+  amount: 1
+queries:
+  - HMCG84AGBRA191N AA
+  - SK hynix HMCG84AGBRA191N DDR5 32GB
+  - HMCG84AGBRA191N DDR5 5600 ECC RDIMM
+  - SK hynix DDR5 EC8 RDIMM 32GB 1Rx4 PC5-56008
+match:
+  aliases:
+    - HMCG84AGBRA191N AA
+    - HMCG84AGBRA191N
+    - EC8 RDIMM 32GB 1Rx4 PC5-56008
+  title_excludes:
+    - HMCG82AGBRA191N
+    - HMCG86AGBRA191N
+    - 16GB
+    - 64GB
+    - SODIMM
+    - UDIMM
+  variant_strict: true
+filters:
+  condition_in: []
+  in_stock: true
+sources:
+  serper:
+    enabled: true
+    gl: us
+  ebay:
+    enabled: true
+  amazon:
+    enabled: true
+display:
+  max_listings: 20
+  per_vendor_cap: 3
+  attrs:
+    - price
+    - condition
+    - seller
+    - seller_rating
+    - mpn
