@@ -28,6 +28,13 @@ def test_estimate_cost_treats_none_tokens_as_zero() -> None:
     assert cost == 0.0
 
 
+def test_local_backend_is_free_for_any_model() -> None:
+    # Self-hosted box (ADR-147): always $0, not "(unpriced)", for ANY local model.
+    assert estimate_cost_usd("local", "qwen-coder", 100_000, 50_000) == 0.0
+    assert estimate_cost_usd("local", "qwen3.6-27b-mtp", 80_000, 40_000) == 0.0
+    assert estimate_cost_usd("local", "some-future-local-model", 1, 1) == 0.0
+
+
 # ---------------------------------------------------------------------------
 # Cache-aware pricing (ADR-142)
 # ---------------------------------------------------------------------------

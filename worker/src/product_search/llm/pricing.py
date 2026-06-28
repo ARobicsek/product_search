@@ -66,6 +66,12 @@ def estimate_cost_usd(
     ``input_tokens`` already *excludes* those buckets, so the three are summed —
     never double-counted.
     """
+    # The local llama-swap box (Phase 42 / ADR-147) is self-hosted: every call
+    # is free regardless of which local model ran. Return $0 (not None) so the
+    # run-cost panel shows the filter step as ~$0 instead of "(unpriced)" when
+    # AI_FILTER_BACKEND=local.
+    if provider == "local":
+        return 0.0
     pricing = PRICING.get((provider, model))
     if pricing is None:
         return None
