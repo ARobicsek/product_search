@@ -33,6 +33,7 @@ from product_search.selection import (
     apply_vendor_filter,
     select_for_display,
 )
+from product_search.validators import ai_filter as ai_filter_mod
 from product_search.validators.ai_filter import ai_filter
 from product_search.validators.filters import apply_filters
 from product_search.validators.price_sanity import (
@@ -98,14 +99,26 @@ def run_v2_pipeline(
 
     # 4. Deterministic alias-match pre-pass (Phase 41 / ADR-145): a listing whose
     #    title contains an exact match.aliases string is surfaced for free (no LLM,
-    #    no hallucination); the LLM judges only the fuzzy remainder. Survivors are
+    #    no hallucination).
+    #
+    #    variant_strict (ADR-148): when the onboarder marked the ask as an
+    #    EXACT-SKU one (``match.variant_strict: true`` + aliases present), the user
+    #    wants ONLY listings whose title carries an exact alias — the LLM relevance
+    #    pass would add "equivalents" they explicitly did not ask for, so skip it
+    #    entirely (also $0 + fully deterministic): survivors = alias hits only.
+    #    Otherwise (family breadth) keep the current behavior — the LLM still sees
+    #    the deterministic pre-pass's remainder and judges it; survivors are
     #    rebuilt in det_passed order (alias hits ∪ LLM survivors).
+    ai_filter_mod.reset_last_run()  # honest cost panel even when the LLM is skipped
     alias_hits, remainder = partition_by_exact_alias(det_passed, profile)
-    llm_survivors = (
-        ai_filter_fn(remainder, filter_profile, profile.display.attrs) if remainder else []
-    )
-    kept = {id(lst) for lst in alias_hits} | {id(lst) for lst in llm_survivors}
-    survivors = [lst for lst in det_passed if id(lst) in kept]
+    if profile.match.variant_strict and profile.match.aliases:
+        survivors = list(alias_hits)
+    else:
+        llm_survivors = (
+            ai_filter_fn(remainder, filter_profile, profile.display.attrs) if remainder else []
+        )
+        kept = {id(lst) for lst in alias_hits} | {id(lst) for lst in llm_survivors}
+        survivors = [lst for lst in det_passed if id(lst) in kept]
 
     # 5. Price-anomaly flags over the matched survivors (ADR-131 P1).
     annotate_price_anomalies(survivors)
@@ -308,8 +321,6 @@ def run_v2(
     )
 
     # --- Run-cost panel (ai_filter spend; recall is a flat-fee API call). -----
-    from product_search.validators import ai_filter as ai_filter_mod
-
     run_calls: list[dict[str, Any]] = []
     if ai_filter_mod.LAST_RUN_USAGE:
         run_calls.append(ai_filter_mod.LAST_RUN_USAGE)

@@ -159,6 +159,22 @@ LAST_RUN_RAW_RESPONSE: str = ""
 LAST_RUN_USAGE: dict[str, Any] | None = None
 
 
+def reset_last_run() -> None:
+    """Clear the module-level LAST_RUN_* capture.
+
+    ``ai_filter`` resets these at the top of every call, but a pipeline run can
+    legitimately SKIP the LLM entirely (a variant_strict exact-only run, or a
+    run whose alias pre-pass left no remainder). In a multi-product scheduler
+    tick the module globals would then carry the PREVIOUS product's verdicts/cost
+    into the skipped product's report. Callers that may not invoke ``ai_filter``
+    must reset first so the cost panel honestly shows "no LLM call".
+    """
+    global LAST_RUN_LOG, LAST_RUN_RAW_RESPONSE, LAST_RUN_USAGE
+    LAST_RUN_LOG = []
+    LAST_RUN_RAW_RESPONSE = ""
+    LAST_RUN_USAGE = None
+
+
 def _write_filter_log(slug: str, entries: list[dict[str, Any]]) -> None:
     """Append entries to the daily filter log AND truncate-write a per-product
     sibling under ``reports/<slug>/<date>.filter.jsonl`` so the diagnostic is

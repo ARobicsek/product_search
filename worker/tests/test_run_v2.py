@@ -118,16 +118,17 @@ def test_pipeline_degraded_attr_on_min_quantity() -> None:
 
 
 def test_exact_alias_survives_even_when_llm_rejects_all() -> None:
-    # Phase 41 / ADR-145: a title with an exact match.aliases string is surfaced
-    # deterministically — it must survive even an ai_filter that rejects every
-    # listing it sees, and the LLM must only ever see the (non-alias) remainder.
+    # Phase 41 / ADR-145 (NON-strict / family-breadth path, variant_strict=false):
+    # a title with an exact match.aliases string is surfaced deterministically — it
+    # must survive even an ai_filter that rejects every listing it sees, and the
+    # LLM must only ever see the (non-alias) remainder.
     raw = {
         "schema_version": 2,
         "slug": "ram-x",
         "display_name": "RAM X",
         "target": {"unit": "count", "amount": 1},
         "queries": ["HMCG84AGBRA191N"],
-        "match": {"aliases": ["HMCG84AGBRA191N"]},
+        "match": {"aliases": ["HMCG84AGBRA191N"], "variant_strict": False},
         "filters": {"condition_in": []},
         "sources": {"serper": {"enabled": True, "gl": "us"}},
     }
@@ -146,6 +147,56 @@ def test_exact_alias_survives_even_when_llm_rejects_all() -> None:
     assert alias_hit.title in titles          # auto-passed despite the rejecting LLM
     assert junk.title not in titles           # rejected by the LLM remainder
     assert seen == [junk.title]               # LLM only judged the remainder, not the alias hit
+
+
+def test_variant_strict_returns_only_exact_alias_matches() -> None:
+    # ADR-148: an EXACT-SKU profile (variant_strict=true + aliases) returns ONLY
+    # listings whose title carries an exact alias — the LLM relevance pass is
+    # skipped entirely (it would add "equivalents" the user didn't ask for), so
+    # even a passthrough LLM that would pass everything never runs.
+    raw = {
+        "schema_version": 2,
+        "slug": "ram-strict",
+        "display_name": "Exact RAM",
+        "target": {"unit": "count", "amount": 1},
+        "queries": ["HMCG84AGBRA191N"],
+        "match": {"aliases": ["HMCG84AGBRA191N"], "variant_strict": True},
+        "filters": {"condition_in": []},
+        "sources": {"serper": {"enabled": True, "gl": "us"}},
+    }
+    profile = ProfileV2.model_validate(raw)
+    seen: list[str] = []
+
+    def _pass_all(listings: list[Listing], _profile: Any, _attrs: Any = None) -> list[Listing]:
+        seen.extend(lst.title for lst in listings)
+        return list(listings)
+
+    alias_hit = _listing(829.0, title="Hynix HMCG84AGBRA191N 32GB DDR5-5600 ECC")
+    equivalent = _listing(750.0, title="Micron 32GB DDR5-5600 ECC RDIMM 1Rx4 Server Memory")
+    result = run_v2_pipeline(profile, [alias_hit, equivalent], ai_filter_fn=_pass_all)
+
+    titles = [lst.title for lst in result.survivors]
+    assert titles == [alias_hit.title]   # ONLY the exact-MPN listing
+    assert equivalent.title not in titles  # the "equivalent" is dropped, not LLM-passed
+    assert seen == []                    # the LLM was never called (deterministic, $0)
+
+
+def test_variant_strict_with_no_aliases_falls_back_to_llm() -> None:
+    # variant_strict=true is meaningless without aliases to match on — there is
+    # nothing to do an exact match against — so the LLM path is used (don't zero
+    # the run).
+    raw = {
+        "schema_version": 2,
+        "slug": "ram-noalias",
+        "display_name": "RAM",
+        "target": {"unit": "count", "amount": 1},
+        "queries": ["server ram"],
+        "match": {"aliases": [], "variant_strict": True},
+        "sources": {"serper": {"enabled": True, "gl": "us"}},
+    }
+    profile = ProfileV2.model_validate(raw)
+    result = run_v2_pipeline(profile, [_listing(99.0)], ai_filter_fn=_passthrough)
+    assert len(result.survivors) == 1  # LLM (passthrough) ran
 
 
 def test_pipeline_vendor_blocklist_drops_vendor() -> None:

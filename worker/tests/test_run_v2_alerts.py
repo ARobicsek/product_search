@@ -66,6 +66,7 @@ queries:
   - "test product"
 match:
   aliases: ["test 123"]
+  variant_strict: false
 filters:
   condition_in: ["new"]
 sources:
