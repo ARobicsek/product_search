@@ -465,6 +465,25 @@ def _resolve_filter_chain() -> list[tuple[str, str]]:
     return chain
 
 
+def _release_local_box(chain: list[tuple[str, str]]) -> None:
+    """Best-effort: after the run's filter is done, politely unload our local
+    model from the shared box so it doesn't sit parked on the GPU (ADR-149
+    follow-up). No-op unless the local backend was actually in the chain; the
+    unload itself only fires when our model is the sole idle resident (see
+    ``local_box.unload_after_use``). Never raises — cleanup must not affect a run.
+    """
+    our_models = {m for p, m in chain if p == "local"}
+    if not our_models:
+        return
+    try:
+        from product_search.llm.local_box import unload_after_use
+
+        cfg = filter_backend_config()
+        unload_after_use(cfg.local_base, our_models, log_fn=_loud)
+    except Exception as e:  # noqa: BLE001 - cleanup is strictly best-effort
+        _loud(f"local box unload skipped (error ignored): {e!r}")
+
+
 def _call_filter_llm(
     provider: str, model: str, system_prompt: str, payload: list[dict[str, Any]]
 ) -> LLMResponse:
@@ -683,6 +702,7 @@ def ai_filter(
                 "cache_read_input_tokens": total_cache_read,
                 "cache_creation_input_tokens": total_cache_write,
             }
+            _release_local_box(chain)
             return []
 
         raw_responses.append(resp.text or "")
@@ -784,4 +804,5 @@ def ai_filter(
     LAST_RUN_LOG = list(log_entries)
     logger.info(f"LLM kept {len(passed_listings)} out of {len(listings)} listings.")
 
+    _release_local_box(chain)
     return passed_listings

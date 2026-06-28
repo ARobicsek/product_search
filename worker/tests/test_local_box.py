@@ -16,7 +16,12 @@ import pytest
 
 from product_search.config import FilterBackendConfig
 from product_search.llm import local_box
-from product_search.llm.local_box import BoxSnapshot, _root, coordinate_local_access
+from product_search.llm.local_box import (
+    BoxSnapshot,
+    _root,
+    coordinate_local_access,
+    unload_after_use,
+)
 
 
 def _cfg(**over: object) -> FilterBackendConfig:
@@ -245,3 +250,98 @@ def test_probe_box_unreachable_when_running_errors(
     monkeypatch.setattr(local_box.httpx, "get", boom)
     snap = local_box.probe_box("http://box:8080/v1")
     assert snap.reachable is False
+
+
+# --- unload_after_use (polite post-run release; ADR-149 follow-up) ----------
+
+_OUR = {"qwen-coder", "qwen3.6-27b-mtp"}
+
+
+def _snap(**over: object) -> BoxSnapshot:
+    base: dict[str, object] = dict(reachable=True, loaded=["qwen-coder"], active=False)
+    base.update(over)
+    return BoxSnapshot(**base)  # type: ignore[arg-type]
+
+
+def test_unload_fires_when_our_model_sole_and_idle() -> None:
+    calls: list[int] = []
+    fired = unload_after_use(
+        "http://box:8080/v1", _OUR,
+        probe_fn=lambda: _snap(loaded=["qwen-coder"], active=False),
+        unload_fn=lambda: calls.append(1),
+    )
+    assert fired is True and calls == [1]
+
+
+def test_unload_fires_for_secondary_model() -> None:
+    # The run may have ended on the secondary local model — unload it too.
+    calls: list[int] = []
+    fired = unload_after_use(
+        "http://box:8080/v1", _OUR,
+        probe_fn=lambda: _snap(loaded=["qwen3.6-27b-mtp"], active=False),
+        unload_fn=lambda: calls.append(1),
+    )
+    assert fired is True and calls == [1]
+
+
+def test_unload_skips_when_unreachable() -> None:
+    calls: list[int] = []
+    fired = unload_after_use(
+        "http://box:8080/v1", _OUR,
+        probe_fn=lambda: BoxSnapshot(reachable=False),
+        unload_fn=lambda: calls.append(1),
+    )
+    assert fired is False and calls == []
+
+
+def test_unload_skips_when_different_model_loaded() -> None:
+    calls: list[int] = []
+    fired = unload_after_use(
+        "http://box:8080/v1", _OUR,
+        probe_fn=lambda: _snap(loaded=["minimax-m3"], active=False),
+        unload_fn=lambda: calls.append(1),
+    )
+    assert fired is False and calls == []
+
+
+def test_unload_skips_when_not_sole_resident() -> None:
+    # More than one model loaded -> never unload (don't disturb the other one).
+    calls: list[int] = []
+    fired = unload_after_use(
+        "http://box:8080/v1", _OUR,
+        probe_fn=lambda: _snap(loaded=["qwen-coder", "minimax-m3"], active=False),
+        unload_fn=lambda: calls.append(1),
+    )
+    assert fired is False and calls == []
+
+
+def test_unload_skips_when_busy() -> None:
+    calls: list[int] = []
+    fired = unload_after_use(
+        "http://box:8080/v1", _OUR,
+        probe_fn=lambda: _snap(active=True),
+        unload_fn=lambda: calls.append(1),
+    )
+    assert fired is False and calls == []
+
+
+def test_unload_skips_when_activity_unknown() -> None:
+    calls: list[int] = []
+    fired = unload_after_use(
+        "http://box:8080/v1", _OUR,
+        probe_fn=lambda: _snap(active=None),
+        unload_fn=lambda: calls.append(1),
+    )
+    assert fired is False and calls == []
+
+
+def test_unload_swallows_http_error() -> None:
+    def boom() -> None:
+        raise httpx.ConnectError("nope")
+
+    fired = unload_after_use(
+        "http://box:8080/v1", _OUR,
+        probe_fn=lambda: _snap(active=False),
+        unload_fn=boom,
+    )
+    assert fired is False  # error swallowed, no raise

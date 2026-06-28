@@ -217,6 +217,54 @@ def probe_box(base_url: str, *, timeout: float = _PROBE_TIMEOUT_S) -> BoxSnapsho
     )
 
 
+def _do_unload(root: str, timeout: float = _PROBE_TIMEOUT_S) -> None:
+    """Tell llama-swap to unload the resident model (``GET /unload``, verified
+    on v230 — POST returns 405). Single-model box, so this frees the GPU."""
+    resp = httpx.get(f"{root}/unload", timeout=timeout)
+    resp.raise_for_status()
+
+
+def unload_after_use(
+    base_url: str,
+    our_models: set[str],
+    *,
+    probe_fn: Callable[[], BoxSnapshot] | None = None,
+    unload_fn: Callable[[], None] | None = None,
+    log_fn: Callable[[str], None] | None = None,
+) -> bool:
+    """Politely release our local model from the shared box once the run's
+    filter is done (ADR-149 follow-up). Returns ``True`` iff an unload was issued.
+
+    Issues the unload ONLY when one of ``our_models`` is the **sole resident**
+    model AND the box is **known-idle** (no in-flight request). That guard means
+    we never unload a model another session swapped in, and never interrupt an
+    in-flight request — if activity is busy *or unknown* we leave the box alone.
+    Best-effort: any probe/HTTP failure is swallowed (a still-loaded model is a
+    minor resource cost, never a run failure).
+    """
+    _log = log_fn or (lambda _m: None)
+    _probe = probe_fn or (lambda: probe_box(base_url))
+
+    snap = _probe()
+    if not snap.reachable:
+        return False
+    if len(snap.loaded) != 1 or snap.loaded[0] not in our_models:
+        _log(f"skip unload: loaded={snap.loaded!r} not solely one of {sorted(our_models)}")
+        return False
+    if snap.active is not False:  # True (busy) or None (unknown) -> don't risk it
+        _log(f"skip unload: activity={snap.active!r} (only unload when known-idle)")
+        return False
+
+    _unload = unload_fn or (lambda: _do_unload(_root(base_url)))
+    try:
+        _unload()
+    except httpx.HTTPError as e:
+        _log(f"unload failed (ignored): {e!r}")
+        return False
+    _log(f"unloaded {snap.loaded[0]} from the shared box")
+    return True
+
+
 def coordinate_local_access(
     cfg: FilterBackendConfig,
     *,
