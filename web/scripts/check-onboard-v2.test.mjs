@@ -235,6 +235,18 @@ test('promptTextV2: documents the v2 tools and rules', () => {
   }
 });
 
+test('promptTextV2: teaches the explicit condition allow-list for "all conditions OK"', () => {
+  // Phase 41 / ADR-145: "all conditions acceptable" must emit the full allow-list,
+  // never an ambiguous empty [] (which makes the relevance filter invent rejections).
+  for (const needle of [
+    'All conditions acceptable',
+    '["new","used","refurbished","open box"]',
+    'Never emit an empty',
+  ]) {
+    assert.ok(promptTextV2.includes(needle), `prompt should mention "${needle}"`);
+  }
+});
+
 test('promptTextV2: documents the Amazon opt-in source guidance', () => {
   for (const needle of ['sources.amazon.enabled', 'Amazon US is absent from Google Shopping']) {
     assert.ok(promptTextV2.includes(needle), `prompt should mention "${needle}"`);

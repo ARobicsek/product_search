@@ -171,6 +171,191 @@ _AI_FILTER_BATCH_SIZE = 50
 _AI_FILTER_MAX_TOKENS = 16384
 
 
+# Per-rule-type explanation blurbs. Only the blurbs for rule types actually
+# present in the profile's spec_filters are emitted into the system prompt
+# (relevance_check always applies and is emitted separately). Statically
+# explaining a rule the profile does NOT carry primes the model to act on a
+# non-existent constraint — most damagingly for ``condition_in``: with the
+# explanation always present, the model fabricated "used"/"refurbished"
+# rejections on titles that stated no condition, and even rejected on profiles
+# with no active condition rule at all (Phase 41 / ADR-145 — the exact RAM part
+# ``HMCG84AGBRA191N`` was dropped for a condition the profile explicitly allowed).
+_RULE_EXPLANATIONS: dict[str, str] = {
+    "condition_in": (
+        "- condition_in {values:[...]}: ONLY reject when the title or URL EXPLICITLY contains a\n"
+        "  condition word (e.g. 'used', 'pre-owned', 'open box', 'refurbished', 'renewed') AND that\n"
+        "  condition is not in values. If the title states no condition word, this rule PASSES — never\n"
+        "  infer a condition from the absence of one."
+    ),
+    "form_factor_in": (
+        "- form_factor_in {values:[...]}: pass if attrs.form_factor is in values, OR if neither\n"
+        "  attrs.form_factor nor the title indicates a specific form factor. Reject only when\n"
+        "  attrs.form_factor is set to something not in values, OR the title clearly contains a\n"
+        "  different form factor (e.g. \"UDIMM\" / \"SODIMM\" / \"LRDIMM\" in the title when the values\n"
+        "  list does not include that form factor)."
+    ),
+    "speed_mts_min": (
+        "- speed_mts_min {value:N}: pass if attrs.speed_mts >= N, or if speed is unknown.\n"
+        "  Reject only if attrs.speed_mts is set and below N, OR the title clearly states a\n"
+        "  lower speed (e.g. \"DDR5-4400\" or \"PC5-32000\" when min is 4800)."
+    ),
+    "ecc_required": (
+        "- ecc_required: pass if attrs.ecc is true OR ecc is unknown. Reject only if attrs.ecc\n"
+        "  is explicitly false, OR the title clearly says \"non-ECC\"."
+    ),
+    "voltage_eq": (
+        "- voltage_eq {value:V}: pass if attrs.voltage_v equals V, OR voltage is unknown\n"
+        "  (which it almost always is — voltage is rarely in titles). Only reject when\n"
+        "  attrs.voltage_v is set and clearly != V."
+    ),
+    "min_quantity_for_target": (
+        "- min_quantity_for_target: pass unless the listing definitely cannot hit the target.\n"
+        "  Compare attrs.capacity_gb against the target configurations above. If\n"
+        "  attrs.capacity_gb does not match any config's module_capacity_gb, reject. If\n"
+        "  capacity is unknown, pass. If quantity_available is known and (quantity_available *\n"
+        "  kit_module_count) is less than the required module_count, reject."
+    ),
+    "in_stock": (
+        "- in_stock: pass unless quantity_available is explicitly 0 or negative. Pass when\n"
+        "  quantity_available is null/unknown."
+    ),
+    "single_sku_url": (
+        "- single_sku_url: reject only if the URL clearly points at a search results page\n"
+        "  (e.g. contains \"/sch/\", \"search?\", or \"?_nkw=\"). Otherwise pass.\n"
+        "  EXCEPTION: a \"serper_shopping\" source uses a google.com/search shopping-cluster\n"
+        "  redirect link that is an OFFER, not a vendor search page — never reject a\n"
+        "  \"serper_shopping\" listing for this rule (ADR-131 P0)."
+    ),
+    "title_excludes": (
+        "- title_excludes {values:[...]}: reject if any string in values appears in the\n"
+        "  title (case-insensitive substring match). Otherwise pass."
+    ),
+}
+
+# Stable emission order so the prompt text is deterministic regardless of the
+# order rules happen to appear in the profile.
+_RULE_EXPLANATION_ORDER: tuple[str, ...] = (
+    "condition_in",
+    "form_factor_in",
+    "speed_mts_min",
+    "ecc_required",
+    "voltage_eq",
+    "min_quantity_for_target",
+    "in_stock",
+    "single_sku_url",
+    "title_excludes",
+)
+
+
+def _build_system_prompt(profile: Profile, display_attrs: list[str] | None) -> str:
+    """Build the ai_filter system prompt for ``profile``.
+
+    Extracted from ``ai_filter`` so the prompt is inspectable in tests. The
+    "How each rule type works" section lists ONLY the rule types the profile
+    actually carries (plus the always-on relevance_check) — see
+    ``_RULE_EXPLANATIONS`` for why statically explaining absent rules is harmful.
+    """
+    # Dump FULL rule definitions (rule type + values/value/etc.) — not just the
+    # rule names. Earlier revisions stripped extras and sent only `r.rule`, which
+    # left the LLM guessing what `form_factor_in` allowed, what `voltage_eq`
+    # required, and which substrings `title_excludes` named. That guess
+    # collapsed to "reject everything" in prod.
+    rules_full = [r.model_dump() for r in profile.spec_filters]
+    present_types = {r.get("rule") for r in rules_full}
+    target_desc = f"Target: {profile.target.amount} {profile.target.unit}"
+    if profile.target.configurations:
+        cfgs = [c.model_dump() for c in profile.target.configurations]
+        target_desc += f" (Need exactly one of these configs: {cfgs})"
+
+    relevance_rule = {
+        "rule": "relevance_check",
+        "description": (
+            "Must be the actual requested product, not an accessory or alternative. "
+            "Reject wholesale, lot, or bulk listings (e.g. '25+ Copies', 'Lot of 10') "
+            "unless the target specifically asks for multiple units."
+        ),
+    }
+    rules_json = json.dumps([relevance_rule] + rules_full, indent=2)
+
+    relevance_explanation = (
+        "- relevance_check: reject if the item is clearly a pure accessory (e.g. water filters, cases,\n"
+        "  replacement parts, batteries, chargers, wall mounts), a completely different product (e.g. V8 or V11\n"
+        "  when V15 is requested), or incompatible.\n"
+        "  IMPORTANT: You must PASS package additions, bundles, and cosmetic variations of the exact same\n"
+        "  base model (e.g. if 'Dyson V15 Detect' is requested, pass 'Dyson V15 Detect Extra', 'Dyson V15 Detect\n"
+        "  Absolute', 'Dyson V15 Detect Complete', or color variants like 'Yellow/Nickel'),\n"
+        "  provided they contain the requested base model name."
+    )
+    how_lines = [relevance_explanation]
+    how_lines += [
+        _RULE_EXPLANATIONS[rt]
+        for rt in _RULE_EXPLANATION_ORDER
+        if rt in present_types and rt in _RULE_EXPLANATIONS
+    ]
+    how_section = "\n".join(how_lines)
+
+    # ``description`` is optional (ADR-074 followup #2 — onboarder drafts
+    # occasionally omit it). Fall back to ``display_name`` so the filter
+    # prompt always has a coherent "what the user wants" line.
+    description = profile.description.strip() or profile.display_name
+    return f"""You are a product filter.
+The user wants: {profile.display_name}
+Description: {description}
+{target_desc}
+
+Rules to apply (each rule is a dict with a "rule" type and its parameters):
+{rules_json}
+
+How each rule type works (apply ONLY the rules listed above; do not invent others):
+{how_section}
+
+Decision rules:
+- "pass": true means NO rule above is clearly violated.
+- Unknown is NOT the same as failed. Apply each rule to the data you actually have
+  (attrs, title, url, quantity_available). If a rule depends on an attribute that
+  isn't present and isn't implied by the title, treat that rule as passed.
+- Never reject for a condition, attribute, or rule that is not in the list above, and
+  never reject on a value you had to infer — only an EXPLICIT cue in the title/url/attrs
+  counts. If no condition_in rule is listed, condition is irrelevant: do not reject for it.
+- The title is informative: "RDIMM ECC DDR5-4800 32GB" implies form_factor=RDIMM,
+  ecc=true, speed_mts=4800, capacity_gb=32. Use those implications when applying
+  rules.
+- For each failure, name the specific rule and quote the offending substring from
+  attrs/title/url so the human reviewer can verify.
+
+The profile expects the following display attributes: {display_attrs or []}
+Additionally, if you can clearly identify any of these common product attributes
+from the title, extract them too: color, size, storage, material, edition,
+pack_size, term, flavor, condition. Only extract when the value is UNAMBIGUOUSLY
+present in the title — never guess.
+For "condition", extract ONLY when the title explicitly states it, and normalize
+to one of: "new", "used", "refurbished", "open box". Examples: "Brand New" /
+"NWT" / "New with tags" / "Sealed" -> "new"; "Pre-owned" / "Gently used" -> "used";
+"Renewed" / "Refurbished" -> "refurbished"; "Open box" -> "open box". Do NOT infer
+condition from the absence of a cue — leave it out when the title is silent.
+Extracting these attributes is for DISPLAY ONLY: an extracted value (including a
+condition) must NEVER by itself cause "pass": false. Extraction and the pass/fail
+verdict are independent — only an active rule above can reject a listing.
+If any of these attributes can be clearly extracted, add them to a new
+"extracted_features" dictionary in your evaluation object for that listing. For example:
+"extracted_features": {{"color": "black", "condition": "new"}}.
+
+You will receive a JSON list of products. Output a JSON object with a single key
+"evaluations" containing an array with one entry PER PRODUCT, in input order. Each
+entry must have these keys:
+  - "index": integer, matching the input index
+  - "pass": boolean
+  - "reason": short string (1 sentence) — REQUIRED ONLY when "pass" is false: name
+    the specific rule that failed and quote the offending word from attrs/title/url.
+    OMIT "reason" entirely for passing items (pass:true) — do not explain passes.
+  - "extracted_features": (optional) object, only if display attributes were requested and found.
+
+Every input product must appear exactly once in "evaluations". Do not omit any.
+IMPORTANT: Do NOT output any chain-of-thought or reasoning text outside the JSON.
+ONLY output the JSON object.
+"""
+
+
 def ai_filter(
     listings: list[Listing],
     profile: Profile,
@@ -195,115 +380,7 @@ def ai_filter(
     if os.environ.get("WORKER_USE_FIXTURES", "").strip() in ("1", "true", "yes"):
         return listings
 
-    # Dump FULL rule definitions (rule type + values/value/etc.) — not just the
-    # rule names. Earlier revisions stripped extras and sent only `r.rule`, which
-    # left the LLM guessing what `form_factor_in` allowed, what `voltage_eq`
-    # required, and which substrings `title_excludes` named. That guess
-    # collapsed to "reject everything" in prod.
-    rules_full = [r.model_dump() for r in profile.spec_filters]
-    target_desc = f"Target: {profile.target.amount} {profile.target.unit}"
-    if profile.target.configurations:
-        cfgs = [c.model_dump() for c in profile.target.configurations]
-        target_desc += f" (Need exactly one of these configs: {cfgs})"
-
-    relevance_rule = {
-        "rule": "relevance_check",
-        "description": (
-            "Must be the actual requested product, not an accessory or alternative. "
-            "Reject wholesale, lot, or bulk listings (e.g. '25+ Copies', 'Lot of 10') "
-            "unless the target specifically asks for multiple units."
-        ),
-    }
-    rules_json = json.dumps([relevance_rule] + rules_full, indent=2)
-    # ``description`` is optional (ADR-074 followup #2 — onboarder drafts
-    # occasionally omit it). Fall back to ``display_name`` so the filter
-    # prompt always has a coherent "what the user wants" line.
-    description = profile.description.strip() or profile.display_name
-    system_prompt = f"""You are a product filter.
-The user wants: {profile.display_name}
-Description: {description}
-{target_desc}
-
-Rules to apply (each rule is a dict with a "rule" type and its parameters):
-{rules_json}
-
-How each rule type works (only the ones present above apply):
-- relevance_check: reject if the item is clearly a pure accessory (e.g. water filters, cases,
-  replacement parts, batteries, chargers, wall mounts), a completely different product (e.g. V8 or V11
-  when V15 is requested), or incompatible.
-  IMPORTANT: You must PASS package additions, bundles, and cosmetic variations of the exact same
-  base model (e.g. if 'Dyson V15 Detect' is requested, pass 'Dyson V15 Detect Extra', 'Dyson V15 Detect
-  Absolute', 'Dyson V15 Detect Complete', or color variants like 'Yellow/Nickel'),
-  provided they contain the requested base model name.
-- condition_in {{values:[...]}}: pass if the title/URL do not indicate a condition, but reject if the title clearly
-  indicates a condition not in values (e.g., 'used', 'refurbished', 'renewed' when values only allows 'new').
-- form_factor_in {{values:[...]}}: pass if attrs.form_factor is in values, OR if neither
-  attrs.form_factor nor the title indicates a specific form factor. Reject only when
-  attrs.form_factor is set to something not in values, OR the title clearly contains a
-  different form factor (e.g. "UDIMM" / "SODIMM" / "LRDIMM" in the title when the values
-  list does not include that form factor).
-- speed_mts_min {{value:N}}: pass if attrs.speed_mts >= N, or if speed is unknown.
-  Reject only if attrs.speed_mts is set and below N, OR the title clearly states a
-  lower speed (e.g. "DDR5-4400" or "PC5-32000" when min is 4800).
-- ecc_required: pass if attrs.ecc is true OR ecc is unknown. Reject only if attrs.ecc
-  is explicitly false, OR the title clearly says "non-ECC".
-- voltage_eq {{value:V}}: pass if attrs.voltage_v equals V, OR voltage is unknown
-  (which it almost always is — voltage is rarely in titles). Only reject when
-  attrs.voltage_v is set and clearly != V.
-- min_quantity_for_target: pass unless the listing definitely cannot hit the target.
-  Compare attrs.capacity_gb against the target configurations above. If
-  attrs.capacity_gb does not match any config's module_capacity_gb, reject. If
-  capacity is unknown, pass. If quantity_available is known and (quantity_available *
-  kit_module_count) is less than the required module_count, reject.
-- in_stock: pass unless quantity_available is explicitly 0 or negative. Pass when
-  quantity_available is null/unknown.
-- single_sku_url: reject only if the URL clearly points at a search results page
-  (e.g. contains "/sch/", "search?", or "?_nkw="). Otherwise pass.
-  EXCEPTION: a "serper_shopping" source uses a google.com/search shopping-cluster
-  redirect link that is an OFFER, not a vendor search page — never reject a
-  "serper_shopping" listing for this rule (ADR-131 P0).
-- title_excludes {{values:[...]}}: reject if any string in values appears in the
-  title (case-insensitive substring match). Otherwise pass.
-
-Decision rules:
-- "pass": true means NO rule above is clearly violated.
-- Unknown is NOT the same as failed. Apply each rule to the data you actually have
-  (attrs, title, url, quantity_available). If a rule depends on an attribute that
-  isn't present and isn't implied by the title, treat that rule as passed.
-- The title is informative: "RDIMM ECC DDR5-4800 32GB" implies form_factor=RDIMM,
-  ecc=true, speed_mts=4800, capacity_gb=32. Use those implications when applying
-  rules.
-- For each failure, name the specific rule and quote the offending substring from
-  attrs/title/url so the human reviewer can verify.
-
-The profile expects the following display attributes: {display_attrs or []}
-Additionally, if you can clearly identify any of these common product attributes
-from the title, extract them too: color, size, storage, material, edition,
-pack_size, term, flavor, condition. Only extract when the value is UNAMBIGUOUSLY
-present in the title — never guess.
-For "condition", extract ONLY when the title explicitly states it, and normalize
-to one of: "new", "used", "refurbished", "open box". Examples: "Brand New" /
-"NWT" / "New with tags" / "Sealed" -> "new"; "Pre-owned" / "Gently used" -> "used";
-"Renewed" / "Refurbished" -> "refurbished"; "Open box" -> "open box". Do NOT infer
-condition from the absence of a cue — leave it out when the title is silent.
-If any of these attributes can be clearly extracted, add them to a new
-"extracted_features" dictionary in your evaluation object for that listing. For example:
-"extracted_features": {{"color": "black", "condition": "new"}}.
-
-You will receive a JSON list of products. Output a JSON object with a single key
-"evaluations" containing an array with one entry PER PRODUCT, in input order. Each
-entry must have these keys:
-  - "index": integer, matching the input index
-  - "pass": boolean
-  - "reason": short string (1 sentence) — REQUIRED ONLY when "pass" is false: name
-    the specific rule that failed and quote the offending word from attrs/title/url.
-    OMIT "reason" entirely for passing items (pass:true) — do not explain passes.
-  - "extracted_features": (optional) object, only if display attributes were requested and found.
-
-Every input product must appear exactly once in "evaluations". Do not omit any.
-IMPORTANT: Do NOT output any chain-of-thought or reasoning text outside the JSON.
-ONLY output the JSON object.
-"""
+    system_prompt = _build_system_prompt(profile, display_attrs)
 
     # Use Anthropic Claude Haiku 4.5. Earlier revisions tried GLM-5.1 (a
     # reasoning model that ignores response_format=json_object) and then

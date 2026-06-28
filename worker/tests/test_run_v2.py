@@ -117,6 +117,37 @@ def test_pipeline_degraded_attr_on_min_quantity() -> None:
     assert any(c == "degraded_attr" for c, _ in result.outcome.notes)
 
 
+def test_exact_alias_survives_even_when_llm_rejects_all() -> None:
+    # Phase 41 / ADR-145: a title with an exact match.aliases string is surfaced
+    # deterministically — it must survive even an ai_filter that rejects every
+    # listing it sees, and the LLM must only ever see the (non-alias) remainder.
+    raw = {
+        "schema_version": 2,
+        "slug": "ram-x",
+        "display_name": "RAM X",
+        "target": {"unit": "count", "amount": 1},
+        "queries": ["HMCG84AGBRA191N"],
+        "match": {"aliases": ["HMCG84AGBRA191N"]},
+        "filters": {"condition_in": []},
+        "sources": {"serper": {"enabled": True, "gl": "us"}},
+    }
+    profile = ProfileV2.model_validate(raw)
+    seen: list[str] = []
+
+    def _reject_all(listings: list[Listing], _profile: Any, _attrs: Any = None) -> list[Listing]:
+        seen.extend(lst.title for lst in listings)
+        return []
+
+    alias_hit = _listing(829.0, title="Hynix HMCG84AGBRA191N 32GB DDR5-5600 ECC Refurbished")
+    junk = _listing(750.0, title="Dell 32GB DDR5 Server Memory")
+    result = run_v2_pipeline(profile, [alias_hit, junk], ai_filter_fn=_reject_all)
+
+    titles = [lst.title for lst in result.survivors]
+    assert alias_hit.title in titles          # auto-passed despite the rejecting LLM
+    assert junk.title not in titles           # rejected by the LLM remainder
+    assert seen == [junk.title]               # LLM only judged the remainder, not the alias hit
+
+
 def test_pipeline_vendor_blocklist_drops_vendor() -> None:
     raw = {
         "schema_version": 2,

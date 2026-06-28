@@ -26,7 +26,7 @@ from typing import Any
 from product_search.display_v2 import resolve_columns
 from product_search.models import AdapterQuery, Listing
 from product_search.profile_v2 import ProfileV2, load_profile_v2
-from product_search.profile_v2_filter import to_filter_profile
+from product_search.profile_v2_filter import partition_by_exact_alias, to_filter_profile
 from product_search.run_outcome import RunOutcome, classify_run_outcome
 from product_search.selection import (
     SelectionResult,
@@ -96,8 +96,16 @@ def run_v2_pipeline(
         if apply_filters(lst, filter_profile.spec_filters, filter_profile) is None
     ]
 
-    # 4. LLM relevance + spec filter (Haiku-4.5 @ temp=0, ADR-132).
-    survivors = ai_filter_fn(det_passed, filter_profile, profile.display.attrs)
+    # 4. Deterministic alias-match pre-pass (Phase 41 / ADR-145): a listing whose
+    #    title contains an exact match.aliases string is surfaced for free (no LLM,
+    #    no hallucination); the LLM judges only the fuzzy remainder. Survivors are
+    #    rebuilt in det_passed order (alias hits ∪ LLM survivors).
+    alias_hits, remainder = partition_by_exact_alias(det_passed, profile)
+    llm_survivors = (
+        ai_filter_fn(remainder, filter_profile, profile.display.attrs) if remainder else []
+    )
+    kept = {id(lst) for lst in alias_hits} | {id(lst) for lst in llm_survivors}
+    survivors = [lst for lst in det_passed if id(lst) in kept]
 
     # 5. Price-anomaly flags over the matched survivors (ADR-131 P1).
     annotate_price_anomalies(survivors)

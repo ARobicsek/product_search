@@ -45,7 +45,8 @@ A downstream LLM filter (not you) checks each listing's title against the spec. 
    - "Show me the 10 best / 50 best" → \`display.max_listings\` (default 20). \`display.per_vendor_cap\` defaults to 3 so one vendor can't dominate.
 
 5. **Filters.**
-   - "Only new" → \`filters.condition_in: ["new"]\`.
+   - "Only new" → \`filters.condition_in: ["new"]\`. List exactly the acceptable conditions, e.g. "new or open box" → \`["new","open box"]\`. Valid values: \`new\`, \`used\`, \`refurbished\`, \`open box\`.
+   - **All conditions acceptable** (the user is fine with used/refurbished, or never restricts condition) → emit the FULL allow-list \`filters.condition_in: ["new","used","refurbished","open box"]\`. **Never emit an empty \`condition_in: []\`** — an empty list is ambiguous and makes the relevance filter invent condition rejections that drop valid listings. (Omitting the key entirely also means "allow all", but prefer the explicit full list.)
    - "In stock only" → \`filters.in_stock: true\`.
    - "Must have N available" → \`filters.min_quantity: N\`. **Honest caveat to tell the user:** quantity is only verified for eBay listings (the eBay API returns it); Google Shopping and Amazon listings show quantity as "unknown", so they are shown without quantity verification — never dropped on a guess.
 

@@ -32,6 +32,10 @@ unknown → would pass anyway). The run reports it as a ``degraded_attr`` note
 
 from __future__ import annotations
 
+import re
+from collections.abc import Iterable
+
+from product_search.models import Listing
 from product_search.profile import FilterRule, Profile, Source
 from product_search.profile_v2 import ProfileV2
 
@@ -87,3 +91,90 @@ def to_filter_profile(profile: ProfileV2) -> Profile:
         spec_filters=build_spec_filters(profile),
         sources=list(_FILTER_SHIM_SOURCES),
     )
+
+
+# ---------------------------------------------------------------------------
+# Deterministic alias-match pre-pass (Phase 41 / ADR-145)
+#
+# ``match.aliases`` are known, distinctive strings (MPNs, SKU forms, marketing
+# phrases). A listing whose TITLE contains an exact alias is the requested
+# product by construction, so it should be surfaced deterministically — at zero
+# LLM cost and with zero hallucination — instead of trusting the relevance LLM,
+# which on a real 134-listing RAM run DROPPED exact parts (qwen-coder kept 11 of
+# them; Haiku fabricated a "Refurbished" rejection on the exact part
+# HMCG84AGBRA191N that the profile's empty condition_in actually allowed). The
+# LLM then judges only the fuzzy remainder.
+# ---------------------------------------------------------------------------
+
+# Condition cues for the pre-pass guard. We only need to detect a condition an
+# ACTIVE condition_in rule would EXCLUDE, so an exact-alias listing whose title
+# plainly states a disallowed condition is routed to the LLM remainder rather
+# than auto-passed. Word-boundary anchored so "used" never fires on
+# "unused"/"amused".
+_CONDITION_CUES: dict[str, re.Pattern[str]] = {
+    "used": re.compile(r"\b(?:used|pre-?owned)\b", re.IGNORECASE),
+    "refurbished": re.compile(r"\b(?:refurb(?:ished)?|renewed|recertified)\b", re.IGNORECASE),
+    "open box": re.compile(r"\bopen[-\s]?box\b", re.IGNORECASE),
+    "new": re.compile(r"\b(?:brand new|new with tags|nwt|factory sealed|sealed)\b", re.IGNORECASE),
+}
+
+
+def _normalize(text: str) -> str:
+    """Lowercase and collapse internal whitespace to single spaces."""
+    return " ".join(text.lower().split())
+
+
+def title_has_exact_alias(title: str, aliases: Iterable[str]) -> bool:
+    """True when any alias appears as a case-insensitive substring of the title.
+
+    TITLE ONLY — never the URL: Serper's only link is a ``google.com/search``
+    cluster redirect that embeds the search query (which contains the alias) in
+    ``?q=``, so URL matching would auto-pass every recalled listing. Matching is
+    exact substring (whitespace-collapsed) so sibling SKUs (…190N vs …191N, -CWM
+    vs -CWMK) do NOT match unless that exact string is itself a listed alias.
+    """
+    hay = _normalize(title)
+    return any((norm := _normalize(a)) and norm in hay for a in aliases)
+
+
+def title_states_excluded_condition(title: str, condition_in: Iterable[str]) -> bool:
+    """True when the title plainly states a condition an active rule excludes.
+
+    Empty ``condition_in`` means "allow all" → always False.
+    """
+    allowed = {c.strip().lower() for c in condition_in if c and c.strip()}
+    if not allowed:
+        return False
+    return any(
+        cond not in allowed and pattern.search(title)
+        for cond, pattern in _CONDITION_CUES.items()
+    )
+
+
+def partition_by_exact_alias(
+    listings: list[Listing], profile: ProfileV2
+) -> tuple[list[Listing], list[Listing]]:
+    """Split listings into (auto-pass exact-alias hits, remainder-for-LLM).
+
+    A listing whose title contains an exact ``match.aliases`` string is surfaced
+    deterministically — UNLESS the title plainly states a condition an active
+    ``filters.condition_in`` rule excludes, in which case it is routed to the
+    remainder for the (now fabrication-resistant) LLM to judge. The deterministic
+    edge filters (title_excludes, in_stock, structured-condition, …) have already
+    run upstream, so an alias hit here has cleared those. With no aliases declared
+    the split is a no-op (everything is remainder).
+    """
+    aliases = [a for a in profile.match.aliases if a and a.strip()]
+    if not aliases:
+        return [], list(listings)
+    condition_in = profile.filters.condition_in or []
+    hits: list[Listing] = []
+    remainder: list[Listing] = []
+    for lst in listings:
+        if title_has_exact_alias(lst.title, aliases) and not title_states_excluded_condition(
+            lst.title, condition_in
+        ):
+            hits.append(lst)
+        else:
+            remainder.append(lst)
+    return hits, remainder

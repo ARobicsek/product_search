@@ -1145,7 +1145,7 @@ Caching the ~16K-token system block across 7 batches turns ~117K full-price syst
 
 ---
 
-## Phase 41 — Onboarder condition fix + RAM-filter quality via a deterministic alias-match partner (PROPOSED 2026-06-28 — ADR-145)
+## Phase 41 — Onboarder condition fix + RAM-filter quality via a deterministic alias-match partner (DONE 2026-06-28 — ADR-146; implements ADR-145)
 
 **Goal**: fix the condition-statement confusion the onboarder creates, then measurably improve the relevance filter on the real RAM test (`sk-hynix-hmcg84agbra191n-ddr5-32gb`) using the tools we have — a deterministic string-match partner, prompt/checklist tightening, and (optionally) a local model — *without* a model-only rewrite.
 
@@ -1165,3 +1165,13 @@ Caching the ~16K-token system block across 7 batches turns ~117K full-price syst
 - Worker green (`pytest`, `ruff src tests`, `mypy`); web green if `promptTextV2`/guards touched (`test:guards`, `tsc`, `eslint`, `next build`).
 
 **Out of scope**: GitHub-Actions→home-box reachability/availability (a separate decision); making local the prod filter backend (prove quality first); gpt-oss-120B (untested as of 2026-06-28); onboarder localization.
+
+**RESULT (DONE 2026-06-28, ADR-146).** All tasks shipped. **Task 1** — `promptTextV2.ts` step 5 teaches the explicit `["new","used","refurbished","open box"]` allow-list and forbids empty `[]` (+1 guard test). **Task 2** — `ai_filter` prompt extracted to a testable `_build_system_prompt`; rule-explanation section now lists ONLY rules the profile carries (absent `condition_in` no longer primes fabrication), `condition_in` tightened to explicit-cue-only, extraction marked DISPLAY-ONLY (+5 mechanism tests). **Task 3** — `partition_by_exact_alias` (title-only exact-alias match, with an active-`condition_in` guard) wired into `run_v2` step 4; alias hits skip the LLM (+6 tests). **Task 4** — comparison on the real 134-listing RAM recall, offline (committed fixture + `scripts/alias_prepass_compare.py`) AND a LIVE re-run on the home box (temp=0, 2 trials, both qwen models per owner):
+
+| filter (pre-pass + model) | remainder pass | determinism | combined survivors | exact-alias recall (was bare) |
+|---|---|---|---|---|
+| **qwen-coder** | 1, 1 | **1.0** | **12** | **11/11** (6/11) |
+| qwen3.6-27b-mtp | 116, 116 | 1.0 | 127 | 11/11 (10/11) |
+| Haiku 4.5 | 22, 28 | **0.67** | 33 | 11/11 (7/11) |
+
+The deterministic pre-pass surfaces 11/11 exact-alias-in-title hits at zero LLM cost → 100% exact recall for every model. **Recommended remainder judge = qwen-coder** (precise + deterministic; both qwen models stay in play, 27b-mtp = looser/higher-recall). **Haiku is still non-deterministic (0.67) even with the fixed prompt** — strengthens the deterministic-local-filter case. Honest caveat: 4/11 hits are 3rd-party "Replacement for" (in-scope for this "Compatible Equivalents" profile) + 1 "FOR PARTS". **Verified green:** worker 399 (+11), ruff+mypy; web guards 71 (+1), tsc/eslint/`next build`. **NOT done (deliberately out of scope):** the alias pre-pass is wired but qwen-coder is NOT the prod filter backend — the filter still calls Haiku in prod; switching backends needs the deferred GH-Actions→box reachability decision.

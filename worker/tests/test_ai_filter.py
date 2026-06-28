@@ -378,3 +378,70 @@ def test_tolerates_prose_preamble_before_json(profile: Profile, monkeypatch: pyt
     monkeypatch.setattr(ai_filter_mod, "call_llm", _stub_response(preamble + body))
     out = ai_filter_mod.ai_filter(listings, profile)
     assert [lst.title for lst in out] == [listings[0].title]
+
+
+# ---------------------------------------------------------------------------
+# Phase 41 / ADR-145: the system prompt must list ONLY rules the profile carries
+# so the model stops fabricating condition rejections (e.g. dropping the exact
+# RAM part HMCG84AGBRA191N for a "Refurbished" the profile's empty condition_in
+# allowed). Tests target the buildable ``_build_system_prompt`` directly.
+# ---------------------------------------------------------------------------
+
+
+def _profile_with_filters(spec_filters: list[dict[str, Any]]) -> Profile:
+    import copy
+
+    raw = copy.deepcopy(VALID_PROFILE)
+    raw["spec_filters"] = spec_filters
+    return Profile.model_validate(raw)
+
+
+def test_build_prompt_omits_condition_explanation_when_no_rule() -> None:
+    # No condition_in rule present → its rule explanation must be absent, so the
+    # model is never primed to reject on condition. Extraction guidance stays.
+    prof = _profile_with_filters([{"rule": "in_stock"}])
+    prompt = ai_filter_mod._build_system_prompt(prof, ["price", "condition"])
+    assert "condition_in {values" not in prompt
+    # Extraction is independent of the rule and must remain available for display.
+    assert '"open box"' in prompt
+    assert "extracted_features" in prompt
+
+
+def test_build_prompt_includes_condition_explanation_when_rule_present() -> None:
+    prof = _profile_with_filters(
+        [{"rule": "condition_in", "values": ["new"]}, {"rule": "in_stock"}]
+    )
+    prompt = ai_filter_mod._build_system_prompt(prof, ["price", "condition"])
+    assert "condition_in {values" in prompt
+    # Anti-fabrication wording: explicit-cue-only, never inferred.
+    assert "EXPLICITLY" in prompt
+    assert "never\n  infer a condition from the absence" in prompt
+
+
+def test_build_prompt_omits_absent_rule_explanations() -> None:
+    # A minimal profile carries only in_stock; the form_factor/speed/title rules
+    # must not appear (they primed the model on constraints that don't exist).
+    prof = _profile_with_filters([{"rule": "in_stock"}])
+    prompt = ai_filter_mod._build_system_prompt(prof, [])
+    for absent in ("form_factor_in {values", "speed_mts_min {value", "title_excludes {values"):
+        assert absent not in prompt
+    # relevance_check is always on, and in_stock is present here.
+    assert "relevance_check" in prompt
+    assert "- in_stock:" in prompt
+
+
+def test_build_prompt_extraction_is_display_only() -> None:
+    prof = _profile_with_filters([{"rule": "in_stock"}])
+    prompt = ai_filter_mod._build_system_prompt(prof, ["price", "condition"])
+    assert "DISPLAY ONLY" in prompt
+    assert 'NEVER by itself cause "pass": false' in prompt
+
+
+def test_build_prompt_present_ram_rules_preserved() -> None:
+    # The default fixture's RAM rules must still be fully explained (no regression
+    # for present rules — only ABSENT rules are dropped).
+    prof = Profile.model_validate(VALID_PROFILE)  # form_factor_in, ecc_required, in_stock
+    prompt = ai_filter_mod._build_system_prompt(prof, [])
+    assert "form_factor_in {values" in prompt
+    assert "- ecc_required:" in prompt
+    assert "- in_stock:" in prompt
