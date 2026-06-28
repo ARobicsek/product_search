@@ -35,6 +35,18 @@ jobs:
       - name: Install dependencies
         run: pip install -e ".[dev]"
 
+      # Join the tailnet so the runner can reach the home GPU box (the
+      # LOCAL_LLM_BASE 100.x Tailscale IP) for the local ai_filter backend
+      # (Option B, ADR-149). Gated on the local backend: skipped — and the TS
+      # secrets unneeded — until the AI_FILTER_BACKEND=local repo Variable is set.
+      - name: Connect to Tailscale (home GPU box)
+        if: vars.AI_FILTER_BACKEND == 'local'
+        uses: tailscale/github-action@v2
+        with:
+          oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
+          oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
+          tags: tag:ci
+
       - name: Run search for ${{ inputs.product }}
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
@@ -56,6 +68,19 @@ jobs:
           # PUSH_NOTIFY_SECRET must equal the same-named value in Vercel.
           WEB_URL: ${{ secrets.WEB_URL }}
           PUSH_NOTIFY_SECRET: ${{ secrets.PUSH_NOTIFY_SECRET }}
+          # ai_filter backend (Phase 42, ADR-147/149). Unset → Haiku (anthropic),
+          # i.e. current prod behaviour. Set repo Variable AI_FILTER_BACKEND=local
+          # to route the filter to the home GPU box (llama-swap) over Tailscale at
+          # ~$0/run. The LOCAL_LLM_* values fall back to the worker defaults.
+          AI_FILTER_BACKEND: ${{ vars.AI_FILTER_BACKEND }}
+          LOCAL_LLM_BASE: ${{ vars.LOCAL_LLM_BASE || 'http://100.68.68.101:8080/v1' }}
+          LOCAL_LLM_MODEL: ${{ vars.LOCAL_LLM_MODEL || 'qwen-coder' }}
+          LOCAL_LLM_FALLBACK_MODEL: ${{ vars.LOCAL_LLM_FALLBACK_MODEL || 'qwen3.6-27b-mtp' }}
+          LOCAL_LLM_KEY: ${{ vars.LOCAL_LLM_KEY || 'dummy' }}
+          # Reachability fallback: unset → fall back to Haiku if the box is
+          # unreachable (safe during bring-up). Set the Variable to 0 once the box
+          # is proven reliable to enforce the no-Haiku / $0 prod rule (ADR-147).
+          LOCAL_LLM_ALLOW_HAIKU_FALLBACK: ${{ vars.LOCAL_LLM_ALLOW_HAIKU_FALLBACK }}
         run: |
           python -m product_search.cli search "${{ inputs.product }}"
 
