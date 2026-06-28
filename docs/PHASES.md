@@ -1175,3 +1175,29 @@ Caching the ~16K-token system block across 7 batches turns ~117K full-price syst
 | Haiku 4.5 | 22, 28 | **0.67** | 33 | 11/11 (7/11) |
 
 The deterministic pre-pass surfaces 11/11 exact-alias-in-title hits at zero LLM cost → 100% exact recall for every model. **Recommended remainder judge = qwen-coder** (precise + deterministic; both qwen models stay in play, 27b-mtp = looser/higher-recall). **Haiku is still non-deterministic (0.67) even with the fixed prompt** — strengthens the deterministic-local-filter case. Honest caveat: 4/11 hits are 3rd-party "Replacement for" (in-scope for this "Compatible Equivalents" profile) + 1 "FOR PARTS". **Verified green:** worker 399 (+11), ruff+mypy; web guards 71 (+1), tsc/eslint/`next build`. **NOT done (deliberately out of scope):** the alias pre-pass is wired but qwen-coder is NOT the prod filter backend — the filter still calls Haiku in prod; switching backends needs the deferred GH-Actions→box reachability decision.
+
+## Phase 42 — Local qwen-coder filter backend + polite shared-server coordination + qwen-coder-vs-Haiku live A/B (PROPOSED 2026-06-28 — ADR-147)
+
+**Goal**: make the `ai_filter` able to run on the local **qwen-coder** backend behind a coordination layer that shares the single-model-at-a-time GPU box politely with other users; then A/B qwen-coder vs Haiku on several live slugs with **Claude-as-gold**.
+
+**Background**: Phase 41 (ADR-146) proved qwen-coder + the deterministic alias pre-pass gives 100% exact recall and a precise/deterministic remainder; Haiku is non-deterministic even with the fixed prompt. The box is **llama-swap** @ `http://100.68.68.101:8080/v1` (OpenAI-compatible, [[local-inference-box]]), generally **one model at a time** (swaps on demand). **Discovered API (2026-06-28, read-only):** `GET /running` → `{"running":[...]}` (currently-loaded model(s); empty when idle) — this is the coordination backbone; `GET /health` → `OK`; `GET /v1/models` → configured ids (now includes `gpt-oss-120b`). **Reachability from GitHub Actions is a SEPARATE deferred decision** (ADR-145/146) — Phase 42 targets LOCAL/dev runs + experiments, NOT a prod cutover.
+
+**Tasks**:
+1. **Pluggable filter backend.** Make `ai_filter`'s provider/model/base_url configurable (env/config) instead of the hardcoded `claude-haiku-4-5`; add a local OpenAI-compatible backend (the box, dummy key). Keep **Haiku as the default and the fallback**. Preserve temp=0 determinism and the existing JSON-parse robustness. The alias pre-pass (already in `run_v2`) runs identically regardless of backend.
+2. **Polite shared-server coordination ("plays nice").** Before issuing a qwen-coder request, consult `GET /running`:
+   - empty (nothing loaded) OR qwen-coder already loaded → **proceed immediately** (join in).
+   - a DIFFERENT model loaded → do **NOT** force a swap; **wait until that other model has been idle (no active inference) for 5 minutes**, then load + run qwen-coder.
+   - **FIRST sub-task: discover the activity/idle signal** — probe `/running`'s shape while a model is actively serving (does it carry a state / last-used / in-flight field?); check for a llama-swap `/metrics` (Prometheus) or logs/activity endpoint; otherwise fall back to observing `/running` transitions over time. The 5-min rule needs a real "last inference" timestamp, not just "loaded".
+   - **Bounded + safe**: the wait must never hang a run — after a max wait (e.g. configurable, default ~N min) **fall back to Haiku** so a scheduled/on-demand run always completes.
+3. **qwen-coder vs Haiku live A/B** across several live slugs (alias pre-pass active), **Claude-as-gold**: compare survivor precision/recall, determinism (multi-trial), latency, cost. Pick slugs spanning product types (e.g. RAM, a drone, apparel, a subscription) so the verdict generalizes beyond the RAM case.
+4. **Tests** for backend selection + coordination (mock `/running` responses; assert the join / wait / timeout-fallback-to-Haiku branches). Keep worker green (`pytest`, `ruff src tests`, `mypy`).
+
+**Done when**:
+- `ai_filter` can run on qwen-coder via config; Haiku stays default + fallback; determinism + JSON robustness preserved.
+- Coordination joins an already-loaded qwen-coder, waits out a different in-use model (5-min idle rule), falls back to Haiku on timeout, and **never hangs** — unit-tested against mocked `/running` (and the discovered activity signal).
+- A live A/B table (qwen-coder vs Haiku, Claude-as-gold, N≥3 slugs spanning types) informs whether/where to prefer qwen-coder.
+- Worker green.
+
+**Out of scope**: GitHub-Actions→home-box reachability / prod cutover (separate decision, still deferred); onboarder localization; gpt-oss-120B bake-off (optional stretch only).
+
+**Open questions to resolve at session start (probe live first):** exact `/running` shape while a model is actively serving + whether it exposes a last-activity/state field; whether llama-swap has `/metrics`/logs for per-model activity; where backend selection lives (e.g. `AI_FILTER_BACKEND=local|anthropic` + `LOCAL_LLM_BASE`/`LOCAL_LLM_KEY`) and how a local run opts in vs prod staying on Haiku.
