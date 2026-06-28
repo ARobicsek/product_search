@@ -1142,3 +1142,26 @@ The Haiku-4.5 relevance filter is now the dominant per-run cost. On the 2026-06-
 ### Cost note (estimate)
 Caching the ~16K-token system block across 7 batches turns ~117K full-price system input-tokens into ~1× write + 6× read-at-0.1× ≈ a ~70–80% cut on the input side; with the output untouched that's roughly **$0.22 → ~$0.13 per filter-heavy run (~40%)**, compounding as Amazon enlarges recall sets. Step 4 shaves a smaller additional slice off the 5×-priced output. Numbers to be confirmed by the Step-5 measured run.
 
+
+---
+
+## Phase 41 — Onboarder condition fix + RAM-filter quality via a deterministic alias-match partner (PROPOSED 2026-06-28 — ADR-145)
+
+**Goal**: fix the condition-statement confusion the onboarder creates, then measurably improve the relevance filter on the real RAM test (`sk-hynix-hmcg84agbra191n-ddr5-32gb`) using the tools we have — a deterministic string-match partner, prompt/checklist tightening, and (optionally) a local model — *without* a model-only rewrite.
+
+**Background (read ADR-145 first; full data in this session's findings):** a live 134-listing RAM search exposed that the relevance filter is the only recurring LLM call, and that model choice is a recall/precision dial, not a winner — qwen-coder is precise but drops exact-MPN matches; qwen3.6-27b-mtp catches all exact parts but passes junk; Haiku is non-deterministic. **Both Haiku and qwen-coder rejected the user's EXACT part by fabricating a condition** not in the title. The biggest lever is upstream of the model: exact-MPN matching is deterministic.
+
+**Tasks**:
+1. **Onboarder condition fix (do first).** When the user says all conditions are acceptable, the onboarder must emit an explicit `filters.condition_in: ["new","used","refurbished","open box"]` (or a documented "omit = allow all"), not the ambiguous `[]`. Add the missing rule to `web/lib/onboard/promptTextV2.ts` step 5 (today it only teaches "Only new" → `["new"]`). Add a guard test.
+2. **Stop the filter inventing inactive rules.** `to_filter_profile` adds no `condition_in` rule when the list is empty, yet the ai_filter system prompt statically explains `condition_in` and primes condition extraction, so the model fabricates condition rejections (it invented "used"/"refurbished" on titles with no condition word). Make the filter only reject on a condition the title *explicitly* states AND that an *active* rule excludes; never fabricate.
+3. **Deterministic alias-match partner (the main lever).** Add a deterministic pre-pass: a listing whose title/url contains an exact `match.aliases` string is **kept** (surfaced) regardless of the LLM — known strings, zero cost, zero hallucination. Decide the partnership shape (auto-pass exact-alias hits + let the LLM judge only the remainder; or feed the LLM an "exact_alias_hit" signal per listing). This guarantees the user's exact parts (`HMCG84AGBRA191N`, `MTC20F1045S1RC56BD1`, etc.) always survive. Beware sibling SKUs (190N/192N, CQK/EB0/PB0) — only the listed aliases count.
+4. **Re-run the real-world comparison** (extend `worker/scripts/serper_filter_bakeoff.py` / the session's `compare_filter.py` pattern) on the RAM profile with the fix in place; show the exact-part recall gap close and junk stay rejected, Haiku vs the preferred local model (qwen-coder for the fuzzy remainder).
+5. **Optional tuning**: prompt/checklist tightening for the remainder; grammar/json-schema-constrained decoding on the local model to harden JSON; confirm temp=0 stays.
+
+**Done when**:
+- Onboarder emits an explicit condition allow-list for "all conditions OK"; guard test added; the filter no longer fabricates condition rejections (regression test on the two fabrication cases).
+- A deterministic alias-match keeps every exact-MPN listing in the RAM recall (recall = 100% on the exact parts) at zero LLM cost.
+- A re-run shows the chosen filter (deterministic partner + LLM-on-remainder) beats all three bare models from this session on the RAM profile (high exact-part recall AND junk rejected).
+- Worker green (`pytest`, `ruff src tests`, `mypy`); web green if `promptTextV2`/guards touched (`test:guards`, `tsc`, `eslint`, `next build`).
+
+**Out of scope**: GitHub-Actions→home-box reachability/availability (a separate decision); making local the prod filter backend (prove quality first); gpt-oss-120B (untested as of 2026-06-28); onboarder localization.

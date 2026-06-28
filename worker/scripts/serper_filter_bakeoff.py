@@ -89,6 +89,17 @@ MODELS: list[dict[str, Any]] = [
     {"name": "deepseek",      "kind": "openai",    "model": "deepseek-chat",             "base": "https://api.deepseek.com",             "key_env": "DEEPSEEK_API_KEY"},
     {"name": "llama-3.3-70b", "kind": "openai",    "model": "meta-llama/Meta-Llama-3.3-70B-Instruct", "base": "https://api.deepinfra.com/v1/openai", "key_env": "DEEPINFRA_API_KEY"},
     {"name": "qwen2.5-72b",   "kind": "openai",    "model": "Qwen/Qwen2.5-72B-Instruct",              "base": "https://api.deepinfra.com/v1/openai", "key_env": "DEEPINFRA_API_KEY"},
+    # Local llama-swap (home box, OpenAI-compatible at :8080/v1). cost≈0, so the
+    # decision axes become JSON-parse reliability + determinism@temp0 + latency.
+    # Override the endpoint with LOCAL_LLM_BASE; key is a dummy (llama.cpp ignores it).
+    {"name": "local-qwen3.5-122b", "kind": "openai", "model": "qwen3.5-122b", "base": os.environ.get("LOCAL_LLM_BASE", "http://100.68.68.101:8080/v1"), "key_env": "LOCAL_LLM_KEY"},
+    {"name": "local-qwen3.6-27b",  "kind": "openai", "model": "qwen3.6-27b",  "base": os.environ.get("LOCAL_LLM_BASE", "http://100.68.68.101:8080/v1"), "key_env": "LOCAL_LLM_KEY"},
+    {"name": "local-qwen3.6-27b-mtp", "kind": "openai", "model": "qwen3.6-27b-mtp", "base": os.environ.get("LOCAL_LLM_BASE", "http://100.68.68.101:8080/v1"), "key_env": "LOCAL_LLM_KEY"},
+    {"name": "local-qwen-coder",   "kind": "openai", "model": "qwen-coder",   "base": os.environ.get("LOCAL_LLM_BASE", "http://100.68.68.101:8080/v1"), "key_env": "LOCAL_LLM_KEY"},
+    {"name": "local-gemma4-a4b",   "kind": "openai", "model": "gemma4-a4b",   "base": os.environ.get("LOCAL_LLM_BASE", "http://100.68.68.101:8080/v1"), "key_env": "LOCAL_LLM_KEY"},
+    {"name": "local-gemma4-31b",   "kind": "openai", "model": "gemma4-31b",   "base": os.environ.get("LOCAL_LLM_BASE", "http://100.68.68.101:8080/v1"), "key_env": "LOCAL_LLM_KEY"},
+    {"name": "local-gemma4-a4b-mtp", "kind": "openai", "model": "gemma4-a4b-mtp", "base": os.environ.get("LOCAL_LLM_BASE", "http://100.68.68.101:8080/v1"), "key_env": "LOCAL_LLM_KEY"},
+    {"name": "local-gemma4-31b-mtp", "kind": "openai", "model": "gemma4-31b-mtp", "base": os.environ.get("LOCAL_LLM_BASE", "http://100.68.68.101:8080/v1"), "key_env": "LOCAL_LLM_KEY"},
 ]
 
 
@@ -132,7 +143,9 @@ def build_request(slug: str) -> tuple[str, str, int]:
     class _Stop(Exception):
         pass
 
-    def _cap(*, provider, model, system, messages, response_format="text", max_tokens=2048):
+    def _cap(*, provider, model, system, messages, response_format="text", max_tokens=2048, **_kw):
+        # **_kw absorbs ai_filter's later additions (temperature, cache_system, ...)
+        # so this prompt-capture interceptor doesn't break when prod evolves.
         captured["system"] = system
         captured["user"] = messages[0].content
         raise _Stop()
@@ -147,14 +160,21 @@ def build_request(slug: str) -> tuple[str, str, int]:
 
 
 def call_model(spec: dict[str, Any], system: str, user: str, temperature: float, max_tokens: int = 16384):
-    """Return (text, in_tok, out_tok). Temperature set explicitly (prod ai_filter does not set it)."""
+    """Return (text, in_tok, out_tok, elapsed_s). Temperature set explicitly (prod ai_filter does not set it).
+
+    elapsed_s is wall-clock for the round-trip. For local llama-swap the FIRST
+    call to a model also pays the cold model-load (swap-in); warm trials are the
+    steady-state number — read the per-trial ``lats=`` list to separate them.
+    """
+    import time
+    t0 = time.time()
     if spec["kind"] == "anthropic":
         import anthropic
         c = anthropic.Anthropic(api_key=os.environ[spec["key_env"]])
         r = c.messages.create(model=spec["model"], system=system, max_tokens=max_tokens,
                               temperature=temperature, messages=[{"role": "user", "content": user}])
         text = next((b.text for b in r.content if hasattr(b, "text")), "")
-        return text, (r.usage.input_tokens if r.usage else 0), (r.usage.output_tokens if r.usage else 0)
+        return text, (r.usage.input_tokens if r.usage else 0), (r.usage.output_tokens if r.usage else 0), time.time() - t0
     if spec["kind"] == "gemini":
         import google.generativeai as genai  # type: ignore
         genai.configure(api_key=os.environ[spec["key_env"]])  # type: ignore[attr-defined]
@@ -164,16 +184,16 @@ def call_model(spec: dict[str, Any], system: str, user: str, temperature: float,
                                "response_mime_type": "application/json"})
         r = gm.generate_content(user)
         u = getattr(r, "usage_metadata", None)
-        return (getattr(r, "text", "") or ""), getattr(u, "prompt_token_count", 0), getattr(u, "candidates_token_count", 0)
+        return (getattr(r, "text", "") or ""), getattr(u, "prompt_token_count", 0), getattr(u, "candidates_token_count", 0), time.time() - t0
     import openai
-    c = openai.OpenAI(api_key=os.environ[spec["key_env"]], base_url=spec.get("base"))
+    c = openai.OpenAI(api_key=os.environ[spec["key_env"]], base_url=spec.get("base"), timeout=600.0)
     r = c.chat.completions.create(model=spec["model"], max_tokens=max_tokens, temperature=temperature,
                                   response_format={"type": "json_object"},
                                   messages=[{"role": "system", "content": system}, {"role": "user", "content": user}])
     msg = r.choices[0].message
     text = msg.content or getattr(msg, "reasoning_content", "") or ""
     u = r.usage
-    return text, (u.prompt_tokens if u else 0), (u.completion_tokens if u else 0)
+    return text, (u.prompt_tokens if u else 0), (u.completion_tokens if u else 0), time.time() - t0
 
 
 def reject_set(text: str, n: int) -> set[int] | None:
@@ -201,19 +221,20 @@ def run_one(slug: str, trials: int, temperature: float, show_rejects: bool, payl
     system, user, n = build_request(slug)
     gold_pass = GOLD_PASS.get(slug, set(range(n)))
     print(f"\n=== {slug}  n={n}  trials={trials}  temp={temperature}  gold_pass={len(gold_pass)} ===")
-    print(f"{'model':<15} {'det':>5} {'P':>5} {'R':>5} {'F1':>5} {'~$/run':>9}  counts / notes")
-    print("-" * 92)
+    print(f"{'model':<20} {'det':>5} {'P':>5} {'R':>5} {'F1':>5} {'~$/run':>9} {'s/call':>7}  counts / lats / notes")
+    print("-" * 108)
     results: dict[str, dict] = {}
     for spec in MODELS:
         if not os.environ.get(spec["key_env"]):
             continue
-        rej_sets, counts, costs, notes = [], [], [], ""
+        rej_sets, counts, costs, lats, notes = [], [], [], [], ""
         for _ in range(trials):
             try:
-                text, itok, otok = call_model(spec, system, user, temperature)
+                text, itok, otok, elapsed = call_model(spec, system, user, temperature)
             except Exception as e:
                 notes = f"ERR {type(e).__name__}: {str(e)[:55]}"
                 break
+            lats.append(elapsed)
             rs = reject_set(text, n)
             if rs is None:
                 notes = "unparseable/partial"
@@ -224,8 +245,9 @@ def run_one(slug: str, trials: int, temperature: float, show_rejects: bool, payl
             if c is not None:
                 costs.append(c)
         if not rej_sets:
-            print(f"{spec['name']:<15} {'—':>5}  {notes}")
-            results[spec["name"]] = {"error": notes}
+            latnote = f" lats={[round(x, 1) for x in lats]}" if lats else ""
+            print(f"{spec['name']:<20} {'—':>5}  {notes}{latnote}")
+            results[spec["name"]] = {"error": notes, "lats": lats}
             continue
         det = jaccard(rej_sets)
         last_pass = set(range(n)) - rej_sets[-1]
@@ -234,8 +256,9 @@ def run_one(slug: str, trials: int, temperature: float, show_rejects: bool, payl
         R = tp / (tp + fn) if tp + fn else 0.0
         F1 = 2 * P * R / (P + R) if P + R else 0.0
         cost = f"${sum(costs)/len(costs):.4f}" if costs else "n/a"
-        print(f"{spec['name']:<15} {det:>5.2f} {P:>5.2f} {R:>5.2f} {F1:>5.2f} {cost:>9}  counts={counts} {notes}")
-        results[spec["name"]] = {"det": det, "P": P, "R": R, "F1": F1, "cost": cost, "counts": counts}
+        avglat = f"{sum(lats)/len(lats):.1f}s" if lats else "n/a"
+        print(f"{spec['name']:<20} {det:>5.2f} {P:>5.2f} {R:>5.2f} {F1:>5.2f} {cost:>9} {avglat:>7}  counts={counts} lats={[round(x, 1) for x in lats]} {notes}")
+        results[spec["name"]] = {"det": det, "P": P, "R": R, "F1": F1, "cost": cost, "counts": counts, "lats": lats}
         if show_rejects:
             for i in sorted(rej_sets[-1]):
                 print(f"      reject #{i}: {payload_titles[i][:78] if i < len(payload_titles) else ''}")
@@ -249,7 +272,12 @@ def main() -> None:
     ap.add_argument("--trials", type=int, default=3)
     ap.add_argument("--temperature", type=float, default=0.0)
     ap.add_argument("--show-rejects", action="store_true")
+    ap.add_argument("--only", default="", help="Comma-separated model names to run (e.g. 'haiku-4.5,local-qwen-coder'). Keeps one local model warm across all slugs.")
     args = ap.parse_args()
+
+    if args.only:
+        keep = {s.strip() for s in args.only.split(",") if s.strip()}
+        MODELS[:] = [m for m in MODELS if m["name"] in keep]
 
     slugs = list(SLUG_FIXTURE) if args.all else [args.slug]
     matrix: dict[str, dict[str, dict]] = {}
