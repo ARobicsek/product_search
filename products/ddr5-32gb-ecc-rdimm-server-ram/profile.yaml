@@ -55,3 +55,13 @@ display:
     - seller
     - seller_rating
     - mpn
+
+alerts:
+  - kind: price_below
+    threshold_usd: 815
+    mode: while_below
+    price_basis: unit
+
+schedule:
+  cron: "0 17 * * *"
+  timezone: UTC
