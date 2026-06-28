@@ -1,0 +1,37 @@
+schema_version: 2
+slug: focal-clear-mg
+display_name: Focal Clear MG Headphones
+description: Both Focal Clear MG and Clear MG Professional variants, any condition.
+product_type: headphones
+target:
+  unit: count
+  amount: 1
+queries:
+  - Focal Clear MG headphones
+  - Focal Clear MG Professional
+  - Focal Clear Magnesium
+  - Focal Clear MG open-back
+match:
+  aliases:
+    - Clear MG
+    - Clear MG Professional
+    - Clear Magnesium
+  title_excludes: []
+  variant_strict: false
+filters: {}
+sources:
+  serper:
+    enabled: true
+    gl: us
+  ebay:
+    enabled: true
+  amazon:
+    enabled: true
+display:
+  max_listings: 20
+  per_vendor_cap: 3
+  attrs:
+    - price
+    - condition
+    - seller
+    - seller_rating
