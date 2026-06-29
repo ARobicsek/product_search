@@ -50,3 +50,7 @@ display:
     - seller
     - seller_rating
     - rating
+
+schedule:
+  cron: "0 12 * * *"
+  timezone: UTC
