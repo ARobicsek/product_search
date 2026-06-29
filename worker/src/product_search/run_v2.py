@@ -26,7 +26,11 @@ from typing import Any
 from product_search.display_v2 import resolve_columns
 from product_search.models import AdapterQuery, Listing
 from product_search.profile_v2 import ProfileV2, load_profile_v2
-from product_search.profile_v2_filter import partition_by_exact_alias, to_filter_profile
+from product_search.profile_v2_filter import (
+    distinctive_aliases,
+    title_has_exact_alias,
+    to_filter_profile,
+)
 from product_search.run_outcome import RunOutcome, classify_run_outcome
 from product_search.selection import (
     SelectionResult,
@@ -97,28 +101,28 @@ def run_v2_pipeline(
         if apply_filters(lst, filter_profile.spec_filters, filter_profile) is None
     ]
 
-    # 4. Deterministic alias-match pre-pass (Phase 41 / ADR-145): a listing whose
-    #    title contains an exact match.aliases string is surfaced for free (no LLM,
-    #    no hallucination).
-    #
-    #    variant_strict (ADR-148): when the onboarder marked the ask as an
-    #    EXACT-SKU one (``match.variant_strict: true`` + aliases present), the user
-    #    wants ONLY listings whose title carries an exact alias — the LLM relevance
-    #    pass would add "equivalents" they explicitly did not ask for, so skip it
-    #    entirely (also $0 + fully deterministic): survivors = alias hits only.
-    #    Otherwise (family breadth) keep the current behavior — the LLM still sees
-    #    the deterministic pre-pass's remainder and judges it; survivors are
-    #    rebuilt in det_passed order (alias hits ∪ LLM survivors).
-    ai_filter_mod.reset_last_run()  # honest cost panel even when the LLM is skipped
-    alias_hits, remainder = partition_by_exact_alias(det_passed, profile)
-    if profile.match.variant_strict and profile.match.aliases:
-        survivors = list(alias_hits)
+    # 4. Alias-aware relevance filter (ADR-150). The deterministic alias match is
+    #    a GATE/SIGNAL, never an auto-pass: an alias hit can still be a pure
+    #    accessory or compatible part that merely names the model ("ear pads for
+    #    Clear MG", "32GB memory for H14SSL-N") — which is exactly what the old
+    #    auto-pass surfaced in prod. So the LLM always makes the relevance call:
+    #      * variant_strict + aliases (exact-SKU ask): GATE to titles carrying an
+    #        exact alias token, then let the LLM strip accessories/bundles from
+    #        that gated set. Non-alias "equivalents" are dropped, as the user
+    #        asked for ONLY the exact part.
+    #      * otherwise (family breadth): the LLM judges EVERY listing; the alias
+    #        match rides along as a per-listing signal (computed in ai_filter from
+    #        match_aliases) so the model has strong evidence for the real product
+    #        without being bound by it.
+    ai_filter_mod.reset_last_run()  # honest cost panel even when no candidates remain
+    aliases = distinctive_aliases(profile)
+    if profile.match.variant_strict and aliases:
+        candidates = [lst for lst in det_passed if title_has_exact_alias(lst.title, aliases)]
     else:
-        llm_survivors = (
-            ai_filter_fn(remainder, filter_profile, profile.display.attrs) if remainder else []
-        )
-        kept = {id(lst) for lst in alias_hits} | {id(lst) for lst in llm_survivors}
-        survivors = [lst for lst in det_passed if id(lst) in kept]
+        candidates = det_passed
+    survivors = (
+        ai_filter_fn(candidates, filter_profile, profile.display.attrs) if candidates else []
+    )
 
     # 5. Price-anomaly flags over the matched survivors (ADR-131 P1).
     annotate_price_anomalies(survivors)

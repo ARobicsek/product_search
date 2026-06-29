@@ -510,3 +510,51 @@ def test_build_prompt_present_ram_rules_preserved() -> None:
     assert "form_factor_in {values" in prompt
     assert "- ecc_required:" in prompt
     assert "- in_stock:" in prompt
+
+
+# ---------------------------------------------------------------------------
+# ADR-150: per-listing "model_name_in_title" signal (alias-gated)
+# ---------------------------------------------------------------------------
+
+
+def test_build_prompt_includes_model_signal_when_aliases_present() -> None:
+    prof = Profile.model_validate({**VALID_PROFILE, "match_aliases": ["H14SSL-N"]})
+    prompt = ai_filter_mod._build_system_prompt(prof, [])
+    assert "model_name_in_title" in prompt
+    # The signal must NOT override the accessory rejection.
+    assert "still FAILS" in prompt
+
+
+def test_build_prompt_omits_model_signal_when_no_aliases() -> None:
+    prof = Profile.model_validate(VALID_PROFILE)  # no match_aliases
+    prompt = ai_filter_mod._build_system_prompt(prof, [])
+    assert "model_name_in_title" not in prompt
+
+
+def test_payload_carries_model_name_signal(monkeypatch: pytest.MonkeyPatch) -> None:
+    # With match_aliases present, each listing in the LLM payload carries a
+    # "model_name_in_title" boolean from the token-boundary match — true for the
+    # exact SKU, false for the different "H14SSL-NT" SKU (boundary, not substring).
+    import json
+
+    prof = Profile.model_validate({**VALID_PROFILE, "match_aliases": ["H14SSL-N"]})
+    captured: dict[str, Any] = {}
+
+    def _capture(**kwargs: Any) -> LLMResponse:
+        captured["payload"] = kwargs["messages"][0].content
+        return LLMResponse(
+            provider="glm", model="glm-5.1",
+            text='{"evaluations": [{"index": 0, "pass": true}, {"index": 1, "pass": true}]}',
+            input_tokens=0, output_tokens=0,
+        )
+
+    monkeypatch.setattr(ai_filter_mod, "call_llm", _capture)
+    listings = [
+        _make_listing(title="Supermicro H14SSL-N SP5 Server Motherboard"),
+        _make_listing(title="Supermicro H14SSL-NT 10GbE Motherboard"),
+    ]
+    ai_filter_mod.ai_filter(listings, prof)
+    payload = json.loads(captured["payload"])
+    flags = {p["title"]: p["model_name_in_title"] for p in payload}
+    assert flags["Supermicro H14SSL-N SP5 Server Motherboard"] is True
+    assert flags["Supermicro H14SSL-NT 10GbE Motherboard"] is False

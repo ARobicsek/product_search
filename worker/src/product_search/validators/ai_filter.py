@@ -12,6 +12,7 @@ from product_search.config import filter_backend_config
 from product_search.llm import LLMResponse, Message, call_llm
 from product_search.models import Listing
 from product_search.profile import Profile
+from product_search.profile_v2_filter import title_has_exact_alias
 
 # The fallback/default filter backend. Haiku is deterministic-enough at temp=0
 # (ADR-132) and reachable from anywhere (incl. GitHub Actions), so it stays the
@@ -325,6 +326,18 @@ def _build_system_prompt(profile: Profile, display_attrs: list[str] | None) -> s
         "  Absolute', 'Dyson V15 Detect Complete', or color variants like 'Yellow/Nickel'),\n"
         "  provided they contain the requested base model name."
     )
+    if profile.match_aliases:
+        # ADR-150: each product carries a deterministic "model_name_in_title"
+        # signal. It strongly confirms the real product, but must NEVER override
+        # the accessory rejection above — an accessory FOR the model still fails.
+        relevance_explanation += (
+            "\n  Each product includes a boolean \"model_name_in_title\". When true, the title contains the\n"
+            "  EXACT requested model name/identifier as a distinct token — strong evidence this IS the\n"
+            "  requested product, so do not reject it as \"a different product\". This flag does NOT override\n"
+            "  the accessory rule: a pure accessory or compatible part still FAILS even when the flag is true\n"
+            "  (e.g. \"ear pads for <model>\", \"32GB memory for <model>\", \"I/O shield ... <model>\", a\n"
+            "  \"protection plan\"/warranty). When the flag is false, judge relevance from the title as usual."
+        )
     how_lines = [relevance_explanation]
     how_lines += [
         _RULE_EXPLANATIONS[rt]
@@ -598,6 +611,11 @@ def ai_filter(
 
     system_prompt = _build_system_prompt(profile, display_attrs)
 
+    # ADR-150: distinctive aliases attached per-listing as a "model name present"
+    # signal (the prompt explains how to use it). Empty when the profile has no
+    # aliases, so payloads for those profiles are unchanged.
+    aliases = [a for a in (profile.match_aliases or []) if a and a.strip()]
+
     # Backend selection (ADR-147). Default = Anthropic Haiku 4.5. Earlier
     # revisions tried GLM-5.1 / GLM-4.5-Flash; both failed in prod by emitting
     # chain-of-thought prose into `content` despite "JSON only" — Haiku honors
@@ -634,7 +652,7 @@ def ai_filter(
         payload_for_llm = []
         for local_i, listing_idx in enumerate(batch):
             lst = listings[listing_idx]
-            payload_for_llm.append({
+            entry: dict[str, Any] = {
                 # Local index — the prompt/response use 0..len(batch); we map
                 # back to the global ``listing_idx`` after parsing.
                 "index": local_i,
@@ -649,7 +667,10 @@ def ai_filter(
                 "kit_module_count": lst.kit_module_count,
                 "quantity_available": lst.quantity_available,
                 "attrs": lst.attrs,
-            })
+            }
+            if aliases:
+                entry["model_name_in_title"] = title_has_exact_alias(lst.title, aliases)
+            payload_for_llm.append(entry)
 
         # Try the fallback chain in order, starting from the model that last
         # worked (``chain_idx``). On a batch failure (call error, parse failure,

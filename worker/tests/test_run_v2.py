@@ -117,11 +117,11 @@ def test_pipeline_degraded_attr_on_min_quantity() -> None:
     assert any(c == "degraded_attr" for c, _ in result.outcome.notes)
 
 
-def test_exact_alias_survives_even_when_llm_rejects_all() -> None:
-    # Phase 41 / ADR-145 (NON-strict / family-breadth path, variant_strict=false):
-    # a title with an exact match.aliases string is surfaced deterministically — it
-    # must survive even an ai_filter that rejects every listing it sees, and the
-    # LLM must only ever see the (non-alias) remainder.
+def test_nonstrict_sends_all_listings_to_llm() -> None:
+    # ADR-150 (NON-strict / family-breadth, variant_strict=false): the alias match
+    # is a SIGNAL, not an auto-pass — EVERY listing (incl. exact-alias hits) goes
+    # to the LLM, which makes the final relevance call. An alias hit the LLM
+    # rejects (e.g. an accessory that merely names the model) does NOT survive.
     raw = {
         "schema_version": 2,
         "slug": "ram-x",
@@ -139,21 +139,18 @@ def test_exact_alias_survives_even_when_llm_rejects_all() -> None:
         seen.extend(lst.title for lst in listings)
         return []
 
-    alias_hit = _listing(829.0, title="Hynix HMCG84AGBRA191N 32GB DDR5-5600 ECC Refurbished")
+    alias_hit = _listing(829.0, title="Hynix HMCG84AGBRA191N 32GB DDR5-5600 ECC")
     junk = _listing(750.0, title="Dell 32GB DDR5 Server Memory")
     result = run_v2_pipeline(profile, [alias_hit, junk], ai_filter_fn=_reject_all)
 
-    titles = [lst.title for lst in result.survivors]
-    assert alias_hit.title in titles          # auto-passed despite the rejecting LLM
-    assert junk.title not in titles           # rejected by the LLM remainder
-    assert seen == [junk.title]               # LLM only judged the remainder, not the alias hit
+    assert result.survivors == []                  # the LLM verdict is authoritative
+    assert seen == [alias_hit.title, junk.title]   # the LLM saw EVERY listing, alias hit included
 
 
-def test_variant_strict_returns_only_exact_alias_matches() -> None:
-    # ADR-148: an EXACT-SKU profile (variant_strict=true + aliases) returns ONLY
-    # listings whose title carries an exact alias — the LLM relevance pass is
-    # skipped entirely (it would add "equivalents" the user didn't ask for), so
-    # even a passthrough LLM that would pass everything never runs.
+def test_variant_strict_gates_to_alias_then_llm_judges() -> None:
+    # ADR-150: an EXACT-SKU profile (variant_strict=true + aliases) GATES to titles
+    # carrying an exact alias token — non-alias "equivalents" are dropped before the
+    # LLM — and then the LLM still judges the gated set.
     raw = {
         "schema_version": 2,
         "slug": "ram-strict",
@@ -176,9 +173,34 @@ def test_variant_strict_returns_only_exact_alias_matches() -> None:
     result = run_v2_pipeline(profile, [alias_hit, equivalent], ai_filter_fn=_pass_all)
 
     titles = [lst.title for lst in result.survivors]
-    assert titles == [alias_hit.title]   # ONLY the exact-MPN listing
-    assert equivalent.title not in titles  # the "equivalent" is dropped, not LLM-passed
-    assert seen == []                    # the LLM was never called (deterministic, $0)
+    assert titles == [alias_hit.title]   # only the gated exact-MPN listing
+    assert seen == [alias_hit.title]     # the LLM judged the gated set, never the dropped equivalent
+
+
+def test_variant_strict_llm_can_drop_accessory_alias_hit() -> None:
+    # ADR-150 (the focal/supermicro fix): even in strict mode the LLM is
+    # authoritative over the gated set, so an accessory whose title carries the
+    # alias token ("memory for <board>") can be rejected. The OLD auto-pass would
+    # have surfaced it.
+    raw = {
+        "schema_version": 2,
+        "slug": "mb-strict",
+        "display_name": "H14SSL-N",
+        "target": {"unit": "count", "amount": 1},
+        "queries": ["H14SSL-N"],
+        "match": {"aliases": ["H14SSL-N"], "variant_strict": True},
+        "sources": {"serper": {"enabled": True, "gl": "us"}},
+    }
+    profile = ProfileV2.model_validate(raw)
+    board = _listing(700.0, title="Supermicro H14SSL-N SP5 Server Motherboard")
+    accessory = _listing(30.0, title="32GB ECC Memory for Supermicro H14SSL-N Server")
+
+    def _reject_accessory(listings: list[Listing], _p: Any, _a: Any = None) -> list[Listing]:
+        return [lst for lst in listings if "memory" not in lst.title.lower()]
+
+    result = run_v2_pipeline(profile, [board, accessory], ai_filter_fn=_reject_accessory)
+    titles = [lst.title for lst in result.survivors]
+    assert titles == [board.title]   # both gated in (alias token present); the LLM dropped the accessory
 
 
 def test_variant_strict_with_no_aliases_falls_back_to_llm() -> None:

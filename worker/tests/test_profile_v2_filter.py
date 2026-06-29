@@ -2,18 +2,14 @@
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any
 
-from product_search.models import Listing
 from product_search.profile_v2 import ProfileV2, load_profile_v2_from_path
 from product_search.profile_v2_filter import (
     build_filter_description,
     build_spec_filters,
-    partition_by_exact_alias,
+    distinctive_aliases,
     title_has_exact_alias,
-    title_states_excluded_condition,
     to_filter_profile,
 )
 
@@ -77,46 +73,8 @@ def test_min_quantity_not_mapped() -> None:
 
 
 # ---------------------------------------------------------------------------
-# Deterministic alias-match pre-pass (Phase 41 / ADR-145)
+# Alias matching (Phase 41 / ADR-145, redesigned ADR-150)
 # ---------------------------------------------------------------------------
-
-
-def _make_listing(title: str, **overrides: Any) -> Listing:
-    defaults: dict[str, Any] = {
-        "source": "serper_shopping",
-        "url": "https://www.google.com/search?ibp=oshop&q=anything",
-        "title": title,
-        "fetched_at": datetime.now(tz=UTC),
-        "brand": None,
-        "mpn": None,
-        "attrs": {},
-        "condition": "",
-        "is_kit": False,
-        "kit_module_count": 1,
-        "unit_price_usd": 100.0,
-        "kit_price_usd": None,
-        "quantity_available": None,
-        "seller_name": "test_seller",
-        "seller_rating_pct": None,
-        "seller_feedback_count": None,
-        "ship_from_country": None,
-    }
-    defaults.update(overrides)
-    return Listing(**defaults)
-
-
-def _v2(aliases: list[str], condition_in: list[str] | None = None) -> ProfileV2:
-    raw: dict[str, Any] = {
-        "schema_version": 2,
-        "slug": "x-prod",
-        "display_name": "X Prod",
-        "target": {"unit": "count", "amount": 1},
-        "queries": ["x prod"],
-        "match": {"aliases": aliases},
-    }
-    if condition_in is not None:
-        raw["filters"] = {"condition_in": condition_in}
-    return ProfileV2.model_validate(raw)
 
 
 def test_title_has_exact_alias_basic() -> None:
@@ -129,41 +87,29 @@ def test_title_has_exact_alias_basic() -> None:
     assert not title_has_exact_alias("Unrelated DDR5 32GB", aliases)
 
 
-def test_title_states_excluded_condition() -> None:
-    # Empty condition_in = allow all → never excluded.
-    assert not title_states_excluded_condition("Used HMCG84AGBRA191N", [])
-    # condition_in=["new"]: a stated used/refurbished/open-box is excluded.
-    assert title_states_excluded_condition("HMCG84AGBRA191N Refurbished", ["new"])
-    assert title_states_excluded_condition("Pre-Owned HMCG84AGBRA191N", ["new"])
-    assert title_states_excluded_condition("HMCG84AGBRA191N (Open Box)", ["new"])
-    # "unused" must NOT trip the \\bused\\b cue.
-    assert not title_states_excluded_condition("New Unused HMCG84AGBRA191N", ["new"])
-    # A stated condition that IS allowed → not excluded.
-    assert not title_states_excluded_condition("Refurbished HMCG84AGBRA191N", ["refurbished"])
+def test_title_has_exact_alias_token_boundary() -> None:
+    # ADR-150: the alias must match as a DISTINCT token. "H14SSL-N" must NOT
+    # match the different SKU "H14SSL-NT", but must still match next to a hyphen
+    # or space (the real product, incl. the retail-boxed "MBD-H14SSL-N-O" form).
+    aliases = ["H14SSL-N"]
+    assert not title_has_exact_alias("Supermicro H14SSL-NT AMD EPYC Motherboard", aliases)
+    assert title_has_exact_alias("Supermicro H14SSL-N SP5 Server Motherboard", aliases)
+    assert title_has_exact_alias("Supermicro Motherboard (MBD-H14SSL-N-O)", aliases)
+    # A compatible-part title genuinely contains the token; the matcher is honest
+    # about that (the LLM, not this matcher, judges it an accessory).
+    assert title_has_exact_alias("32GB ECC Memory for Supermicro H14SSL-N Server", aliases)
 
 
-def test_partition_auto_passes_exact_alias_regardless_of_condition_when_allowed() -> None:
-    # The real RAM case: condition_in=[] (allow all). The exact part stated as
-    # "Refurbished" must auto-pass (the LLM previously fabricated a rejection).
-    hit = _make_listing("Hynix HMCG84AGBRA191N 32GB DDR5-5600 ECC Refurbished")
-    junk = _make_listing("Dell 32GB DDR5 Server Memory")
-    hits, remainder = partition_by_exact_alias([hit, junk], _v2(["HMCG84AGBRA191N"], condition_in=[]))
-    assert hits == [hit]
-    assert remainder == [junk]
+def test_distinctive_aliases_strips_and_keeps_nonempty() -> None:
+    out = distinctive_aliases(_fixture())
+    assert out  # the DJI fixture carries aliases
+    assert any("Neo 2" in a for a in out)
+    assert all(a == a.strip() for a in out)
 
 
-def test_partition_routes_excluded_condition_alias_to_remainder() -> None:
-    # With an ACTIVE condition_in=["new"], a "Used" exact-alias listing must NOT
-    # be auto-passed — it goes to the LLM remainder instead.
-    used = _make_listing("Hynix HMCG84AGBRA191N 32GB ECC Used")
-    new_hit = _make_listing("Hynix HMCG84AGBRA191N 32GB ECC")
-    hits, remainder = partition_by_exact_alias([used, new_hit], _v2(["HMCG84AGBRA191N"], condition_in=["new"]))
-    assert hits == [new_hit]
-    assert remainder == [used]
-
-
-def test_partition_no_aliases_is_noop() -> None:
-    a = _make_listing("anything")
-    hits, remainder = partition_by_exact_alias([a], _v2([]))
-    assert hits == []
-    assert remainder == [a]
+def test_to_filter_profile_carries_match_aliases() -> None:
+    # The distinctive aliases reach the filter Profile so ai_filter can attach
+    # the per-listing model-name signal (ADR-150).
+    p = to_filter_profile(_fixture())
+    assert p.match_aliases == distinctive_aliases(_fixture())
+    assert any("Neo 2" in a for a in p.match_aliases)
