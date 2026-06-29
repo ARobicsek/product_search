@@ -51,6 +51,12 @@ display:
     - seller_rating
     - rating
 
+alerts:
+  - kind: price_below
+    threshold_usd: 650
+    mode: is_below
+    price_basis: unit
+
 schedule:
   cron: "0 12 * * *"
   timezone: UTC
