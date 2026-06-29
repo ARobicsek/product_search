@@ -1,0 +1,52 @@
+schema_version: 2
+slug: focal-clear-og
+display_name: Focal Clear OG Headphones
+description: Open-back over-ear headphones from Focal's Clear line, original generation (any condition).
+product_type: headphones
+target:
+  unit: count
+  amount: 1
+queries:
+  - Focal Clear OG headphones
+  - Focal Clear original generation
+  - Focal Clear aluminum magnesium dome
+  - Focal Clear open-back audiophile
+  - Focal Clear Professional headphones
+match:
+  aliases:
+    - Clear OG
+    - Focal Clear
+    - Clear Original
+    - Focal Clear Professional
+  title_excludes:
+    - Clear MG
+    - Mg
+    - Utopia
+    - Celestee
+    - Elegia
+    - Radiance
+  variant_strict: false
+filters:
+  condition_in:
+    - new
+    - used
+    - refurbished
+    - open box
+  in_stock: true
+sources:
+  serper:
+    enabled: true
+    gl: us
+  ebay:
+    enabled: true
+  amazon:
+    enabled: true
+display:
+  max_listings: 20
+  per_vendor_cap: 3
+  attrs:
+    - price
+    - condition
+    - seller
+    - seller_rating
+    - rating
