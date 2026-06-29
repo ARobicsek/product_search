@@ -50,3 +50,7 @@ display:
     - condition
     - seller
     - seller_rating
+
+schedule:
+  cron: "5 14 * * *"
+  timezone: UTC
