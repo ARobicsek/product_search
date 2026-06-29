@@ -1,0 +1,1066 @@
+{
+  "schema_version": 2,
+  "slug": "supermicro-h14ssl-n",
+  "display_name": "Supermicro H14SSL-N Motherboard",
+  "product_type": "motherboard",
+  "snapshot_date": "2026-06-29",
+  "generated_at": "2026-06-29T00:25:08.812945+00:00",
+  "columns": [
+    "price",
+    "condition",
+    "seller",
+    "seller_rating"
+  ],
+  "listings": [
+    {
+      "rank": 1,
+      "source": "ebay_search",
+      "vendor_host": "www.ebay.com",
+      "url": "https://www.ebay.com/itm/366435742108?_skw=Supermicro+H14SSL-N&hash=item555145b19c:g:FqkAAeSwkvJqPOxD",
+      "buy_url": "https://www.ebay.com/itm/366435742108?_skw=Supermicro+H14SSL-N&hash=item555145b19c:g:FqkAAeSwkvJqPOxD",
+      "image_url": null,
+      "title": "Supermicro Motherboard H14SSL-N - ATX - Mainboard - Mainboard - ATX",
+      "price_usd": 978.0,
+      "total_for_target_usd": null,
+      "currency_approx_fx": null,
+      "condition": "new",
+      "seller_name": "digi-techx",
+      "is_kit": false,
+      "kit_module_count": 1,
+      "badges": [
+        {
+          "key": "ship_from_de",
+          "label": "ship_from_de",
+          "severity": "info"
+        }
+      ],
+      "seller_rating_pct": 99.7,
+      "seller_feedback_count": 16940,
+      "rating": null,
+      "rating_count": null,
+      "ship_from_country": "DE",
+      "quantity_available": null,
+      "flags": [
+        "ship_from_de"
+      ],
+      "brand": null,
+      "mpn": null,
+      "attrs": {}
+    },
+    {
+      "rank": 2,
+      "source": "ebay_search",
+      "vendor_host": "www.ebay.com",
+      "url": "https://www.ebay.com/itm/298381677826?_skw=Supermicro+H14SSL-N&hash=item4578ef1502:g:dmUAAeSwYN1qPOzx",
+      "buy_url": "https://www.ebay.com/itm/298381677826?_skw=Supermicro+H14SSL-N&hash=item4578ef1502:g:dmUAAeSwYN1qPOzx",
+      "image_url": null,
+      "title": "Supermicro Motherboard H14SSL-N - ATX - Mainboard - ATX (MBD-H14SSL-N-O)",
+      "price_usd": 1085.0,
+      "total_for_target_usd": null,
+      "currency_approx_fx": null,
+      "condition": "new",
+      "seller_name": "digi-techx",
+      "is_kit": false,
+      "kit_module_count": 1,
+      "badges": [
+        {
+          "key": "ship_from_de",
+          "label": "ship_from_de",
+          "severity": "info"
+        }
+      ],
+      "seller_rating_pct": 99.7,
+      "seller_feedback_count": 16940,
+      "rating": null,
+      "rating_count": null,
+      "ship_from_country": "DE",
+      "quantity_available": null,
+      "flags": [
+        "ship_from_de"
+      ],
+      "brand": null,
+      "mpn": null,
+      "attrs": {}
+    },
+    {
+      "rank": 3,
+      "source": "serper_shopping",
+      "vendor_host": "ebay.com",
+      "url": "https://www.google.com/search?ibp=oshop&q=Supermicro+H14SSL-N&prds=localAnnotatedOfferId:1,productid:7034165794189287005,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
+      "buy_url": "https://www.google.com/search?ibp=oshop&q=Supermicro+H14SSL-N&prds=localAnnotatedOfferId:1,productid:7034165794189287005,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
+      "image_url": "data:image/webp;base64,UklGRjIEAABXRUJQVlA4ICYEAAAwFQCdASpAAGAAPok4lkglI6IhOVXuYKARCWcAzvOprvpxR9HIPtxOzdvrRA3FAmPuyI/gJp594Wzm98nOiTk5xeB58dnm+QzwfLoPUnUO+unezZ7RTYGF+lh4MHPyxAjA8Mr7TdEdUlckduxdYN5R/dBlT0assy3H0RalWknZn8Qw5QR50D4Fq5B/HEe6xd1Ya5mrBvM3IFlva7ZobQI6YQC1it863q2pygk1qNkAKCGQAP7sPcAoTfKDmCefOGPOrRclhUVfmgbKmwWC6eL1UkTfvUiTBZEVxGSutpTxMJR1FTlPnslw7AxC9LstY1VZEwljrAMXoceQk7mM4OjFgK3vG45L+ZnUmotH40rJu3+j+JGkOzlpdVL7MKKjtKYthBcxMNQQjdeY52c87r9llp/IjojBOVya1nh3a6rPLHXQfabQq26vukhMXshFXQrr/sO1BbbqtqqbgWtOkgXfefCETagkAL+cR0jKmLGtw+OxZJHE4YQbjXS77s6PbW+PRp363AFmTZiISAwtMPDTIiH3xkRImd+VGNLQBm867+na6HHei4nfUVSzeW+JnsMynIN7jkiLc6iRrgCkNX2GWdEW7KhfwWhZycFy4qmRY/CBKD6HIanjcAiuzD7GNjcSWWHfGjFycQSjC6NYXCnZ1LfYCrT9PYamVx9mUS47XjI8WSG5e894IlqwVOz04af4rDH1dy1+XTZaIIdHPUYW7FD+zQtUF1iRsA672MMF80bicP6K2iw0yykL5FG4pw1nebgQ71WTg3fQ4gNbtsLaPNsHa92Mh4QZeoOutCa96OW0MXHoX1lUWVCsljGtgl1s4tphyg0+mIKAziyROVwcEIq232EdRLkunF5SI0KclzGamAOl64RxjtWqKhesMRAj8gH7+oQ1X2HWU8iBQEWvRDO4t2HvLcfUSApHPvG1+S8nCBVqK4XMyOeV77//vD/W4Zw6FuOcLTQymN+HGLe8G698TaNFjrUiqobs+vVQGN6YpUidVa6Se/NkfhOrxu4Vb7Rf4wYENmRrakog4XGyI9QalqKInyViAdtWT5UF3/84NjtiT6lHU2+sQRI3CqE/4O4caehYe9vXzwWx64AAGwsJZJ3BX1ncSn4GjqAWIK4JCQPzUt92yNGfz1NiIz0fIvWInxZRL50BFPuQE5phx8YFJP0aUeTRSQeoIUWjpH2tzkFX0q/ALfbvJ75QuNY625efNaZkkuODOU6+Vsaj6RgOyVoRBKFbhXaQyNvQdbNgQxlm+qfmQxzeKHI8DcQBSxTzax0QSjtlK7pLLfZL4ElIxha2zo86XtbdKbj45Oivg1iVHnO1g3Bhxa+7sp/Vf4qsEKS//zugFgOpLuJqzfPHgQ8eu3kMRXEcjh5fsf6kB7lafszqvJvwDpxBKLu6BBeAAAA=",
+      "title": "Supermicro H14ssl-n Support Amd Epyc 9004/9005 Series Processors",
+      "price_usd": 1188.0,
+      "total_for_target_usd": null,
+      "currency_approx_fx": null,
+      "condition": "",
+      "seller_name": "eBay - electronic-2018",
+      "is_kit": false,
+      "kit_module_count": 1,
+      "badges": [],
+      "seller_rating_pct": null,
+      "seller_feedback_count": null,
+      "rating": null,
+      "rating_count": null,
+      "ship_from_country": null,
+      "quantity_available": null,
+      "flags": [],
+      "brand": null,
+      "mpn": null,
+      "attrs": {
+        "serper_product_id": "7034165794189287005"
+      }
+    },
+    {
+      "rank": 4,
+      "source": "serper_shopping",
+      "vendor_host": "ebay.com",
+      "url": "https://www.google.com/search?ibp=oshop&q=H14SSL-N+motherboard&prds=localAnnotatedOfferId:1,productid:8906291212427916787,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
+      "buy_url": "https://www.google.com/search?ibp=oshop&q=H14SSL-N+motherboard&prds=localAnnotatedOfferId:1,productid:8906291212427916787,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
+      "image_url": "data:image/webp;base64,UklGRjIEAABXRUJQVlA4ICYEAAAwFQCdASpAAGAAPok4lkglI6IhOVXuYKARCWcAzvOprvpxR9HIPtxOzdvrRA3FAmPuyI/gJp594Wzm98nOiTk5xeB58dnm+QzwfLoPUnUO+unezZ7RTYGF+lh4MHPyxAjA8Mr7TdEdUlckduxdYN5R/dBlT0assy3H0RalWknZn8Qw5QR50D4Fq5B/HEe6xd1Ya5mrBvM3IFlva7ZobQI6YQC1it863q2pygk1qNkAKCGQAP7sPcAoTfKDmCefOGPOrRclhUVfmgbKmwWC6eL1UkTfvUiTBZEVxGSutpTxMJR1FTlPnslw7AxC9LstY1VZEwljrAMXoceQk7mM4OjFgK3vG45L+ZnUmotH40rJu3+j+JGkOzlpdVL7MKKjtKYthBcxMNQQjdeY52c87r9llp/IjojBOVya1nh3a6rPLHXQfabQq26vukhMXshFXQrr/sO1BbbqtqqbgWtOkgXfefCETagkAL+cR0jKmLGtw+OxZJHE4YQbjXS77s6PbW+PRp363AFmTZiISAwtMPDTIiH3xkRImd+VGNLQBm867+na6HHei4nfUVSzeW+JnsMynIN7jkiLc6iRrgCkNX2GWdEW7KhfwWhZycFy4qmRY/CBKD6HIanjcAiuzD7GNjcSWWHfGjFycQSjC6NYXCnZ1LfYCrT9PYamVx9mUS47XjI8WSG5e894IlqwVOz04af4rDH1dy1+XTZaIIdHPUYW7FD+zQtUF1iRsA672MMF80bicP6K2iw0yykL5FG4pw1nebgQ71WTg3fQ4gNbtsLaPNsHa92Mh4QZeoOutCa96OW0MXHoX1lUWVCsljGtgl1s4tphyg0+mIKAziyROVwcEIq232EdRLkunF5SI0KclzGamAOl64RxjtWqKhesMRAj8gH7+oQ1X2HWU8iBQEWvRDO4t2HvLcfUSApHPvG1+S8nCBVqK4XMyOeV77//vD/W4Zw6FuOcLTQymN+HGLe8G698TaNFjrUiqobs+vVQGN6YpUidVa6Se/NkfhOrxu4Vb7Rf4wYENmRrakog4XGyI9QalqKInyViAdtWT5UF3/84NjtiT6lHU2+sQRI3CqE/4O4caehYe9vXzwWx64AAGwsJZJ3BX1ncSn4GjqAWIK4JCQPzUt92yNGfz1NiIz0fIvWInxZRL50BFPuQE5phx8YFJP0aUeTRSQeoIUWjpH2tzkFX0q/ALfbvJ75QuNY625efNaZkkuODOU6+Vsaj6RgOyVoRBKFbhXaQyNvQdbNgQxlm+qfmQxzeKHI8DcQBSxTzax0QSjtlK7pLLfZL4ElIxha2zo86XtbdKbj45Oivg1iVHnO1g3Bhxa+7sp/Vf4qsEKS//zugFgOpLuJqzfPHgQ8eu3kMRXEcjh5fsf6kB7lafszqvJvwDpxBKLu6BBeAAAA=",
+      "title": "Supermicro H14ssl-n Support Amd Epyc 9004/9005 Series Processors",
+      "price_usd": 1188.0,
+      "total_for_target_usd": null,
+      "currency_approx_fx": null,
+      "condition": "",
+      "seller_name": "eBay - kgda_68",
+      "is_kit": false,
+      "kit_module_count": 1,
+      "badges": [],
+      "seller_rating_pct": null,
+      "seller_feedback_count": null,
+      "rating": null,
+      "rating_count": null,
+      "ship_from_country": null,
+      "quantity_available": null,
+      "flags": [],
+      "brand": null,
+      "mpn": null,
+      "attrs": {
+        "serper_product_id": "8906291212427916787"
+      }
+    },
+    {
+      "rank": 5,
+      "source": "ebay_search",
+      "vendor_host": "www.ebay.com",
+      "url": "https://www.ebay.com/itm/178118733225?_skw=Supermicro+H14SSL-N&hash=item2978b42da9:g:6hgAAOSw6cNkQStg",
+      "buy_url": "https://www.ebay.com/itm/178118733225?_skw=Supermicro+H14SSL-N&hash=item2978b42da9:g:6hgAAOSw6cNkQStg",
+      "image_url": null,
+      "title": "Supermicro H14SSL-N Support AMD EPYC 9004/9005 Series Processors",
+      "price_usd": 1188.0,
+      "total_for_target_usd": null,
+      "currency_approx_fx": null,
+      "condition": "new",
+      "seller_name": "tugm4470",
+      "is_kit": false,
+      "kit_module_count": 1,
+      "badges": [
+        {
+          "key": "ship_from_cn",
+          "label": "ship_from_cn",
+          "severity": "info"
+        }
+      ],
+      "seller_rating_pct": 99.2,
+      "seller_feedback_count": 5846,
+      "rating": null,
+      "rating_count": null,
+      "ship_from_country": "CN",
+      "quantity_available": null,
+      "flags": [
+        "ship_from_cn"
+      ],
+      "brand": null,
+      "mpn": null,
+      "attrs": {}
+    },
+    {
+      "rank": 6,
+      "source": "ebay_search",
+      "vendor_host": "www.ebay.com",
+      "url": "https://www.ebay.com/itm/137294609790?_skw=Supermicro+H14SSL-N&hash=item1ff7657d7e:g:6hgAAOSw6cNkQStg",
+      "buy_url": "https://www.ebay.com/itm/137294609790?_skw=Supermicro+H14SSL-N&hash=item1ff7657d7e:g:6hgAAOSw6cNkQStg",
+      "image_url": null,
+      "title": "Supermicro H14SSL-N Support AMD EPYC 9004/9005 Series Processors ",
+      "price_usd": 1188.0,
+      "total_for_target_usd": null,
+      "currency_approx_fx": null,
+      "condition": "new",
+      "seller_name": "inwm9492",
+      "is_kit": false,
+      "kit_module_count": 1,
+      "badges": [
+        {
+          "key": "ship_from_cn",
+          "label": "ship_from_cn",
+          "severity": "info"
+        }
+      ],
+      "seller_rating_pct": 100.0,
+      "seller_feedback_count": 6214,
+      "rating": null,
+      "rating_count": null,
+      "ship_from_country": "CN",
+      "quantity_available": null,
+      "flags": [
+        "ship_from_cn"
+      ],
+      "brand": null,
+      "mpn": null,
+      "attrs": {}
+    },
+    {
+      "rank": 7,
+      "source": "ebay_search",
+      "vendor_host": "www.ebay.com",
+      "url": "https://www.ebay.com/itm/137294609737?_skw=Supermicro+H14SSL-N&hash=item1ff7657d49:g:6hgAAOSw6cNkQStg",
+      "buy_url": "https://www.ebay.com/itm/137294609737?_skw=Supermicro+H14SSL-N&hash=item1ff7657d49:g:6hgAAOSw6cNkQStg",
+      "image_url": null,
+      "title": "Supermicro H14SSL-N Support AMD EPYC 9004/9005 Series Processors",
+      "price_usd": 1188.0,
+      "total_for_target_usd": null,
+      "currency_approx_fx": null,
+      "condition": "new",
+      "seller_name": "kgda_68",
+      "is_kit": false,
+      "kit_module_count": 1,
+      "badges": [
+        {
+          "key": "ship_from_cn",
+          "label": "ship_from_cn",
+          "severity": "info"
+        }
+      ],
+      "seller_rating_pct": 100.0,
+      "seller_feedback_count": 712,
+      "rating": null,
+      "rating_count": null,
+      "ship_from_country": "CN",
+      "quantity_available": null,
+      "flags": [
+        "ship_from_cn"
+      ],
+      "brand": null,
+      "mpn": null,
+      "attrs": {}
+    },
+    {
+      "rank": 8,
+      "source": "ebay_search",
+      "vendor_host": "www.ebay.com",
+      "url": "https://www.ebay.com/itm/236807103826?_skw=Supermicro+H14SSL-N&hash=item3722cda552:g:6hgAAOSw6cNkQStg",
+      "buy_url": "https://www.ebay.com/itm/236807103826?_skw=Supermicro+H14SSL-N&hash=item3722cda552:g:6hgAAOSw6cNkQStg",
+      "image_url": null,
+      "title": "Supermicro H14SSL-N Support AMD EPYC 9004/9005 Series Processors",
+      "price_usd": 1188.0,
+      "total_for_target_usd": null,
+      "currency_approx_fx": null,
+      "condition": "new",
+      "seller_name": "electronic-2018",
+      "is_kit": false,
+      "kit_module_count": 1,
+      "badges": [
+        {
+          "key": "ship_from_cn",
+          "label": "ship_from_cn",
+          "severity": "info"
+        }
+      ],
+      "seller_rating_pct": 100.0,
+      "seller_feedback_count": 249,
+      "rating": null,
+      "rating_count": null,
+      "ship_from_country": "CN",
+      "quantity_available": null,
+      "flags": [
+        "ship_from_cn"
+      ],
+      "brand": null,
+      "mpn": null,
+      "attrs": {}
+    },
+    {
+      "rank": 9,
+      "source": "ebay_search",
+      "vendor_host": "www.ebay.com",
+      "url": "https://www.ebay.com/itm/198383501689?_skw=Supermicro+H14SSL-N&hash=item2e30940179:g:cCcAAeSwX9xqFtjD",
+      "buy_url": "https://www.ebay.com/itm/198383501689?_skw=Supermicro+H14SSL-N&hash=item2e30940179:g:cCcAAeSwX9xqFtjD",
+      "image_url": null,
+      "title": "Supermicro H14SSL-N SP5 Server Motherboard AMD EPYC 9005 9004 CPU ATX Board",
+      "price_usd": 1199.99,
+      "total_for_target_usd": null,
+      "currency_approx_fx": null,
+      "condition": "new",
+      "seller_name": "fuxindongli",
+      "is_kit": false,
+      "kit_module_count": 1,
+      "badges": [
+        {
+          "key": "ship_from_cn",
+          "label": "ship_from_cn",
+          "severity": "info"
+        }
+      ],
+      "seller_rating_pct": 98.7,
+      "seller_feedback_count": 147,
+      "rating": null,
+      "rating_count": null,
+      "ship_from_country": "CN",
+      "quantity_available": null,
+      "flags": [
+        "ship_from_cn"
+      ],
+      "brand": null,
+      "mpn": null,
+      "attrs": {}
+    },
+    {
+      "rank": 10,
+      "source": "ebay_search",
+      "vendor_host": "www.ebay.com",
+      "url": "https://www.ebay.com/itm/397995420593?_skw=Supermicro+H14SSL-N&hash=item5caa602bb1:g:CP0AAeSweINqFtlS&amdata=enc%3AAQALAAAA8ACCtXRWQnOEpyOqnQQ8KGbk71HbZypUpqdQhViKAd7Balhi%2FKCDEyabXi7xfIfzUP8FvNMW05UHFTzv%2BRZU4ypGFGY9EBDjHTnkDyDOeh%2Bt9YFAWAEZIG2n95jElD%2FX3xAww2tvat%2BeXM6SK4WUoyOGNm7Ycy%2Btm84TkKb0yC04Gjv412jVp3XE5lnxzhwyAKZXQYvxM%2F0bWeUWqgm7W0dq5UeNP4Jbl7lH9fDOzQKEdmNvhTAk10H9OyferIJbw%2FLUb75D3BX0RKfTXU3sg%2F5SzfxCOxE9xFPqlAtDYRGkthSDGGT7OHlD2ainJKomiw%3D%3D",
+      "buy_url": "https://www.ebay.com/itm/397995420593?_skw=Supermicro+H14SSL-N&hash=item5caa602bb1:g:CP0AAeSweINqFtlS&amdata=enc%3AAQALAAAA8ACCtXRWQnOEpyOqnQQ8KGbk71HbZypUpqdQhViKAd7Balhi%2FKCDEyabXi7xfIfzUP8FvNMW05UHFTzv%2BRZU4ypGFGY9EBDjHTnkDyDOeh%2Bt9YFAWAEZIG2n95jElD%2FX3xAww2tvat%2BeXM6SK4WUoyOGNm7Ycy%2Btm84TkKb0yC04Gjv412jVp3XE5lnxzhwyAKZXQYvxM%2F0bWeUWqgm7W0dq5UeNP4Jbl7lH9fDOzQKEdmNvhTAk10H9OyferIJbw%2FLUb75D3BX0RKfTXU3sg%2F5SzfxCOxE9xFPqlAtDYRGkthSDGGT7OHlD2ainJKomiw%3D%3D",
+      "image_url": null,
+      "title": "Supermicro H14SSL-N SP5 Server Motherboard AMD EPYC 9005 9004 CPU ATX Board",
+      "price_usd": 1250.0,
+      "total_for_target_usd": null,
+      "currency_approx_fx": null,
+      "condition": "new",
+      "seller_name": "fuxindongli01",
+      "is_kit": false,
+      "kit_module_count": 1,
+      "badges": [
+        {
+          "key": "ship_from_cn",
+          "label": "ship_from_cn",
+          "severity": "info"
+        }
+      ],
+      "seller_rating_pct": 98.9,
+      "seller_feedback_count": 347,
+      "rating": null,
+      "rating_count": null,
+      "ship_from_country": "CN",
+      "quantity_available": null,
+      "flags": [
+        "ship_from_cn"
+      ],
+      "brand": null,
+      "mpn": null,
+      "attrs": {}
+    },
+    {
+      "rank": 11,
+      "source": "ebay_search",
+      "vendor_host": "www.ebay.com",
+      "url": "https://www.ebay.com/itm/198396762132?_skw=Supermicro+H14SSL-N&hash=item2e315e5814:g:YYkAAeSwFH9qKR-z&amdata=enc%3AAQALAAAA8ACCtXRWQnOEpyOqnQQ8KGa2UiMt8w8Xcyzu5dZbjdLRfHMFQxhsg4R7%2BELtLcIFhMWIgjr06nuNn%2B0Pb8gzYHFmRyXop8%2Bwn6er%2BPD%2BG57UeOS9pgs8dIs%2BWRDfL%2F023lH1ePIPqRMXqirMwvtnXRX9iEqL8gsuH8ih4LaODXKtqV7SwbUD0kraQ4yv%2FR48c9fh4C31m9cNt61fEmpPeDtK%2BntR9uwrEYPUymwjZ8q1PL7CMdHJhM5tM8cGwSB98TVPNIhdwl%2FW2FJKZtH4oE1lB16YlKf32YpvfPhijpKLc4KEPc7tdEhXGinLd6u2gQ%3D%3D",
+      "buy_url": "https://www.ebay.com/itm/198396762132?_skw=Supermicro+H14SSL-N&hash=item2e315e5814:g:YYkAAeSwFH9qKR-z&amdata=enc%3AAQALAAAA8ACCtXRWQnOEpyOqnQQ8KGa2UiMt8w8Xcyzu5dZbjdLRfHMFQxhsg4R7%2BELtLcIFhMWIgjr06nuNn%2B0Pb8gzYHFmRyXop8%2Bwn6er%2BPD%2BG57UeOS9pgs8dIs%2BWRDfL%2F023lH1ePIPqRMXqirMwvtnXRX9iEqL8gsuH8ih4LaODXKtqV7SwbUD0kraQ4yv%2FR48c9fh4C31m9cNt61fEmpPeDtK%2BntR9uwrEYPUymwjZ8q1PL7CMdHJhM5tM8cGwSB98TVPNIhdwl%2FW2FJKZtH4oE1lB16YlKf32YpvfPhijpKLc4KEPc7tdEhXGinLd6u2gQ%3D%3D",
+      "image_url": null,
+      "title": "Supermicro H14SSL-N SP5 Server Motherboard AMD EPYC 9005 9004 CPU ATX Board",
+      "price_usd": 1250.0,
+      "total_for_target_usd": null,
+      "currency_approx_fx": null,
+      "condition": "new",
+      "seller_name": "dianzishebeifanqie",
+      "is_kit": false,
+      "kit_module_count": 1,
+      "badges": [
+        {
+          "key": "ship_from_cn",
+          "label": "ship_from_cn",
+          "severity": "info"
+        }
+      ],
+      "seller_rating_pct": 100.0,
+      "seller_feedback_count": 1,
+      "rating": null,
+      "rating_count": null,
+      "ship_from_country": "CN",
+      "quantity_available": null,
+      "flags": [
+        "ship_from_cn"
+      ],
+      "brand": null,
+      "mpn": null,
+      "attrs": {}
+    },
+    {
+      "rank": 12,
+      "source": "serper_shopping",
+      "vendor_host": "desertcart.ae",
+      "url": "https://www.google.com/search?ibp=oshop&q=Supermicro+H14SSL-N&prds=localAnnotatedOfferId:1,catalogid:1761621107506830682,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
+      "buy_url": "https://www.google.com/search?ibp=oshop&q=Supermicro+H14SSL-N&prds=localAnnotatedOfferId:1,catalogid:1761621107506830682,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
+      "image_url": "data:image/webp;base64,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",
+      "title": "Supermicro H14SSL-N AMD EPYC Single Socket SP5 DDR5 ATX Motherboard",
+      "price_usd": 1434.45,
+      "total_for_target_usd": null,
+      "currency_approx_fx": null,
+      "condition": "",
+      "seller_name": "Desertcart.ae",
+      "is_kit": false,
+      "kit_module_count": 1,
+      "badges": [],
+      "seller_rating_pct": null,
+      "seller_feedback_count": null,
+      "rating": null,
+      "rating_count": null,
+      "ship_from_country": null,
+      "quantity_available": null,
+      "flags": [],
+      "brand": null,
+      "mpn": null,
+      "attrs": {
+        "serper_product_id": "1761621107506830682"
+      }
+    },
+    {
+      "rank": 13,
+      "source": "serper_shopping",
+      "vendor_host": "ebay.com",
+      "url": "https://www.google.com/search?ibp=oshop&q=Supermicro+H14SSL-N&prds=localAnnotatedOfferId:1,productid:3749954165646476895,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
+      "buy_url": "https://www.google.com/search?ibp=oshop&q=Supermicro+H14SSL-N&prds=localAnnotatedOfferId:1,productid:3749954165646476895,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
+      "image_url": "data:image/webp;base64,UklGRhYGAABXRUJQVlA4IAoGAAAQGQCdASpgAFsAPpk4l0gloyIhMBjuqLATCWMAwLmottrz2Fj2UCnoDDmuL+wcd5bPm0Sg39z45vn2zhaZrh5sHuEuDhM+5n5KkOYj6L5oblTi4w3ratSURZKNuG44QgvttRbnyBnm4kJY5c8F8Mt44R3q3sa9sUvrJBUXKEt9I0/5yPAanhNcZ6GwBKGSoFBnmGjiCcZKfx7mrx0QfM+YeFFUcooMGSOoDZxwe657yaX0tQSiPz45d7yJ3hzpYbf0j99FDn+JTHyru7SK3btoAAD+/cVNVKqs2JeSx5ugP8bo7JCticVygGV/q/8aHITZCUiWJ9utxwPX2Tr9PLQFmfBYPZgabyj/1NGu/7S185TnTfR1EKfqihzJcGLbBzs0c9Phk4NtD+CvN2J9WZy3FJyv6xWZ5QBQrC1nI80kKLGIHDODFx4y+zAQRLpmfxCyYKN925pKu3OMCPUO4BI7gpV2S0UqhgXRQ7vtiLfVUAsRDjsXITCtPLuCbMckA9TNIoFTrd1i/au+YhnGN+fUXnv7VVKCuhsZOiMwSQdXvficT8icFyEs6R46EURcShS8im5EuMAfR4UfXtg9IgwsfGOxtQkDN0wAEcUZzCdf+X+nXOR1ti3wJfgfr10yo1oUO8TZ+AQEjQ2CGep276QBtwMoKvYNR+vGEVUQrzns/nSF3GYraFhhnJq4gEsy5pFchZMW9MtMuI9SLbMXGuZ4zMLgoRF/RTMzja4eQhhVH5y3WPTEKOlCcegavVT0HaR/aroZPsxa0KajQ+JjFm4QBAw8HOjrAlBTXmfu1ZYDG5q/vXrrsWuwZJlHgVMag7mZTuBoSseZCXYhV5GAMLLkYGdFnNGVC99u6iLyPi9u/4YpIHrL9/SqFXs8esJxlYRr1MUe02rbyDhJ/wAUqDKUpZig+aYcUaD7Nl8X52cNLmjt659oubiqJJ0h57oyUJ5o+Jq8wuK6p2JOPZXEIuCsfsUw1Gc4ub6fkotfRJgG3JP01wClYJ4Lw+MyhRFcT1Jfsq44KBEP4JkLUYspFBArSHANT6yVqwuGYUYn/zAN+UIqfTn8Xj2RNF9CZMB3tqi3CV+FI+lrWtC5unjsVZ7EsjmXY+A4FDj1YXjVIhCbnKPpNTTjSLl4SDE+rNam3giLX9t1hxWHD+73q68b4f3sJhMr3Rej+vdCKOqPYAUPqeUFH3MWjNaSy0ZHPKqvNaRq7BlCScUIOuryAgoBKv6XP/JT6SmB51bOU7/zeCmbFHHcpOBehWuBhBcfN/G8Nm2nPExnH75vaSYgC05EtEG8Nn8rzYY69AYhPhXmpz50PpODKcfE37Xhv+QXM9AcFblzcLsBhp+8PYTAkrARyP7FRcVRolx0SPbyvCUkCaCVlyUPdipHsRRWtasK+hs/TXcN1H6v0Y7tRlslJux9Iqb7BkLH1pJ4K5dqgUMFNuO0T/vg7lrCDjPXIhJC8o+XFm2M6WioB5YGBBDANTumkBOzPYcxpG56D0nnRtUH6ZxdTqDcDd6cgwZCvYb98JkXnMPw5XPhr5kv6EaPer8DQOAKVmHrJ3cMJHLiMW2e9DxNE1smzxOAtFMQ1vXz8jbglF3/Bo5fEv28tkgt3Zjsihk1r4GAm9rSPUl5bfRb8hADaFehJdYxwxfdpM6oUc5oISbUC7TAaeaz2DRoTegpT4jH/HfWvIR9OP/B+hhiAHoEyqFXnPX+Hdb0rUNiUsyzEz1d7KUeMFC7IHEt/+USiDRsgnSqJJFRE7/2fgwNKVL7az63xHWyDaHxiU0kEybJjOAFLw8UYWqAaGSb5hCvuBTLwwhqCZzQr6b1Ok6LAN5irABOh9nA0WM9TvFolJYDCBIZ2srcgDqMbASrdBKAUaY0jS8lLgxoXbfchByhBhmLJ2scIR1NxGRQ1NXea97D3JZkOu3Y+mKnwSBkic89eYbKziBx//0FfIJ/HKtHGbx4pPg52al5rhUL+jU9ogsycQIiec2VK8bRm/Kb89oblEWQUfM2gVxj8pz3oSs4dAgDFd0hG8h8Vygwv/cje4JXj+jis+kboONzEAAA",
+      "title": "Amd Epyc 9965 Qs 192c/384t 2.25ghz + Supermicro H14ssl-n Ddr5 Socket",
+      "price_usd": 6000.0,
+      "total_for_target_usd": null,
+      "currency_approx_fx": null,
+      "condition": "",
+      "seller_name": "eBay",
+      "is_kit": false,
+      "kit_module_count": 1,
+      "badges": [
+        {
+          "key": "price_anomaly_high",
+          "label": "price_anomaly_high",
+          "severity": "info"
+        }
+      ],
+      "seller_rating_pct": null,
+      "seller_feedback_count": null,
+      "rating": null,
+      "rating_count": null,
+      "ship_from_country": null,
+      "quantity_available": null,
+      "flags": [
+        "price_anomaly_high"
+      ],
+      "brand": null,
+      "mpn": null,
+      "attrs": {
+        "serper_product_id": "3749954165646476895"
+      }
+    },
+    {
+      "rank": 14,
+      "source": "serper_shopping",
+      "vendor_host": "ebay.com",
+      "url": "https://www.google.com/search?ibp=oshop&q=Supermicro+H14SSL-N&prds=localAnnotatedOfferId:1,productid:10470903625729996467,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
+      "buy_url": "https://www.google.com/search?ibp=oshop&q=Supermicro+H14SSL-N&prds=localAnnotatedOfferId:1,productid:10470903625729996467,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
+      "image_url": "data:image/webp;base64,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",
+      "title": "Supermicro H14ssl-n + Amd Epyc 9965 Turin Sp5 192 Cores 384 Threads",
+      "price_usd": 8299.0,
+      "total_for_target_usd": null,
+      "currency_approx_fx": null,
+      "condition": "",
+      "seller_name": "eBay - kuaka02",
+      "is_kit": false,
+      "kit_module_count": 1,
+      "badges": [
+        {
+          "key": "price_anomaly_high",
+          "label": "price_anomaly_high",
+          "severity": "info"
+        }
+      ],
+      "seller_rating_pct": null,
+      "seller_feedback_count": null,
+      "rating": null,
+      "rating_count": null,
+      "ship_from_country": null,
+      "quantity_available": null,
+      "flags": [
+        "price_anomaly_high"
+      ],
+      "brand": null,
+      "mpn": null,
+      "attrs": {
+        "serper_product_id": "10470903625729996467"
+      }
+    },
+    {
+      "rank": 15,
+      "source": "amazon_dataforseo",
+      "vendor_host": "www.amazon.com",
+      "url": "https://www.amazon.com/Supermicro-H14SSL-N-Single-Socket-Motherboard/dp/B0FKY6GM3V/ref=sr_1_10?crid=BOKRVR6Z08MZ&dib=eyJ2IjoiMSJ9.L3ffwr-iiiXme8RXa4CAItT_ojCjUvcdhFP2ZULWVVOnzq6Uu-zuzOsBCnFS5GUSDzJzl5AI25v_zi4UV0qWJ3WdsIS1YASA0x-SgU0Oy7b1dOeU62cfFns0Ekni7O-r2fhVhyimBMlFJBjLFyTVws6oV7oGVDh5amHGv1_p6Gwzu7tY21h5edv1_1E9OuuC.l57zKlAl29BGXBdZVEzyxswWR5fXNgnXCuMh7DQdP0A&dib_tag=se&keywords=Supermicro+H14SSL-N&qid=1782692539&sprefix=Supermicro%2BH14SSLN%2Caps%2C120&sr=8-10",
+      "buy_url": "https://www.amazon.com/Supermicro-H14SSL-N-Single-Socket-Motherboard/dp/B0FKY6GM3V/ref=sr_1_10?crid=BOKRVR6Z08MZ&dib=eyJ2IjoiMSJ9.L3ffwr-iiiXme8RXa4CAItT_ojCjUvcdhFP2ZULWVVOnzq6Uu-zuzOsBCnFS5GUSDzJzl5AI25v_zi4UV0qWJ3WdsIS1YASA0x-SgU0Oy7b1dOeU62cfFns0Ekni7O-r2fhVhyimBMlFJBjLFyTVws6oV7oGVDh5amHGv1_p6Gwzu7tY21h5edv1_1E9OuuC.l57zKlAl29BGXBdZVEzyxswWR5fXNgnXCuMh7DQdP0A&dib_tag=se&keywords=Supermicro+H14SSL-N&qid=1782692539&sprefix=Supermicro%2BH14SSLN%2Caps%2C120&sr=8-10",
+      "image_url": "https://m.media-amazon.com/images/I/61kqgdi2C2L._AC_UY218_.jpg",
+      "title": "H14SSL-N AMD EPYC Single Socket SP5 DDR5 ATX Motherboard",
+      "price_usd": 0.0,
+      "total_for_target_usd": null,
+      "currency_approx_fx": null,
+      "condition": "",
+      "seller_name": "Amazon",
+      "is_kit": false,
+      "kit_module_count": 1,
+      "badges": [],
+      "seller_rating_pct": null,
+      "seller_feedback_count": null,
+      "rating": 5.0,
+      "rating_count": 1,
+      "ship_from_country": null,
+      "quantity_available": null,
+      "flags": [],
+      "brand": null,
+      "mpn": null,
+      "attrs": {
+        "asin": "B0FKY6GM3V",
+        "condition": "new"
+      }
+    }
+  ],
+  "all_listings": [
+    {
+      "rank": 1,
+      "source": "ebay_search",
+      "vendor_host": "www.ebay.com",
+      "url": "https://www.ebay.com/itm/366435742108?_skw=Supermicro+H14SSL-N&hash=item555145b19c:g:FqkAAeSwkvJqPOxD",
+      "buy_url": "https://www.ebay.com/itm/366435742108?_skw=Supermicro+H14SSL-N&hash=item555145b19c:g:FqkAAeSwkvJqPOxD",
+      "image_url": null,
+      "title": "Supermicro Motherboard H14SSL-N - ATX - Mainboard - Mainboard - ATX",
+      "price_usd": 978.0,
+      "total_for_target_usd": null,
+      "currency_approx_fx": null,
+      "condition": "new",
+      "seller_name": "digi-techx",
+      "is_kit": false,
+      "kit_module_count": 1,
+      "badges": [
+        {
+          "key": "ship_from_de",
+          "label": "ship_from_de",
+          "severity": "info"
+        }
+      ],
+      "seller_rating_pct": 99.7,
+      "seller_feedback_count": 16940,
+      "rating": null,
+      "rating_count": null,
+      "ship_from_country": "DE",
+      "quantity_available": null,
+      "flags": [
+        "ship_from_de"
+      ],
+      "brand": null,
+      "mpn": null,
+      "attrs": {}
+    },
+    {
+      "rank": 2,
+      "source": "ebay_search",
+      "vendor_host": "www.ebay.com",
+      "url": "https://www.ebay.com/itm/298381677826?_skw=Supermicro+H14SSL-N&hash=item4578ef1502:g:dmUAAeSwYN1qPOzx",
+      "buy_url": "https://www.ebay.com/itm/298381677826?_skw=Supermicro+H14SSL-N&hash=item4578ef1502:g:dmUAAeSwYN1qPOzx",
+      "image_url": null,
+      "title": "Supermicro Motherboard H14SSL-N - ATX - Mainboard - ATX (MBD-H14SSL-N-O)",
+      "price_usd": 1085.0,
+      "total_for_target_usd": null,
+      "currency_approx_fx": null,
+      "condition": "new",
+      "seller_name": "digi-techx",
+      "is_kit": false,
+      "kit_module_count": 1,
+      "badges": [
+        {
+          "key": "ship_from_de",
+          "label": "ship_from_de",
+          "severity": "info"
+        }
+      ],
+      "seller_rating_pct": 99.7,
+      "seller_feedback_count": 16940,
+      "rating": null,
+      "rating_count": null,
+      "ship_from_country": "DE",
+      "quantity_available": null,
+      "flags": [
+        "ship_from_de"
+      ],
+      "brand": null,
+      "mpn": null,
+      "attrs": {}
+    },
+    {
+      "rank": 3,
+      "source": "serper_shopping",
+      "vendor_host": "ebay.com",
+      "url": "https://www.google.com/search?ibp=oshop&q=Supermicro+H14SSL-N&prds=localAnnotatedOfferId:1,productid:7034165794189287005,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
+      "buy_url": "https://www.google.com/search?ibp=oshop&q=Supermicro+H14SSL-N&prds=localAnnotatedOfferId:1,productid:7034165794189287005,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
+      "image_url": "data:image/webp;base64,UklGRjIEAABXRUJQVlA4ICYEAAAwFQCdASpAAGAAPok4lkglI6IhOVXuYKARCWcAzvOprvpxR9HIPtxOzdvrRA3FAmPuyI/gJp594Wzm98nOiTk5xeB58dnm+QzwfLoPUnUO+unezZ7RTYGF+lh4MHPyxAjA8Mr7TdEdUlckduxdYN5R/dBlT0assy3H0RalWknZn8Qw5QR50D4Fq5B/HEe6xd1Ya5mrBvM3IFlva7ZobQI6YQC1it863q2pygk1qNkAKCGQAP7sPcAoTfKDmCefOGPOrRclhUVfmgbKmwWC6eL1UkTfvUiTBZEVxGSutpTxMJR1FTlPnslw7AxC9LstY1VZEwljrAMXoceQk7mM4OjFgK3vG45L+ZnUmotH40rJu3+j+JGkOzlpdVL7MKKjtKYthBcxMNQQjdeY52c87r9llp/IjojBOVya1nh3a6rPLHXQfabQq26vukhMXshFXQrr/sO1BbbqtqqbgWtOkgXfefCETagkAL+cR0jKmLGtw+OxZJHE4YQbjXS77s6PbW+PRp363AFmTZiISAwtMPDTIiH3xkRImd+VGNLQBm867+na6HHei4nfUVSzeW+JnsMynIN7jkiLc6iRrgCkNX2GWdEW7KhfwWhZycFy4qmRY/CBKD6HIanjcAiuzD7GNjcSWWHfGjFycQSjC6NYXCnZ1LfYCrT9PYamVx9mUS47XjI8WSG5e894IlqwVOz04af4rDH1dy1+XTZaIIdHPUYW7FD+zQtUF1iRsA672MMF80bicP6K2iw0yykL5FG4pw1nebgQ71WTg3fQ4gNbtsLaPNsHa92Mh4QZeoOutCa96OW0MXHoX1lUWVCsljGtgl1s4tphyg0+mIKAziyROVwcEIq232EdRLkunF5SI0KclzGamAOl64RxjtWqKhesMRAj8gH7+oQ1X2HWU8iBQEWvRDO4t2HvLcfUSApHPvG1+S8nCBVqK4XMyOeV77//vD/W4Zw6FuOcLTQymN+HGLe8G698TaNFjrUiqobs+vVQGN6YpUidVa6Se/NkfhOrxu4Vb7Rf4wYENmRrakog4XGyI9QalqKInyViAdtWT5UF3/84NjtiT6lHU2+sQRI3CqE/4O4caehYe9vXzwWx64AAGwsJZJ3BX1ncSn4GjqAWIK4JCQPzUt92yNGfz1NiIz0fIvWInxZRL50BFPuQE5phx8YFJP0aUeTRSQeoIUWjpH2tzkFX0q/ALfbvJ75QuNY625efNaZkkuODOU6+Vsaj6RgOyVoRBKFbhXaQyNvQdbNgQxlm+qfmQxzeKHI8DcQBSxTzax0QSjtlK7pLLfZL4ElIxha2zo86XtbdKbj45Oivg1iVHnO1g3Bhxa+7sp/Vf4qsEKS//zugFgOpLuJqzfPHgQ8eu3kMRXEcjh5fsf6kB7lafszqvJvwDpxBKLu6BBeAAAA=",
+      "title": "Supermicro H14ssl-n Support Amd Epyc 9004/9005 Series Processors",
+      "price_usd": 1188.0,
+      "total_for_target_usd": null,
+      "currency_approx_fx": null,
+      "condition": "",
+      "seller_name": "eBay - electronic-2018",
+      "is_kit": false,
+      "kit_module_count": 1,
+      "badges": [],
+      "seller_rating_pct": null,
+      "seller_feedback_count": null,
+      "rating": null,
+      "rating_count": null,
+      "ship_from_country": null,
+      "quantity_available": null,
+      "flags": [],
+      "brand": null,
+      "mpn": null,
+      "attrs": {
+        "serper_product_id": "7034165794189287005"
+      }
+    },
+    {
+      "rank": 4,
+      "source": "serper_shopping",
+      "vendor_host": "ebay.com",
+      "url": "https://www.google.com/search?ibp=oshop&q=H14SSL-N+motherboard&prds=localAnnotatedOfferId:1,productid:8906291212427916787,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
+      "buy_url": "https://www.google.com/search?ibp=oshop&q=H14SSL-N+motherboard&prds=localAnnotatedOfferId:1,productid:8906291212427916787,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
+      "image_url": "data:image/webp;base64,UklGRjIEAABXRUJQVlA4ICYEAAAwFQCdASpAAGAAPok4lkglI6IhOVXuYKARCWcAzvOprvpxR9HIPtxOzdvrRA3FAmPuyI/gJp594Wzm98nOiTk5xeB58dnm+QzwfLoPUnUO+unezZ7RTYGF+lh4MHPyxAjA8Mr7TdEdUlckduxdYN5R/dBlT0assy3H0RalWknZn8Qw5QR50D4Fq5B/HEe6xd1Ya5mrBvM3IFlva7ZobQI6YQC1it863q2pygk1qNkAKCGQAP7sPcAoTfKDmCefOGPOrRclhUVfmgbKmwWC6eL1UkTfvUiTBZEVxGSutpTxMJR1FTlPnslw7AxC9LstY1VZEwljrAMXoceQk7mM4OjFgK3vG45L+ZnUmotH40rJu3+j+JGkOzlpdVL7MKKjtKYthBcxMNQQjdeY52c87r9llp/IjojBOVya1nh3a6rPLHXQfabQq26vukhMXshFXQrr/sO1BbbqtqqbgWtOkgXfefCETagkAL+cR0jKmLGtw+OxZJHE4YQbjXS77s6PbW+PRp363AFmTZiISAwtMPDTIiH3xkRImd+VGNLQBm867+na6HHei4nfUVSzeW+JnsMynIN7jkiLc6iRrgCkNX2GWdEW7KhfwWhZycFy4qmRY/CBKD6HIanjcAiuzD7GNjcSWWHfGjFycQSjC6NYXCnZ1LfYCrT9PYamVx9mUS47XjI8WSG5e894IlqwVOz04af4rDH1dy1+XTZaIIdHPUYW7FD+zQtUF1iRsA672MMF80bicP6K2iw0yykL5FG4pw1nebgQ71WTg3fQ4gNbtsLaPNsHa92Mh4QZeoOutCa96OW0MXHoX1lUWVCsljGtgl1s4tphyg0+mIKAziyROVwcEIq232EdRLkunF5SI0KclzGamAOl64RxjtWqKhesMRAj8gH7+oQ1X2HWU8iBQEWvRDO4t2HvLcfUSApHPvG1+S8nCBVqK4XMyOeV77//vD/W4Zw6FuOcLTQymN+HGLe8G698TaNFjrUiqobs+vVQGN6YpUidVa6Se/NkfhOrxu4Vb7Rf4wYENmRrakog4XGyI9QalqKInyViAdtWT5UF3/84NjtiT6lHU2+sQRI3CqE/4O4caehYe9vXzwWx64AAGwsJZJ3BX1ncSn4GjqAWIK4JCQPzUt92yNGfz1NiIz0fIvWInxZRL50BFPuQE5phx8YFJP0aUeTRSQeoIUWjpH2tzkFX0q/ALfbvJ75QuNY625efNaZkkuODOU6+Vsaj6RgOyVoRBKFbhXaQyNvQdbNgQxlm+qfmQxzeKHI8DcQBSxTzax0QSjtlK7pLLfZL4ElIxha2zo86XtbdKbj45Oivg1iVHnO1g3Bhxa+7sp/Vf4qsEKS//zugFgOpLuJqzfPHgQ8eu3kMRXEcjh5fsf6kB7lafszqvJvwDpxBKLu6BBeAAAA=",
+      "title": "Supermicro H14ssl-n Support Amd Epyc 9004/9005 Series Processors",
+      "price_usd": 1188.0,
+      "total_for_target_usd": null,
+      "currency_approx_fx": null,
+      "condition": "",
+      "seller_name": "eBay - kgda_68",
+      "is_kit": false,
+      "kit_module_count": 1,
+      "badges": [],
+      "seller_rating_pct": null,
+      "seller_feedback_count": null,
+      "rating": null,
+      "rating_count": null,
+      "ship_from_country": null,
+      "quantity_available": null,
+      "flags": [],
+      "brand": null,
+      "mpn": null,
+      "attrs": {
+        "serper_product_id": "8906291212427916787"
+      }
+    },
+    {
+      "rank": 5,
+      "source": "ebay_search",
+      "vendor_host": "www.ebay.com",
+      "url": "https://www.ebay.com/itm/178118733225?_skw=Supermicro+H14SSL-N&hash=item2978b42da9:g:6hgAAOSw6cNkQStg",
+      "buy_url": "https://www.ebay.com/itm/178118733225?_skw=Supermicro+H14SSL-N&hash=item2978b42da9:g:6hgAAOSw6cNkQStg",
+      "image_url": null,
+      "title": "Supermicro H14SSL-N Support AMD EPYC 9004/9005 Series Processors",
+      "price_usd": 1188.0,
+      "total_for_target_usd": null,
+      "currency_approx_fx": null,
+      "condition": "new",
+      "seller_name": "tugm4470",
+      "is_kit": false,
+      "kit_module_count": 1,
+      "badges": [
+        {
+          "key": "ship_from_cn",
+          "label": "ship_from_cn",
+          "severity": "info"
+        }
+      ],
+      "seller_rating_pct": 99.2,
+      "seller_feedback_count": 5846,
+      "rating": null,
+      "rating_count": null,
+      "ship_from_country": "CN",
+      "quantity_available": null,
+      "flags": [
+        "ship_from_cn"
+      ],
+      "brand": null,
+      "mpn": null,
+      "attrs": {}
+    },
+    {
+      "rank": 6,
+      "source": "ebay_search",
+      "vendor_host": "www.ebay.com",
+      "url": "https://www.ebay.com/itm/137294609790?_skw=Supermicro+H14SSL-N&hash=item1ff7657d7e:g:6hgAAOSw6cNkQStg",
+      "buy_url": "https://www.ebay.com/itm/137294609790?_skw=Supermicro+H14SSL-N&hash=item1ff7657d7e:g:6hgAAOSw6cNkQStg",
+      "image_url": null,
+      "title": "Supermicro H14SSL-N Support AMD EPYC 9004/9005 Series Processors ",
+      "price_usd": 1188.0,
+      "total_for_target_usd": null,
+      "currency_approx_fx": null,
+      "condition": "new",
+      "seller_name": "inwm9492",
+      "is_kit": false,
+      "kit_module_count": 1,
+      "badges": [
+        {
+          "key": "ship_from_cn",
+          "label": "ship_from_cn",
+          "severity": "info"
+        }
+      ],
+      "seller_rating_pct": 100.0,
+      "seller_feedback_count": 6214,
+      "rating": null,
+      "rating_count": null,
+      "ship_from_country": "CN",
+      "quantity_available": null,
+      "flags": [
+        "ship_from_cn"
+      ],
+      "brand": null,
+      "mpn": null,
+      "attrs": {}
+    },
+    {
+      "rank": 7,
+      "source": "ebay_search",
+      "vendor_host": "www.ebay.com",
+      "url": "https://www.ebay.com/itm/137294609737?_skw=Supermicro+H14SSL-N&hash=item1ff7657d49:g:6hgAAOSw6cNkQStg",
+      "buy_url": "https://www.ebay.com/itm/137294609737?_skw=Supermicro+H14SSL-N&hash=item1ff7657d49:g:6hgAAOSw6cNkQStg",
+      "image_url": null,
+      "title": "Supermicro H14SSL-N Support AMD EPYC 9004/9005 Series Processors",
+      "price_usd": 1188.0,
+      "total_for_target_usd": null,
+      "currency_approx_fx": null,
+      "condition": "new",
+      "seller_name": "kgda_68",
+      "is_kit": false,
+      "kit_module_count": 1,
+      "badges": [
+        {
+          "key": "ship_from_cn",
+          "label": "ship_from_cn",
+          "severity": "info"
+        }
+      ],
+      "seller_rating_pct": 100.0,
+      "seller_feedback_count": 712,
+      "rating": null,
+      "rating_count": null,
+      "ship_from_country": "CN",
+      "quantity_available": null,
+      "flags": [
+        "ship_from_cn"
+      ],
+      "brand": null,
+      "mpn": null,
+      "attrs": {}
+    },
+    {
+      "rank": 8,
+      "source": "ebay_search",
+      "vendor_host": "www.ebay.com",
+      "url": "https://www.ebay.com/itm/236807103826?_skw=Supermicro+H14SSL-N&hash=item3722cda552:g:6hgAAOSw6cNkQStg",
+      "buy_url": "https://www.ebay.com/itm/236807103826?_skw=Supermicro+H14SSL-N&hash=item3722cda552:g:6hgAAOSw6cNkQStg",
+      "image_url": null,
+      "title": "Supermicro H14SSL-N Support AMD EPYC 9004/9005 Series Processors",
+      "price_usd": 1188.0,
+      "total_for_target_usd": null,
+      "currency_approx_fx": null,
+      "condition": "new",
+      "seller_name": "electronic-2018",
+      "is_kit": false,
+      "kit_module_count": 1,
+      "badges": [
+        {
+          "key": "ship_from_cn",
+          "label": "ship_from_cn",
+          "severity": "info"
+        }
+      ],
+      "seller_rating_pct": 100.0,
+      "seller_feedback_count": 249,
+      "rating": null,
+      "rating_count": null,
+      "ship_from_country": "CN",
+      "quantity_available": null,
+      "flags": [
+        "ship_from_cn"
+      ],
+      "brand": null,
+      "mpn": null,
+      "attrs": {}
+    },
+    {
+      "rank": 9,
+      "source": "ebay_search",
+      "vendor_host": "www.ebay.com",
+      "url": "https://www.ebay.com/itm/198383501689?_skw=Supermicro+H14SSL-N&hash=item2e30940179:g:cCcAAeSwX9xqFtjD",
+      "buy_url": "https://www.ebay.com/itm/198383501689?_skw=Supermicro+H14SSL-N&hash=item2e30940179:g:cCcAAeSwX9xqFtjD",
+      "image_url": null,
+      "title": "Supermicro H14SSL-N SP5 Server Motherboard AMD EPYC 9005 9004 CPU ATX Board",
+      "price_usd": 1199.99,
+      "total_for_target_usd": null,
+      "currency_approx_fx": null,
+      "condition": "new",
+      "seller_name": "fuxindongli",
+      "is_kit": false,
+      "kit_module_count": 1,
+      "badges": [
+        {
+          "key": "ship_from_cn",
+          "label": "ship_from_cn",
+          "severity": "info"
+        }
+      ],
+      "seller_rating_pct": 98.7,
+      "seller_feedback_count": 147,
+      "rating": null,
+      "rating_count": null,
+      "ship_from_country": "CN",
+      "quantity_available": null,
+      "flags": [
+        "ship_from_cn"
+      ],
+      "brand": null,
+      "mpn": null,
+      "attrs": {}
+    },
+    {
+      "rank": 10,
+      "source": "ebay_search",
+      "vendor_host": "www.ebay.com",
+      "url": "https://www.ebay.com/itm/397995420593?_skw=Supermicro+H14SSL-N&hash=item5caa602bb1:g:CP0AAeSweINqFtlS&amdata=enc%3AAQALAAAA8ACCtXRWQnOEpyOqnQQ8KGbk71HbZypUpqdQhViKAd7Balhi%2FKCDEyabXi7xfIfzUP8FvNMW05UHFTzv%2BRZU4ypGFGY9EBDjHTnkDyDOeh%2Bt9YFAWAEZIG2n95jElD%2FX3xAww2tvat%2BeXM6SK4WUoyOGNm7Ycy%2Btm84TkKb0yC04Gjv412jVp3XE5lnxzhwyAKZXQYvxM%2F0bWeUWqgm7W0dq5UeNP4Jbl7lH9fDOzQKEdmNvhTAk10H9OyferIJbw%2FLUb75D3BX0RKfTXU3sg%2F5SzfxCOxE9xFPqlAtDYRGkthSDGGT7OHlD2ainJKomiw%3D%3D",
+      "buy_url": "https://www.ebay.com/itm/397995420593?_skw=Supermicro+H14SSL-N&hash=item5caa602bb1:g:CP0AAeSweINqFtlS&amdata=enc%3AAQALAAAA8ACCtXRWQnOEpyOqnQQ8KGbk71HbZypUpqdQhViKAd7Balhi%2FKCDEyabXi7xfIfzUP8FvNMW05UHFTzv%2BRZU4ypGFGY9EBDjHTnkDyDOeh%2Bt9YFAWAEZIG2n95jElD%2FX3xAww2tvat%2BeXM6SK4WUoyOGNm7Ycy%2Btm84TkKb0yC04Gjv412jVp3XE5lnxzhwyAKZXQYvxM%2F0bWeUWqgm7W0dq5UeNP4Jbl7lH9fDOzQKEdmNvhTAk10H9OyferIJbw%2FLUb75D3BX0RKfTXU3sg%2F5SzfxCOxE9xFPqlAtDYRGkthSDGGT7OHlD2ainJKomiw%3D%3D",
+      "image_url": null,
+      "title": "Supermicro H14SSL-N SP5 Server Motherboard AMD EPYC 9005 9004 CPU ATX Board",
+      "price_usd": 1250.0,
+      "total_for_target_usd": null,
+      "currency_approx_fx": null,
+      "condition": "new",
+      "seller_name": "fuxindongli01",
+      "is_kit": false,
+      "kit_module_count": 1,
+      "badges": [
+        {
+          "key": "ship_from_cn",
+          "label": "ship_from_cn",
+          "severity": "info"
+        }
+      ],
+      "seller_rating_pct": 98.9,
+      "seller_feedback_count": 347,
+      "rating": null,
+      "rating_count": null,
+      "ship_from_country": "CN",
+      "quantity_available": null,
+      "flags": [
+        "ship_from_cn"
+      ],
+      "brand": null,
+      "mpn": null,
+      "attrs": {}
+    },
+    {
+      "rank": 11,
+      "source": "ebay_search",
+      "vendor_host": "www.ebay.com",
+      "url": "https://www.ebay.com/itm/198396762132?_skw=Supermicro+H14SSL-N&hash=item2e315e5814:g:YYkAAeSwFH9qKR-z&amdata=enc%3AAQALAAAA8ACCtXRWQnOEpyOqnQQ8KGa2UiMt8w8Xcyzu5dZbjdLRfHMFQxhsg4R7%2BELtLcIFhMWIgjr06nuNn%2B0Pb8gzYHFmRyXop8%2Bwn6er%2BPD%2BG57UeOS9pgs8dIs%2BWRDfL%2F023lH1ePIPqRMXqirMwvtnXRX9iEqL8gsuH8ih4LaODXKtqV7SwbUD0kraQ4yv%2FR48c9fh4C31m9cNt61fEmpPeDtK%2BntR9uwrEYPUymwjZ8q1PL7CMdHJhM5tM8cGwSB98TVPNIhdwl%2FW2FJKZtH4oE1lB16YlKf32YpvfPhijpKLc4KEPc7tdEhXGinLd6u2gQ%3D%3D",
+      "buy_url": "https://www.ebay.com/itm/198396762132?_skw=Supermicro+H14SSL-N&hash=item2e315e5814:g:YYkAAeSwFH9qKR-z&amdata=enc%3AAQALAAAA8ACCtXRWQnOEpyOqnQQ8KGa2UiMt8w8Xcyzu5dZbjdLRfHMFQxhsg4R7%2BELtLcIFhMWIgjr06nuNn%2B0Pb8gzYHFmRyXop8%2Bwn6er%2BPD%2BG57UeOS9pgs8dIs%2BWRDfL%2F023lH1ePIPqRMXqirMwvtnXRX9iEqL8gsuH8ih4LaODXKtqV7SwbUD0kraQ4yv%2FR48c9fh4C31m9cNt61fEmpPeDtK%2BntR9uwrEYPUymwjZ8q1PL7CMdHJhM5tM8cGwSB98TVPNIhdwl%2FW2FJKZtH4oE1lB16YlKf32YpvfPhijpKLc4KEPc7tdEhXGinLd6u2gQ%3D%3D",
+      "image_url": null,
+      "title": "Supermicro H14SSL-N SP5 Server Motherboard AMD EPYC 9005 9004 CPU ATX Board",
+      "price_usd": 1250.0,
+      "total_for_target_usd": null,
+      "currency_approx_fx": null,
+      "condition": "new",
+      "seller_name": "dianzishebeifanqie",
+      "is_kit": false,
+      "kit_module_count": 1,
+      "badges": [
+        {
+          "key": "ship_from_cn",
+          "label": "ship_from_cn",
+          "severity": "info"
+        }
+      ],
+      "seller_rating_pct": 100.0,
+      "seller_feedback_count": 1,
+      "rating": null,
+      "rating_count": null,
+      "ship_from_country": "CN",
+      "quantity_available": null,
+      "flags": [
+        "ship_from_cn"
+      ],
+      "brand": null,
+      "mpn": null,
+      "attrs": {}
+    },
+    {
+      "rank": 12,
+      "source": "serper_shopping",
+      "vendor_host": "desertcart.ae",
+      "url": "https://www.google.com/search?ibp=oshop&q=Supermicro+H14SSL-N&prds=localAnnotatedOfferId:1,catalogid:1761621107506830682,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
+      "buy_url": "https://www.google.com/search?ibp=oshop&q=Supermicro+H14SSL-N&prds=localAnnotatedOfferId:1,catalogid:1761621107506830682,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
+      "image_url": "data:image/webp;base64,UklGRsoHAABXRUJQVlA4IL4HAACQHwCdASpdAGAAPp0+mkkloyIkLjn6aLATiWUAyqyPLhBJHb7aSby/ev5RAW+v3Ua7y8W+9v42xh+zQtH6BHdzwBtS/wt0P+CDQG8YHR2qHqisIN7Ejcw1QhgA3pt6RhTBjdWHW73juBhRWY2Kbd4TchkPlA0JTAWom90fmVmlhaFvKB7jZ6ez+S0k1FXwqWEgEALhxN4Ctt6snrgNxzNuchD4b4K1l8R6kysWvsosEcliMVAKdMZ27Iqwu5vW+oBxyjyGHXzPrhnxN4uuXtMD3D4lgE02x+qD3IkWyG7OVVCU7rngNgR+4BQV0K65sb/dLu/6r981bSEupyVrBOJGwwBW+AAA/v8SBb5HPyJ6E7LKv8yh1t47pDRVL0/w7dg4zfvFm+wr/LQRd49Q11x+qsHHAfBV+JoAz/0nSToi5Cu4SzKJRVLUu50noPQ0p3JAnkRjemvHaQDARqRtJ/Bsbc2isrBF13FWvS5XnU/R8L9sY5xAfqhXj0TyMLsVls2vdtnPOTNUxEzXnLw5hEY1okfK7H6oYvDFcB9tyuESF0Uuzmhe4kDp59p6dGpkcMqHwfFn4IujjR78JAIt7+FWVqfNu6eHPbWBbIzwQjwM1gS/KxcCQucgZu354ARxxqBvAtcCVsXoRqaPnqYJOsZMcCb8Evu/vr+7rGUV7ZHV0YbEnP/cjHlah2Bh9rJbAJdda0i2ebFHIZ9Zj/9LzS1zcmzPZhz6I4fg61hnKXiKmetaGLPV2XDR+NmK1A8mEzW9I1MiVWaduWOWz5ab6R5dXH1EIzZc2S4qwxAxbRJjJ1mQcKOVr7vjaTstuIFfDJFkTn4WJ9/0Ih9fROH3e6ov3hGPJIl2BLk/aJQCy77gLtUUwvtb5QDf6MDiDZkU8ExZGx1GneGqrE/c/qp0KhROu+8Vv1JZqfqQeeR0ieNEhUzcLJHzSURVaIlGs0SfgBgVvkpVRNDK6os/KutwQNuxtG3EHMubOV2wI5LMKbtcfE8nXNEWEqxmhjuLJ6YXW43I2C7NT0eoNKHs2+8V3XmXtjiKPsKhZ5NDLIq3R7PodlUOPoBGDiZiMwWnJBCbhGFH0TX2CWvckd8EVQv9QEQQ4Pdjn0ajyX2orummrO4t4AzRTXytZBhn8pN6xQI/vzvJtxHQcJ4NWe0VjrahDTqWU+rAF++EC0JlzAydOoyPsW3U6OSAtemh+VzGlQX+xzGpehwUip4uIWHaKMqVlU2zzY4DZV/hC36SNJSqWst5XeCjstEGhswXQHVzuy8LFLN+1JguYTzCcVFsrxXyyccFtLqlOdzRDZxT8JBlQ/SZgFxLnLsqIbjzkjAeV6wUPf810z7elwQzglv82FilVhrz6iwi/lf/kYF7Ko8rBa6wW8+J/bpAhEP1uwWUjm2f9zqp2HfSi0VDDZGUtqkzz/0Ov99zjKZtsuRrUxQG10g5tyE2oRuqx88RV9qcLwJSaa/PkXeEP46nXilU2qd/MVpaDBH5XX/pvOMs+LcXBcIDE5x2abpzGgGeEINNlkeIgGKSHV1a36shqedSKFteJfrXVJ7gNoGWb+/noxd928886y9XF/XnxFeezewmqNM/AodTFclvDJgAUnbPYfGQEYBrp4UGEJgjt87u+J7HVYhajDJ1OxSonL3sHnhMzCYlcRQp2KzHA5Li24Snas2ZBiSESsgvaqaZ+LuK6GNFkEPvGUXHHo4sL7x8sQxKyDoy5qff3qeOubpk019fi/nynkegET2qdajgpOBS9G3/GojT8MrlX17IGoyHvn7/0zQdL9hZl9hK7FH+CHI2XCz2IpsdSnkKPEeJ19KjjutR/K88zZ3bl2QK72ZLTFvDgCFv+9vqmwritb/jCe+wu1jZen9ZLQNStWZnDCxQSHqEmkXgp4Gaf3RdrVPhUI+bz/4KQ/U5ls4TlvQdRcY/ncGWFRfrPoe1SWl1ardyDZl836H7FazG7rybMIImfH6fk96/IR9koS3jEUi72U+a213HwJ7h1mBabvwL9TkDDjxp5BvAzAOZaSSWBvoKWZC30y4XrUiBidiidu0SNVvzpRRHzssfMY3OxCOInP+78ozfGKoLIMDei3BwnkJHMNW5nfzgDywFKdToLfvGHQ2yAG2vGqRUuCCNyfR0UISpg5LXRg+6NoZdY8xvjysa9LVHN0nO8IJ9BUHX0RCB94kyTs9sN0491JCPj0iAeF4sUCa3l3guWvBlbzwLpXv45mQd0cPM7nxrSmARjb/XEd1Wh+fVbGwT9s1wnUJ+YzgH6AzTSDBan19bfjATqlWx2/61ll7em7/xIRgjTfr4bFD+8GakPjIamYfjB7qgC9ZLLVKycQY5DeueCDamTL0tLsgVb8P9zEAT9Kr1ChGoiuC7pi+hJMC2g4heTBpg18A8i8Wt/lc2M+eeROEQKkReP93XuXjlYLeQFq1oOGzb435hj+F1c1+giKyCa0EfjO/ORZILU+KtPdi0Tuf1kGRad6tSG+qcZJmL5gwGO6WdEkiGxvg07LxLH2bW9Z5BbEF3PZci+k4qVPiL1q71OTo11IvdvOK+61MtJjZeGKWQHfLIHgkW+aD+g4sVJY3Q17uADJZ/QOKaHNa7nFVuTBOqMv0+RO1kv5lim9hpWpVyYYdZLehQAA==",
+      "title": "Supermicro H14SSL-N AMD EPYC Single Socket SP5 DDR5 ATX Motherboard",
+      "price_usd": 1434.45,
+      "total_for_target_usd": null,
+      "currency_approx_fx": null,
+      "condition": "",
+      "seller_name": "Desertcart.ae",
+      "is_kit": false,
+      "kit_module_count": 1,
+      "badges": [],
+      "seller_rating_pct": null,
+      "seller_feedback_count": null,
+      "rating": null,
+      "rating_count": null,
+      "ship_from_country": null,
+      "quantity_available": null,
+      "flags": [],
+      "brand": null,
+      "mpn": null,
+      "attrs": {
+        "serper_product_id": "1761621107506830682"
+      }
+    },
+    {
+      "rank": 13,
+      "source": "serper_shopping",
+      "vendor_host": "ebay.com",
+      "url": "https://www.google.com/search?ibp=oshop&q=Supermicro+H14SSL-N&prds=localAnnotatedOfferId:1,productid:3749954165646476895,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
+      "buy_url": "https://www.google.com/search?ibp=oshop&q=Supermicro+H14SSL-N&prds=localAnnotatedOfferId:1,productid:3749954165646476895,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
+      "image_url": "data:image/webp;base64,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",
+      "title": "Amd Epyc 9965 Qs 192c/384t 2.25ghz + Supermicro H14ssl-n Ddr5 Socket",
+      "price_usd": 6000.0,
+      "total_for_target_usd": null,
+      "currency_approx_fx": null,
+      "condition": "",
+      "seller_name": "eBay",
+      "is_kit": false,
+      "kit_module_count": 1,
+      "badges": [
+        {
+          "key": "price_anomaly_high",
+          "label": "price_anomaly_high",
+          "severity": "info"
+        }
+      ],
+      "seller_rating_pct": null,
+      "seller_feedback_count": null,
+      "rating": null,
+      "rating_count": null,
+      "ship_from_country": null,
+      "quantity_available": null,
+      "flags": [
+        "price_anomaly_high"
+      ],
+      "brand": null,
+      "mpn": null,
+      "attrs": {
+        "serper_product_id": "3749954165646476895"
+      }
+    },
+    {
+      "rank": 14,
+      "source": "serper_shopping",
+      "vendor_host": "ebay.com",
+      "url": "https://www.google.com/search?ibp=oshop&q=Supermicro+H14SSL-N&prds=localAnnotatedOfferId:1,productid:10470903625729996467,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
+      "buy_url": "https://www.google.com/search?ibp=oshop&q=Supermicro+H14SSL-N&prds=localAnnotatedOfferId:1,productid:10470903625729996467,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
+      "image_url": "data:image/webp;base64,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",
+      "title": "Supermicro H14ssl-n + Amd Epyc 9965 Turin Sp5 192 Cores 384 Threads",
+      "price_usd": 8299.0,
+      "total_for_target_usd": null,
+      "currency_approx_fx": null,
+      "condition": "",
+      "seller_name": "eBay - kuaka02",
+      "is_kit": false,
+      "kit_module_count": 1,
+      "badges": [
+        {
+          "key": "price_anomaly_high",
+          "label": "price_anomaly_high",
+          "severity": "info"
+        }
+      ],
+      "seller_rating_pct": null,
+      "seller_feedback_count": null,
+      "rating": null,
+      "rating_count": null,
+      "ship_from_country": null,
+      "quantity_available": null,
+      "flags": [
+        "price_anomaly_high"
+      ],
+      "brand": null,
+      "mpn": null,
+      "attrs": {
+        "serper_product_id": "10470903625729996467"
+      }
+    },
+    {
+      "rank": 15,
+      "source": "amazon_dataforseo",
+      "vendor_host": "www.amazon.com",
+      "url": "https://www.amazon.com/Supermicro-H14SSL-N-Single-Socket-Motherboard/dp/B0FKY6GM3V/ref=sr_1_10?crid=BOKRVR6Z08MZ&dib=eyJ2IjoiMSJ9.L3ffwr-iiiXme8RXa4CAItT_ojCjUvcdhFP2ZULWVVOnzq6Uu-zuzOsBCnFS5GUSDzJzl5AI25v_zi4UV0qWJ3WdsIS1YASA0x-SgU0Oy7b1dOeU62cfFns0Ekni7O-r2fhVhyimBMlFJBjLFyTVws6oV7oGVDh5amHGv1_p6Gwzu7tY21h5edv1_1E9OuuC.l57zKlAl29BGXBdZVEzyxswWR5fXNgnXCuMh7DQdP0A&dib_tag=se&keywords=Supermicro+H14SSL-N&qid=1782692539&sprefix=Supermicro%2BH14SSLN%2Caps%2C120&sr=8-10",
+      "buy_url": "https://www.amazon.com/Supermicro-H14SSL-N-Single-Socket-Motherboard/dp/B0FKY6GM3V/ref=sr_1_10?crid=BOKRVR6Z08MZ&dib=eyJ2IjoiMSJ9.L3ffwr-iiiXme8RXa4CAItT_ojCjUvcdhFP2ZULWVVOnzq6Uu-zuzOsBCnFS5GUSDzJzl5AI25v_zi4UV0qWJ3WdsIS1YASA0x-SgU0Oy7b1dOeU62cfFns0Ekni7O-r2fhVhyimBMlFJBjLFyTVws6oV7oGVDh5amHGv1_p6Gwzu7tY21h5edv1_1E9OuuC.l57zKlAl29BGXBdZVEzyxswWR5fXNgnXCuMh7DQdP0A&dib_tag=se&keywords=Supermicro+H14SSL-N&qid=1782692539&sprefix=Supermicro%2BH14SSLN%2Caps%2C120&sr=8-10",
+      "image_url": "https://m.media-amazon.com/images/I/61kqgdi2C2L._AC_UY218_.jpg",
+      "title": "H14SSL-N AMD EPYC Single Socket SP5 DDR5 ATX Motherboard",
+      "price_usd": 0.0,
+      "total_for_target_usd": null,
+      "currency_approx_fx": null,
+      "condition": "",
+      "seller_name": "Amazon",
+      "is_kit": false,
+      "kit_module_count": 1,
+      "badges": [],
+      "seller_rating_pct": null,
+      "seller_feedback_count": null,
+      "rating": 5.0,
+      "rating_count": 1,
+      "ship_from_country": null,
+      "quantity_available": null,
+      "flags": [],
+      "brand": null,
+      "mpn": null,
+      "attrs": {
+        "asin": "B0FKY6GM3V",
+        "condition": "new"
+      }
+    }
+  ],
+  "overflow": {},
+  "hidden_anomalies": 0,
+  "recall_count": 266,
+  "survivor_count": 15,
+  "displayed_count": 15,
+  "outcome": {
+    "class": "ok",
+    "message": "",
+    "notes": []
+  },
+  "run_cost": {
+    "steps": [
+      {
+        "step": "ai_filter",
+        "provider": "local",
+        "model": "qwen-coder",
+        "input_tokens": 81827,
+        "output_tokens": 12760,
+        "cache_read_input_tokens": 0,
+        "cache_creation_input_tokens": 0,
+        "cost_usd": 0.0
+      },
+      {
+        "step": "amazon_recall",
+        "provider": "dataforseo",
+        "model": "amazon_products",
+        "input_tokens": 0,
+        "output_tokens": 0,
+        "cache_read_input_tokens": 0,
+        "cache_creation_input_tokens": 0,
+        "cost_usd": 0.004
+      }
+    ],
+    "total_usd": 0.004,
+    "any_unpriced": false
+  }
+}
