@@ -1,0 +1,1 @@
+{"timestamp": "2026-06-29T17:35:47.474683+00:00", "product": "focal-clear-og", "index": -1, "pass": false, "reason": "ai_filter exception: LLMError(\"LOCAL API error (500): Error code: 500 - {'error': 'unspecific error: upstream command exited prematurely', 'src': 'llama-swap'}\") (batch 1)", "title": "(filter call failed)", "price": null, "url": null, "source": null}

@@ -1,0 +1,49 @@
+{
+  "schema_version": 2,
+  "slug": "focal-clear-og",
+  "display_name": "Focal Clear OG Headphones",
+  "product_type": "headphones",
+  "snapshot_date": "2026-06-29",
+  "generated_at": "2026-06-29T17:35:47.757393+00:00",
+  "columns": [
+    "price"
+  ],
+  "listings": [],
+  "all_listings": [],
+  "overflow": {},
+  "hidden_anomalies": 0,
+  "recall_count": 389,
+  "survivor_count": 0,
+  "displayed_count": 0,
+  "outcome": {
+    "class": "all_filtered",
+    "message": "Found offers but none matched your spec \u2014 your match/filters may be too strict, or the query is mis-scoped. See the filter diagnostics.",
+    "notes": []
+  },
+  "run_cost": {
+    "steps": [
+      {
+        "step": "ai_filter",
+        "provider": "local",
+        "model": "qwen3.6-27b-mtp",
+        "input_tokens": 0,
+        "output_tokens": 0,
+        "cache_read_input_tokens": 0,
+        "cache_creation_input_tokens": 0,
+        "cost_usd": 0.0
+      },
+      {
+        "step": "amazon_recall",
+        "provider": "dataforseo",
+        "model": "amazon_products",
+        "input_tokens": 0,
+        "output_tokens": 0,
+        "cache_read_input_tokens": 0,
+        "cache_creation_input_tokens": 0,
+        "cost_usd": 0.005
+      }
+    ],
+    "total_usd": 0.005,
+    "any_unpriced": false
+  }
+}
