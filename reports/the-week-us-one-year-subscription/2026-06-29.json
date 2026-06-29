@@ -1,0 +1,158 @@
+{
+  "schema_version": 2,
+  "slug": "the-week-us-one-year-subscription",
+  "display_name": "The Week US \u2013 One Year Subscription (Print or Print+Digital)",
+  "product_type": "subscription",
+  "snapshot_date": "2026-06-29",
+  "generated_at": "2026-06-29T00:33:34.931566+00:00",
+  "columns": [
+    "price",
+    "seller"
+  ],
+  "listings": [
+    {
+      "rank": 1,
+      "source": "serper_shopping",
+      "vendor_host": "discountmags.com",
+      "url": "https://www.google.com/search?ibp=oshop&q=The+Week+magazine+US+one+year+subscription+print&prds=localAnnotatedOfferId:1,productid:4812643075986276412,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
+      "buy_url": "https://www.google.com/search?ibp=oshop&q=The+Week+magazine+US+one+year+subscription+print&prds=localAnnotatedOfferId:1,productid:4812643075986276412,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
+      "image_url": "data:image/webp;base64,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",
+      "title": "The Week Magazine Subscription (48 Issues)",
+      "price_usd": 67.49,
+      "total_for_target_usd": null,
+      "currency_approx_fx": null,
+      "condition": "",
+      "seller_name": "DiscountMags.com",
+      "is_kit": false,
+      "kit_module_count": 1,
+      "badges": [],
+      "seller_rating_pct": null,
+      "seller_feedback_count": null,
+      "rating": 4.8,
+      "rating_count": 772,
+      "ship_from_country": null,
+      "quantity_available": null,
+      "flags": [],
+      "brand": null,
+      "mpn": null,
+      "attrs": {
+        "serper_product_id": "4812643075986276412"
+      }
+    },
+    {
+      "rank": 2,
+      "source": "serper_shopping",
+      "vendor_host": "totalmagazines.com",
+      "url": "https://www.google.com/search?ibp=oshop&q=The+Week+magazine+print+subscription+one+year&prds=localAnnotatedOfferId:1,productid:327434257554034320,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
+      "buy_url": "https://www.google.com/search?ibp=oshop&q=The+Week+magazine+print+subscription+one+year&prds=localAnnotatedOfferId:1,productid:327434257554034320,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
+      "image_url": "data:image/webp;base64,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",
+      "title": "The Week Print & Digital Magazine Subscription 1 Year Print & Digital",
+      "price_usd": 129.0,
+      "total_for_target_usd": null,
+      "currency_approx_fx": null,
+      "condition": "",
+      "seller_name": "Total Magazines",
+      "is_kit": false,
+      "kit_module_count": 1,
+      "badges": [],
+      "seller_rating_pct": null,
+      "seller_feedback_count": null,
+      "rating": 5.0,
+      "rating_count": 2,
+      "ship_from_country": null,
+      "quantity_available": null,
+      "flags": [],
+      "brand": null,
+      "mpn": null,
+      "attrs": {
+        "serper_product_id": "327434257554034320"
+      }
+    }
+  ],
+  "all_listings": [
+    {
+      "rank": 1,
+      "source": "serper_shopping",
+      "vendor_host": "discountmags.com",
+      "url": "https://www.google.com/search?ibp=oshop&q=The+Week+magazine+US+one+year+subscription+print&prds=localAnnotatedOfferId:1,productid:4812643075986276412,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
+      "buy_url": "https://www.google.com/search?ibp=oshop&q=The+Week+magazine+US+one+year+subscription+print&prds=localAnnotatedOfferId:1,productid:4812643075986276412,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
+      "image_url": "data:image/webp;base64,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",
+      "title": "The Week Magazine Subscription (48 Issues)",
+      "price_usd": 67.49,
+      "total_for_target_usd": null,
+      "currency_approx_fx": null,
+      "condition": "",
+      "seller_name": "DiscountMags.com",
+      "is_kit": false,
+      "kit_module_count": 1,
+      "badges": [],
+      "seller_rating_pct": null,
+      "seller_feedback_count": null,
+      "rating": 4.8,
+      "rating_count": 772,
+      "ship_from_country": null,
+      "quantity_available": null,
+      "flags": [],
+      "brand": null,
+      "mpn": null,
+      "attrs": {
+        "serper_product_id": "4812643075986276412"
+      }
+    },
+    {
+      "rank": 2,
+      "source": "serper_shopping",
+      "vendor_host": "totalmagazines.com",
+      "url": "https://www.google.com/search?ibp=oshop&q=The+Week+magazine+print+subscription+one+year&prds=localAnnotatedOfferId:1,productid:327434257554034320,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
+      "buy_url": "https://www.google.com/search?ibp=oshop&q=The+Week+magazine+print+subscription+one+year&prds=localAnnotatedOfferId:1,productid:327434257554034320,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
+      "image_url": "data:image/webp;base64,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",
+      "title": "The Week Print & Digital Magazine Subscription 1 Year Print & Digital",
+      "price_usd": 129.0,
+      "total_for_target_usd": null,
+      "currency_approx_fx": null,
+      "condition": "",
+      "seller_name": "Total Magazines",
+      "is_kit": false,
+      "kit_module_count": 1,
+      "badges": [],
+      "seller_rating_pct": null,
+      "seller_feedback_count": null,
+      "rating": 5.0,
+      "rating_count": 2,
+      "ship_from_country": null,
+      "quantity_available": null,
+      "flags": [],
+      "brand": null,
+      "mpn": null,
+      "attrs": {
+        "serper_product_id": "327434257554034320"
+      }
+    }
+  ],
+  "overflow": {},
+  "hidden_anomalies": 0,
+  "recall_count": 71,
+  "survivor_count": 2,
+  "displayed_count": 2,
+  "outcome": {
+    "class": "ok",
+    "message": "",
+    "notes": []
+  },
+  "run_cost": {
+    "steps": [
+      {
+        "step": "ai_filter",
+        "provider": "local",
+        "model": "qwen-coder",
+        "input_tokens": 18392,
+        "output_tokens": 2755,
+        "cache_read_input_tokens": 0,
+        "cache_creation_input_tokens": 0,
+        "cost_usd": 0.0
+      }
+    ],
+    "total_usd": 0.0,
+    "any_unpriced": false
+  }
+}
