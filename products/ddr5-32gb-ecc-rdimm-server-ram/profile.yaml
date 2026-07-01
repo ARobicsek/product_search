@@ -58,7 +58,7 @@ display:
 
 alerts:
   - kind: price_below
-    threshold_usd: 815
+    threshold_usd: 800
     mode: while_below
     price_basis: unit
 
