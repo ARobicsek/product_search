@@ -56,6 +56,12 @@ export interface LastRun {
   conclusion: string | null;
 }
 
+export interface LatestRunInfo {
+  completedAt: string;
+  durationMs: number | null;
+  conclusion: string | null;
+}
+
 export interface InitialRun {
   // run_started_at of the in-flight run, or null if unknown.
   sinceIso: string | null;
@@ -68,10 +74,15 @@ export interface InitialRun {
 export function RunNowButton({
   product,
   lastRun,
+  latestRunInfo,
   initialRun,
 }: {
   product: string;
   lastRun?: LastRun | null;
+  /** Authoritative last-run info reconciled from CSV + sidecar (same source as
+   *  the footer). Preferred over `lastRun` for the idle "Last run:" label
+   *  because `lastRun` only sees on-demand runs via the Actions API. */
+  latestRunInfo?: LatestRunInfo | null;
   initialRun?: InitialRun | null;
 }) {
   const [state, setState] = useState<RunState>('idle');
@@ -340,19 +351,21 @@ export function RunNowButton({
           </span>
           Scheduled run in progress
         </span>
-      ) : lastRun ? (
-        <span
-          className="text-[11px] max-w-56 text-right truncate text-gray-500 dark:text-gray-400"
-          title={`Completed ${new Date(lastRun.completedAt).toLocaleString()}${
-            lastRun.conclusion && lastRun.conclusion !== 'success'
-              ? ` (${lastRun.conclusion})`
-              : ''
-          }`}
-        >
-          Last run: {formatElapsed(lastRun.durationMs)} ·{' '}
-          {formatRelativeAgo(lastRun.completedAt) || 'completed'}
-        </span>
-      ) : null}
+      ) : (latestRunInfo || lastRun) ? (() => {
+        const info = latestRunInfo ?? lastRun!;
+        const failed = info.conclusion && info.conclusion !== 'success';
+        return (
+          <span
+            className="text-[11px] max-w-56 text-right truncate text-gray-500 dark:text-gray-400"
+            title={`Completed ${new Date(info.completedAt).toLocaleString()}${
+              failed ? ` (${info.conclusion})` : ''
+            }`}
+          >
+            Last run:{info.durationMs != null ? ` ${formatElapsed(info.durationMs)} ·` : ''}{' '}
+            {formatRelativeAgo(info.completedAt) || 'completed'}
+          </span>
+        );
+      })() : null}
     </div>
   );
 }

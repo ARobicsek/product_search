@@ -238,7 +238,7 @@ export default async function ProductPage({
         >
           Edit Profile
         </Link>
-        <RunNowButton product={product} lastRun={lastRun} initialRun={initialRun} />
+        <RunNowButton product={product} lastRun={lastRun} latestRunInfo={footerInfo} initialRun={initialRun} />
       </div>
 
       {/* Report Content */}
