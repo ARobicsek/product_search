@@ -1,0 +1,48 @@
+schema_version: 2
+slug: fiio-btr17
+display_name: FiiO BTR17
+description: FiiO BTR17 portable Bluetooth DAC/headphone amplifier, new or open box.
+product_type: dac_amp
+target:
+  unit: count
+  amount: 1
+queries:
+  - FiiO BTR17
+  - BTR17 portable DAC amplifier
+  - FiiO BTR17 Bluetooth DAC
+  - FiiO BTR17 dongle DAC
+match:
+  aliases:
+    - BTR17
+    - FiiO BTR17
+  title_excludes:
+    - BTR7
+    - BTR15
+    - BTR13
+    - BTR11
+    - BTR5
+    - used
+    - refurbished
+  variant_strict: true
+filters:
+  condition_in:
+    - new
+    - open box
+  in_stock: true
+sources:
+  serper:
+    enabled: true
+    gl: us
+  ebay:
+    enabled: true
+  amazon:
+    enabled: true
+display:
+  max_listings: 20
+  per_vendor_cap: 3
+  attrs:
+    - price
+    - condition
+    - seller
+    - seller_rating
+    - rating
