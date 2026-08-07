@@ -159,6 +159,14 @@ LAST_RUN_RAW_RESPONSE: str = ""
 # bailed before reaching the API.
 LAST_RUN_USAGE: dict[str, Any] | None = None
 
+# True when every model in the fallback chain failed, so ai_filter returned []
+# WITHOUT judging anything. Without this the run is indistinguishable from an
+# honest "the model rejected all of them", and the report blames the user's
+# match/filters for what is really a backend outage (a down local box zeroes
+# the run and reports all_filtered). run_v2 reads this to classify the run as
+# filter_unavailable instead.
+LAST_RUN_FAILED: bool = False
+
 
 def reset_last_run() -> None:
     """Clear the module-level LAST_RUN_* capture.
@@ -170,10 +178,11 @@ def reset_last_run() -> None:
     into the skipped product's report. Callers that may not invoke ``ai_filter``
     must reset first so the cost panel honestly shows "no LLM call".
     """
-    global LAST_RUN_LOG, LAST_RUN_RAW_RESPONSE, LAST_RUN_USAGE
+    global LAST_RUN_LOG, LAST_RUN_RAW_RESPONSE, LAST_RUN_USAGE, LAST_RUN_FAILED
     LAST_RUN_LOG = []
     LAST_RUN_RAW_RESPONSE = ""
     LAST_RUN_USAGE = None
+    LAST_RUN_FAILED = False
 
 
 def _write_filter_log(slug: str, entries: list[dict[str, Any]]) -> None:
@@ -598,10 +607,11 @@ def ai_filter(
     into ``_AI_FILTER_BATCH_SIZE`` chunks so the response stays well under the
     model's output token limit; per-batch usage is summed into LAST_RUN_USAGE.
     """
-    global LAST_RUN_LOG, LAST_RUN_RAW_RESPONSE, LAST_RUN_USAGE
+    global LAST_RUN_LOG, LAST_RUN_RAW_RESPONSE, LAST_RUN_USAGE, LAST_RUN_FAILED
     LAST_RUN_LOG = []
     LAST_RUN_RAW_RESPONSE = ""
     LAST_RUN_USAGE = None
+    LAST_RUN_FAILED = False
 
     if not listings:
         return []
@@ -712,6 +722,7 @@ def ai_filter(
                 "title": "(filter call failed)", "price": None, "url": None, "source": None,
             }]
             _write_filter_log(profile.slug, sentinel)
+            LAST_RUN_FAILED = True
             LAST_RUN_LOG = sentinel
             LAST_RUN_RAW_RESPONSE = "\n\n--- batch boundary ---\n\n".join(raw_responses)
             LAST_RUN_USAGE = {

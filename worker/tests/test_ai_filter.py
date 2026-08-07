@@ -232,6 +232,37 @@ def test_local_chain_exhaustion_fires_notification(
     assert out == []  # zeroed (no Haiku in prod-style local-only chain)
     assert len(sent) == 1
     assert sent[0][0] == profile.slug
+    # The empty list must be distinguishable from an honest "model rejected all",
+    # or run_v2 reports all_filtered and blames the user's profile for an outage.
+    assert ai_filter_mod.LAST_RUN_FAILED is True
+
+
+def test_last_run_failed_is_false_on_a_normal_run(
+    profile: Profile, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A genuine 0-survivor verdict must NOT look like a backend outage."""
+    def reject_all(**kw: object) -> LLMResponse:
+        return LLMResponse(
+            provider="anthropic", model=str(kw["model"]),
+            text='{"evaluations":[{"index":0,"pass":false,"reason":"wrong product"}]}',
+            input_tokens=1, output_tokens=1,
+        )
+
+    monkeypatch.setattr(ai_filter_mod, "call_llm", reject_all)
+
+    out = ai_filter_mod.ai_filter([_make_listing()], profile)
+    assert out == []
+    assert ai_filter_mod.LAST_RUN_FAILED is False
+
+
+def test_reset_last_run_clears_the_failure_flag(
+    profile: Profile, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A multi-product scheduler tick must not carry one product's filter outage
+    into the next product's outcome (the reset_last_run staleness class)."""
+    ai_filter_mod.LAST_RUN_FAILED = True
+    ai_filter_mod.reset_last_run()
+    assert ai_filter_mod.LAST_RUN_FAILED is False
 
 
 def test_system_prompt_falls_back_to_display_name_when_description_empty(

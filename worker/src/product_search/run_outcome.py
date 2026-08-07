@@ -19,6 +19,7 @@ class RunOutcomeClass(StrEnum):
     OK = "ok"
     INDEX_UNAVAILABLE = "index_unavailable"
     NO_RECALL = "no_recall"
+    FILTER_UNAVAILABLE = "filter_unavailable"
     ALL_FILTERED = "all_filtered"
 
 
@@ -39,6 +40,11 @@ _PRIMARY_MESSAGES: dict[RunOutcomeClass, str] = {
     RunOutcomeClass.NO_RECALL: (
         "No offers found — the query may be too specific, or this item isn't "
         "sold online. Edit the search query."
+    ),
+    RunOutcomeClass.FILTER_UNAVAILABLE: (
+        "Found offers but the relevance filter couldn't run, so none could be "
+        "judged. This is a backend problem, not your profile — the next "
+        "scheduled run retries automatically. See the filter diagnostics."
     ),
     RunOutcomeClass.ALL_FILTERED: (
         "Found offers but none matched your spec — your match/filters may be too "
@@ -86,13 +92,21 @@ def classify_run_outcome(
     ebay_error: bool = False,
     amazon_error: bool = False,
     degraded_attrs: bool = False,
+    filter_error: bool = False,
 ) -> RunOutcome:
     """Classify a v2 run into one primary outcome + any additive notes.
 
     Primary precedence: index unavailable (the recall layer itself failed) →
-    no recall (0 offers) → all filtered (offers but 0 survivors) → ok. eBay /
+    no recall (0 offers) → filter unavailable (the ai_filter backend failed, so
+    nothing was judged) → all filtered (offers but 0 survivors) → ok. eBay /
     Amazon failure and degraded attributes are additive notes, never the
     headline, because Serper alone can still produce a good run.
+
+    ``filter_error`` outranks ``all_filtered`` because the two are identical from
+    the outside (offers recalled, 0 survivors) but have opposite fixes: a filter
+    outage is ours to fix and self-heals on the next run, whereas all_filtered
+    tells the user to loosen their spec. Blaming the profile for a down filter
+    backend is the misdiagnosis this class exists to prevent.
     """
     notes: list[tuple[str, str]] = []
     if ebay_error:
@@ -115,6 +129,8 @@ def classify_run_outcome(
         klass = RunOutcomeClass.INDEX_UNAVAILABLE
     elif recall_count == 0:
         klass = RunOutcomeClass.NO_RECALL
+    elif filter_error and survivor_count == 0:
+        klass = RunOutcomeClass.FILTER_UNAVAILABLE
     elif survivor_count == 0:
         klass = RunOutcomeClass.ALL_FILTERED
     else:

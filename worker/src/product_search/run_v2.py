@@ -151,6 +151,10 @@ def run_v2_pipeline(
         ebay_error=ebay_error,
         amazon_error=amazon_error,
         degraded_attrs=degraded,
+        # Set only when every model in the filter's fallback chain failed, so the
+        # empty survivor list is a backend outage rather than a verdict. Reset
+        # above, so a passthrough ai_filter_fn (tests) leaves it False.
+        filter_error=ai_filter_mod.LAST_RUN_FAILED,
     )
 
     return RunV2Result(

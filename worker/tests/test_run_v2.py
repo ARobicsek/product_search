@@ -102,6 +102,33 @@ def test_pipeline_no_recall() -> None:
     assert result.selection.displayed == []
 
 
+def test_pipeline_reports_filter_unavailable_when_the_backend_died() -> None:
+    """The 2026-08-06 signature: the local box was down, the filter chain was
+    exhausted, and the report told the user their filters were too strict."""
+    from product_search.validators import ai_filter as ai_filter_mod
+
+    profile = load_profile_v2_from_path(FIXTURE)
+
+    def dead_backend(listings: list[Listing], prof: Any, attrs: Any = None) -> list[Listing]:
+        ai_filter_mod.LAST_RUN_FAILED = True
+        return []
+
+    result = run_v2_pipeline(profile, _recall_set(), ai_filter_fn=dead_backend)
+    assert result.outcome.klass is RunOutcomeClass.FILTER_UNAVAILABLE
+    assert result.survivors == []
+
+
+def test_pipeline_all_filtered_when_the_backend_was_healthy() -> None:
+    """Same shape (offers in, 0 survivors) but an honest verdict — stays all_filtered."""
+    profile = load_profile_v2_from_path(FIXTURE)
+
+    def reject_all(listings: list[Listing], prof: Any, attrs: Any = None) -> list[Listing]:
+        return []
+
+    result = run_v2_pipeline(profile, _recall_set(), ai_filter_fn=reject_all)
+    assert result.outcome.klass is RunOutcomeClass.ALL_FILTERED
+
+
 def test_pipeline_degraded_attr_on_min_quantity() -> None:
     raw = {
         "schema_version": 2,

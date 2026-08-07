@@ -29,6 +29,25 @@ def test_all_filtered() -> None:
     assert o.klass is RunOutcomeClass.ALL_FILTERED
 
 
+def test_filter_unavailable_beats_all_filtered() -> None:
+    """A dead filter backend must not be reported as "your filters are too strict"."""
+    o = classify_run_outcome(recall_count=40, survivor_count=0, filter_error=True)
+    assert o.klass is RunOutcomeClass.FILTER_UNAVAILABLE
+    assert not o.is_clean
+    assert "not your profile" in o.message
+
+
+def test_filter_error_does_not_mask_no_recall() -> None:
+    o = classify_run_outcome(recall_count=0, survivor_count=0, filter_error=True)
+    assert o.klass is RunOutcomeClass.NO_RECALL
+
+
+def test_filter_error_ignored_when_survivors_exist() -> None:
+    """A recovered mid-run failure (later batches succeeded) is still an ok run."""
+    o = classify_run_outcome(recall_count=40, survivor_count=3, filter_error=True)
+    assert o.klass is RunOutcomeClass.OK
+
+
 def test_ebay_note_is_additive_not_headline() -> None:
     o = classify_run_outcome(recall_count=40, survivor_count=5, ebay_error=True)
     assert o.klass is RunOutcomeClass.OK
