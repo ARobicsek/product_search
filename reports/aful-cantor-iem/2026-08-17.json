@@ -1,0 +1,44 @@
+{
+  "schema_version": 2,
+  "slug": "aful-cantor-iem",
+  "display_name": "AFUL Cantor IEM",
+  "product_type": "headphones",
+  "snapshot_date": "2026-08-17",
+  "generated_at": "2026-08-17T20:16:35.724470+00:00",
+  "columns": [
+    "price"
+  ],
+  "listings": [],
+  "all_listings": [],
+  "overflow": {},
+  "hidden_anomalies": 0,
+  "recall_count": 125,
+  "survivor_count": 0,
+  "displayed_count": 0,
+  "outcome": {
+    "class": "filter_unavailable",
+    "message": "Found offers but the relevance filter couldn't run, so none could be judged. This is a backend problem, not your profile \u2014 the next scheduled run retries automatically. See the filter diagnostics.",
+    "notes": [
+      {
+        "class": "amazon_unavailable",
+        "message": "Amazon was unavailable this run; other sources still ran."
+      }
+    ]
+  },
+  "run_cost": {
+    "steps": [
+      {
+        "step": "ai_filter",
+        "provider": "local",
+        "model": "qwen3.6-27b-mtp",
+        "input_tokens": 0,
+        "output_tokens": 0,
+        "cache_read_input_tokens": 0,
+        "cache_creation_input_tokens": 0,
+        "cost_usd": 0.0
+      }
+    ],
+    "total_usd": 0.0,
+    "any_unpriced": false
+  }
+}
