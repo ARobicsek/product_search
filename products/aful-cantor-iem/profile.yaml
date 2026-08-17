@@ -1,0 +1,45 @@
+schema_version: 2
+slug: aful-cantor-iem
+display_name: AFUL Cantor IEM
+description: AFUL Cantor flagship 14 balanced armature driver in-ear monitors, any condition or price.
+product_type: headphones
+target:
+  unit: count
+  amount: 1
+queries:
+  - AFUL Cantor IEM
+  - AFUL Cantor 14BA
+  - AFUL Cantor flagship
+  - Cantor in-ear monitor
+  - AFUL Cantor balanced armature
+match:
+  aliases:
+    - AFUL Cantor
+    - 14BA Cantor
+    - Cantor 14 balanced armature
+  title_excludes: []
+  variant_strict: false
+filters:
+  condition_in:
+    - new
+    - used
+    - refurbished
+    - open box
+  in_stock: false
+sources:
+  serper:
+    enabled: true
+    gl: us
+  ebay:
+    enabled: true
+  amazon:
+    enabled: true
+display:
+  max_listings: 20
+  per_vendor_cap: 3
+  attrs:
+    - price
+    - condition
+    - seller
+    - seller_rating
+    - rating
