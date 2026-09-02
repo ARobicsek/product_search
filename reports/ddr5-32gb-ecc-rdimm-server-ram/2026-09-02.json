@@ -1,0 +1,49 @@
+{
+  "schema_version": 2,
+  "slug": "ddr5-32gb-ecc-rdimm-server-ram",
+  "display_name": "DDR5 32GB ECC Registered Server RAM (SK Hynix/Samsung/Micron/Kingston)",
+  "product_type": "ram",
+  "snapshot_date": "2026-09-02",
+  "generated_at": "2026-09-02T14:15:53.496521+00:00",
+  "columns": [
+    "price"
+  ],
+  "listings": [],
+  "all_listings": [],
+  "overflow": {},
+  "hidden_anomalies": 0,
+  "recall_count": 227,
+  "survivor_count": 0,
+  "displayed_count": 0,
+  "outcome": {
+    "class": "filter_unavailable",
+    "message": "Found offers but the relevance filter couldn't run, so none could be judged. This is a backend problem, not your profile \u2014 the next scheduled run retries automatically. See the filter diagnostics.",
+    "notes": []
+  },
+  "run_cost": {
+    "steps": [
+      {
+        "step": "ai_filter",
+        "provider": "local",
+        "model": "qwen3.6-27b-mtp",
+        "input_tokens": 0,
+        "output_tokens": 0,
+        "cache_read_input_tokens": 0,
+        "cache_creation_input_tokens": 0,
+        "cost_usd": 0.0
+      },
+      {
+        "step": "amazon_recall",
+        "provider": "dataforseo",
+        "model": "amazon_products",
+        "input_tokens": 0,
+        "output_tokens": 0,
+        "cache_read_input_tokens": 0,
+        "cache_creation_input_tokens": 0,
+        "cost_usd": 0.006
+      }
+    ],
+    "total_usd": 0.006,
+    "any_unpriced": false
+  }
+}
