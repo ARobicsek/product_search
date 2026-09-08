@@ -62,6 +62,3 @@ alerts:
     mode: while_below
     price_basis: unit
 
-schedule:
-  cron: "0 14 * * *"
-  timezone: UTC
