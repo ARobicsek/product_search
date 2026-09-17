@@ -1,0 +1,1110 @@
+{
+  "schema_version": 2,
+  "slug": "aful-cantor-iem",
+  "display_name": "AFUL Cantor IEM",
+  "product_type": "headphones",
+  "snapshot_date": "2026-09-17",
+  "generated_at": "2026-09-17T06:10:39.450724+00:00",
+  "columns": [
+    "price",
+    "condition",
+    "seller",
+    "seller_rating",
+    "rating"
+  ],
+  "listings": [
+    {
+      "rank": 1,
+      "source": "ebay_search",
+      "vendor_host": "www.ebay.com",
+      "url": "https://www.ebay.com/itm/398186990548?_skw=AFUL+Cantor+IEM&hash=item5cb5cb4bd4:g:eLYAAeSw6FJqWwgg",
+      "buy_url": "https://www.ebay.com/itm/398186990548?_skw=AFUL+Cantor+IEM&hash=item5cb5cb4bd4:g:eLYAAeSw6FJqWwgg",
+      "image_url": null,
+      "title": "AFUL Cantor Wired In-Ear Monitors Earphones Hybrid IEM HiFi Audiophile Japan",
+      "price_usd": 755.0,
+      "total_for_target_usd": null,
+      "currency_approx_fx": null,
+      "condition": "used",
+      "seller_name": "akiba_brick",
+      "is_kit": false,
+      "kit_module_count": 1,
+      "badges": [
+        {
+          "key": "ship_from_jp",
+          "label": "ship_from_jp",
+          "severity": "info"
+        }
+      ],
+      "seller_rating_pct": 99.8,
+      "seller_feedback_count": 763,
+      "rating": null,
+      "rating_count": null,
+      "ship_from_country": "JP",
+      "quantity_available": null,
+      "flags": [
+        "ship_from_jp"
+      ],
+      "brand": null,
+      "mpn": null,
+      "attrs": {}
+    },
+    {
+      "rank": 2,
+      "source": "serper_shopping",
+      "vendor_host": "thehificat.com",
+      "url": "https://www.google.com/search?ibp=oshop&q=AFUL+Cantor+IEM&prds=localAnnotatedOfferId:1,productid:14265688390793528715,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
+      "buy_url": "https://www.google.com/search?ibp=oshop&q=AFUL+Cantor+IEM&prds=localAnnotatedOfferId:1,productid:14265688390793528715,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
+      "image_url": "https://encrypted-tbn0.gstatic.com/shopping?q=tbn:ANd9GcSdphYLyq9sENeH-ZGJJFVq0gIwxaF7qmOd5yLMy4x9js9v521kmkRKSCXGraRQFz2UepxNPfiWq-baMQr2LKM7C837Wwee6yV-sZZ0vwU2rU_WOAjZaoVp",
+      "title": "AFUL Cantor Flagship 14 Balanced Armature Drivers IEMs Marine Echo 3.5mm plug",
+      "price_usd": 799.0,
+      "total_for_target_usd": null,
+      "currency_approx_fx": null,
+      "condition": "",
+      "seller_name": "The HiFi Cat",
+      "is_kit": false,
+      "kit_module_count": 1,
+      "badges": [],
+      "seller_rating_pct": null,
+      "seller_feedback_count": null,
+      "rating": null,
+      "rating_count": null,
+      "ship_from_country": null,
+      "quantity_available": null,
+      "flags": [],
+      "brand": null,
+      "mpn": null,
+      "attrs": {
+        "serper_product_id": "14265688390793528715"
+      }
+    },
+    {
+      "rank": 3,
+      "source": "ebay_search",
+      "vendor_host": "www.ebay.com",
+      "url": "https://www.ebay.com/itm/398367690806?_skw=AFUL+Cantor+IEM&hash=item5cc0909036:g:v34AAeSw7BNqnig-",
+      "buy_url": "https://www.ebay.com/itm/398367690806?_skw=AFUL+Cantor+IEM&hash=item5cc0909036:g:v34AAeSw7BNqnig-",
+      "image_url": null,
+      "title": "AFUL Cantor Starry Night 14BA Driver In-Ear Earphones IEM w/ Box Used Japan",
+      "price_usd": 820.0,
+      "total_for_target_usd": null,
+      "currency_approx_fx": null,
+      "condition": "used",
+      "seller_name": "akiba_brick",
+      "is_kit": false,
+      "kit_module_count": 1,
+      "badges": [
+        {
+          "key": "ship_from_jp",
+          "label": "ship_from_jp",
+          "severity": "info"
+        }
+      ],
+      "seller_rating_pct": 99.8,
+      "seller_feedback_count": 763,
+      "rating": null,
+      "rating_count": null,
+      "ship_from_country": "JP",
+      "quantity_available": null,
+      "flags": [
+        "ship_from_jp"
+      ],
+      "brand": null,
+      "mpn": null,
+      "attrs": {}
+    },
+    {
+      "rank": 4,
+      "source": "serper_shopping",
+      "vendor_host": "ebay.com",
+      "url": "https://www.google.com/search?ibp=oshop&q=AFUL+Cantor+IEM&prds=localAnnotatedOfferId:1,productid:16163796602766013692,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
+      "buy_url": "https://www.google.com/search?ibp=oshop&q=AFUL+Cantor+IEM&prds=localAnnotatedOfferId:1,productid:16163796602766013692,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
+      "image_url": "https://encrypted-tbn0.gstatic.com/shopping?q=tbn:ANd9GcSsF3fK2dEhI2OQl0CjS2BK6E1YmM_AZWI3ZWO6DuzymZRXsYFrxR4W5CyKlG3Rgp_CGYrHCmelMz70USF6PfoGwlXuLOy5ASSh41zTw2Cb3CQryEKRNbiwIw",
+      "title": "Aful Cantor Flagship Blue",
+      "price_usd": 849.0,
+      "total_for_target_usd": null,
+      "currency_approx_fx": null,
+      "condition": "",
+      "seller_name": "eBay - turbotradejp",
+      "is_kit": false,
+      "kit_module_count": 1,
+      "badges": [],
+      "seller_rating_pct": null,
+      "seller_feedback_count": null,
+      "rating": 5.0,
+      "rating_count": 9,
+      "ship_from_country": null,
+      "quantity_available": null,
+      "flags": [],
+      "brand": null,
+      "mpn": null,
+      "attrs": {
+        "serper_product_id": "16163796602766013692"
+      }
+    },
+    {
+      "rank": 5,
+      "source": "ebay_search",
+      "vendor_host": "www.ebay.com",
+      "url": "https://www.ebay.com/itm/237013566162?_skw=AFUL+Cantor+flagship&hash=item372f1c02d2:g:aLgAAeSwsoRqhBcT",
+      "buy_url": "https://www.ebay.com/itm/237013566162?_skw=AFUL+Cantor+flagship&hash=item372f1c02d2:g:aLgAAeSwsoRqhBcT",
+      "image_url": null,
+      "title": "AFUL Cantor Flagship Blue",
+      "price_usd": 849.0,
+      "total_for_target_usd": null,
+      "currency_approx_fx": null,
+      "condition": "used",
+      "seller_name": "turbotradejp",
+      "is_kit": false,
+      "kit_module_count": 1,
+      "badges": [
+        {
+          "key": "ship_from_jp",
+          "label": "ship_from_jp",
+          "severity": "info"
+        }
+      ],
+      "seller_rating_pct": 99.6,
+      "seller_feedback_count": 1317,
+      "rating": null,
+      "rating_count": null,
+      "ship_from_country": "JP",
+      "quantity_available": null,
+      "flags": [
+        "ship_from_jp"
+      ],
+      "brand": null,
+      "mpn": null,
+      "attrs": {}
+    },
+    {
+      "rank": 6,
+      "source": "serper_shopping",
+      "vendor_host": "ebay.com",
+      "url": "https://www.google.com/search?ibp=oshop&q=AFUL+Cantor+IEM&prds=localAnnotatedOfferId:1,productid:9826476463441896448,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
+      "buy_url": "https://www.google.com/search?ibp=oshop&q=AFUL+Cantor+IEM&prds=localAnnotatedOfferId:1,productid:9826476463441896448,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
+      "image_url": "https://encrypted-tbn1.gstatic.com/shopping?q=tbn:ANd9GcQC38MiOGmsdS7xHN8LCXgidbexpdtgeOnG8KsWSqHYQGYmVUumjgKEUHJQdAJ1GAW1VNlUb6HRTJiVwUO4dWDKpmftWjd2E6hJ6_Fcwk4",
+      "title": "Aful Cantor Hifi Earbud 14 Balanced Armature Drivers Resin Shell",
+      "price_usd": 859.99,
+      "total_for_target_usd": null,
+      "currency_approx_fx": null,
+      "condition": "",
+      "seller_name": "eBay - yny_audio",
+      "is_kit": false,
+      "kit_module_count": 1,
+      "badges": [],
+      "seller_rating_pct": null,
+      "seller_feedback_count": null,
+      "rating": 5.0,
+      "rating_count": 9,
+      "ship_from_country": null,
+      "quantity_available": null,
+      "flags": [],
+      "brand": null,
+      "mpn": null,
+      "attrs": {
+        "serper_product_id": "9826476463441896448"
+      }
+    },
+    {
+      "rank": 7,
+      "source": "ebay_search",
+      "vendor_host": "www.ebay.com",
+      "url": "https://www.ebay.com/itm/167222554612?_skw=AFUL+Cantor+IEM&hash=item26ef3daff4:g:YOAAAOSww8Fnc-Au",
+      "buy_url": "https://www.ebay.com/itm/167222554612?_skw=AFUL+Cantor+IEM&hash=item26ef3daff4:g:YOAAAOSww8Fnc-Au",
+      "image_url": null,
+      "title": "AFUL Cantor Flagship 14 Balanced Armature Drivers IEMs",
+      "price_usd": 859.99,
+      "total_for_target_usd": null,
+      "currency_approx_fx": null,
+      "condition": "new",
+      "seller_name": "annie-audio",
+      "is_kit": false,
+      "kit_module_count": 1,
+      "badges": [
+        {
+          "key": "ship_from_cn",
+          "label": "ship_from_cn",
+          "severity": "info"
+        }
+      ],
+      "seller_rating_pct": 99.5,
+      "seller_feedback_count": 1825,
+      "rating": null,
+      "rating_count": null,
+      "ship_from_country": "CN",
+      "quantity_available": null,
+      "flags": [
+        "ship_from_cn"
+      ],
+      "brand": null,
+      "mpn": null,
+      "attrs": {}
+    },
+    {
+      "rank": 8,
+      "source": "ebay_search",
+      "vendor_host": "www.ebay.com",
+      "url": "https://www.ebay.com/itm/167222554612?_skw=AFUL+Cantor+flagship&hash=item26ef3daff4:g:YOAAAOSww8Fnc-Au",
+      "buy_url": "https://www.ebay.com/itm/167222554612?_skw=AFUL+Cantor+flagship&hash=item26ef3daff4:g:YOAAAOSww8Fnc-Au",
+      "image_url": null,
+      "title": "AFUL Cantor Flagship 14 Balanced Armature Drivers IEMs",
+      "price_usd": 859.99,
+      "total_for_target_usd": null,
+      "currency_approx_fx": null,
+      "condition": "new",
+      "seller_name": "annie-audio",
+      "is_kit": false,
+      "kit_module_count": 1,
+      "badges": [
+        {
+          "key": "ship_from_cn",
+          "label": "ship_from_cn",
+          "severity": "info"
+        }
+      ],
+      "seller_rating_pct": 99.5,
+      "seller_feedback_count": 1825,
+      "rating": null,
+      "rating_count": null,
+      "ship_from_country": "CN",
+      "quantity_available": null,
+      "flags": [
+        "ship_from_cn"
+      ],
+      "brand": null,
+      "mpn": null,
+      "attrs": {}
+    },
+    {
+      "rank": 9,
+      "source": "ebay_search",
+      "vendor_host": "www.ebay.com",
+      "url": "https://www.ebay.com/itm/167222554612?_skw=AFUL+Cantor+balanced+armature&hash=item26ef3daff4:g:YOAAAOSww8Fnc-Au",
+      "buy_url": "https://www.ebay.com/itm/167222554612?_skw=AFUL+Cantor+balanced+armature&hash=item26ef3daff4:g:YOAAAOSww8Fnc-Au",
+      "image_url": null,
+      "title": "AFUL Cantor Flagship 14 Balanced Armature Drivers IEMs",
+      "price_usd": 859.99,
+      "total_for_target_usd": null,
+      "currency_approx_fx": null,
+      "condition": "new",
+      "seller_name": "annie-audio",
+      "is_kit": false,
+      "kit_module_count": 1,
+      "badges": [
+        {
+          "key": "ship_from_cn",
+          "label": "ship_from_cn",
+          "severity": "info"
+        }
+      ],
+      "seller_rating_pct": 99.5,
+      "seller_feedback_count": 1825,
+      "rating": null,
+      "rating_count": null,
+      "ship_from_country": "CN",
+      "quantity_available": null,
+      "flags": [
+        "ship_from_cn"
+      ],
+      "brand": null,
+      "mpn": null,
+      "attrs": {}
+    },
+    {
+      "rank": 10,
+      "source": "ebay_search",
+      "vendor_host": "www.ebay.com",
+      "url": "https://www.ebay.com/itm/405449712861?_skw=AFUL+Cantor+balanced+armature&hash=item5e66afa4dd:g:8GcAAOSw5Rlnc8iy",
+      "buy_url": "https://www.ebay.com/itm/405449712861?_skw=AFUL+Cantor+balanced+armature&hash=item5e66afa4dd:g:8GcAAOSw5Rlnc8iy",
+      "image_url": null,
+      "title": "AFUL Cantor HiFi Earbud 14 Balanced Armature Drivers Resin Shell Studio Music",
+      "price_usd": 859.99,
+      "total_for_target_usd": null,
+      "currency_approx_fx": null,
+      "condition": "new",
+      "seller_name": "yny_audio",
+      "is_kit": false,
+      "kit_module_count": 1,
+      "badges": [
+        {
+          "key": "ship_from_cn",
+          "label": "ship_from_cn",
+          "severity": "info"
+        }
+      ],
+      "seller_rating_pct": 99.0,
+      "seller_feedback_count": 181,
+      "rating": null,
+      "rating_count": null,
+      "ship_from_country": "CN",
+      "quantity_available": null,
+      "flags": [
+        "ship_from_cn"
+      ],
+      "brand": null,
+      "mpn": null,
+      "attrs": {}
+    },
+    {
+      "rank": 11,
+      "source": "serper_shopping",
+      "vendor_host": "ebay.com",
+      "url": "https://www.google.com/search?ibp=oshop&q=AFUL+Cantor+IEM&prds=localAnnotatedOfferId:1,productid:8294585086411634360,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
+      "buy_url": "https://www.google.com/search?ibp=oshop&q=AFUL+Cantor+IEM&prds=localAnnotatedOfferId:1,productid:8294585086411634360,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
+      "image_url": "https://encrypted-tbn2.gstatic.com/shopping?q=tbn:ANd9GcSVotCSt7BWKfz5M28FCItkcqmiZQchgj3vdl3WJdYA--mKHkI9z35RuKan69y2-zJbfzXTYzi5I8XKbG1fhfYFpe2nLEr_vKDY_act098",
+      "title": "Aful Cantor 14 Ba Wired In-ear Monitors With Detachable 2-pin Cable",
+      "price_usd": 869.99,
+      "total_for_target_usd": null,
+      "currency_approx_fx": null,
+      "condition": "",
+      "seller_name": "eBay",
+      "is_kit": false,
+      "kit_module_count": 1,
+      "badges": [],
+      "seller_rating_pct": null,
+      "seller_feedback_count": null,
+      "rating": null,
+      "rating_count": null,
+      "ship_from_country": null,
+      "quantity_available": null,
+      "flags": [],
+      "brand": null,
+      "mpn": null,
+      "attrs": {
+        "serper_product_id": "8294585086411634360"
+      }
+    },
+    {
+      "rank": 12,
+      "source": "serper_shopping",
+      "vendor_host": "ebay.com",
+      "url": "https://www.google.com/search?ibp=oshop&q=AFUL+Cantor+flagship&prds=localAnnotatedOfferId:1,productid:7791684176105460560,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
+      "buy_url": "https://www.google.com/search?ibp=oshop&q=AFUL+Cantor+flagship&prds=localAnnotatedOfferId:1,productid:7791684176105460560,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
+      "image_url": "https://encrypted-tbn2.gstatic.com/shopping?q=tbn:ANd9GcSVotCSt7BWKfz5M28FCItkcqmiZQchgj3vdl3WJdYA--mKHkI9z35RuKan69y2-zJbfzXTYzi5I8XKbG1fhfYFpe2nLEr_vKDY_act098",
+      "title": "Aful Cantor 14 Ba Wired In-ear Monitors With Detachable 2-pin Cable",
+      "price_usd": 869.99,
+      "total_for_target_usd": null,
+      "currency_approx_fx": null,
+      "condition": "",
+      "seller_name": "eBay",
+      "is_kit": false,
+      "kit_module_count": 1,
+      "badges": [],
+      "seller_rating_pct": null,
+      "seller_feedback_count": null,
+      "rating": null,
+      "rating_count": null,
+      "ship_from_country": null,
+      "quantity_available": null,
+      "flags": [],
+      "brand": null,
+      "mpn": null,
+      "attrs": {
+        "serper_product_id": "7791684176105460560"
+      }
+    },
+    {
+      "rank": 13,
+      "source": "ebay_search",
+      "vendor_host": "www.ebay.com",
+      "url": "https://www.ebay.com/itm/318847684150?_skw=AFUL+Cantor+14BA&hash=item4a3ccd8e36:g:YOAAAOSww8Fnc-Au&amdata=enc%3AAQALAAAA8ACCtXRWQnOEpyOqnQQ8KGZRO%2FFGBWN3tNwgT%2FNqmi1g%2BbEdkTsJdm85R4oTWHjhzPphSp4kBs8oOBzh%2BQA9CTeQ%2BVY3r3xUCEwmJsOsgs00Oq7zH4Op%2BlokhAdoLmm3uNafvG60iyAX4VOk6GScAB1ltD3zsPrTn0W9vHNUCw11i1s4VaygF4%2FxMufNzmm3J1C4VrGrVGkwsqLeKTaNuGW67YBatmETz%2Be%2FsCzg00FQRI7dgEADTBuR362Go4d9s5GcyTmWN2WpcZYzPY6ROwTfDDRHjKFyQLNDbu9XlkHGXPK8AK6LX0AVdDspL9X7xQ%3D%3D",
+      "buy_url": "https://www.ebay.com/itm/318847684150?_skw=AFUL+Cantor+14BA&hash=item4a3ccd8e36:g:YOAAAOSww8Fnc-Au&amdata=enc%3AAQALAAAA8ACCtXRWQnOEpyOqnQQ8KGZRO%2FFGBWN3tNwgT%2FNqmi1g%2BbEdkTsJdm85R4oTWHjhzPphSp4kBs8oOBzh%2BQA9CTeQ%2BVY3r3xUCEwmJsOsgs00Oq7zH4Op%2BlokhAdoLmm3uNafvG60iyAX4VOk6GScAB1ltD3zsPrTn0W9vHNUCw11i1s4VaygF4%2FxMufNzmm3J1C4VrGrVGkwsqLeKTaNuGW67YBatmETz%2Be%2FsCzg00FQRI7dgEADTBuR362Go4d9s5GcyTmWN2WpcZYzPY6ROwTfDDRHjKFyQLNDbu9XlkHGXPK8AK6LX0AVdDspL9X7xQ%3D%3D",
+      "image_url": null,
+      "title": "AFUL Cantor 14 BA Wired In-Ear Monitors with Detachable 2-Pin Cable",
+      "price_usd": 869.99,
+      "total_for_target_usd": null,
+      "currency_approx_fx": null,
+      "condition": "new",
+      "seller_name": "ellieaudio",
+      "is_kit": false,
+      "kit_module_count": 1,
+      "badges": [
+        {
+          "key": "ship_from_cn",
+          "label": "ship_from_cn",
+          "severity": "info"
+        }
+      ],
+      "seller_rating_pct": 0.0,
+      "seller_feedback_count": null,
+      "rating": null,
+      "rating_count": null,
+      "ship_from_country": "CN",
+      "quantity_available": null,
+      "flags": [
+        "ship_from_cn"
+      ],
+      "brand": null,
+      "mpn": null,
+      "attrs": {}
+    },
+    {
+      "rank": 14,
+      "source": "ebay_search",
+      "vendor_host": "www.ebay.com",
+      "url": "https://www.ebay.com/itm/318847684150?_skw=Cantor+in-ear+monitor&hash=item4a3ccd8e36:g:YOAAAOSww8Fnc-Au&amdata=enc%3AAQALAAAA8ACCtXRWQnOEpyOqnQQ8KGZRO%2FFGBWN3tNwgT%2FNqmi1g%2BbEdkTsJdm85R4oTWHjhzPphSp4kBs8oOBzh%2BQA9CTeQ%2BVY3r3xUCEwmJsOsgs00Oq7zH4Op%2BlokhAdoLmm3uNafvG60iyAX4VOk6GScAB3VxbuwU1SFUtaYm4jlnPIkHeMe37Yd2W%2B0UBmobFhUj2hiGknNvzA%2BE2%2B4dQiO2Wm0ldefm6MjQW3ITOMy%2FmVwFOf9z7qsfF0%2BZE4wOVitx3QJ6RRzgYIKl4ZjgVNzco9PExsJOSJNd2zOlUHJXSCbpD1Ce6uuLg2CHqXLP%2F2Ckw%3D%3D",
+      "buy_url": "https://www.ebay.com/itm/318847684150?_skw=Cantor+in-ear+monitor&hash=item4a3ccd8e36:g:YOAAAOSww8Fnc-Au&amdata=enc%3AAQALAAAA8ACCtXRWQnOEpyOqnQQ8KGZRO%2FFGBWN3tNwgT%2FNqmi1g%2BbEdkTsJdm85R4oTWHjhzPphSp4kBs8oOBzh%2BQA9CTeQ%2BVY3r3xUCEwmJsOsgs00Oq7zH4Op%2BlokhAdoLmm3uNafvG60iyAX4VOk6GScAB3VxbuwU1SFUtaYm4jlnPIkHeMe37Yd2W%2B0UBmobFhUj2hiGknNvzA%2BE2%2B4dQiO2Wm0ldefm6MjQW3ITOMy%2FmVwFOf9z7qsfF0%2BZE4wOVitx3QJ6RRzgYIKl4ZjgVNzco9PExsJOSJNd2zOlUHJXSCbpD1Ce6uuLg2CHqXLP%2F2Ckw%3D%3D",
+      "image_url": null,
+      "title": "AFUL Cantor 14 BA Wired In-Ear Monitors with Detachable 2-Pin Cable",
+      "price_usd": 869.99,
+      "total_for_target_usd": null,
+      "currency_approx_fx": null,
+      "condition": "new",
+      "seller_name": "ellieaudio",
+      "is_kit": false,
+      "kit_module_count": 1,
+      "badges": [
+        {
+          "key": "ship_from_cn",
+          "label": "ship_from_cn",
+          "severity": "info"
+        }
+      ],
+      "seller_rating_pct": 0.0,
+      "seller_feedback_count": null,
+      "rating": null,
+      "rating_count": null,
+      "ship_from_country": "CN",
+      "quantity_available": null,
+      "flags": [
+        "ship_from_cn"
+      ],
+      "brand": null,
+      "mpn": null,
+      "attrs": {}
+    },
+    {
+      "rank": 15,
+      "source": "ebay_search",
+      "vendor_host": "www.ebay.com",
+      "url": "https://www.ebay.com/itm/318847684150?_skw=AFUL+Cantor+balanced+armature&hash=item4a3ccd8e36:g:YOAAAOSww8Fnc-Au&amdata=enc%3AAQALAAABAACCtXRWQnOEpyOqnQQ8KGZRO%2FFGBWN3tNwgT%2FNqmi1g%2BbEdkTsJdm85R4oTWHjhzPphSp4kBs8oOBzh%2BQA9CTeQ%2BVY3r3xUCEwmJsOsgs00Oq7zH4Op%2BlokhAdoLmm3uNafvG60iyAX4VOk6GScAB3lpwr49zNVIUcr5aTOwGGGLW2VhjHaRHz4EGaJKzmaJJHPVVSwzPPK4dvDiVRXqypUSvB3hW%2BZ4oNNVHZ9wTBLQVNp9syottn%2FeX3XVVyjE3n8YRB4SpGFSVyTcPTtCdUY%2FN1mdd%2BiT23p%2F6tnRPdxCOheyci0R4C49d4lQcJAtbAbZD1BUn3GIv%2B9Iu1lOYk%3D",
+      "buy_url": "https://www.ebay.com/itm/318847684150?_skw=AFUL+Cantor+balanced+armature&hash=item4a3ccd8e36:g:YOAAAOSww8Fnc-Au&amdata=enc%3AAQALAAABAACCtXRWQnOEpyOqnQQ8KGZRO%2FFGBWN3tNwgT%2FNqmi1g%2BbEdkTsJdm85R4oTWHjhzPphSp4kBs8oOBzh%2BQA9CTeQ%2BVY3r3xUCEwmJsOsgs00Oq7zH4Op%2BlokhAdoLmm3uNafvG60iyAX4VOk6GScAB3lpwr49zNVIUcr5aTOwGGGLW2VhjHaRHz4EGaJKzmaJJHPVVSwzPPK4dvDiVRXqypUSvB3hW%2BZ4oNNVHZ9wTBLQVNp9syottn%2FeX3XVVyjE3n8YRB4SpGFSVyTcPTtCdUY%2FN1mdd%2BiT23p%2F6tnRPdxCOheyci0R4C49d4lQcJAtbAbZD1BUn3GIv%2B9Iu1lOYk%3D",
+      "image_url": null,
+      "title": "AFUL Cantor 14 BA Wired In-Ear Monitors with Detachable 2-Pin Cable",
+      "price_usd": 869.99,
+      "total_for_target_usd": null,
+      "currency_approx_fx": null,
+      "condition": "new",
+      "seller_name": "ellieaudio",
+      "is_kit": false,
+      "kit_module_count": 1,
+      "badges": [
+        {
+          "key": "ship_from_cn",
+          "label": "ship_from_cn",
+          "severity": "info"
+        }
+      ],
+      "seller_rating_pct": 0.0,
+      "seller_feedback_count": null,
+      "rating": null,
+      "rating_count": null,
+      "ship_from_country": "CN",
+      "quantity_available": null,
+      "flags": [
+        "ship_from_cn"
+      ],
+      "brand": null,
+      "mpn": null,
+      "attrs": {}
+    },
+    {
+      "rank": 16,
+      "source": "ebay_search",
+      "vendor_host": "www.ebay.com",
+      "url": "https://www.ebay.com/itm/237013595436?_skw=AFUL+Cantor+flagship&hash=item372f1c752c:g:s3YAAeSwq2JqhBup",
+      "buy_url": "https://www.ebay.com/itm/237013595436?_skw=AFUL+Cantor+flagship&hash=item372f1c752c:g:s3YAAeSwq2JqhBup",
+      "image_url": null,
+      "title": "AFUL Cantor Flagship Starry Night",
+      "price_usd": 949.0,
+      "total_for_target_usd": null,
+      "currency_approx_fx": null,
+      "condition": "used",
+      "seller_name": "turbotradejp",
+      "is_kit": false,
+      "kit_module_count": 1,
+      "badges": [
+        {
+          "key": "ship_from_jp",
+          "label": "ship_from_jp",
+          "severity": "info"
+        }
+      ],
+      "seller_rating_pct": 99.6,
+      "seller_feedback_count": 1317,
+      "rating": null,
+      "rating_count": null,
+      "ship_from_country": "JP",
+      "quantity_available": null,
+      "flags": [
+        "ship_from_jp"
+      ],
+      "brand": null,
+      "mpn": null,
+      "attrs": {}
+    }
+  ],
+  "all_listings": [
+    {
+      "rank": 1,
+      "source": "ebay_search",
+      "vendor_host": "www.ebay.com",
+      "url": "https://www.ebay.com/itm/398186990548?_skw=AFUL+Cantor+IEM&hash=item5cb5cb4bd4:g:eLYAAeSw6FJqWwgg",
+      "buy_url": "https://www.ebay.com/itm/398186990548?_skw=AFUL+Cantor+IEM&hash=item5cb5cb4bd4:g:eLYAAeSw6FJqWwgg",
+      "image_url": null,
+      "title": "AFUL Cantor Wired In-Ear Monitors Earphones Hybrid IEM HiFi Audiophile Japan",
+      "price_usd": 755.0,
+      "total_for_target_usd": null,
+      "currency_approx_fx": null,
+      "condition": "used",
+      "seller_name": "akiba_brick",
+      "is_kit": false,
+      "kit_module_count": 1,
+      "badges": [
+        {
+          "key": "ship_from_jp",
+          "label": "ship_from_jp",
+          "severity": "info"
+        }
+      ],
+      "seller_rating_pct": 99.8,
+      "seller_feedback_count": 763,
+      "rating": null,
+      "rating_count": null,
+      "ship_from_country": "JP",
+      "quantity_available": null,
+      "flags": [
+        "ship_from_jp"
+      ],
+      "brand": null,
+      "mpn": null,
+      "attrs": {}
+    },
+    {
+      "rank": 2,
+      "source": "serper_shopping",
+      "vendor_host": "thehificat.com",
+      "url": "https://www.google.com/search?ibp=oshop&q=AFUL+Cantor+IEM&prds=localAnnotatedOfferId:1,productid:14265688390793528715,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
+      "buy_url": "https://www.google.com/search?ibp=oshop&q=AFUL+Cantor+IEM&prds=localAnnotatedOfferId:1,productid:14265688390793528715,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
+      "image_url": "https://encrypted-tbn0.gstatic.com/shopping?q=tbn:ANd9GcSdphYLyq9sENeH-ZGJJFVq0gIwxaF7qmOd5yLMy4x9js9v521kmkRKSCXGraRQFz2UepxNPfiWq-baMQr2LKM7C837Wwee6yV-sZZ0vwU2rU_WOAjZaoVp",
+      "title": "AFUL Cantor Flagship 14 Balanced Armature Drivers IEMs Marine Echo 3.5mm plug",
+      "price_usd": 799.0,
+      "total_for_target_usd": null,
+      "currency_approx_fx": null,
+      "condition": "",
+      "seller_name": "The HiFi Cat",
+      "is_kit": false,
+      "kit_module_count": 1,
+      "badges": [],
+      "seller_rating_pct": null,
+      "seller_feedback_count": null,
+      "rating": null,
+      "rating_count": null,
+      "ship_from_country": null,
+      "quantity_available": null,
+      "flags": [],
+      "brand": null,
+      "mpn": null,
+      "attrs": {
+        "serper_product_id": "14265688390793528715"
+      }
+    },
+    {
+      "rank": 3,
+      "source": "ebay_search",
+      "vendor_host": "www.ebay.com",
+      "url": "https://www.ebay.com/itm/398367690806?_skw=AFUL+Cantor+IEM&hash=item5cc0909036:g:v34AAeSw7BNqnig-",
+      "buy_url": "https://www.ebay.com/itm/398367690806?_skw=AFUL+Cantor+IEM&hash=item5cc0909036:g:v34AAeSw7BNqnig-",
+      "image_url": null,
+      "title": "AFUL Cantor Starry Night 14BA Driver In-Ear Earphones IEM w/ Box Used Japan",
+      "price_usd": 820.0,
+      "total_for_target_usd": null,
+      "currency_approx_fx": null,
+      "condition": "used",
+      "seller_name": "akiba_brick",
+      "is_kit": false,
+      "kit_module_count": 1,
+      "badges": [
+        {
+          "key": "ship_from_jp",
+          "label": "ship_from_jp",
+          "severity": "info"
+        }
+      ],
+      "seller_rating_pct": 99.8,
+      "seller_feedback_count": 763,
+      "rating": null,
+      "rating_count": null,
+      "ship_from_country": "JP",
+      "quantity_available": null,
+      "flags": [
+        "ship_from_jp"
+      ],
+      "brand": null,
+      "mpn": null,
+      "attrs": {}
+    },
+    {
+      "rank": 4,
+      "source": "serper_shopping",
+      "vendor_host": "ebay.com",
+      "url": "https://www.google.com/search?ibp=oshop&q=AFUL+Cantor+IEM&prds=localAnnotatedOfferId:1,productid:16163796602766013692,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
+      "buy_url": "https://www.google.com/search?ibp=oshop&q=AFUL+Cantor+IEM&prds=localAnnotatedOfferId:1,productid:16163796602766013692,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
+      "image_url": "https://encrypted-tbn0.gstatic.com/shopping?q=tbn:ANd9GcSsF3fK2dEhI2OQl0CjS2BK6E1YmM_AZWI3ZWO6DuzymZRXsYFrxR4W5CyKlG3Rgp_CGYrHCmelMz70USF6PfoGwlXuLOy5ASSh41zTw2Cb3CQryEKRNbiwIw",
+      "title": "Aful Cantor Flagship Blue",
+      "price_usd": 849.0,
+      "total_for_target_usd": null,
+      "currency_approx_fx": null,
+      "condition": "",
+      "seller_name": "eBay - turbotradejp",
+      "is_kit": false,
+      "kit_module_count": 1,
+      "badges": [],
+      "seller_rating_pct": null,
+      "seller_feedback_count": null,
+      "rating": 5.0,
+      "rating_count": 9,
+      "ship_from_country": null,
+      "quantity_available": null,
+      "flags": [],
+      "brand": null,
+      "mpn": null,
+      "attrs": {
+        "serper_product_id": "16163796602766013692"
+      }
+    },
+    {
+      "rank": 5,
+      "source": "ebay_search",
+      "vendor_host": "www.ebay.com",
+      "url": "https://www.ebay.com/itm/237013566162?_skw=AFUL+Cantor+flagship&hash=item372f1c02d2:g:aLgAAeSwsoRqhBcT",
+      "buy_url": "https://www.ebay.com/itm/237013566162?_skw=AFUL+Cantor+flagship&hash=item372f1c02d2:g:aLgAAeSwsoRqhBcT",
+      "image_url": null,
+      "title": "AFUL Cantor Flagship Blue",
+      "price_usd": 849.0,
+      "total_for_target_usd": null,
+      "currency_approx_fx": null,
+      "condition": "used",
+      "seller_name": "turbotradejp",
+      "is_kit": false,
+      "kit_module_count": 1,
+      "badges": [
+        {
+          "key": "ship_from_jp",
+          "label": "ship_from_jp",
+          "severity": "info"
+        }
+      ],
+      "seller_rating_pct": 99.6,
+      "seller_feedback_count": 1317,
+      "rating": null,
+      "rating_count": null,
+      "ship_from_country": "JP",
+      "quantity_available": null,
+      "flags": [
+        "ship_from_jp"
+      ],
+      "brand": null,
+      "mpn": null,
+      "attrs": {}
+    },
+    {
+      "rank": 6,
+      "source": "serper_shopping",
+      "vendor_host": "ebay.com",
+      "url": "https://www.google.com/search?ibp=oshop&q=AFUL+Cantor+IEM&prds=localAnnotatedOfferId:1,productid:9826476463441896448,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
+      "buy_url": "https://www.google.com/search?ibp=oshop&q=AFUL+Cantor+IEM&prds=localAnnotatedOfferId:1,productid:9826476463441896448,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
+      "image_url": "https://encrypted-tbn1.gstatic.com/shopping?q=tbn:ANd9GcQC38MiOGmsdS7xHN8LCXgidbexpdtgeOnG8KsWSqHYQGYmVUumjgKEUHJQdAJ1GAW1VNlUb6HRTJiVwUO4dWDKpmftWjd2E6hJ6_Fcwk4",
+      "title": "Aful Cantor Hifi Earbud 14 Balanced Armature Drivers Resin Shell",
+      "price_usd": 859.99,
+      "total_for_target_usd": null,
+      "currency_approx_fx": null,
+      "condition": "",
+      "seller_name": "eBay - yny_audio",
+      "is_kit": false,
+      "kit_module_count": 1,
+      "badges": [],
+      "seller_rating_pct": null,
+      "seller_feedback_count": null,
+      "rating": 5.0,
+      "rating_count": 9,
+      "ship_from_country": null,
+      "quantity_available": null,
+      "flags": [],
+      "brand": null,
+      "mpn": null,
+      "attrs": {
+        "serper_product_id": "9826476463441896448"
+      }
+    },
+    {
+      "rank": 7,
+      "source": "ebay_search",
+      "vendor_host": "www.ebay.com",
+      "url": "https://www.ebay.com/itm/167222554612?_skw=AFUL+Cantor+IEM&hash=item26ef3daff4:g:YOAAAOSww8Fnc-Au",
+      "buy_url": "https://www.ebay.com/itm/167222554612?_skw=AFUL+Cantor+IEM&hash=item26ef3daff4:g:YOAAAOSww8Fnc-Au",
+      "image_url": null,
+      "title": "AFUL Cantor Flagship 14 Balanced Armature Drivers IEMs",
+      "price_usd": 859.99,
+      "total_for_target_usd": null,
+      "currency_approx_fx": null,
+      "condition": "new",
+      "seller_name": "annie-audio",
+      "is_kit": false,
+      "kit_module_count": 1,
+      "badges": [
+        {
+          "key": "ship_from_cn",
+          "label": "ship_from_cn",
+          "severity": "info"
+        }
+      ],
+      "seller_rating_pct": 99.5,
+      "seller_feedback_count": 1825,
+      "rating": null,
+      "rating_count": null,
+      "ship_from_country": "CN",
+      "quantity_available": null,
+      "flags": [
+        "ship_from_cn"
+      ],
+      "brand": null,
+      "mpn": null,
+      "attrs": {}
+    },
+    {
+      "rank": 8,
+      "source": "ebay_search",
+      "vendor_host": "www.ebay.com",
+      "url": "https://www.ebay.com/itm/167222554612?_skw=AFUL+Cantor+flagship&hash=item26ef3daff4:g:YOAAAOSww8Fnc-Au",
+      "buy_url": "https://www.ebay.com/itm/167222554612?_skw=AFUL+Cantor+flagship&hash=item26ef3daff4:g:YOAAAOSww8Fnc-Au",
+      "image_url": null,
+      "title": "AFUL Cantor Flagship 14 Balanced Armature Drivers IEMs",
+      "price_usd": 859.99,
+      "total_for_target_usd": null,
+      "currency_approx_fx": null,
+      "condition": "new",
+      "seller_name": "annie-audio",
+      "is_kit": false,
+      "kit_module_count": 1,
+      "badges": [
+        {
+          "key": "ship_from_cn",
+          "label": "ship_from_cn",
+          "severity": "info"
+        }
+      ],
+      "seller_rating_pct": 99.5,
+      "seller_feedback_count": 1825,
+      "rating": null,
+      "rating_count": null,
+      "ship_from_country": "CN",
+      "quantity_available": null,
+      "flags": [
+        "ship_from_cn"
+      ],
+      "brand": null,
+      "mpn": null,
+      "attrs": {}
+    },
+    {
+      "rank": 9,
+      "source": "ebay_search",
+      "vendor_host": "www.ebay.com",
+      "url": "https://www.ebay.com/itm/167222554612?_skw=AFUL+Cantor+balanced+armature&hash=item26ef3daff4:g:YOAAAOSww8Fnc-Au",
+      "buy_url": "https://www.ebay.com/itm/167222554612?_skw=AFUL+Cantor+balanced+armature&hash=item26ef3daff4:g:YOAAAOSww8Fnc-Au",
+      "image_url": null,
+      "title": "AFUL Cantor Flagship 14 Balanced Armature Drivers IEMs",
+      "price_usd": 859.99,
+      "total_for_target_usd": null,
+      "currency_approx_fx": null,
+      "condition": "new",
+      "seller_name": "annie-audio",
+      "is_kit": false,
+      "kit_module_count": 1,
+      "badges": [
+        {
+          "key": "ship_from_cn",
+          "label": "ship_from_cn",
+          "severity": "info"
+        }
+      ],
+      "seller_rating_pct": 99.5,
+      "seller_feedback_count": 1825,
+      "rating": null,
+      "rating_count": null,
+      "ship_from_country": "CN",
+      "quantity_available": null,
+      "flags": [
+        "ship_from_cn"
+      ],
+      "brand": null,
+      "mpn": null,
+      "attrs": {}
+    },
+    {
+      "rank": 10,
+      "source": "ebay_search",
+      "vendor_host": "www.ebay.com",
+      "url": "https://www.ebay.com/itm/405449712861?_skw=AFUL+Cantor+balanced+armature&hash=item5e66afa4dd:g:8GcAAOSw5Rlnc8iy",
+      "buy_url": "https://www.ebay.com/itm/405449712861?_skw=AFUL+Cantor+balanced+armature&hash=item5e66afa4dd:g:8GcAAOSw5Rlnc8iy",
+      "image_url": null,
+      "title": "AFUL Cantor HiFi Earbud 14 Balanced Armature Drivers Resin Shell Studio Music",
+      "price_usd": 859.99,
+      "total_for_target_usd": null,
+      "currency_approx_fx": null,
+      "condition": "new",
+      "seller_name": "yny_audio",
+      "is_kit": false,
+      "kit_module_count": 1,
+      "badges": [
+        {
+          "key": "ship_from_cn",
+          "label": "ship_from_cn",
+          "severity": "info"
+        }
+      ],
+      "seller_rating_pct": 99.0,
+      "seller_feedback_count": 181,
+      "rating": null,
+      "rating_count": null,
+      "ship_from_country": "CN",
+      "quantity_available": null,
+      "flags": [
+        "ship_from_cn"
+      ],
+      "brand": null,
+      "mpn": null,
+      "attrs": {}
+    },
+    {
+      "rank": 11,
+      "source": "serper_shopping",
+      "vendor_host": "ebay.com",
+      "url": "https://www.google.com/search?ibp=oshop&q=AFUL+Cantor+IEM&prds=localAnnotatedOfferId:1,productid:8294585086411634360,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
+      "buy_url": "https://www.google.com/search?ibp=oshop&q=AFUL+Cantor+IEM&prds=localAnnotatedOfferId:1,productid:8294585086411634360,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
+      "image_url": "https://encrypted-tbn2.gstatic.com/shopping?q=tbn:ANd9GcSVotCSt7BWKfz5M28FCItkcqmiZQchgj3vdl3WJdYA--mKHkI9z35RuKan69y2-zJbfzXTYzi5I8XKbG1fhfYFpe2nLEr_vKDY_act098",
+      "title": "Aful Cantor 14 Ba Wired In-ear Monitors With Detachable 2-pin Cable",
+      "price_usd": 869.99,
+      "total_for_target_usd": null,
+      "currency_approx_fx": null,
+      "condition": "",
+      "seller_name": "eBay",
+      "is_kit": false,
+      "kit_module_count": 1,
+      "badges": [],
+      "seller_rating_pct": null,
+      "seller_feedback_count": null,
+      "rating": null,
+      "rating_count": null,
+      "ship_from_country": null,
+      "quantity_available": null,
+      "flags": [],
+      "brand": null,
+      "mpn": null,
+      "attrs": {
+        "serper_product_id": "8294585086411634360"
+      }
+    },
+    {
+      "rank": 12,
+      "source": "serper_shopping",
+      "vendor_host": "ebay.com",
+      "url": "https://www.google.com/search?ibp=oshop&q=AFUL+Cantor+flagship&prds=localAnnotatedOfferId:1,productid:7791684176105460560,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
+      "buy_url": "https://www.google.com/search?ibp=oshop&q=AFUL+Cantor+flagship&prds=localAnnotatedOfferId:1,productid:7791684176105460560,pvo:2,pvt:hg,rds:PC_6027158597472037202%7CPROD_PC_6027158597472037202&gl=us&udm=28&pvorigin=2",
+      "image_url": "https://encrypted-tbn2.gstatic.com/shopping?q=tbn:ANd9GcSVotCSt7BWKfz5M28FCItkcqmiZQchgj3vdl3WJdYA--mKHkI9z35RuKan69y2-zJbfzXTYzi5I8XKbG1fhfYFpe2nLEr_vKDY_act098",
+      "title": "Aful Cantor 14 Ba Wired In-ear Monitors With Detachable 2-pin Cable",
+      "price_usd": 869.99,
+      "total_for_target_usd": null,
+      "currency_approx_fx": null,
+      "condition": "",
+      "seller_name": "eBay",
+      "is_kit": false,
+      "kit_module_count": 1,
+      "badges": [],
+      "seller_rating_pct": null,
+      "seller_feedback_count": null,
+      "rating": null,
+      "rating_count": null,
+      "ship_from_country": null,
+      "quantity_available": null,
+      "flags": [],
+      "brand": null,
+      "mpn": null,
+      "attrs": {
+        "serper_product_id": "7791684176105460560"
+      }
+    },
+    {
+      "rank": 13,
+      "source": "ebay_search",
+      "vendor_host": "www.ebay.com",
+      "url": "https://www.ebay.com/itm/318847684150?_skw=AFUL+Cantor+14BA&hash=item4a3ccd8e36:g:YOAAAOSww8Fnc-Au&amdata=enc%3AAQALAAAA8ACCtXRWQnOEpyOqnQQ8KGZRO%2FFGBWN3tNwgT%2FNqmi1g%2BbEdkTsJdm85R4oTWHjhzPphSp4kBs8oOBzh%2BQA9CTeQ%2BVY3r3xUCEwmJsOsgs00Oq7zH4Op%2BlokhAdoLmm3uNafvG60iyAX4VOk6GScAB1ltD3zsPrTn0W9vHNUCw11i1s4VaygF4%2FxMufNzmm3J1C4VrGrVGkwsqLeKTaNuGW67YBatmETz%2Be%2FsCzg00FQRI7dgEADTBuR362Go4d9s5GcyTmWN2WpcZYzPY6ROwTfDDRHjKFyQLNDbu9XlkHGXPK8AK6LX0AVdDspL9X7xQ%3D%3D",
+      "buy_url": "https://www.ebay.com/itm/318847684150?_skw=AFUL+Cantor+14BA&hash=item4a3ccd8e36:g:YOAAAOSww8Fnc-Au&amdata=enc%3AAQALAAAA8ACCtXRWQnOEpyOqnQQ8KGZRO%2FFGBWN3tNwgT%2FNqmi1g%2BbEdkTsJdm85R4oTWHjhzPphSp4kBs8oOBzh%2BQA9CTeQ%2BVY3r3xUCEwmJsOsgs00Oq7zH4Op%2BlokhAdoLmm3uNafvG60iyAX4VOk6GScAB1ltD3zsPrTn0W9vHNUCw11i1s4VaygF4%2FxMufNzmm3J1C4VrGrVGkwsqLeKTaNuGW67YBatmETz%2Be%2FsCzg00FQRI7dgEADTBuR362Go4d9s5GcyTmWN2WpcZYzPY6ROwTfDDRHjKFyQLNDbu9XlkHGXPK8AK6LX0AVdDspL9X7xQ%3D%3D",
+      "image_url": null,
+      "title": "AFUL Cantor 14 BA Wired In-Ear Monitors with Detachable 2-Pin Cable",
+      "price_usd": 869.99,
+      "total_for_target_usd": null,
+      "currency_approx_fx": null,
+      "condition": "new",
+      "seller_name": "ellieaudio",
+      "is_kit": false,
+      "kit_module_count": 1,
+      "badges": [
+        {
+          "key": "ship_from_cn",
+          "label": "ship_from_cn",
+          "severity": "info"
+        }
+      ],
+      "seller_rating_pct": 0.0,
+      "seller_feedback_count": null,
+      "rating": null,
+      "rating_count": null,
+      "ship_from_country": "CN",
+      "quantity_available": null,
+      "flags": [
+        "ship_from_cn"
+      ],
+      "brand": null,
+      "mpn": null,
+      "attrs": {}
+    },
+    {
+      "rank": 14,
+      "source": "ebay_search",
+      "vendor_host": "www.ebay.com",
+      "url": "https://www.ebay.com/itm/318847684150?_skw=Cantor+in-ear+monitor&hash=item4a3ccd8e36:g:YOAAAOSww8Fnc-Au&amdata=enc%3AAQALAAAA8ACCtXRWQnOEpyOqnQQ8KGZRO%2FFGBWN3tNwgT%2FNqmi1g%2BbEdkTsJdm85R4oTWHjhzPphSp4kBs8oOBzh%2BQA9CTeQ%2BVY3r3xUCEwmJsOsgs00Oq7zH4Op%2BlokhAdoLmm3uNafvG60iyAX4VOk6GScAB3VxbuwU1SFUtaYm4jlnPIkHeMe37Yd2W%2B0UBmobFhUj2hiGknNvzA%2BE2%2B4dQiO2Wm0ldefm6MjQW3ITOMy%2FmVwFOf9z7qsfF0%2BZE4wOVitx3QJ6RRzgYIKl4ZjgVNzco9PExsJOSJNd2zOlUHJXSCbpD1Ce6uuLg2CHqXLP%2F2Ckw%3D%3D",
+      "buy_url": "https://www.ebay.com/itm/318847684150?_skw=Cantor+in-ear+monitor&hash=item4a3ccd8e36:g:YOAAAOSww8Fnc-Au&amdata=enc%3AAQALAAAA8ACCtXRWQnOEpyOqnQQ8KGZRO%2FFGBWN3tNwgT%2FNqmi1g%2BbEdkTsJdm85R4oTWHjhzPphSp4kBs8oOBzh%2BQA9CTeQ%2BVY3r3xUCEwmJsOsgs00Oq7zH4Op%2BlokhAdoLmm3uNafvG60iyAX4VOk6GScAB3VxbuwU1SFUtaYm4jlnPIkHeMe37Yd2W%2B0UBmobFhUj2hiGknNvzA%2BE2%2B4dQiO2Wm0ldefm6MjQW3ITOMy%2FmVwFOf9z7qsfF0%2BZE4wOVitx3QJ6RRzgYIKl4ZjgVNzco9PExsJOSJNd2zOlUHJXSCbpD1Ce6uuLg2CHqXLP%2F2Ckw%3D%3D",
+      "image_url": null,
+      "title": "AFUL Cantor 14 BA Wired In-Ear Monitors with Detachable 2-Pin Cable",
+      "price_usd": 869.99,
+      "total_for_target_usd": null,
+      "currency_approx_fx": null,
+      "condition": "new",
+      "seller_name": "ellieaudio",
+      "is_kit": false,
+      "kit_module_count": 1,
+      "badges": [
+        {
+          "key": "ship_from_cn",
+          "label": "ship_from_cn",
+          "severity": "info"
+        }
+      ],
+      "seller_rating_pct": 0.0,
+      "seller_feedback_count": null,
+      "rating": null,
+      "rating_count": null,
+      "ship_from_country": "CN",
+      "quantity_available": null,
+      "flags": [
+        "ship_from_cn"
+      ],
+      "brand": null,
+      "mpn": null,
+      "attrs": {}
+    },
+    {
+      "rank": 15,
+      "source": "ebay_search",
+      "vendor_host": "www.ebay.com",
+      "url": "https://www.ebay.com/itm/318847684150?_skw=AFUL+Cantor+balanced+armature&hash=item4a3ccd8e36:g:YOAAAOSww8Fnc-Au&amdata=enc%3AAQALAAABAACCtXRWQnOEpyOqnQQ8KGZRO%2FFGBWN3tNwgT%2FNqmi1g%2BbEdkTsJdm85R4oTWHjhzPphSp4kBs8oOBzh%2BQA9CTeQ%2BVY3r3xUCEwmJsOsgs00Oq7zH4Op%2BlokhAdoLmm3uNafvG60iyAX4VOk6GScAB3lpwr49zNVIUcr5aTOwGGGLW2VhjHaRHz4EGaJKzmaJJHPVVSwzPPK4dvDiVRXqypUSvB3hW%2BZ4oNNVHZ9wTBLQVNp9syottn%2FeX3XVVyjE3n8YRB4SpGFSVyTcPTtCdUY%2FN1mdd%2BiT23p%2F6tnRPdxCOheyci0R4C49d4lQcJAtbAbZD1BUn3GIv%2B9Iu1lOYk%3D",
+      "buy_url": "https://www.ebay.com/itm/318847684150?_skw=AFUL+Cantor+balanced+armature&hash=item4a3ccd8e36:g:YOAAAOSww8Fnc-Au&amdata=enc%3AAQALAAABAACCtXRWQnOEpyOqnQQ8KGZRO%2FFGBWN3tNwgT%2FNqmi1g%2BbEdkTsJdm85R4oTWHjhzPphSp4kBs8oOBzh%2BQA9CTeQ%2BVY3r3xUCEwmJsOsgs00Oq7zH4Op%2BlokhAdoLmm3uNafvG60iyAX4VOk6GScAB3lpwr49zNVIUcr5aTOwGGGLW2VhjHaRHz4EGaJKzmaJJHPVVSwzPPK4dvDiVRXqypUSvB3hW%2BZ4oNNVHZ9wTBLQVNp9syottn%2FeX3XVVyjE3n8YRB4SpGFSVyTcPTtCdUY%2FN1mdd%2BiT23p%2F6tnRPdxCOheyci0R4C49d4lQcJAtbAbZD1BUn3GIv%2B9Iu1lOYk%3D",
+      "image_url": null,
+      "title": "AFUL Cantor 14 BA Wired In-Ear Monitors with Detachable 2-Pin Cable",
+      "price_usd": 869.99,
+      "total_for_target_usd": null,
+      "currency_approx_fx": null,
+      "condition": "new",
+      "seller_name": "ellieaudio",
+      "is_kit": false,
+      "kit_module_count": 1,
+      "badges": [
+        {
+          "key": "ship_from_cn",
+          "label": "ship_from_cn",
+          "severity": "info"
+        }
+      ],
+      "seller_rating_pct": 0.0,
+      "seller_feedback_count": null,
+      "rating": null,
+      "rating_count": null,
+      "ship_from_country": "CN",
+      "quantity_available": null,
+      "flags": [
+        "ship_from_cn"
+      ],
+      "brand": null,
+      "mpn": null,
+      "attrs": {}
+    },
+    {
+      "rank": 16,
+      "source": "ebay_search",
+      "vendor_host": "www.ebay.com",
+      "url": "https://www.ebay.com/itm/237013595436?_skw=AFUL+Cantor+flagship&hash=item372f1c752c:g:s3YAAeSwq2JqhBup",
+      "buy_url": "https://www.ebay.com/itm/237013595436?_skw=AFUL+Cantor+flagship&hash=item372f1c752c:g:s3YAAeSwq2JqhBup",
+      "image_url": null,
+      "title": "AFUL Cantor Flagship Starry Night",
+      "price_usd": 949.0,
+      "total_for_target_usd": null,
+      "currency_approx_fx": null,
+      "condition": "used",
+      "seller_name": "turbotradejp",
+      "is_kit": false,
+      "kit_module_count": 1,
+      "badges": [
+        {
+          "key": "ship_from_jp",
+          "label": "ship_from_jp",
+          "severity": "info"
+        }
+      ],
+      "seller_rating_pct": 99.6,
+      "seller_feedback_count": 1317,
+      "rating": null,
+      "rating_count": null,
+      "ship_from_country": "JP",
+      "quantity_available": null,
+      "flags": [
+        "ship_from_jp"
+      ],
+      "brand": null,
+      "mpn": null,
+      "attrs": {}
+    }
+  ],
+  "overflow": {},
+  "hidden_anomalies": 0,
+  "recall_count": 61,
+  "survivor_count": 16,
+  "displayed_count": 16,
+  "outcome": {
+    "class": "ok",
+    "message": "",
+    "notes": [
+      {
+        "class": "amazon_unavailable",
+        "message": "Amazon was unavailable this run; other sources still ran."
+      }
+    ]
+  },
+  "run_cost": {
+    "steps": [
+      {
+        "step": "ai_filter",
+        "provider": "local",
+        "model": "qwen-coder",
+        "input_tokens": 18812,
+        "output_tokens": 3209,
+        "cache_read_input_tokens": 0,
+        "cache_creation_input_tokens": 0,
+        "cost_usd": 0.0
+      }
+    ],
+    "total_usd": 0.0,
+    "any_unpriced": false
+  }
+}
